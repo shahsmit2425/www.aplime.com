@@ -150,7 +150,9 @@ APP_ENV and RENDER_GIT_COMMIT label errors automatically. Default PII collection
 
 Keep these in **GitHub Settings → Environments → development / stagging / production**, not Render. The build runners require them before any app process exists.
 
-Variables: `SITE_URL`, `API_URL`, `ADMIN_URL`, `RENDER_WEB_SERVICE_ID`, `RENDER_API_SERVICE_ID`, `RENDER_ADMIN_SERVICE_ID`, `RENDER_WORKER_SERVICE_ID`, `MOBILE_RELEASES_ENABLED`. The old `RENDER_SERVICE_ID` is no longer used.
+Variables: `SITE_URL`, `API_URL`, `ADMIN_URL`, `RENDER_WEB_SERVICE_ID`, `RENDER_API_SERVICE_ID`, `RENDER_ADMIN_SERVICE_ID`, `RENDER_WORKER_SERVICE_ID`, `BACKEND_RELEASES_ENABLED`, `MOBILE_RELEASES_ENABLED`. The old `RENDER_SERVICE_ID` is no longer used.
+
+Keep `BACKEND_RELEASES_ENABLED` unset or `false` while previewing only the customer/admin websites. This skips API and mail-worker deployments, so authenticated marketplace features remain unavailable. Set it to `true` only after the development backend environment group passes `npm run config:check` and the database migration succeeds. Keep `MOBILE_RELEASES_ENABLED` unset or `false` until both mobile signing pipelines are configured.
 
 Secrets: `RENDER_API_KEY`, `GOOGLE_SERVICES_JSON_BASE64`, `GOOGLE_SERVICE_INFO_PLIST_BASE64`, `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`, `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`, `APPLE_TEAM_ID`, `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_BASE64`, `IOS_CERTIFICATE_BASE64`, `IOS_CERTIFICATE_PASSWORD`, `IOS_PROFILE_BASE64`, `IOS_PROFILE_NAME`, `KEYCHAIN_PASSWORD`.
 

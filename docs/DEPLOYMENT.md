@@ -48,6 +48,7 @@ Each GitHub Environment (development, stagging, production) needs these variable
 | RENDER_ADMIN_SERVICE_ID | Admin static site ID |
 | RENDER_WORKER_SERVICE_ID | Mail worker ID |
 | MOBILE_RELEASES_ENABLED | true after signing and store setup |
+| BACKEND_RELEASES_ENABLED | true only after the API/worker backend group is complete; leave false for website-only preview |
 
 Store RENDER_API_KEY as a secret. RENDER_SERVICE_ID from the old combined setup is no longer used.
 

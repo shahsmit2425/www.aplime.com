@@ -69,4 +69,9 @@ test("release deployment depends on validation, and mobile depends on matching w
     assert.match(w.jobs[platform].if, /needs\.web\.outputs\.mobile-enabled == 'true'/);
   }
   assert.equal(w.jobs.web.outputs["mobile-enabled"], "${{ steps.mobile.outputs.enabled }}");
+  const deployEnv = w.jobs.web.steps.find(
+    (step: any) => step.name === "Deploy exact validated commit and verify health",
+  ).env;
+  assert.match(deployEnv.DEPLOY_API, /BACKEND_RELEASES_ENABLED == 'true'/);
+  assert.match(deployEnv.DEPLOY_WORKER, /BACKEND_RELEASES_ENABLED == 'true'/);
 });

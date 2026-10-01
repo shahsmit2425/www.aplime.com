@@ -102,9 +102,9 @@ jobs:
           API_URL: ${{ vars.API_URL }}
           ADMIN_URL: ${{ vars.ADMIN_URL }}
           DEPLOY_WEB: ${{ needs.validate.outputs.web }}
-          DEPLOY_API: ${{ needs.validate.outputs.api }}
+          DEPLOY_API: ${{ needs.validate.outputs.api == 'true' && vars.BACKEND_RELEASES_ENABLED == 'true' }}
           DEPLOY_ADMIN: ${{ needs.validate.outputs.admin }}
-          DEPLOY_WORKER: ${{ needs.validate.outputs.worker }}
+          DEPLOY_WORKER: ${{ needs.validate.outputs.worker == 'true' && vars.BACKEND_RELEASES_ENABLED == 'true' }}
         run: node scripts/deploy-render.mjs
   android:
     name: Android distribution
