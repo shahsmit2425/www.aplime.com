@@ -6,7 +6,10 @@ import express from "express";
 import helmet from "helmet";
 import { categories } from "../../src/shared/domain.js";
 import type { Profile } from "../../src/shared/domain.js";
-import type { PublicConfig } from "../../src/shared/config.js";
+import {
+  fallbackConfig,
+  type PublicConfig,
+} from "../../src/shared/config.js";
 const env = {
   NODE_ENV: process.env.NODE_ENV,
   APP_ENV: process.env.APP_ENV || "development",
@@ -34,7 +37,21 @@ async function publicProfiles(id?: string) {
   );
 }
 async function configuration() {
-  const c = await api<PublicConfig>("/config");
+  let c: PublicConfig;
+  try {
+    c = await api<PublicConfig>("/config");
+  } catch {
+    console.warn(
+      "API configuration is unavailable; serving public pages with authentication disabled.",
+    );
+    return {
+      ...fallbackConfig,
+      environment: env.APP_ENV as PublicConfig["environment"],
+      siteUrl: env.SITE_URL,
+      apiUrl,
+      release: process.env.RENDER_GIT_COMMIT || "local",
+    };
+  }
   if (c.environment !== env.APP_ENV)
     throw new Error("API environment mismatch");
   return {
