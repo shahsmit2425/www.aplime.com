@@ -20,7 +20,15 @@ import {
 } from "../shared/domain.js";
 import { request, openExternal } from "./api.js";
 import { useWorkspace } from "./workspace.js";
-import { Empty, Head, Panel, Badge, Field, Form } from "./ui.js";
+import {
+  Empty,
+  Head,
+  Panel,
+  Badge,
+  Field,
+  Form,
+  ServiceIcon,
+} from "./ui.js";
 const date = (s: string | null) =>
   s
     ? new Date(s).toLocaleString(undefined, {
@@ -82,7 +90,7 @@ function ProjectList({ projects }: { projects: Project[] }) {
           onClick={() => go("project", p.id)}
         >
           <span className="category-icon">
-            <BriefcaseIcon category={p.category} />
+            <ServiceIcon service={p.category} size={19} />
           </span>
           <span>
             <strong>{p.title}</strong>
@@ -101,9 +109,6 @@ function ProjectList({ projects }: { projects: Project[] }) {
       New requests and project updates will appear here.
     </Empty>
   );
-}
-function BriefcaseIcon({ category }: { category: string }) {
-  return <span>{category.slice(0, 1)}</span>;
 }
 function Dashboard() {
   const { data, go } = useWorkspace();
@@ -288,8 +293,12 @@ function Directory() {
                 <div>
                   <h2>{p.business}</h2>
                   <p>
-                    {p.name} · {p.category}
+                    {p.name}
                   </p>
+                  <span className="pro-service">
+                    <ServiceIcon service={p.category} size={15} />
+                    {p.category}
+                  </span>
                 </div>
               </div>
               <p>{p.bio}</p>

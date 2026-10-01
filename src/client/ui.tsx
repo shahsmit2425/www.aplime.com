@@ -1,5 +1,14 @@
 import type { ReactNode, FormEvent } from "react";
-import { ArrowUpRight, Inbox } from "lucide-react";
+import {
+  ArrowUpRight,
+  Inbox,
+  Wrench,
+  Sparkles,
+  Droplets,
+  Zap,
+  Paintbrush,
+  TreePine,
+} from "lucide-react";
 export function Brand() {
   return (
     <a className="brand" href="/">
@@ -22,6 +31,31 @@ export function Brand() {
       </span>
     </a>
   );
+}
+export function ServiceIcon({
+  service,
+  size = 24,
+}: {
+  service: string;
+  size?: number;
+}) {
+  const props = { size, strokeWidth: 1.9, "aria-hidden": true as const };
+  switch (service) {
+    case "Handyman":
+      return <Wrench {...props} />;
+    case "Cleaning":
+      return <Sparkles {...props} />;
+    case "Plumbing":
+      return <Droplets {...props} />;
+    case "Electrical":
+      return <Zap {...props} />;
+    case "Painting":
+      return <Paintbrush {...props} />;
+    case "Landscaping":
+      return <TreePine {...props} />;
+    default:
+      return <Wrench {...props} />;
+  }
 }
 export function Empty({
   title = "Nothing here yet",

@@ -1,5 +1,5 @@
 import { categories, type Profile } from "./shared/domain.js";
-import { Brand, LinkButton } from "./client/ui.js";
+import { Brand, LinkButton, ServiceIcon } from "./client/ui.js";
 export const serviceCopy: Record<string, string> = {
   Handyman:
     "Get help with assembly, wall mounting, minor repairs, and the small improvements that make a home work better.",
@@ -90,6 +90,11 @@ export function PublicPage({
             <section className="hero">
               <div>
                 <p className="eyebrow">A LITTLE HELP. A HAPPIER HOME.</p>
+                {category && (
+                  <span className="service-hero-icon">
+                    <ServiceIcon service={category} size={30} />
+                  </span>
+                )}
                 <h1>
                   {category ? (
                     category + " services, built around your home."
@@ -149,7 +154,12 @@ export function PublicPage({
                     className="service-card"
                     key={c}
                   >
-                    <span className="service-number">0{i + 1}</span>
+                    <span className="service-card-top">
+                      <span className="service-icon">
+                        <ServiceIcon service={c} size={27} />
+                      </span>
+                      <span className="service-number">0{i + 1}</span>
+                    </span>
                     <h3>{c}</h3>
                     <p>{serviceCopy[c]}</p>
                     <strong>Explore {c.toLowerCase()} →</strong>

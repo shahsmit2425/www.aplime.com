@@ -343,11 +343,37 @@ img {
   border-color: #60cc79;
   box-shadow: 0 16px 36px #00180f38;
 }
+.service-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+.service-icon,
+.service-hero-icon {
+  display: inline-grid;
+  place-items: center;
+  color: #fff;
+  background: linear-gradient(145deg, #3ec65b, #087a46);
+  box-shadow: 0 10px 24px #087a4630;
+}
+.service-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 15px;
+}
+.service-hero-icon {
+  width: 54px;
+  height: 54px;
+  margin-bottom: 18px;
+  border-radius: 16px;
+}
 .service-number {
   display: block;
   font-size: 13px;
   color: #168f50;
-  margin-bottom: 24px;
+  margin: 4px 0 0;
+  font-weight: 750;
 }
 .service-card p {
   font-size: 14px;
@@ -802,6 +828,15 @@ form + form {
 .pro-heading p {
   font-size: 13px;
   margin: 0;
+}
+.pro-service {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  color: #087a46;
+  font-size: 12px;
+  font-weight: 750;
 }
 .pro-grid p {
   font-size: 14px;
