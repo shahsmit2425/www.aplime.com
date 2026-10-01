@@ -6,7 +6,7 @@ services:
     runtime: node
     plan: starter
     region: ohio
-    repo: https://github.com/shahsmit2425/servicetones
+    repo: https://github.com/shahsmit2425/www.aplime.com
     branch: development
     autoDeployTrigger: off
     buildCommand: npm ci --include=dev
@@ -21,7 +21,7 @@ services:
     runtime: node
     plan: starter
     region: ohio
-    repo: https://github.com/shahsmit2425/servicetones
+    repo: https://github.com/shahsmit2425/www.aplime.com
     branch: development
     autoDeployTrigger: off
     buildCommand: npm ci --include=dev
@@ -34,7 +34,7 @@ services:
     runtime: node
     plan: starter
     region: ohio
-    repo: https://github.com/shahsmit2425/servicetones
+    repo: https://github.com/shahsmit2425/www.aplime.com
     branch: development
     autoDeployTrigger: off
     buildCommand: npm ci --include=dev && npm run build:web
@@ -45,7 +45,7 @@ services:
   - type: web
     name: servicetones-development-admin
     runtime: static
-    repo: https://github.com/shahsmit2425/servicetones
+    repo: https://github.com/shahsmit2425/www.aplime.com
     branch: development
     autoDeployTrigger: off
     buildCommand: npm ci --include=dev && npm run build:admin
@@ -86,7 +86,7 @@ services:
     runtime: node
     plan: starter
     region: ohio
-    repo: https://github.com/shahsmit2425/servicetones
+    repo: https://github.com/shahsmit2425/www.aplime.com
     branch: stagging
     autoDeployTrigger: off
     buildCommand: npm ci --include=dev
@@ -101,7 +101,7 @@ services:
     runtime: node
     plan: starter
     region: ohio
-    repo: https://github.com/shahsmit2425/servicetones
+    repo: https://github.com/shahsmit2425/www.aplime.com
     branch: stagging
     autoDeployTrigger: off
     buildCommand: npm ci --include=dev
@@ -114,7 +114,7 @@ services:
     runtime: node
     plan: starter
     region: ohio
-    repo: https://github.com/shahsmit2425/servicetones
+    repo: https://github.com/shahsmit2425/www.aplime.com
     branch: stagging
     autoDeployTrigger: off
     buildCommand: npm ci --include=dev && npm run build:web
@@ -125,7 +125,7 @@ services:
   - type: web
     name: servicetones-stagging-admin
     runtime: static
-    repo: https://github.com/shahsmit2425/servicetones
+    repo: https://github.com/shahsmit2425/www.aplime.com
     branch: stagging
     autoDeployTrigger: off
     buildCommand: npm ci --include=dev && npm run build:admin
@@ -166,7 +166,7 @@ services:
     runtime: node
     plan: starter
     region: ohio
-    repo: https://github.com/shahsmit2425/servicetones
+    repo: https://github.com/shahsmit2425/www.aplime.com
     branch: main
     autoDeployTrigger: off
     buildCommand: npm ci --include=dev
@@ -181,7 +181,7 @@ services:
     runtime: node
     plan: starter
     region: ohio
-    repo: https://github.com/shahsmit2425/servicetones
+    repo: https://github.com/shahsmit2425/www.aplime.com
     branch: main
     autoDeployTrigger: off
     buildCommand: npm ci --include=dev
@@ -194,7 +194,7 @@ services:
     runtime: node
     plan: starter
     region: ohio
-    repo: https://github.com/shahsmit2425/servicetones
+    repo: https://github.com/shahsmit2425/www.aplime.com
     branch: main
     autoDeployTrigger: off
     buildCommand: npm ci --include=dev && npm run build:web
@@ -205,7 +205,7 @@ services:
   - type: web
     name: servicetones-production-admin
     runtime: static
-    repo: https://github.com/shahsmit2425/servicetones
+    repo: https://github.com/shahsmit2425/www.aplime.com
     branch: main
     autoDeployTrigger: off
     buildCommand: npm ci --include=dev && npm run build:admin

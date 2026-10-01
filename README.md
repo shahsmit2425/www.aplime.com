@@ -1,4 +1,9 @@
-# ServiceTones
+# Aplime
+
+Website domain: `aplime.com`. Repository: https://github.com/shahsmit2425/www.aplime.com.
+Deployed origins are configured through `SITE_URL` and `API_URL`, so each environment can use its own domain. For initial website testing, keep GitHub `MOBILE_RELEASES_ENABLED=false` (or unset); native publishing is skipped while Render services deploy normally.
+
+Existing Render resource/group names and native application IDs retain their original identifiers to preserve already configured infrastructure and Firebase registrations. Product display names use Aplime.
 
 A shared React/TypeScript home-services marketplace for the web, iOS, and Android. Public pages are server-rendered for search engines. Authenticated screens use a PostgreSQL API and Firebase Authentication. Native apps bundle the same client through Capacitor.
 
