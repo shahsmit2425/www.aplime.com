@@ -208,7 +208,7 @@ export default function Workspace() {
       <div className="auth-page">
         <Brand />
         <section className="auth-card">
-          <p className="eyebrow">WELCOME TO SERVICETONES</p>
+          <p className="eyebrow">WELCOME TO APLIME</p>
           <h1>
             {needsAccount
               ? "A few details, then you’re in."
@@ -534,7 +534,7 @@ export default function Workspace() {
             <Pages />
           </main>
           <footer className="workspace-footer">
-            © {new Date().getFullYear()} ServiceTones{" "}
+            © {new Date().getFullYear()} Aplime{" "}
             <a href="/privacy">Privacy</a>
             <a href="/terms">Service information</a>
           </footer>

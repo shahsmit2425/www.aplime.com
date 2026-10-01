@@ -68,12 +68,25 @@ jobs:
   web:
     name: Deploy affected Render services
     needs: validate
+    outputs:
+      mobile-enabled: ${{ steps.mobile.outputs.enabled }}
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     environment:
       name: ${{ needs.validate.outputs.environment }}
       url: ${{ vars.SITE_URL }}
     steps:
+      - name: Read environment mobile release setting
+        id: mobile
+        env:
+          ENABLED: ${{ vars.MOBILE_RELEASES_ENABLED }}
+        run: |
+          if [ "$ENABLED" = "true" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "Mobile publishing is disabled; deploying Render services only."
+          fi
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
@@ -99,7 +112,7 @@ jobs:
       - validate
       - web
     if: github.event_name != 'pull_request' && needs.validate.outputs.mobile ==
-      'true'
+      'true' && needs.web.outputs.mobile-enabled == 'true'
     runs-on: ubuntu-latest
     environment: ${{ needs.validate.outputs.environment }}
     env:
@@ -174,7 +187,7 @@ jobs:
       - validate
       - web
     if: github.event_name != 'pull_request' && needs.validate.outputs.mobile ==
-      'true'
+      'true' && needs.web.outputs.mobile-enabled == 'true'
     runs-on: macos-15
     environment: ${{ needs.validate.outputs.environment }}
     env:

@@ -6,12 +6,13 @@ test("public service routes contain useful server rendered content and productio
   const page = renderPage("/services/plumbing", {
     ...fallbackConfig,
     environment: "production",
-    siteUrl: "https://example.org",
+    siteUrl: "https://aplime.com",
   });
   assert.equal(page.status, 200);
   assert.match(page.html, /Plumbing services/);
   assert.match(page.head, /index,follow/);
-  assert.match(page.head, /https:\/\/example.org\/services\/plumbing/);
+  assert.match(page.head, /https:\/\/aplime.com\/services\/plumbing/);
+  assert.match(page.head, /Plumbing services \| Aplime/);
   assert.match(page.head, /application\/ld\+json/);
 });
 test("staging and private routes are never indexable", () => {

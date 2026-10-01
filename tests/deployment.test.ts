@@ -65,4 +65,8 @@ test("release deployment depends on validation, and mobile depends on matching w
   assert.deepEqual(w.jobs.ios.needs, ["validate", "web"]);
   assert.deepEqual(w.jobs.android.needs, ["validate", "web"]);
   assert.equal(w.permissions.contents, "read");
+  for (const platform of ["ios", "android"]) {
+    assert.match(w.jobs[platform].if, /needs\.web\.outputs\.mobile-enabled == 'true'/);
+  }
+  assert.equal(w.jobs.web.outputs["mobile-enabled"], "${{ steps.mobile.outputs.enabled }}");
 });

@@ -126,7 +126,7 @@ function Admin() {
     <div className="admin-shell">
       <header>
         <strong>
-          ServiceTones <span>Administration</span>
+          Aplime <span>Administration</span>
         </strong>
         <small>{import.meta.env.VITE_APP_ENV || "Unconfigured"}</small>
         {(data || enroll || resolver) && (
@@ -210,7 +210,7 @@ function Admin() {
                 ) : (
                   <>
                     <p>
-                      Add this key to your authenticator app for ServiceTones:
+                      Add this key to your authenticator app for Aplime:
                     </p>
                     <code className="secret">{secret.secretKey}</code>
                     <form
@@ -223,7 +223,7 @@ function Admin() {
                               secret,
                               String(f.get("code")),
                             ),
-                            "ServiceTones admin",
+                            "Aplime admin",
                           );
                           await exit();
                           setNotice(

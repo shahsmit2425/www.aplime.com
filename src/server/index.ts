@@ -118,7 +118,7 @@ app.use(
   },
 );
 const http = app.listen(env.PORT, "0.0.0.0", () =>
-  console.log("ServiceTones API: " + env.API_URL),
+  console.log("Aplime API: " + env.API_URL),
 );
 for (const signal of ["SIGTERM", "SIGINT"])
   process.on(signal, () => {

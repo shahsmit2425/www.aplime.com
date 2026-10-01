@@ -40,14 +40,14 @@ export function PublicPage({
       <main className="public-main">
         {legal ? (
           <article className="panel">
-            <p className="eyebrow">SERVICETONES</p>
+            <p className="eyebrow">APLIME</p>
             <h1>
               {path === "/privacy"
                 ? "Privacy information"
                 : "Service information"}
             </h1>
             <p>
-              ServiceTones connects customers and home-service professionals.
+              Aplime connects customers and home-service professionals.
               Your account, project, and conversation information is used to
               deliver the service. Identity documents are handled by Stripe
               Identity rather than stored as project attachments.
@@ -59,7 +59,7 @@ export function PublicPage({
             </p>
             <p>
               For questions about your information or a service experience,
-              contact ServiceTones through Help &amp; safety in your account.
+              contact Aplime through Help &amp; safety in your account.
             </p>
           </article>
         ) : notFound ? (

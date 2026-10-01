@@ -6,7 +6,7 @@ export function Brand() {
       <span>
         <House size={23} />
       </span>
-      service<strong>tones</strong>
+      ap<strong>lime</strong>
       <i />
     </a>
   );

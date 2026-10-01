@@ -1,5 +1,9 @@
 # Complete environment-variable reference
 
+The website brand is Aplime and its domain is `aplime.com`. Set `SITE_URL` to the actual customer origin for each environment (for example `https://aplime.com` if that is the domain attached to your development web service). Set `API_URL` to the actual API origin; do not assume API/admin subdomains exist. Match these values in GitHub's environment variables, and include the customer and admin origins in backend `ALLOWED_ORIGINS`. Update Firebase authorized domains and R2 CORS when changing domains.
+
+For website-only testing, leave GitHub `MOBILE_RELEASES_ENABLED` unset or set it to `false`. Render deployment and validation still run; iOS/Android publishing is skipped. Set it to `true` after both platforms' store/signing setup is complete. Native build validation remains enabled.
+
 ## Where values live
 
 Use two Render groups per environment. Replace development with stagging or production for the other environments.
@@ -126,7 +130,7 @@ Restrict to the Geocoding API and, where possible, Render's outbound addresses. 
 | SMTP_HOST | `smtp.office365.com` | Microsoft 365 SMTP endpoint |
 | SMTP_PORT | `587` | STARTTLS port |
 | SMTP_USER | Yes | Licensed/authorized sending mailbox |
-| SMTP_FROM | Yes | Sender, e.g. `ServiceTones <notifications@yourdomain.com>` |
+| SMTP_FROM | Yes | Sender, e.g. `Aplime <notifications@yourdomain.com>` |
 | MICROSOFT_TENANT_ID | Yes | Microsoft Entra tenant ID |
 | MICROSOFT_CLIENT_ID | Yes | Entra app client ID |
 | MICROSOFT_CLIENT_SECRET | Yes, secret | Entra app client secret |

@@ -182,7 +182,7 @@ app.use(
     r.status(503)
       .type("html")
       .send(
-        "<h1>ServiceTones is temporarily unavailable</h1><p>Please try again shortly.</p>",
+        "<h1>Aplime is temporarily unavailable</h1><p>Please try again shortly.</p>",
       );
   },
 );

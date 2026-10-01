@@ -27,14 +27,14 @@ export function renderPage(
     !!profile ||
     ["/privacy", "/terms"].includes(path);
   const title = profile
-    ? profile.business + " | " + profile.category + " | ServiceTones"
+    ? profile.business + " | " + profile.category + " | Aplime"
     : category
-      ? category + " services | ServiceTones"
+      ? category + " services | Aplime"
       : privatePage
-        ? "Your workspace | ServiceTones"
+        ? "Your workspace | Aplime"
         : !valid
-          ? "Page not found | ServiceTones"
-          : "ServiceTones | Home services, connected";
+          ? "Page not found | Aplime"
+          : "Aplime | Home services, connected";
   const description = profile
     ? profile.bio.slice(0, 160)
     : "Find home service professionals, compare estimates, and manage your project with messages, calls, and scheduling.";
@@ -47,7 +47,7 @@ export function renderPage(
   const schema = {
     "@context": "https://schema.org",
     "@type": profile ? "ProfessionalService" : "Organization",
-    name: profile?.business || "ServiceTones",
+    name: profile?.business || "Aplime",
     url: canonical,
     ...(profile
       ? { description: profile.bio, areaServed: profile.zip }

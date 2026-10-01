@@ -109,7 +109,7 @@ export async function projectAction(
       c,
       user.id === p.customerId ? p.proId : p.customerId,
       "Project update",
-      p.title + " has an update. Open ServiceTones for details.",
+      p.title + " has an update. Open Aplime for details.",
     );
     return { ok: true };
   });
