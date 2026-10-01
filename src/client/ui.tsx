@@ -1,13 +1,25 @@
 import type { ReactNode, FormEvent } from "react";
-import { House, ArrowUpRight, Inbox } from "lucide-react";
+import { ArrowUpRight, Inbox } from "lucide-react";
 export function Brand() {
   return (
     <a className="brand" href="/">
-      <span>
-        <House size={23} />
+      <svg
+        className="brand-mark"
+        viewBox="0 0 64 64"
+        aria-hidden="true"
+      >
+        <path className="mark-left" d="M7 50 26 14h10L18 50Z" />
+        <path className="mark-right" d="m31 14 22 36H41L25 24Z" />
+        <path
+          className="mark-leaf"
+          d="M35 19C40 7 50 5 58 7c-1 10-7 19-20 19 4-6 9-11 15-15-7 2-13 6-18 12Z"
+        />
+        <path className="mark-window" d="M27 39h5v5h-5zm7 0h5v5h-5zm-7 7h5v5h-5zm7 0h5v5h-5z" />
+      </svg>
+      <span className="brand-type">
+        <b>Aplime</b>
+        <small>Home services made simple</small>
       </span>
-      ap<strong>lime</strong>
-      <i />
     </a>
   );
 }

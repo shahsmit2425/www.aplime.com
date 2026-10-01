@@ -117,10 +117,11 @@ export function PublicPage({
                   </LinkButton>
                   <a href="/app/register?role=pro">Grow your business →</a>
                 </div>
-                <div className="trust-row">
-                  <span>✓ Clear project estimates</span>
-                  <span>✓ Connected conversations</span>
-                  <span>✓ Verified identity before listing</span>
+                <div className="trust-row" aria-label="Why use Aplime">
+                  <span><b>✓</b><strong>Trusted professionals</strong></span>
+                  <span><b>◆</b><strong>Safe and reliable</strong></span>
+                  <span><b>◷</b><strong>Fast booking</strong></span>
+                  <span><b>⌁</b><strong>A happier home</strong></span>
                 </div>
               </div>
               <div className="hero-image">
