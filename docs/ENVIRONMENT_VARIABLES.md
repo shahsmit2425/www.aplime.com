@@ -177,3 +177,10 @@ Add `STRIPE_PRO_PRICE_ID` to the backend Render environment group for each envir
 Configure the Stripe Customer Portal to allow invoices, payment-method updates and subscription cancellation. Add `customer.subscription.created`, `customer.subscription.updated`, and `customer.subscription.deleted` to the standard `/api/webhooks/stripe` endpoint alongside existing identity events. Status is read from Stripe by signed webhooks, never from a checkout return URL. Existing subscriptions using another price must be migrated deliberately before changing the configured price.
 
 Run `npm run db:migrate` before the updated API starts (the existing Render pre-deploy command does this). Migration 003 adds business details and professional subscription state. An active or trialing subscription is required for public discovery and new estimates; existing work and conversations remain accessible. Existing professionals need to complete their expanded profile and enroll before appearing in search.
+
+
+### Missing professional subscription price during deployment
+
+If API pre-deploy reports `Missing deployment configuration: STRIPE_PRO_PRICE_ID`, create or select the professional membership's recurring USD Price in the Stripe test environment matching the development API key. Copy the actual `price_...` identifier (not a product `prod_...` identifier or the numeric amount) into the development backend Render group. Save and deploy the API, allowing config validation and database migration to complete. For environment groups with automatic deployment disabled, explicitly trigger a new deploy; a restart reuses the previous deployment configuration.
+
+The mail worker validates only database and Microsoft SMTP settings: `DATABASE_URL`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_FROM`, `MICROSOFT_TENANT_ID`, `MICROSOFT_CLIENT_ID`, and `MICROSOFT_CLIENT_SECRET`. Database TLS configuration still applies. It can keep using the existing backend group, but no longer requires Stripe/Firebase/Daily/R2/Maps configuration to start. The API's complete deployment checks remain unchanged.

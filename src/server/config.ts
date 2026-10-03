@@ -116,3 +116,27 @@ export function validateDeployment() {
   )
     throw new Error("Production requires a Stripe live key.");
 }
+
+// The mail process does not use payments, authentication, maps, calls, or storage.
+export function validateMailWorker(config: typeof env = env) {
+  const keys = [
+    "DATABASE_URL",
+    "SMTP_HOST",
+    "SMTP_USER",
+    "SMTP_FROM",
+    "MICROSOFT_TENANT_ID",
+    "MICROSOFT_CLIENT_ID",
+    "MICROSOFT_CLIENT_SECRET",
+  ] as const;
+  const missing = keys.filter((key) => !config[key].trim());
+  if (missing.length)
+    throw new Error(
+      "Missing email-worker configuration: " + missing.join(", "),
+    );
+  if (
+    !Number.isInteger(config.SMTP_PORT) ||
+    config.SMTP_PORT < 1 ||
+    config.SMTP_PORT > 65535
+  )
+    throw new Error("SMTP_PORT must be a valid port number.");
+}

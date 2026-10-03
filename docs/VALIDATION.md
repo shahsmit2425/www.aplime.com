@@ -69,3 +69,8 @@ Customers can discuss scope with multiple responding professionals before choosi
 Automated validation covers estimate revision conflicts, appointment self-confirmation and duplicate-response rejection, customer completion authority, outsider discussion access, closed discussions, and blocking. Live multi-account browser rendering, actual Daily calls, email delivery and signed native apps remain unverified. No deployment is claimed.
 
 Remaining product work: geographic service-area matching, structured consultation appointments before hiring, saved drafts, admin onboarding approval, quote history/expiry/withdrawal, chat media/read receipts, completion reminders, and in-progress cancellation negotiation. Assessment discussions currently carry text; project attachments remain restricted to the customer and assigned professional. Matching remains service-category based. Pending completion stays in progress until the customer confirms or raises a support issue; there is no automatic completion.
+
+
+## Mail-worker startup validation
+
+The supplied Render logs confirmed both API pre-deploy and worker startup were blocked by the missing `STRIPE_PRO_PRICE_ID`. Worker startup now checks only database/SMTP configuration; API pre-deploy still requires the real professional subscription price. Unit tests cover independent worker startup, each missing required value, and invalid SMTP ports. Local tests do not verify Render deployment or Microsoft email delivery. The actual Stripe price must be supplied in the development backend environment group.

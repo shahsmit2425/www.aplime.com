@@ -1,7 +1,7 @@
 import { pool, transaction } from "./db/index.js";
 import { sendEmail } from "./integrations/email.js";
-import { env, validateDeployment } from "./config.js";
-if (env.NODE_ENV === "production") validateDeployment();
+import { env, validateMailWorker } from "./config.js";
+if (env.NODE_ENV === "production") validateMailWorker();
 let stopping = false;
 for (const signal of ["SIGINT", "SIGTERM"])
   process.on(signal, () => {
