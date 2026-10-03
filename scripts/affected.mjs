@@ -21,6 +21,10 @@ export function affected(paths) {
       result.web = true;
       continue;
     }
+    if (file === "src/shared/seo-content.ts") {
+      result.web = true;
+      continue;
+    }
     if (file.startsWith("src/shared/")) {
       all();
       continue;

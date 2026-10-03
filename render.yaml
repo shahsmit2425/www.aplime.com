@@ -200,6 +200,9 @@ services:
     buildCommand: npm ci --include=dev && npm run build:web
     startCommand: npm run start:web
     healthCheckPath: /health
+    domains:
+      - aplime.com
+    renderSubdomainPolicy: disabled
     envVars:
       - fromGroup: servicetones-production-common
   - type: web

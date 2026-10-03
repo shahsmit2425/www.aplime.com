@@ -83,4 +83,45 @@ for (const target of selected) {
     health.environment !== mapping[GITHUB_REF_NAME].environment
   )
     throw new Error(target + " release/environment mismatch");
+  if (target === "web") {
+    const site = url.replace(/\/$/, "");
+    const [homeResponse, robotsResponse, sitemapResponse] = await Promise.all([
+      fetch(site + "/", {
+        cache: "no-store",
+        signal: AbortSignal.timeout(30000),
+      }),
+      fetch(site + "/robots.txt", {
+        cache: "no-store",
+        signal: AbortSignal.timeout(30000),
+      }),
+      fetch(site + "/sitemap.xml", {
+        cache: "no-store",
+        signal: AbortSignal.timeout(30000),
+      }),
+    ]);
+    if (!homeResponse.ok || !robotsResponse.ok || !sitemapResponse.ok)
+      throw new Error("Web SEO endpoint verification failed");
+    const [home, robots, sitemap] = await Promise.all([
+      homeResponse.text(),
+      robotsResponse.text(),
+      sitemapResponse.text(),
+    ]);
+    if (
+      !home.includes(`<link rel="canonical" href="${site}/"`) ||
+      !home.includes('type="application/ld+json"')
+    )
+      throw new Error("Web canonical or structured data is missing");
+    const production = mapping[GITHUB_REF_NAME].environment === "production";
+    if (production) {
+      if (
+        !robots.includes(`Sitemap: ${site}/sitemap.xml`) ||
+        !sitemap.includes(`${site}/services/plumbing`)
+      )
+        throw new Error("Production robots or sitemap content is invalid");
+    } else if (
+      !robots.includes("Disallow: /") ||
+      !homeResponse.headers.get("x-robots-tag")?.includes("noindex")
+    )
+      throw new Error("Non-production website is not protected from indexing");
+  }
 }

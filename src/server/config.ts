@@ -105,6 +105,12 @@ export function validateDeployment() {
     throw new Error("Missing deployment configuration: " + missing.join(", "));
   if (!env.SITE_URL.startsWith("https://"))
     throw new Error("A deployed environment requires an HTTPS SITE_URL.");
+  if (new URL(env.SITE_URL).origin !== env.SITE_URL)
+    throw new Error(
+      "SITE_URL must be the exact canonical origin without a path or trailing slash.",
+    );
+  if (new URL(env.API_URL).origin !== env.API_URL)
+    throw new Error("API_URL must be an exact origin without a path or trailing slash.");
   if (
     env.APP_ENV !== "production" &&
     !env.STRIPE_SECRET_KEY.startsWith("sk_test_")

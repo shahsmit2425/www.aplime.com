@@ -7,6 +7,7 @@ import helmet from "helmet";
 import { categories } from "../../src/shared/domain.js";
 import type { Profile } from "../../src/shared/domain.js";
 import { fallbackConfig, type PublicConfig } from "../../src/shared/config.js";
+import { seoStaticPaths } from "../../src/shared/seo-content.js";
 const env = {
   NODE_ENV: process.env.NODE_ENV,
   APP_ENV: process.env.APP_ENV || "development",
@@ -16,6 +17,7 @@ const apiUrl = (process.env.API_URL || "http://127.0.0.1:3001").replace(
   /\/$/,
   "",
 );
+const siteUrl = new URL(env.SITE_URL);
 if (
   env.NODE_ENV === "production" &&
   (!apiUrl.startsWith("https://") || !env.SITE_URL.startsWith("https://"))
@@ -33,7 +35,10 @@ async function publicProfiles(id?: string) {
     id ? "/professionals/" + encodeURIComponent(id) : "/professionals",
   );
 }
+let cachedConfiguration: { value: PublicConfig; expiresAt: number } | undefined;
 async function configuration() {
+  if (cachedConfiguration && cachedConfiguration.expiresAt > Date.now())
+    return cachedConfiguration.value;
   let c: PublicConfig;
   try {
     c = await api<PublicConfig>("/config");
@@ -41,22 +46,26 @@ async function configuration() {
     console.warn(
       "API configuration is unavailable; serving public pages with authentication disabled.",
     );
-    return {
+    const fallback = {
       ...fallbackConfig,
       environment: env.APP_ENV as PublicConfig["environment"],
       siteUrl: env.SITE_URL,
       apiUrl,
       release: process.env.RENDER_GIT_COMMIT || "local",
     };
+    cachedConfiguration = { value: fallback, expiresAt: Date.now() + 10000 };
+    return fallback;
   }
   if (c.environment !== env.APP_ENV)
     throw new Error("API environment mismatch");
-  return {
+  const value = {
     ...c,
     siteUrl: env.SITE_URL,
     apiUrl,
     release: process.env.RENDER_GIT_COMMIT || "local",
   };
+  cachedConfiguration = { value, expiresAt: Date.now() + 60000 };
+  return value;
 }
 const app = express();
 app.disable("x-powered-by");
@@ -99,6 +108,19 @@ app.get("/health", (_q, r) =>
     release: process.env.RENDER_GIT_COMMIT || "local",
   }),
 );
+app.use((req, res, next) => {
+  if (
+    env.APP_ENV === "production" &&
+    req.method === "GET" &&
+    req.get("host") !== siteUrl.host
+  )
+    return res.redirect(308, siteUrl.origin + req.originalUrl);
+  if (req.path.length > 1 && req.path.endsWith("/")) {
+    const suffix = req.originalUrl.slice(req.path.length);
+    return res.redirect(308, req.path.slice(0, -1) + suffix);
+  }
+  next();
+});
 app.use("/api", (_q, r) =>
   r.status(404).json({ error: "Use the API domain." }),
 );
@@ -109,6 +131,7 @@ app.use((req, res, next) => {
 });
 app.get("/robots.txt", (_q, r) =>
   r
+    .set("Cache-Control", "public, max-age=3600")
     .type("text/plain")
     .send(
       env.APP_ENV === "production"
@@ -121,23 +144,33 @@ app.get("/robots.txt", (_q, r) =>
 app.get("/sitemap.xml", async (_q, r) => {
   const esc = (s: string) =>
     s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+  let professionalPaths: string[] = [];
+  if (env.APP_ENV === "production")
+    try {
+      professionalPaths = (await publicProfiles()).map(
+        (profile) => "/professionals/" + encodeURIComponent(profile.id),
+      );
+    } catch {
+      console.error("Sitemap profile lookup failed; serving static URLs only");
+    }
   const paths =
     env.APP_ENV === "production"
       ? [
           "/",
+          ...seoStaticPaths,
           ...categories.map((c) => "/services/" + c.toLowerCase()),
-          ...(await publicProfiles()).map(
-            (p) => "/professionals/" + encodeURIComponent(p.id),
-          ),
+          ...professionalPaths,
         ]
       : [];
-  r.type("application/xml").send(
-    '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' +
-      paths
-        .map((p) => "<url><loc>" + esc(env.SITE_URL + p) + "</loc></url>")
-        .join("") +
-      "</urlset>",
-  );
+  r.set("Cache-Control", "public, max-age=900, stale-while-revalidate=3600")
+    .type("application/xml")
+    .send(
+      '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' +
+        paths
+          .map((p) => "<url><loc>" + esc(env.SITE_URL + p) + "</loc></url>")
+          .join("") +
+        "</urlset>",
+    );
 });
 let vite: import("vite").ViteDevServer | undefined;
 if (env.NODE_ENV !== "production") {
@@ -170,7 +203,15 @@ app.use(async (req, res, next) => {
     );
     if (vite)
       template = await vite.transformIndexHtml(req.originalUrl, template);
-    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("Content-Language", "en-US");
+    res.setHeader(
+      "Cache-Control",
+      env.APP_ENV === "production" && !pathName.startsWith("/app")
+        ? pathName.startsWith("/professionals/")
+          ? "public, max-age=0, must-revalidate"
+          : "public, max-age=0, s-maxage=300, stale-while-revalidate=3600"
+        : "no-store",
+    );
     res
       .status(page.status)
       .type("html")

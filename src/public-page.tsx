@@ -1,6 +1,7 @@
 import { BusinessDisplay } from "./client/business-display.js";
 import { categories, type Profile } from "./shared/domain.js";
 import { Brand, LinkButton, ServiceIcon } from "./client/ui.js";
+import { informationalPages, serviceSeoContent } from "./shared/seo-content.js";
 export const serviceCopy: Record<string, string> = {
   Handyman:
     "Get help with assembly, wall mounting, minor repairs, and the small improvements that make a home work better.",
@@ -15,6 +16,278 @@ export const serviceCopy: Record<string, string> = {
   Landscaping:
     "Arrange garden care, seasonal cleanup, lawn maintenance, and outdoor improvements.",
 };
+
+function Breadcrumbs({ current }: { current: string }) {
+  return (
+    <nav className="breadcrumbs" aria-label="Breadcrumb">
+      <a href="/">Home</a>
+      <span aria-hidden="true">/</span>
+      <span aria-current="page">{current}</span>
+    </nav>
+  );
+}
+
+function ServicesIndex() {
+  return (
+    <>
+      <Breadcrumbs current="Services" />
+      <section className="seo-intro">
+        <p className="eyebrow">HOME SERVICES</p>
+        <h1>Plan your next home project with clearer information.</h1>
+        <p className="lede">
+          Explore common project types, learn what to include in your request,
+          and compare approved professional profiles and written estimates.
+        </p>
+      </section>
+      <section className="service-grid" aria-label="Home service categories">
+        {categories.map((category, index) => (
+          <a
+            className="service-card"
+            href={"/services/" + category.toLowerCase()}
+            key={category}
+          >
+            <span className="service-card-top">
+              <span className="service-icon">
+                <ServiceIcon service={category} size={27} />
+              </span>
+              <span className="service-number">0{index + 1}</span>
+            </span>
+            <h2>{serviceSeoContent[category].title}</h2>
+            <p>{serviceCopy[category]}</p>
+            <strong>Explore {category.toLowerCase()} →</strong>
+          </a>
+        ))}
+      </section>
+      <section className="seo-callout">
+        <h2>Not sure where to start?</h2>
+        <p>
+          Create a request with photos and project details. You can discuss the
+          work and compare estimates before selecting a professional.
+        </p>
+        <LinkButton href="/app/projects">Start a project</LinkButton>
+      </section>
+    </>
+  );
+}
+
+function ServicePage({ category }: { category: (typeof categories)[number] }) {
+  const content = serviceSeoContent[category];
+  return (
+    <>
+      <nav className="breadcrumbs" aria-label="Breadcrumb">
+        <a href="/">Home</a>
+        <span aria-hidden="true">/</span>
+        <a href="/services">Services</a>
+        <span aria-hidden="true">/</span>
+        <span aria-current="page">{category}</span>
+      </nav>
+      <section className="seo-service-hero">
+        <div>
+          <span className="service-hero-icon">
+            <ServiceIcon service={category} size={30} />
+          </span>
+          <p className="eyebrow">{category.toUpperCase()} PROJECTS</p>
+          <h1>{content.title}</h1>
+          <p className="lede">{content.introduction}</p>
+          <div className="actions">
+            <LinkButton href={"/app/discover?category=" + category}>
+              Find {category.toLowerCase()} professionals
+            </LinkButton>
+            <a href="/how-it-works">See how Aplime works →</a>
+          </div>
+        </div>
+        <aside className="seo-quick-facts">
+          <strong>Prepare a useful request</strong>
+          <ul>
+            {content.projectTips.map((tip) => (
+              <li key={tip}>{tip}</li>
+            ))}
+          </ul>
+        </aside>
+      </section>
+      <section className="seo-section">
+        <div className="section-heading">
+          <p className="eyebrow">COMMON PROJECTS</p>
+          <h2>What {category.toLowerCase()} professionals can help discuss</h2>
+        </div>
+        <div className="seo-list-grid">
+          {content.commonJobs.map((job) => (
+            <article key={job}>
+              <ServiceIcon service={category} size={21} />
+              <h3>{job}</h3>
+            </article>
+          ))}
+        </div>
+        <p className="seo-disclaimer">
+          Services, credentials, and availability vary by business and location.
+          Review the professional’s profile and confirm applicable licenses,
+          insurance, permits, and project requirements directly.
+        </p>
+      </section>
+      <section className="seo-process">
+        <div>
+          <p className="eyebrow">A CLEARER PROCESS</p>
+          <h2>From request to confirmed completion</h2>
+        </div>
+        {[
+          [
+            "Share the scope",
+            "Answer service-specific questions and add up to five helpful photos.",
+          ],
+          [
+            "Compare the details",
+            "Discuss the work and review labor, materials, timing, and exclusions.",
+          ],
+          [
+            "Confirm each step",
+            "Choose a professional, agree on an appointment, and confirm completion.",
+          ],
+        ].map(([title, body], index) => (
+          <article key={title}>
+            <span>0{index + 1}</span>
+            <h3>{title}</h3>
+            <p>{body}</p>
+          </article>
+        ))}
+      </section>
+      <section className="seo-faq" aria-labelledby="faq-title">
+        <p className="eyebrow">HELPFUL ANSWERS</p>
+        <h2 id="faq-title">{category} service questions</h2>
+        {content.faqs.map((faq) => (
+          <details key={faq.question}>
+            <summary>{faq.question}</summary>
+            <p>{faq.answer}</p>
+          </details>
+        ))}
+      </section>
+      <section className="seo-related">
+        <h2>Explore other home services</h2>
+        <nav aria-label="Related services">
+          {categories
+            .filter((item) => item !== category)
+            .map((item) => (
+              <a href={"/services/" + item.toLowerCase()} key={item}>
+                <ServiceIcon service={item} size={18} />
+                {item}
+              </a>
+            ))}
+        </nav>
+      </section>
+    </>
+  );
+}
+
+function InformationPage({ path }: { path: string }) {
+  const page = informationalPages[path as keyof typeof informationalPages];
+  const sections =
+    path === "/how-it-works"
+      ? [
+          [
+            "1. Describe the project",
+            "Choose a service, answer detailed questions, add a budget or preferred time when useful, and upload up to five photos.",
+          ],
+          [
+            "2. Discuss and compare",
+            "Use private messages, audio or video calls, and itemized written estimates to understand the scope.",
+          ],
+          [
+            "3. Choose and schedule",
+            "Accept the estimate that fits, then use appointment proposals so both people confirm the time.",
+          ],
+          [
+            "4. Track and finish",
+            "Keep updates with the project. The professional requests completion and the customer confirms it before reviewing.",
+          ],
+        ]
+      : path === "/for-professionals"
+        ? [
+            [
+              "Build a complete listing",
+              "Add business details, service coverage, policies, credentials, a logo or cover, and examples of work.",
+            ],
+            [
+              "Complete review",
+              "Verify your identity through Stripe Identity and submit the saved listing for Aplime administrator review.",
+            ],
+            [
+              "Receive relevant opportunities",
+              "Approved, subscribed businesses receive matching projects in their category and configured service radius.",
+            ],
+            [
+              "Set clear expectations",
+              "Ask questions, use private calls, send itemized estimates, and confirm appointment and completion updates.",
+            ],
+          ]
+        : path === "/trust-and-safety"
+          ? [
+              [
+                "Identity and profile review",
+                "Stripe Identity verifies the account holder. Aplime separately reviews business-profile content before publication.",
+              ],
+              [
+                "Know the limits",
+                "Identity verification does not prove licensing, insurance, qualifications, or work quality. Confirm those items with the business and issuing authority.",
+              ],
+              [
+                "Keep records together",
+                "Use project discussions for scope, estimates, appointment proposals, and important changes. Block or report concerning communication.",
+              ],
+              [
+                "Handle urgent danger elsewhere",
+                "Aplime is not an emergency service. Contact emergency services or the appropriate utility for fire, flooding, gas, live wiring, or immediate danger.",
+              ],
+            ]
+          : [
+              [
+                "For customers",
+                "Aplime turns a broad home project into a structured request that professionals can understand and discuss.",
+              ],
+              [
+                "For professionals",
+                "Aplime provides a business profile and workspace for relevant opportunities, estimates, conversations, scheduling, and reviews.",
+              ],
+              [
+                "A subscription marketplace",
+                "Professionals pay Aplime for membership. Customers and professionals arrange service payment directly; Aplime does not process project payments.",
+              ],
+            ];
+  return (
+    <>
+      <Breadcrumbs current={page.title} />
+      <section className="seo-intro">
+        <p className="eyebrow">APLIME</p>
+        <h1>{page.heading}</h1>
+        <p className="lede">{page.description}</p>
+      </section>
+      <section className="seo-editorial-grid">
+        {sections.map(([title, body]) => (
+          <article key={title}>
+            <h2>{title}</h2>
+            <p>{body}</p>
+          </article>
+        ))}
+      </section>
+      <section className="seo-callout">
+        <h2>
+          {path === "/for-professionals"
+            ? "Ready to build your business profile?"
+            : "Ready to plan a home project?"}
+        </h2>
+        <LinkButton
+          href={
+            path === "/for-professionals"
+              ? "/app/register?role=pro"
+              : "/app/projects"
+          }
+        >
+          {path === "/for-professionals"
+            ? "Join as a professional"
+            : "Start a project"}
+        </LinkButton>
+      </section>
+    </>
+  );
+}
 export function PublicPage({
   path,
   profile,
@@ -24,15 +297,25 @@ export function PublicPage({
 }) {
   const slug = decodeURIComponent(path.split("/")[2] || "");
   const category = categories.find((c) => c.toLowerCase() === slug);
+  const information =
+    informationalPages[path as keyof typeof informationalPages];
+  const servicesIndex = path === "/services";
   const legal = path === "/privacy" || path === "/terms";
-  const notFound = path !== "/" && !category && !profile && !legal;
+  const notFound =
+    path !== "/" &&
+    !category &&
+    !profile &&
+    !legal &&
+    !information &&
+    !servicesIndex;
   return (
     <>
       <header className="public-header">
         <Brand />
         <nav>
           <a href="/#services">Explore services</a>
-          <a href="/app/register?role=pro">For professionals</a>
+          <a href="/how-it-works">How it works</a>
+          <a href="/for-professionals">For professionals</a>
           <a className="button" href="/app/login">
             Sign in
           </a>
@@ -81,39 +364,28 @@ export function PublicPage({
               </LinkButton>
             </div>
           </section>
+        ) : information ? (
+          <InformationPage path={path} />
+        ) : servicesIndex ? (
+          <ServicesIndex />
+        ) : category ? (
+          <ServicePage category={category} />
         ) : (
           <>
             <section className="hero">
               <div>
                 <p className="eyebrow">A LITTLE HELP. A HAPPIER HOME.</p>
-                {category && (
-                  <span className="service-hero-icon">
-                    <ServiceIcon service={category} size={30} />
-                  </span>
-                )}
                 <h1>
-                  {category ? (
-                    category + " services, built around your home."
-                  ) : (
-                    <>
-                      Your next home project.
-                      <br />
-                      <em>In good hands.</em>
-                    </>
-                  )}
+                  Your next home project.
+                  <br />
+                  <em>In good hands.</em>
                 </h1>
                 <p className="lede">
-                  {category
-                    ? serviceCopy[category]
-                    : "Find the right professional, compare clear estimates, and keep every conversation in one place."}
+                  Find the right professional, compare clear estimates, and keep
+                  every conversation in one place.
                 </p>
                 <div className="actions">
-                  <LinkButton
-                    href={
-                      "/app/discover" +
-                      (category ? "?category=" + category : "")
-                    }
-                  >
+                  <LinkButton href={"/app/discover"}>
                     Find a professional
                   </LinkButton>
                   <a href="/app/register?role=pro">Grow your business →</a>
@@ -121,19 +393,19 @@ export function PublicPage({
                 <div className="trust-row" aria-label="Why use Aplime">
                   <span>
                     <b>✓</b>
-                    <strong>Trusted professionals</strong>
+                    <strong>Reviewed listings</strong>
                   </span>
                   <span>
                     <b>◆</b>
-                    <strong>Safe and reliable</strong>
+                    <strong>Identity verification</strong>
                   </span>
                   <span>
                     <b>◷</b>
-                    <strong>Fast booking</strong>
+                    <strong>Written estimates</strong>
                   </span>
                   <span>
                     <b>⌁</b>
-                    <strong>A happier home</strong>
+                    <strong>Private project tools</strong>
                   </span>
                 </div>
               </div>
@@ -141,8 +413,10 @@ export function PublicPage({
                 <img
                   src="/home.jpg"
                   alt="A welcoming living room with a blue sofa"
-                  width="960"
-                  height="960"
+                  width="1400"
+                  height="933"
+                  decoding="async"
+                  fetchPriority="high"
                 />
                 <div>
                   <strong>Less on your to-do list.</strong>
@@ -193,7 +467,7 @@ export function PublicPage({
                       [
                         "Describe your project and the location where you need help.",
                         "Review profiles and written estimates before making a choice.",
-                        "Use project messages, calls, scheduling, and secure checkout.",
+                        "Use project messages, calls, scheduling, and status updates.",
                       ][i]
                     }
                   </p>
@@ -209,6 +483,8 @@ export function PublicPage({
         <nav>
           <a href="/privacy">Privacy</a>
           <a href="/terms">Service information</a>
+          <a href="/trust-and-safety">Trust &amp; safety</a>
+          <a href="/about">About</a>
           <a href="/app/help">Get help</a>
         </nav>
       </footer>

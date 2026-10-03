@@ -40,6 +40,16 @@ test("deployment graph follows actual shared dependencies", () => {
     worker: false,
     mobile: false,
   });
+  assert.deepEqual(
+    affected(["src/shared/seo-content.ts", "src/public-page.tsx"]),
+    {
+      admin: false,
+      web: true,
+      api: false,
+      worker: false,
+      mobile: false,
+    },
+  );
   for (const path of [
     "src/shared/domain.ts",
     "package-lock.json",
