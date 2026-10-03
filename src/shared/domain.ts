@@ -1,3 +1,4 @@
+import type { BusinessImage } from "./business-images.js";
 import { businessDetailsSchema, type BusinessDetails } from "./business.js";
 import { z } from "zod";
 import {
@@ -15,6 +16,7 @@ export type User = {
   settings: Record<string, unknown>;
 };
 export type Profile = {
+  images?: BusinessImage[];
   id: string;
   name: string;
   business: string;

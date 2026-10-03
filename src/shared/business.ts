@@ -70,3 +70,29 @@ export const businessDetailsSchema = z
   })
   .strict();
 export type BusinessDetails = z.infer<typeof businessDetailsSchema>;
+
+export const businessFieldGroups = [
+  {
+    title: "Contact & location",
+    description:
+      "Use contact information that you want customers to see. Your full home address is not needed.",
+    keys: ["legalName", "phone", "email", "website", "city", "state"],
+  },
+  {
+    title: "Services & coverage",
+    description: "Tell customers where you work and the jobs you do best.",
+    keys: ["serviceAreas", "specialties", "languages"],
+  },
+  {
+    title: "Hours & customer policies",
+    description:
+      "Set clear expectations before a customer requests an estimate.",
+    keys: ["hours", "cancellationPolicy", "warranty"],
+  },
+  {
+    title: "Credentials & qualifications",
+    description:
+      "These are self-reported business details. Identity verification does not verify a license or insurance policy.",
+    keys: ["license", "insurance", "qualifications"],
+  },
+] as const;

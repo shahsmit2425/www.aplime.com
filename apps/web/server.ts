@@ -6,10 +6,7 @@ import express from "express";
 import helmet from "helmet";
 import { categories } from "../../src/shared/domain.js";
 import type { Profile } from "../../src/shared/domain.js";
-import {
-  fallbackConfig,
-  type PublicConfig,
-} from "../../src/shared/config.js";
+import { fallbackConfig, type PublicConfig } from "../../src/shared/config.js";
 const env = {
   NODE_ENV: process.env.NODE_ENV,
   APP_ENV: process.env.APP_ENV || "development",
@@ -87,7 +84,7 @@ app.use(
           "https://*.google.com",
           "https://appleid.apple.com",
         ],
-        imgSrc: ["'self'", "data:", "https:"],
+        imgSrc: ["'self'", "data:", "blob:", "https:", apiUrl],
         styleSrc: ["'self'", "'unsafe-inline'"],
         upgradeInsecureRequests: env.NODE_ENV === "production" ? [] : null,
       },

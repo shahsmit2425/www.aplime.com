@@ -1,11 +1,28 @@
+import { env } from "./config.js";
+import { imageUrl } from "./integrations/storage.js";
 import { randomUUID } from "node:crypto";
 import { pool, camel } from "./db/index.js";
 import type pg from "pg";
 import type { User, Workspace, Profile, Project } from "../shared/domain.js";
 import { fail } from "./errors.js";
 export const profileSelect = `SELECT p.id,u.name,p.business,p.details,p.category,p.bio,p.zip,p.rate,p.available,p.availability,p.verified,p.suspended,p.connect_ready,
+ COALESCE((SELECT json_agg(json_build_object('id',i.id,'slot',i.slot,'key',i.object_key) ORDER BY i.slot) FROM business_images i WHERE i.profile_id=p.id AND i.status='ready'),'[]'::json) AS images,
  COALESCE((SELECT avg(r.rating)::float FROM reviews r WHERE r.pro_id=p.id),0) AS rating,
  (SELECT count(*)::int FROM reviews r WHERE r.pro_id=p.id) AS review_count FROM profiles p JOIN users u ON u.id=p.id`;
+async function mappedProfile(row: Record<string, any>, ownerId?: string) {
+  const profile = camel<Profile>(row);
+  profile.images = await Promise.all(
+    (row.images || []).map(async (i: any) => ({
+      id: i.id,
+      slot: i.slot,
+      url:
+        profile.id === ownerId
+          ? await imageUrl(i.key)
+          : env.API_URL.replace(/\/$/, "") + "/api/business-images/" + i.id,
+    })),
+  );
+  return profile;
+}
 export async function publicProfiles(id?: string) {
   const { rows } = await pool.query(
     profileSelect +
@@ -13,7 +30,7 @@ export async function publicProfiles(id?: string) {
       (id ? " AND p.id=$1" : " ORDER BY p.business LIMIT 200"),
     id ? [id] : [],
   );
-  return rows.map((r) => camel<Profile>(r));
+  return Promise.all(rows.map((r) => mappedProfile(r)));
 }
 export async function workspace(user: User): Promise<Workspace> {
   const admin = user.role === "admin",
@@ -28,7 +45,7 @@ export async function workspace(user: User): Promise<Workspace> {
     )
   ).rows.map((r) => camel<Project>(r));
   const ids = projects.map((p) => p.id);
-  const profiles = (
+  const profileRows = (
     await pool.query(
       profileSelect +
         (admin
@@ -37,7 +54,10 @@ export async function workspace(user: User): Promise<Workspace> {
         " ORDER BY p.business LIMIT 500",
       params,
     )
-  ).rows.map((r) => camel<Profile>(r));
+  ).rows;
+  const profiles = await Promise.all(
+    profileRows.map((r) => mappedProfile(r, user.id)),
+  );
   const leads =
     user.role === "pro"
       ? (

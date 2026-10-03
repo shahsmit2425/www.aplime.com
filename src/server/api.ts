@@ -1,3 +1,4 @@
+import { businessImages, publicBusinessImages } from "./business-images.js";
 import { notificationStream } from "./notification-stream.js";
 import { discussions } from "./discussions.js";
 import { reserveUpload } from "./uploads.js";
@@ -50,6 +51,7 @@ declare global {
 }
 type AuthRequest = Request;
 export const api = Router();
+api.use(publicBusinessImages);
 api.get("/config", (_q, r) => r.json(publicConfig));
 api.get("/professionals/:id", async (q, r) =>
   r.json(await publicProfiles(String(q.params.id))),
@@ -172,6 +174,7 @@ api.put("/profile", async (req, res) => {
   );
   res.json({ ok: true });
 });
+api.use("/profile/images", businessImages);
 api.use(discussions);
 api.post("/projects", async (req, res) => {
   const q = req as AuthRequest;

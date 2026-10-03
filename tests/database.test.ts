@@ -63,6 +63,9 @@ await db.exec(
 await db.exec(
   await readFile("src/server/db/migrations/005_live_notifications.sql", "utf8"),
 );
+await db.exec(
+  await readFile("src/server/db/migrations/006_business_images.sql", "utf8"),
+);
 test.after(async () => {
   await db.close();
   await pool.end();
@@ -582,5 +585,68 @@ test("notification records and live events commit together, rollback stays silen
     assert.equal(events.length, 2);
   } finally {
     await stop();
+  }
+});
+
+test("business image slots preserve a published image while its replacement is pending", async () => {
+  const ready = randomUUID(),
+    pending = randomUUID();
+  await db.query(
+    "INSERT INTO business_images(id,profile_id,slot,object_key,name,content_type,size,status) VALUES($1::uuid,$2,'logo',$1::text,'logo.png','image/png',100,'ready')",
+    [ready, professional.id],
+  );
+  await db.query(
+    "INSERT INTO business_images(id,profile_id,slot,object_key,name,content_type,size) VALUES($1::uuid,$2,'logo',$1::text,'new-logo.png','image/png',100)",
+    [pending, professional.id],
+  );
+  await assert.rejects(
+    db.query(
+      "INSERT INTO business_images(id,profile_id,slot,object_key,name,content_type,size) VALUES($1::uuid,$2,'logo',$1::text,'extra.png','image/png',100)",
+      [randomUUID(), professional.id],
+    ),
+  );
+  const { publicProfiles } = await import("../src/server/repository.js");
+  await db.query(
+    "UPDATE professional_subscriptions SET status='active' WHERE user_id=$1",
+    [professional.id],
+  );
+  await db.query(
+    "UPDATE profiles SET verified=true,suspended=false WHERE id=$1",
+    [professional.id],
+  );
+  const profiles = await publicProfiles(professional.id);
+  assert.equal(profiles[0].images?.length, 1);
+  assert.equal(profiles[0].images?.[0].id, ready);
+  assert.equal("key" in profiles[0].images![0], false);
+  // Public image endpoint enforces listing eligibility without accessing storage for hidden profiles.
+  const { default: express } = await import("express");
+  const { publicBusinessImages, businessImages } =
+    await import("../src/server/business-images.js");
+  const app = express();
+  app.use(express.json());
+  app.use(publicBusinessImages);
+  app.use((req, _res, next) => {
+    req.account = outsider;
+    next();
+  });
+  app.use("/profile/images", businessImages);
+  app.use((e: any, _q: any, r: any, _n: any) =>
+    r.status(e.status || 500).json({ error: e.message }),
+  );
+  const server = app.listen(0, "127.0.0.1");
+  await new Promise<void>((resolve) => server.once("listening", resolve));
+  try {
+    const base = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
+    assert.equal(
+      (await fetch(base + "/profile/images/logo", { method: "DELETE" })).status,
+      403,
+    );
+    await db.query("UPDATE profiles SET suspended=true WHERE id=$1", [
+      professional.id,
+    ]);
+    assert.equal((await fetch(base + "/business-images/" + ready)).status, 404);
+    assert.equal((await publicProfiles(professional.id)).length, 0);
+  } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
   }
 });

@@ -58,3 +58,27 @@ export async function removeObject(key: string) {
     new DeleteObjectCommand({ Bucket: env.R2_BUCKET, Key: key }),
   );
 }
+
+export async function imageUrl(key: string) {
+  return getSignedUrl(
+    client(),
+    new GetObjectCommand({
+      Bucket: env.R2_BUCKET,
+      Key: key,
+      ResponseContentDisposition: "inline",
+    }),
+    { expiresIn: 600 },
+  );
+}
+export async function imageHeader(key: string) {
+  const object = await client().send(
+    new GetObjectCommand({
+      Bucket: env.R2_BUCKET,
+      Key: key,
+      Range: "bytes=0-11",
+    }),
+  );
+  return object.Body
+    ? await object.Body.transformToByteArray()
+    : new Uint8Array();
+}

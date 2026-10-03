@@ -1,10 +1,10 @@
+import { BusinessProfile } from "./business-profile.js";
 import { Discussions } from "./discussions.js";
 import {
   ProjectPhotos,
   sendProjectPhoto,
   type ProjectPhoto,
 } from "./project-photos.js";
-import { businessFields } from "../shared/business.js";
 import { useEffect, useState } from "react";
 import {
   CalendarDays,
@@ -317,8 +317,24 @@ function Directory() {
         <div className="pro-grid">
           {profiles.map((p) => (
             <Panel key={p.id}>
+              {p.images?.find((i) => i.slot === "cover") && (
+                <img
+                  className="business-directory-cover"
+                  src={p.images.find((i) => i.slot === "cover")!.url}
+                  alt={p.business + " cover"}
+                  loading="lazy"
+                />
+              )}
               <div className="pro-heading">
-                <span className="avatar large">{p.name.slice(0, 1)}</span>
+                {p.images?.find((i) => i.slot === "logo") ? (
+                  <img
+                    className="business-directory-logo"
+                    src={p.images.find((i) => i.slot === "logo")!.url}
+                    alt={p.business + " logo"}
+                  />
+                ) : (
+                  <span className="avatar large">{p.business.slice(0, 1)}</span>
+                )}
                 <div>
                   <h2>{p.business}</h2>
                   <p>{p.name}</p>
@@ -1418,220 +1434,7 @@ function Reviews() {
   );
 }
 function Business() {
-  const { data, run, busy, go } = useWorkspace();
-  if (data.user.role !== "pro")
-    return <Empty title="Professional account required." />;
-  const p = data.profiles.find((p) => p.id === data.user.id);
-  return (
-    <>
-      <Head title="Let your work make the introduction.">
-        Complete your profile, verify your identity, and manage your Aplime
-        subscription.
-      </Head>
-      <div className="setup-steps">
-        <Badge>{p ? "✓ Profile saved" : "1. Create profile"}</Badge>
-        <Badge>
-          {p?.verified ? "✓ Identity verified" : "2. Verify identity"}
-        </Badge>
-        <Badge>3. Subscribe to Aplime</Badge>
-      </div>
-      <Panel title="Business profile">
-        <Form
-          busy={busy}
-          onSubmit={(f) =>
-            run(
-              () =>
-                request(
-                  "/profile",
-                  {
-                    details: {
-                      ...Object.fromEntries(
-                        businessFields.map((field) => [
-                          field.key,
-                          String(f.get(field.key) || ""),
-                        ]),
-                      ),
-                      yearsExperience: Number(f.get("yearsExperience")),
-                      teamSize: Number(f.get("teamSize")),
-                      businessType: f.get("businessType"),
-                    },
-                    business: f.get("business"),
-                    category: f.get("category"),
-                    bio: f.get("bio"),
-                    zip: f.get("zip"),
-                    rate: Number(f.get("rate")),
-                    available: f.get("available") === "on",
-                    availability: f.getAll("days"),
-                  },
-                  "PUT",
-                ),
-              "Business profile saved.",
-            )
-          }
-        >
-          <div className="form-grid">
-            <Field label="Business name">
-              <input
-                name="business"
-                defaultValue={p?.business}
-                required
-                minLength={2}
-                maxLength={100}
-              />
-            </Field>
-            <Field label="Service">
-              <select name="category" defaultValue={p?.category}>
-                {categories.map((c) => (
-                  <option key={c}>{c}</option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Service ZIP code">
-              <input
-                name="zip"
-                defaultValue={p?.zip}
-                pattern="[0-9]{5}"
-                required
-              />
-            </Field>
-            <Field label="Starting hourly rate (USD)">
-              <input
-                name="rate"
-                defaultValue={p?.rate}
-                min="1"
-                max="10000"
-                type="number"
-                step=".01"
-                required
-              />
-            </Field>
-          </div>
-          <h3>Business information</h3>
-          <p>
-            These details appear on your business listing. Use business contact
-            information. Do not enter a home street address, tax ID, or identity
-            document here. Licensing and insurance statements are self-reported.
-          </p>
-          <div className="form-grid">
-            {businessFields.map((field) => (
-              <Field key={field.key} label={field.label}>
-                <input
-                  name={field.key}
-                  defaultValue={p?.details?.[field.key] || ""}
-                  required={"required" in field && field.required}
-                  type={"type" in field ? field.type : "text"}
-                  maxLength={1000}
-                />
-              </Field>
-            ))}
-            <Field label="Business type">
-              <select
-                name="businessType"
-                defaultValue={p?.details?.businessType}
-              >
-                {[
-                  "Sole proprietor",
-                  "LLC",
-                  "Corporation",
-                  "Partnership",
-                  "Other",
-                ].map((t) => (
-                  <option key={t}>{t}</option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Years of experience">
-              <input
-                name="yearsExperience"
-                type="number"
-                min="0"
-                max="100"
-                required
-                defaultValue={p?.details?.yearsExperience ?? 0}
-              />
-            </Field>
-            <Field label="Team size">
-              <input
-                name="teamSize"
-                type="number"
-                min="1"
-                max="10000"
-                required
-                defaultValue={p?.details?.teamSize ?? 1}
-              />
-            </Field>
-          </div>
-          <Field label="About your business">
-            <textarea
-              name="bio"
-              defaultValue={p?.bio}
-              minLength={20}
-              maxLength={2000}
-              rows={5}
-              required
-            />
-          </Field>
-          <label className="checkbox">
-            <input
-              name="available"
-              type="checkbox"
-              defaultChecked={p?.available ?? true}
-            />
-            Accepting new requests
-          </label>
-          <fieldset className="days">
-            <legend>Working days</legend>
-            {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
-              <label key={day}>
-                <input
-                  type="checkbox"
-                  name="days"
-                  value={day}
-                  defaultChecked={p?.availability.includes(day)}
-                />
-                {day}
-              </label>
-            ))}
-          </fieldset>
-          <p className="muted">
-            Working days express your preferences. Confirm each appointment with
-            your customer.
-          </p>
-          <button>Save business profile</button>
-        </Form>
-      </Panel>
-      <div className="two-columns">
-        <Panel title="Identity verification">
-          <ShieldCheck />
-          <p>
-            {p?.verified
-              ? "Your identity has been verified."
-              : "Your listing stays private until Stripe verifies your identity. Documents are submitted directly to Stripe."}
-          </p>
-          <button
-            disabled={busy || !p || p.verified}
-            onClick={() =>
-              void run(async () => {
-                const r = await request("/profile/identity", {});
-                await openExternal(r.url);
-              }, "")
-            }
-          >
-            {p?.verified ? "Verified" : "Verify with Stripe"}
-          </button>
-        </Panel>
-        <Panel title="Aplime subscription">
-          <p>
-            Only professional businesses pay Aplime. We do not collect customer
-            service payments or send professional payouts.
-          </p>
-          <button onClick={() => go("subscription")}>
-            Manage your business subscription →
-          </button>
-        </Panel>
-      </div>
-    </>
-  );
+  return <BusinessProfile />;
 }
 function CreditIcon() {
   return <CheckCircle2 />;

@@ -1,4 +1,4 @@
-import { businessFields } from "./shared/business.js";
+import { BusinessDisplay } from "./client/business-display.js";
 import { categories, type Profile } from "./shared/domain.js";
 import { Brand, LinkButton, ServiceIcon } from "./client/ui.js";
 export const serviceCopy: Record<string, string> = {
@@ -48,15 +48,17 @@ export function PublicPage({
                 : "Service information"}
             </h1>
             <p>
-              Aplime connects customers and home-service professionals.
-              Your account, project, and conversation information is used to
-              deliver the service. Identity documents are handled by Stripe
-              Identity rather than stored as project attachments.
+              Aplime connects customers and home-service professionals. Your
+              account, project, and conversation information is used to deliver
+              the service. Identity documents are handled by Stripe Identity
+              rather than stored as project attachments.
             </p>
             <p>
-              Professional subscriptions are billed through Stripe. Customers and professionals arrange service payments directly. Project files are stored
-              privately, and calling is provided by Daily. You can contact
-              support from your account to request help or account deletion.
+              Professional subscriptions are billed through Stripe. Customers
+              and professionals arrange service payments directly. Project files
+              are stored privately, and calling is provided by Daily. You can
+              contact support from your account to request help or account
+              deletion.
             </p>
             <p>
               For questions about your information or a service experience,
@@ -69,28 +71,15 @@ export function PublicPage({
             <LinkButton href="/">Back to home</LinkButton>
           </section>
         ) : profile ? (
-          <section className="panel profile-public">
-            <p className="eyebrow">
-              {profile.category} · {profile.zip}
-            </p>
-            <h1>{profile.business}</h1>
-            <p className="lede">{profile.bio}</p>
-            <p>Identity verified · {profile.name}</p>
-            {profile.details?.legalName && <section>
-              <h2>Business details</h2>
-              <p>Business information, licenses, and insurance below are supplied by the professional. Identity verification does not verify trade qualifications.</p>
-              <dl>{businessFields.filter(field => profile.details?.[field.key]).map(field => <div key={field.key}><dt>{field.label}</dt><dd>{profile.details?.[field.key]}</dd></div>)}</dl>
-              <p>{profile.details.yearsExperience} years of experience · Team of {profile.details.teamSize} · {profile.details.businessType}</p>
-            </section>}
-            <p>
-              Starting at ${profile.rate} per hour. Final pricing is provided in
-              your project estimate.
-            </p>
-            <LinkButton
-              href={"/app/discover?pro=" + encodeURIComponent(profile.id)}
-            >
-              Discuss your project
-            </LinkButton>
+          <section className="profile-public">
+            <BusinessDisplay profile={profile} />
+            <div className="business-public-action">
+              <LinkButton
+                href={"/app/projects/" + encodeURIComponent(profile.id)}
+              >
+                Request an estimate
+              </LinkButton>
+            </div>
           </section>
         ) : (
           <>
@@ -130,10 +119,22 @@ export function PublicPage({
                   <a href="/app/register?role=pro">Grow your business →</a>
                 </div>
                 <div className="trust-row" aria-label="Why use Aplime">
-                  <span><b>✓</b><strong>Trusted professionals</strong></span>
-                  <span><b>◆</b><strong>Safe and reliable</strong></span>
-                  <span><b>◷</b><strong>Fast booking</strong></span>
-                  <span><b>⌁</b><strong>A happier home</strong></span>
+                  <span>
+                    <b>✓</b>
+                    <strong>Trusted professionals</strong>
+                  </span>
+                  <span>
+                    <b>◆</b>
+                    <strong>Safe and reliable</strong>
+                  </span>
+                  <span>
+                    <b>◷</b>
+                    <strong>Fast booking</strong>
+                  </span>
+                  <span>
+                    <b>⌁</b>
+                    <strong>A happier home</strong>
+                  </span>
                 </div>
               </div>
               <div className="hero-image">
