@@ -1797,6 +1797,151 @@ blockquote {
   }
 }
 
-.session-choice { display:flex; align-items:flex-start; gap:10px; margin:0 0 20px; font-size:14px; color:#234236; }
-.session-choice input { width:18px; height:18px; margin-top:2px; accent-color:#087a46; }
-.session-choice small { display:block; margin-top:4px; font-size:12px; color:#526c61; }
+.session-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0 0 20px;
+  font-size: 14px;
+  color: #234236;
+}
+.session-choice input {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  accent-color: #087a46;
+}
+.session-choice small {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: #526c61;
+}
+
+/* Customer project request and accessible photo selection. */
+.project-details-fields {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.project-details-fields > h3,
+.photo-heading h3 {
+  margin: 0 0 8px;
+  color: #102b24;
+}
+.project-details-fields > p,
+.photo-heading p,
+.photo-dropzone p,
+.project-submit p {
+  color: #4a6058;
+  line-height: 1.6;
+}
+.project-photos {
+  margin: 28px 0;
+}
+.photo-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 16px;
+}
+.photo-heading h3 small {
+  font-size: 0.85rem;
+  font-weight: 400;
+}
+.photo-heading > strong {
+  white-space: nowrap;
+  background: #e5f4e9;
+  padding: 8px 12px;
+  border-radius: 20px;
+  color: #155736;
+}
+.photo-dropzone {
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+  border: 2px dashed #95b5a3;
+  border-radius: 16px;
+  padding: 24px;
+  background: #f6faf7;
+  text-align: center;
+}
+.photo-dropzone label {
+  font-weight: 700;
+  color: #163f2c;
+}
+.photo-dropzone input {
+  max-width: 100%;
+}
+.photo-dropzone p {
+  margin: 0;
+  font-size: 0.85rem;
+}
+.photo-error {
+  color: #a32222;
+}
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(145px, 1fr));
+  gap: 14px;
+}
+.photo-grid figure {
+  position: relative;
+  margin: 0;
+  border: 1px solid #d4e0d7;
+  border-radius: 12px;
+  overflow: hidden;
+  background: white;
+}
+.photo-grid img {
+  width: 100%;
+  height: 140px;
+  object-fit: cover;
+  display: block;
+}
+.photo-grid figcaption {
+  padding: 10px;
+  min-width: 0;
+}
+.photo-grid figcaption strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.8rem;
+}
+.photo-grid figcaption small {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #486153;
+  margin-top: 5px;
+}
+.photo-remove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  padding: 10px;
+  min-height: 40px;
+  background: white;
+  color: #173c28;
+  box-shadow: 0 1px 8px #0003;
+}
+.project-submit {
+  padding: 20px;
+  border-radius: 14px;
+  background: #f0f6f2;
+  border: 1px solid #d3e2d8;
+}
+.project-submit .actions {
+  flex-wrap: wrap;
+}
+@media (max-width: 520px) {
+  .photo-dropzone {
+    padding: 16px;
+  }
+  .project-submit .actions button {
+    width: 100%;
+  }
+}

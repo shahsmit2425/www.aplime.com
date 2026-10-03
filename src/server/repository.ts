@@ -31,7 +31,9 @@ export async function workspace(user: User): Promise<Workspace> {
   const profiles = (
     await pool.query(
       profileSelect +
-        (admin ? "" : " WHERE (p.verified AND NOT p.suspended AND EXISTS (SELECT 1 FROM professional_subscriptions s WHERE s.user_id=p.id AND s.status IN ('active','trialing'))) OR p.id=$1") +
+        (admin
+          ? ""
+          : " WHERE (p.verified AND NOT p.suspended AND EXISTS (SELECT 1 FROM professional_subscriptions s WHERE s.user_id=p.id AND s.status IN ('active','trialing'))) OR p.id=$1") +
         " ORDER BY p.business LIMIT 500",
       params,
     )
@@ -86,8 +88,8 @@ export async function workspace(user: User): Promise<Workspace> {
       [user.id],
     ),
     pool.query(
-      "SELECT id,project_id,name,content_type,size,status FROM uploads WHERE project_id=ANY($1::uuid[]) AND status='ready' ORDER BY created_at",
-      [admin ? [] : ids],
+      "SELECT id,project_id,name,content_type,size,status FROM uploads WHERE project_id=ANY($1::uuid[]) AND (status='ready' OR user_id=$2) ORDER BY created_at",
+      [admin ? [] : ids, user.id],
     ),
     pool.query("SELECT pro_id FROM saved WHERE user_id=$1", [user.id]),
     pool.query("SELECT other_id FROM blocked WHERE user_id=$1", [user.id]),

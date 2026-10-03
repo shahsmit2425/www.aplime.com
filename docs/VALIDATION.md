@@ -51,3 +51,10 @@ Project checkout and new Connect onboarding return HTTP 410. Customer payments a
 Expanded public business information is validated on the API and stored in profiles.details. Contact information is explicitly public; licensing and insurance are self-reported and are not represented as verified. No tax IDs, home street addresses, or identity documents are requested in the profile.
 
 Live Stripe recurring price, Customer Portal configuration, webhook delivery, failed renewal, cancellation, resubscription, and Identity verification still require Stripe test-mode validation. Native purchases/distribution have not been validated; mobile releases remain deferred. Do not publish mobile subscription checkout until store policy and billing implementation are reviewed for the intended distribution.
+
+
+## Customer project photos
+
+Project creation offers up to five optional JPG/PNG/WebP images, 10 MB each, with previews and removal before submission. Uploads follow project creation; failures retain the saved project and reservation IDs while the form remains open, allowing retries without creating another project. Already completed photos are skipped. Reloading/leaving the form discards local file selections. Pending reservations count toward the five-image cap. Their owner can remove unfinished uploads from the project attachments section to release slots after leaving the form. Existing PDF project attachments remain supported separately.
+
+The API serializes reservations with a project row lock, checks membership and ownership on retries/completion, and verifies object metadata before marking uploads ready. File checks cover declared MIME type and size, not antivirus scanning. Automated tests cover file validation and database reservation limits. Live authenticated browser/R2 uploads, bucket CORS, connection interruption, and signed mobile builds still need development-environment validation; local checks do not establish deployment success.

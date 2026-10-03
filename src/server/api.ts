@@ -1,3 +1,5 @@
+import { reserveUpload } from "./uploads.js";
+import { uploadSchema } from "../shared/uploads.js";
 import { subscriptions } from "./subscriptions.js";
 import { Router, json, type Request } from "express";
 import { randomUUID } from "node:crypto";
@@ -386,7 +388,10 @@ api.get("/location/:zip", async (req, res) =>
 );
 // Retired project-payment routes fail closed for old clients.
 api.post(["/projects/:id/checkout", "/profile/connect"], () => {
-  fail(410, "Aplime does not process payments between customers and professionals.");
+  fail(
+    410,
+    "Aplime does not process payments between customers and professionals.",
+  );
 });
 api.post("/profile/identity", async (req, res) => {
   const q = req as AuthRequest;
@@ -459,42 +464,30 @@ api.get("/payments/:id/receipt", async (req, res) => {
 api.post("/projects/:id/uploads", async (req, res) => {
   const q = req as AuthRequest;
   const p = await memberProject(String(q.params.id), q.account);
-  const data = z
-    .object({
-      name: z.string().trim().min(1).max(160),
-      contentType: z.enum([
-        "image/jpeg",
-        "image/png",
-        "image/webp",
-        "application/pdf",
-      ]),
-      size: z
-        .number()
-        .int()
-        .min(1)
-        .max(10 * 1024 * 1024),
-    })
-    .strict()
-    .parse(q.body);
-  if (
-    (
-      await pool.query(
-        "SELECT count(*)::int AS n FROM uploads WHERE project_id=$1",
-        [p.id],
-      )
-    ).rows[0].n >= 50
-  )
-    fail(409, "This project has reached its attachment limit.");
+  const data = uploadSchema.parse(q.body);
   const id = randomUUID(),
     key = env.APP_ENV + "/" + p.id + "/" + id;
   const url = await uploadUrl(key, data.contentType, data.size);
-  await pool.query(
-    "INSERT INTO uploads(id,project_id,user_id,object_key,name,content_type,size) VALUES($1,$2,$3,$4,$5,$6,$7)",
-    [id, p.id, q.account.id, key, data.name, data.contentType, data.size],
-  );
+  await reserveUpload(id, p.id, q.account.id, key, data);
   res.json({ id, url });
 });
-api.post("/uploads/:id/complete", async (req, res) => {
+api.delete("/uploads/:id", async (req, res) => {
+  const q = req as AuthRequest;
+  await transaction(async (c) => {
+    const f = (
+      await c.query(
+        "SELECT * FROM uploads WHERE id=$1 AND user_id=$2 AND status='pending' FOR UPDATE",
+        [z.string().uuid().parse(q.params.id), q.account.id],
+      )
+    ).rows[0];
+    if (!f) fail(404, "Unfinished upload not found.");
+    await memberProject(f.project_id, q.account);
+    await removeObject(f.object_key);
+    await c.query("DELETE FROM uploads WHERE id=$1", [f.id]);
+  });
+  res.json({ ok: true });
+});
+api.post("/uploads/:id/retry", async (req, res) => {
   const q = req as AuthRequest;
   const f = (
     await pool.query("SELECT * FROM uploads WHERE id=$1 AND user_id=$2", [
@@ -503,12 +496,35 @@ api.post("/uploads/:id/complete", async (req, res) => {
     ])
   ).rows[0];
   if (!f) fail(404, "Upload not found.");
-  const head = await inspectObject(f.object_key);
-  if (head.ContentLength !== f.size || head.ContentType !== f.content_type) {
-    await removeObject(f.object_key);
-    fail(400, "Uploaded file does not match its declared type or size.");
-  }
-  await pool.query("UPDATE uploads SET status='ready' WHERE id=$1", [f.id]);
+  await memberProject(f.project_id, q.account);
+  res.json({
+    id: f.id,
+    ready: f.status === "ready",
+    url:
+      f.status === "ready"
+        ? undefined
+        : await uploadUrl(f.object_key, f.content_type, f.size),
+  });
+});
+api.post("/uploads/:id/complete", async (req, res) => {
+  const q = req as AuthRequest;
+  await transaction(async (c) => {
+    const f = (
+      await c.query(
+        "SELECT * FROM uploads WHERE id=$1 AND user_id=$2 FOR UPDATE",
+        [z.string().uuid().parse(q.params.id), q.account.id],
+      )
+    ).rows[0];
+    if (!f) fail(404, "Upload not found.");
+    await memberProject(f.project_id, q.account);
+    if (f.status === "ready") return;
+    const head = await inspectObject(f.object_key);
+    if (head.ContentLength !== f.size || head.ContentType !== f.content_type) {
+      await removeObject(f.object_key);
+      fail(400, "Uploaded file does not match its declared type or size.");
+    }
+    await c.query("UPDATE uploads SET status='ready' WHERE id=$1", [f.id]);
+  });
   res.json({ ok: true });
 });
 api.get("/uploads/:id", async (req, res) => {

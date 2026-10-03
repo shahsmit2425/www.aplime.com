@@ -1,3 +1,8 @@
+import {
+  ProjectPhotos,
+  sendProjectPhoto,
+  type ProjectPhoto,
+} from "./project-photos.js";
 import { businessFields } from "../shared/business.js";
 import { useEffect, useState } from "react";
 import {
@@ -378,6 +383,9 @@ function Projects() {
       useState<ServiceCategory>(initialCategory),
     [status, setStatus] = useState(""),
     [search, setSearch] = useState("");
+  const [photos, setPhotos] = useState<ProjectPhoto[]>([]);
+  const [savedProjectId, setSavedProjectId] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState("");
   const source = page === "leads" ? data.leads : data.projects;
   return (
     <>
@@ -391,7 +399,13 @@ function Projects() {
         }
         action={
           data.user.role === "customer" ? (
-            <button onClick={() => setCreating(!creating)}>
+            <button
+              disabled={busy || !!savedProjectId}
+              onClick={() => {
+                setPhotos([]);
+                setCreating(!creating);
+              }}
+            >
               <Plus size={17} />
               New project
             </button>
@@ -417,130 +431,206 @@ function Projects() {
             busy={busy}
             onSubmit={(f) =>
               run(async () => {
-                const result = await request("/projects", {
-                  title: f.get("title"),
-                  description: f.get("description"),
-                  category: projectCategory,
-                  intake: Object.fromEntries(
-                    questionsFor(projectCategory).map((question) => [
-                      question.id,
-                      String(f.get("intake_" + question.id) || "").trim(),
-                    ]),
-                  ),
-                  zip: f.get("zip"),
-                  proId: id || null,
-                  scheduledAt: f.get("scheduledAt")
-                    ? new Date(String(f.get("scheduledAt"))).toISOString()
-                    : null,
-                });
+                const result = savedProjectId
+                  ? { id: savedProjectId }
+                  : await request("/projects", {
+                      title: f.get("title"),
+                      description: f.get("description"),
+                      category: projectCategory,
+                      intake: Object.fromEntries(
+                        questionsFor(projectCategory).map((question) => [
+                          question.id,
+                          String(f.get("intake_" + question.id) || "").trim(),
+                        ]),
+                      ),
+                      zip: f.get("zip"),
+                      proId: id || null,
+                      scheduledAt: f.get("scheduledAt")
+                        ? new Date(String(f.get("scheduledAt"))).toISOString()
+                        : null,
+                    });
+                setSavedProjectId(result.id);
+                try {
+                  for (let index = 0; index < photos.length; index++) {
+                    setUploadProgress(
+                      `Uploading photo ${index + 1} of ${photos.length}…`,
+                    );
+                    await sendProjectPhoto(result.id, photos[index]);
+                    setPhotos([...photos]);
+                  }
+                } catch (error) {
+                  setUploadProgress(
+                    "Your project is saved. Some photos could not be uploaded. Retry below, or open your project to continue later.",
+                  );
+                  throw error;
+                }
+                setUploadProgress("");
                 setCreating(false);
                 go("project", result.id);
               }, "Project created.")
             }
           >
-            <div className="form-grid">
-              <Field label="Project title">
-                <input name="title" required minLength={5} maxLength={120} />
-              </Field>
-              <Field label="Service">
-                <select
-                  name="category"
-                  value={projectCategory}
-                  disabled={!!selectedProfessional}
-                  onChange={(event) =>
-                    setProjectCategory(event.target.value as ServiceCategory)
-                  }
-                >
-                  {categories.map((c) => (
-                    <option key={c}>{c}</option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="ZIP code">
-                <input
-                  name="zip"
-                  pattern="[0-9]{5}"
-                  maxLength={5}
-                  inputMode="numeric"
+            <fieldset
+              disabled={!!savedProjectId}
+              className="project-details-fields"
+            >
+              <h3>1. Describe your project</h3>
+              <p>Fields are required unless marked optional.</p>
+              <div className="form-grid">
+                <Field label="Project title">
+                  <input
+                    name="title"
+                    placeholder="For example, repair a leaking kitchen faucet"
+                    required
+                    minLength={5}
+                    maxLength={120}
+                  />
+                </Field>
+                <Field label="Service">
+                  <select
+                    name="category"
+                    value={projectCategory}
+                    disabled={!!selectedProfessional}
+                    onChange={(event) =>
+                      setProjectCategory(event.target.value as ServiceCategory)
+                    }
+                  >
+                    {categories.map((c) => (
+                      <option key={c}>{c}</option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="ZIP code">
+                  <input
+                    name="zip"
+                    pattern="[0-9]{5}"
+                    maxLength={5}
+                    inputMode="numeric"
+                    required
+                  />
+                </Field>
+                <Field label="Preferred appointment (optional)">
+                  <input name="scheduledAt" type="datetime-local" />
+                </Field>
+              </div>
+              <Field label="What needs to be done?">
+                <textarea
+                  name="description"
                   required
+                  minLength={20}
+                  maxLength={4000}
+                  rows={4}
+                  placeholder="Describe the problem, where it is, and what you would like done (at least 20 characters)."
                 />
               </Field>
-              <Field label="Preferred appointment (optional)">
-                <input name="scheduledAt" type="datetime-local" />
-              </Field>
-            </div>
-            <Field label="What needs to be done?">
-              <textarea
-                name="description"
-                required
-                minLength={20}
-                maxLength={4000}
-                rows={4}
-              />
-            </Field>
-            <section className="project-questionnaire">
-              <div className="questionnaire-heading">
-                <span className="category-icon">
-                  <ServiceIcon service={projectCategory} size={21} />
-                </span>
-                <div>
-                  <h3>{projectCategory} details</h3>
-                  <p>
-                    These answers help professionals assess the job before
-                    contacting you.
-                  </p>
+              <section className="project-questionnaire">
+                <div className="questionnaire-heading">
+                  <span className="category-icon">
+                    <ServiceIcon service={projectCategory} size={21} />
+                  </span>
+                  <div>
+                    <h3>2. {projectCategory} details</h3>
+                    <p>
+                      These answers help professionals assess the job before
+                      contacting you.
+                    </p>
+                  </div>
                 </div>
-              </div>
-              {(projectCategory === "Plumbing" ||
-                projectCategory === "Electrical") && (
-                <p className="safety-note" role="note">
-                  If there is immediate danger, fire, flooding, gas, or exposed
-                  live wiring, leave the area and contact emergency services or
-                  the appropriate utility. Aplime is not an emergency service.
-                </p>
-              )}
-              <div className="questionnaire-grid">
-                {questionsFor(projectCategory).map((question) => (
-                  <Field
-                    label={question.label}
-                    key={projectCategory + ":" + question.id}
+                {(projectCategory === "Plumbing" ||
+                  projectCategory === "Electrical") && (
+                  <p className="safety-note" role="note">
+                    If there is immediate danger, fire, flooding, gas, or
+                    exposed live wiring, leave the area and contact emergency
+                    services or the appropriate utility. Aplime is not an
+                    emergency service.
+                  </p>
+                )}
+                <div className="questionnaire-grid">
+                  {questionsFor(projectCategory).map((question) => (
+                    <Field
+                      label={question.label}
+                      key={projectCategory + ":" + question.id}
+                    >
+                      {question.type === "select" ? (
+                        <select
+                          name={"intake_" + question.id}
+                          required={question.required}
+                          defaultValue=""
+                        >
+                          <option value="" disabled>
+                            Select an answer
+                          </option>
+                          {question.options?.map((option) => (
+                            <option key={option}>{option}</option>
+                          ))}
+                        </select>
+                      ) : question.type === "textarea" ? (
+                        <textarea
+                          name={"intake_" + question.id}
+                          required={question.required}
+                          minLength={question.required ? 3 : undefined}
+                          maxLength={1500}
+                          rows={3}
+                          placeholder={question.placeholder}
+                        />
+                      ) : (
+                        <input
+                          name={"intake_" + question.id}
+                          required={question.required}
+                          minLength={question.required ? 2 : undefined}
+                          maxLength={1500}
+                          placeholder={question.placeholder}
+                        />
+                      )}
+                    </Field>
+                  ))}
+                </div>
+              </section>
+            </fieldset>
+            <ProjectPhotos
+              photos={photos}
+              onChange={setPhotos}
+              disabled={busy || !!savedProjectId}
+            />
+            <div className="project-submit">
+              <p>
+                Send your request to start discussing the work. This does not
+                confirm an appointment or make a payment.
+              </p>
+              <p role="status" aria-live="polite">
+                {uploadProgress}
+              </p>
+              <div className="actions">
+                <button>
+                  {busy
+                    ? "Saving your project…"
+                    : savedProjectId
+                      ? "Retry remaining photos"
+                      : "Send project request"}
+                </button>
+                {savedProjectId && (
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => go("project", savedProjectId)}
                   >
-                    {question.type === "select" ? (
-                      <select
-                        name={"intake_" + question.id}
-                        required={question.required}
-                        defaultValue=""
-                      >
-                        <option value="" disabled>
-                          Select an answer
-                        </option>
-                        {question.options?.map((option) => (
-                          <option key={option}>{option}</option>
-                        ))}
-                      </select>
-                    ) : question.type === "textarea" ? (
-                      <textarea
-                        name={"intake_" + question.id}
-                        required={question.required}
-                        minLength={question.required ? 3 : undefined}
-                        maxLength={1500}
-                        rows={3}
-                        placeholder={question.placeholder}
-                      />
-                    ) : (
-                      <input
-                        name={"intake_" + question.id}
-                        required={question.required}
-                        minLength={question.required ? 2 : undefined}
-                        maxLength={1500}
-                        placeholder={question.placeholder}
-                      />
-                    )}
-                  </Field>
-                ))}
+                    Open saved project
+                  </button>
+                )}
+                {!savedProjectId && (
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => {
+                      setPhotos([]);
+                      setCreating(false);
+                    }}
+                  >
+                    Cancel
+                  </button>
+                )}
               </div>
-            </section>
-            <button>Create project</button>
+            </div>
           </Form>
         </Panel>
       )}
@@ -829,8 +919,8 @@ function ProjectDetail() {
       {own && (
         <Panel title="Project attachments">
           <p>
-            Share photos or project documents. Do not upload identity documents
-            here; use your business verification flow.
+            Share up to 5 photos, or project documents. Do not upload identity
+            documents here; use your business verification flow.
           </p>
           <Field label="Upload a photo or PDF (up to 10 MB)">
             <input
@@ -866,11 +956,16 @@ function ProjectDetail() {
                 className="secondary"
                 onClick={() =>
                   void run(async () => {
-                    const r = await request("/uploads/" + f.id);
-                    await openExternal(r.url);
+                    if (f.status === "pending") {
+                      await request("/uploads/" + f.id, undefined, "DELETE");
+                    } else {
+                      const r = await request("/uploads/" + f.id);
+                      await openExternal(r.url);
+                    }
                   }, "")
                 }
               >
+                {f.status === "pending" ? "Remove unfinished upload: " : ""}
                 {f.name}
               </button>
             ))}

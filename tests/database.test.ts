@@ -310,12 +310,14 @@ test("subscription webhooks use current Stripe state and match stored customers"
       );
       assert.equal(response.status, 200);
       assert.equal(
-        ((
-          await query(
-            "SELECT status FROM professional_subscriptions WHERE user_id=$1",
-            [professional.id],
-          )
-        ).rows[0] as {status: string}).status,
+        (
+          (
+            await query(
+              "SELECT status FROM professional_subscriptions WHERE user_id=$1",
+              [professional.id],
+            )
+          ).rows[0] as { status: string }
+        ).status,
         status,
       );
     }
@@ -323,4 +325,52 @@ test("subscription webhooks use current Stripe state and match stored customers"
     stripe().subscriptions.retrieve = original;
     await new Promise<void>((r) => server.close(() => r()));
   }
+});
+
+test("project image reservations count pending files and reject the sixth image", async () => {
+  const { reserveUpload } = await import("../src/server/uploads.js");
+  const projectId = randomUUID();
+  await query(
+    "INSERT INTO projects(id,customer_id,title,description,category,zip) VALUES($1,$2,$3,$4,$5,$6)",
+    [
+      projectId,
+      customer.id,
+      "Photo limit test",
+      "A project for testing image limits",
+      "Handyman",
+      "10001",
+    ],
+  );
+  for (let index = 0; index < 5; index++) {
+    const id = randomUUID();
+    await reserveUpload(id, projectId, customer.id, id, {
+      name: "photo.jpg",
+      contentType: "image/jpeg",
+      size: 100,
+    });
+  }
+  await assert.rejects(
+    () =>
+      reserveUpload(randomUUID(), projectId, customer.id, randomUUID(), {
+        name: "sixth.png",
+        contentType: "image/png",
+        size: 100,
+      }),
+    /up to 5 images/,
+  );
+  assert.equal(
+    (
+      await db.query<{ n: number }>(
+        "SELECT count(*)::int AS n FROM uploads WHERE project_id=$1",
+        [projectId],
+      )
+    ).rows[0].n,
+    5,
+  );
+  const docId = randomUUID();
+  await reserveUpload(docId, projectId, customer.id, docId, {
+    name: "specification.pdf",
+    contentType: "application/pdf",
+    size: 100,
+  });
 });
