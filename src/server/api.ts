@@ -1,3 +1,4 @@
+import { notificationStream } from "./notification-stream.js";
 import { discussions } from "./discussions.js";
 import { reserveUpload } from "./uploads.js";
 import { uploadSchema } from "../shared/uploads.js";
@@ -21,6 +22,7 @@ import { verifyToken } from "./integrations/firebase.js";
 import { env, publicConfig } from "./config.js";
 import { fail } from "./errors.js";
 import {
+  notifyAdministrators,
   publicProfiles,
   workspace,
   getProject,
@@ -108,16 +110,29 @@ api.post("/account", async (req, res) => {
   const q = req as AuthRequest;
   const data = signupSchema.parse(q.body);
   if (q.account) return res.json(q.account);
-  await pool.query(
-    "INSERT INTO users(id,email,name,role) VALUES($1,$2,$3,$4) ON CONFLICT(id) DO NOTHING",
-    [q.identity.uid, q.identity.email, data.name, data.role],
-  );
+  await transaction(async (c) => {
+    const created = await c.query(
+      "INSERT INTO users(id,email,name,role) VALUES($1,$2,$3,$4) ON CONFLICT(id) DO NOTHING RETURNING id",
+      [q.identity.uid, q.identity.email, data.name, data.role],
+    );
+    if (created.rowCount)
+      await notify(
+        c,
+        q.identity.uid,
+        "Welcome to Aplime",
+        data.role === "pro"
+          ? "Complete your business profile, identity verification, and subscription to respond to opportunities."
+          : "Create a project or find a professional to get started.",
+        { page: data.role === "pro" ? "profile" : "dashboard" },
+      );
+  });
   res.status(201).json({ ok: true });
 });
 api.use((req, _res, next) => {
   if (!(req as AuthRequest).account) fail(428, "Complete your account setup.");
   next();
 });
+api.get("/notifications/stream", notificationStream);
 api.use("/subscription", subscriptions);
 api.get("/workspace", async (q, r) =>
   r.json(await workspace((q as AuthRequest).account)),
@@ -199,11 +214,31 @@ api.post("/projects", async (req, res) => {
         "UPDATE projects SET proposed_at=$2,proposed_by=$3 WHERE id=$1",
         [id, p.scheduledAt, q.account.id],
       );
+    if (!p.proId) {
+      const eligible = (
+        await c.query(
+          "SELECT f.id FROM profiles f JOIN professional_subscriptions s ON s.user_id=f.id WHERE f.category=$1 AND f.verified AND NOT f.suspended AND f.available AND s.status IN ('active','trialing') AND NOT EXISTS(SELECT 1 FROM blocked b WHERE (b.user_id=$2 AND b.other_id=f.id) OR (b.user_id=f.id AND b.other_id=$2))",
+          [p.category, q.account.id],
+        )
+      ).rows;
+      for (const pro of eligible)
+        await notify(
+          c,
+          pro.id,
+          "New service opportunity",
+          p.category +
+            " request in ZIP " +
+            p.zip +
+            ". Review the scope before responding.",
+          { page: "project", id },
+        );
+    }
     await notify(
       c,
       p.proId,
       "New project request",
       "A customer sent you a project request.",
+      { page: "project", id },
     );
   });
   res.status(201).json({ id });
@@ -256,6 +291,7 @@ api.post("/projects/:id/messages", async (req, res) => {
       other,
       "New project message",
       "You have a new message about " + p.title + ".",
+      { page: "messages", id: p.id },
     );
   });
   res.json({ ok: true });
@@ -287,6 +323,7 @@ api.post("/projects/:id/call", async (req, res) => {
       other,
       "Join a project call",
       "Open " + p.title + " and select the call button to join.",
+      { page: "messages", id: p.id },
     ),
   );
   res.json(room);
@@ -303,10 +340,19 @@ api.post("/projects/:id/review", async (req, res) => {
     .parse(q.body);
   if (q.account.id !== p.customerId || p.status !== "completed" || !p.proId)
     fail(403, "Only the customer can review completed work.");
-  await pool.query(
-    "INSERT INTO reviews(id,project_id,pro_id,rating,body) VALUES($1,$2,$3,$4,$5)",
-    [randomUUID(), p.id, p.proId, data.rating, data.body],
-  );
+  await transaction(async (c) => {
+    await c.query(
+      "INSERT INTO reviews(id,project_id,pro_id,rating,body) VALUES($1,$2,$3,$4,$5)",
+      [randomUUID(), p.id, p.proId, data.rating, data.body],
+    );
+    await notify(
+      c,
+      p.proId,
+      "New customer review",
+      p.title + ": a customer shared their experience.",
+      { page: "reviews" },
+    );
+  });
   res.json({ ok: true });
 });
 api.post("/reviews/:id/reply", async (req, res) => {
@@ -315,15 +361,27 @@ api.post("/reviews/:id/reply", async (req, res) => {
     .object({ reply: z.string().trim().min(2).max(1500) })
     .strict()
     .parse(q.body);
-  if (
-    !(
-      await pool.query(
-        "UPDATE reviews SET reply=$3 WHERE id=$1 AND pro_id=$2 RETURNING id",
+  await transaction(async (c) => {
+    const r = (
+      await c.query(
+        "UPDATE reviews SET reply=$3 WHERE id=$1 AND pro_id=$2 RETURNING project_id",
         [z.string().uuid().parse(q.params.id), q.account.id, reply],
       )
-    ).rowCount
-  )
-    fail(403, "You can reply only to your own reviews.");
+    ).rows[0];
+    if (!r) fail(403, "You can reply only to your own reviews.");
+    const p = (
+      await c.query("SELECT customer_id FROM projects WHERE id=$1", [
+        r.project_id,
+      ])
+    ).rows[0];
+    await notify(
+      c,
+      p.customer_id,
+      "Professional replied to your review",
+      "Open your reviews to read the response.",
+      { page: "reviews" },
+    );
+  });
   res.json({ ok: true });
 });
 api.post("/saved/:id", async (req, res) => {
@@ -367,10 +425,18 @@ api.post("/blocked/:id", async (req, res) => {
     ]);
   res.json({ ok: true });
 });
+api.post("/notifications/:id/read", async (req, res) => {
+  await pool.query(
+    "UPDATE notifications SET read=true WHERE id=$1 AND user_id=$2 AND NOT read",
+    [z.string().uuid().parse(req.params.id), req.account.id],
+  );
+  res.json({ ok: true });
+});
 api.post("/notifications/read", async (req, res) => {
-  await pool.query("UPDATE notifications SET read=true WHERE user_id=$1", [
-    (req as AuthRequest).account.id,
-  ]);
+  await pool.query(
+    "UPDATE notifications SET read=true WHERE user_id=$1 AND NOT read",
+    [(req as AuthRequest).account.id],
+  );
   res.json({ ok: true });
 });
 api.post("/support", async (req, res) => {
@@ -382,10 +448,24 @@ api.post("/support", async (req, res) => {
     })
     .strict()
     .parse(q.body);
-  await pool.query(
-    "INSERT INTO tickets(id,user_id,subject,body) VALUES($1,$2,$3,$4)",
-    [randomUUID(), q.account.id, data.subject, data.body],
-  );
+  await transaction(async (c) => {
+    await c.query(
+      "INSERT INTO tickets(id,user_id,subject,body) VALUES($1,$2,$3,$4)",
+      [randomUUID(), q.account.id, data.subject, data.body],
+    );
+    await notifyAdministrators(
+      c,
+      "New support request",
+      "A user opened a support request. Review it in the administrator console.",
+    );
+    await notify(
+      c,
+      q.account.id,
+      "Support request received",
+      "Your support request was saved. View its status in Help.",
+      { page: "help" },
+    );
+  });
   res.json({ ok: true });
 });
 api.get("/location/:zip", async (req, res) =>
@@ -536,6 +616,14 @@ api.post("/uploads/:id/complete", async (req, res) => {
       fail(400, "Uploaded file does not match its declared type or size.");
     }
     await c.query("UPDATE uploads SET status='ready' WHERE id=$1", [f.id]);
+    const p = await memberProject(f.project_id, q.account);
+    await notify(
+      c,
+      p.customerId === q.account.id ? p.proId : p.customerId,
+      "New project attachment",
+      "A participant added a file to " + p.title + ".",
+      { page: "project", id: p.id },
+    );
   });
   res.json({ ok: true });
 });
@@ -554,6 +642,14 @@ api.use("/admin", (req, _res, next) => {
   if ((req as AuthRequest).account.role !== "admin")
     fail(403, "Administrator access required.");
   next();
+});
+api.get("/admin/notifications/stream", notificationStream);
+api.post("/admin/notifications/read", async (req, res) => {
+  await pool.query(
+    "UPDATE notifications SET read=true WHERE user_id=$1 AND NOT read",
+    [req.account.id],
+  );
+  res.json({ ok: true });
 });
 api.get("/admin/workspace", async (q, r) => r.json(await workspace(q.account)));
 api.post("/admin/profiles/:id", async (req, res) => {
@@ -577,6 +673,13 @@ api.post("/admin/profiles/:id", async (req, res) => {
       q.account.id,
       suspended ? "suspend" : "restore",
       String(q.params.id),
+    );
+    await notify(
+      c,
+      String(q.params.id),
+      suspended ? "Business profile suspended" : "Business profile restored",
+      "Open your business profile or contact support for help.",
+      { page: "profile" },
     );
   });
   res.json({ ok: true });
@@ -637,7 +740,19 @@ api.post("/admin/tickets/:id", async (req, res) => {
       [t.id, resolution],
     );
     await audit(c, q.account.id, refund ? "refund" : "resolve", t.id);
-    await notify(c, t.user_id, "Support case resolved", resolution);
+    await notify(c, t.user_id, "Support case resolved", resolution, {
+      page: "help",
+    });
+    if (t.project_id) {
+      const p = await getProject(c, t.project_id);
+      await notify(
+        c,
+        t.user_id === p.customerId ? p.proId : p.customerId,
+        "Project issue resolved",
+        "Open your project for its updated status.",
+        { page: "project", id: p.id },
+      );
+    }
   });
   res.json({ ok: true });
 });

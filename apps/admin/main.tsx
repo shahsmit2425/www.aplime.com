@@ -95,6 +95,58 @@ function Admin() {
     }, 60000);
     return () => clearInterval(id);
   }, [!!data]);
+  useEffect(() => {
+    if (!data) return;
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let controller: AbortController | undefined;
+    const owner = auth.currentUser;
+    const connect = async () => {
+      controller = new AbortController();
+      const currentController = controller;
+      const timeout = setTimeout(() => currentController.abort(), 75000);
+      try {
+        const token = await owner?.getIdToken();
+        if (stopped) return;
+        const response = await fetch(
+          apiUrl + "/api/admin/notifications/stream",
+          {
+            headers: { Authorization: "Bearer " + token },
+            signal: controller.signal,
+          },
+        );
+        if (!response.ok || !response.body)
+          throw new Error("Live updates unavailable");
+        const reader = response.body.getReader(),
+          decoder = new TextDecoder();
+        let buffer = "";
+        while (!stopped) {
+          const chunk = await reader.read();
+          if (chunk.done) break;
+          buffer += decoder.decode(chunk.value, { stream: true });
+          let end: number;
+          while ((end = buffer.indexOf("\n\n")) >= 0) {
+            const event = buffer.slice(0, end);
+            buffer = buffer.slice(end + 2);
+            if (event.includes("data: changed")) {
+              const result = await request<Workspace>("/workspace");
+              if (!stopped && auth.currentUser === owner) setData(result);
+            }
+          }
+        }
+      } catch {
+      } finally {
+        clearTimeout(timeout);
+        if (!stopped) timer = setTimeout(() => void connect(), 3000);
+      }
+    };
+    void connect();
+    return () => {
+      stopped = true;
+      controller?.abort();
+      clearTimeout(timer);
+    };
+  }, [data?.user.id]);
   async function signedIn() {
     const u = auth.currentUser!;
     const t = await u.getIdTokenResult(true);
@@ -209,9 +261,7 @@ function Admin() {
                   </button>
                 ) : (
                   <>
-                    <p>
-                      Add this key to your authenticator app for Aplime:
-                    </p>
+                    <p>Add this key to your authenticator app for Aplime:</p>
                     <code className="secret">{secret.secretKey}</code>
                     <form
                       onSubmit={(e) => {
@@ -298,6 +348,34 @@ function Admin() {
               </button>
             </nav>
             <h1>{page}</h1>
+            {data.unreadCount > 0 && (
+              <section aria-label="New administrator updates">
+                <h2>{data.unreadCount} unread updates</h2>
+                <button onClick={() => setPage("Support")}>
+                  Open support cases
+                </button>
+                {data.notices
+                  .filter((n) => !n.read)
+                  .slice(0, 5)
+                  .map((n) => (
+                    <article key={n.id}>
+                      <strong>{n.title}</strong>
+                      <p>{n.body}</p>
+                    </article>
+                  ))}
+                <button
+                  disabled={busy}
+                  onClick={() =>
+                    void run(async () => {
+                      await request("/notifications/read", {});
+                      await load();
+                    })
+                  }
+                >
+                  Mark updates read
+                </button>
+              </section>
+            )}
             {page === "Overview" && (
               <div className="metrics">
                 {[

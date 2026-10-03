@@ -1,3 +1,5 @@
+import { watchNotifications } from "./live-notifications.js";
+import type { Notice } from "../shared/domain.js";
 import {
   createContext,
   useContext,
@@ -130,7 +132,9 @@ function RoleChoice({
         type="button"
         role="radio"
         aria-checked={value === "customer"}
-        className={value === "customer" ? "role-option selected" : "role-option"}
+        className={
+          value === "customer" ? "role-option selected" : "role-option"
+        }
         onClick={() => onChange("customer")}
       >
         <House size={22} />
@@ -173,6 +177,70 @@ export default function Workspace() {
     [notice, setNotice] = useState(""),
     [needsAccount, setNeedsAccount] = useState(false),
     [menu, setMenu] = useState(false);
+  const [liveConnected, setLiveConnected] = useState(false);
+  const [liveNotice, setLiveNotice] = useState<Notice | null>(null);
+  const knownNotices = useRef<{ user: string; ids: Set<string> }>({
+    user: "",
+    ids: new Set(),
+  });
+  useEffect(() => {
+    if (!data) {
+      knownNotices.current = { user: "", ids: new Set() };
+      setLiveNotice(null);
+      return;
+    }
+    const previous = knownNotices.current;
+    if (previous.user === data.user.id) {
+      const fresh = data.notices.find(
+        (n) => !n.read && !previous.ids.has(n.id),
+      );
+      if (fresh) setLiveNotice(fresh);
+    }
+    knownNotices.current = {
+      user: data.user.id,
+      ids: new Set(data.notices.map((n) => n.id)),
+    };
+  }, [data]);
+  useEffect(() => {
+    if (!liveNotice) return;
+    const timer = setTimeout(() => setLiveNotice(null), 10000);
+    return () => clearTimeout(timer);
+  }, [liveNotice]);
+  useEffect(() => {
+    if (!data) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let pending = false,
+      again = false,
+      disposed = false;
+    const refresh = async () => {
+      if (pending) {
+        again = true;
+        return;
+      }
+      pending = true;
+      try {
+        await load();
+        if (!disposed) window.dispatchEvent(new Event("aplime:updates"));
+      } catch {
+      } finally {
+        pending = false;
+        if (again && !disposed) {
+          again = false;
+          timer = setTimeout(() => void refresh(), 200);
+        }
+      }
+    };
+    const stop = watchNotifications(() => {
+      clearTimeout(timer);
+      timer = setTimeout(() => void refresh(), 150);
+    }, setLiveConnected);
+    return () => {
+      disposed = true;
+      stop();
+      clearTimeout(timer);
+      setLiveConnected(false);
+    };
+  }, [data?.user.id]);
   function replaceRoute(page: string) {
     if (Capacitor.isNativePlatform()) location.hash = "/" + page;
     else history.replaceState({}, "", "/app/" + page);
@@ -278,14 +346,22 @@ export default function Workspace() {
       if (auth().currentUser !== user || !user.emailVerified) return false;
       await user.getIdToken(true);
       setLoading(true);
-      try { await load(); } finally { setLoading(false); }
+      try {
+        await load();
+      } finally {
+        setLoading(false);
+      }
       return true;
-    } finally { verificationPending.current = false; }
+    } finally {
+      verificationPending.current = false;
+    }
   }
   useEffect(() => {
-    if (!firebaseUser || firebaseUser.emailVerified || data || needsAccount) return;
+    if (!firebaseUser || firebaseUser.emailVerified || data || needsAccount)
+      return;
     const check = () => {
-      if (document.visibilityState === "visible") void checkVerification().catch(() => {});
+      if (document.visibilityState === "visible")
+        void checkVerification().catch(() => {});
     };
     const timer = setInterval(check, 5000);
     window.addEventListener("focus", check);
@@ -298,7 +374,10 @@ export default function Workspace() {
   }, [firebaseUser, data, needsAccount]);
   useEffect(() => {
     if (!resendUntil) return;
-    const timer = setTimeout(() => setResendUntil(0), Math.max(0, resendUntil - Date.now()));
+    const timer = setTimeout(
+      () => setResendUntil(0),
+      Math.max(0, resendUntil - Date.now()),
+    );
     return () => clearTimeout(timer);
   }, [resendUntil]);
   async function run(fn: () => Promise<unknown>, message = "Saved.") {
@@ -355,10 +434,24 @@ export default function Workspace() {
             (firebaseUser && !firebaseUser.emailVerified) ||
             needsAccount) && (
             <ol className="auth-steps" aria-label="Registration progress">
-              <li className={route.page === "register" && !firebaseUser ? "current" : "complete"}>
+              <li
+                className={
+                  route.page === "register" && !firebaseUser
+                    ? "current"
+                    : "complete"
+                }
+              >
                 <span>1</span> Account
               </li>
-              <li className={firebaseUser && !firebaseUser.emailVerified ? "current" : needsAccount ? "complete" : ""}>
+              <li
+                className={
+                  firebaseUser && !firebaseUser.emailVerified
+                    ? "current"
+                    : needsAccount
+                      ? "complete"
+                      : ""
+                }
+              >
                 <span>2</span> Verify
               </li>
               <li className={needsAccount ? "current" : ""}>
@@ -370,14 +463,18 @@ export default function Workspace() {
             <>
               <p>
                 Verify your email using the link we sent to {firebaseUser.email}
-                . We’ll continue automatically when verification is confirmed. You can also check below.
+                . We’ll continue automatically when verification is confirmed.
+                You can also check below.
               </p>
               <button
                 disabled={busy}
                 onClick={() =>
                   void run(async () => {
                     const verified = await checkVerification();
-                    if (!verified) setNotice("Not verified yet. Open the latest email link, then try again. Check your spam folder too.");
+                    if (!verified)
+                      setNotice(
+                        "Not verified yet. Open the latest email link, then try again. Check your spam folder too.",
+                      );
                   }, "")
                 }
               >
@@ -387,13 +484,15 @@ export default function Workspace() {
                 className="secondary"
                 disabled={busy || resendUntil > Date.now()}
                 onClick={() =>
-                  void run(
-                    async () => { await verifyEmail(firebaseUser); setResendUntil(Date.now() + 60000); },
-                    "Verification email sent.",
-                  )
+                  void run(async () => {
+                    await verifyEmail(firebaseUser);
+                    setResendUntil(Date.now() + 60000);
+                  }, "Verification email sent.")
                 }
               >
-                {resendUntil > Date.now() ? "Email sent — wait a minute to resend" : "Resend verification email"}
+                {resendUntil > Date.now()
+                  ? "Email sent — wait a minute to resend"
+                  : "Resend verification email"}
               </button>
               <button
                 className="text-button"
@@ -521,8 +620,17 @@ export default function Workspace() {
                 )}
                 {route.page !== "recovery" && !Capacitor.isNativePlatform() && (
                   <label className="session-choice">
-                    <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
-                    <span>Keep me signed in<small>Uncheck on a shared device to use this tab only.</small></span>
+                    <input
+                      type="checkbox"
+                      checked={remember}
+                      onChange={(e) => setRemember(e.target.checked)}
+                    />
+                    <span>
+                      Keep me signed in
+                      <small>
+                        Uncheck on a shared device to use this tab only.
+                      </small>
+                    </span>
                   </label>
                 )}
                 <button>
@@ -538,14 +646,24 @@ export default function Workspace() {
                   <button
                     className="secondary"
                     disabled={busy}
-                    onClick={() => void run(async () => { await configureSession(remember); await google(); }, "")}
+                    onClick={() =>
+                      void run(async () => {
+                        await configureSession(remember);
+                        await google();
+                      }, "")
+                    }
                   >
                     Continue with Google
                   </button>
                   <button
                     className="secondary"
                     disabled={busy}
-                    onClick={() => void run(async () => { await configureSession(remember); await apple(); }, "")}
+                    onClick={() =>
+                      void run(async () => {
+                        await configureSession(remember);
+                        await apple();
+                      }, "")
+                    }
                   >
                     Continue with Apple
                   </button>
@@ -662,11 +780,15 @@ export default function Workspace() {
             <div className="actions">
               <button
                 className="icon-button"
-                aria-label="Notifications"
+                aria-label={`Notifications, ${data.unreadCount || 0} unread`}
                 onClick={() => go("notifications")}
               >
                 <Bell size={20} />
-                {data.notices.some((n) => !n.read) && <i />}
+                {data.unreadCount > 0 && (
+                  <span className="notification-count">
+                    {data.unreadCount > 99 ? "99+" : data.unreadCount}
+                  </span>
+                )}
               </button>
               <button
                 className="avatar"
@@ -678,6 +800,46 @@ export default function Workspace() {
             </div>
           </header>
           <main className="workspace-main">
+            {route.page === "notifications" && (
+              <p className="notification-connection" role="status">
+                {liveConnected
+                  ? "Live updates connected"
+                  : "Reconnecting live updates — checking periodically"}
+              </p>
+            )}
+            {liveNotice && (
+              <aside className="live-notice" role="status" aria-live="polite">
+                <Bell size={20} />
+                <div>
+                  <strong>{liveNotice.title}</strong>
+                  <p>{liveNotice.body}</p>
+                  <button
+                    className="text-button"
+                    onClick={() => {
+                      const item = liveNotice;
+                      setLiveNotice(null);
+                      void run(
+                        () => request(`/notifications/${item.id}/read`, {}),
+                        "",
+                      );
+                      go(
+                        item.targetPage || "notifications",
+                        item.targetId || undefined,
+                      );
+                    }}
+                  >
+                    View update
+                  </button>
+                </div>
+                <button
+                  className="icon-button"
+                  aria-label="Dismiss notification"
+                  onClick={() => setLiveNotice(null)}
+                >
+                  <X size={18} />
+                </button>
+              </aside>
+            )}
             {error && (
               <p role="alert" className="alert error">
                 {error}
@@ -696,8 +858,7 @@ export default function Workspace() {
             <Pages />
           </main>
           <footer className="workspace-footer">
-            © {new Date().getFullYear()} Aplime{" "}
-            <a href="/privacy">Privacy</a>
+            © {new Date().getFullYear()} Aplime <a href="/privacy">Privacy</a>
             <a href="/terms">Service information</a>
           </footer>
         </div>

@@ -99,6 +99,7 @@ discussions.post("/projects/:id/discussions", async (req, res) => {
       p.customerId,
       "A professional has a question",
       "Open " + p.title + " to discuss the work before choosing an estimate.",
+      { page: "messages", id: d.id },
     );
     return d;
   });
@@ -124,6 +125,7 @@ discussions.post("/discussions/:id/messages", async (req, res) => {
       other,
       "New project discussion message",
       "Open your project discussions to reply.",
+      { page: "messages", id: row.id },
     );
   });
   res.json({ ok: true });
@@ -150,6 +152,7 @@ discussions.post("/discussions/:id/call", async (req, res) => {
       other,
       "Join a consultation",
       "Open the project discussion and select the call button to join.",
+      { page: "messages", id: row.id },
     ),
   );
   res.json(room);

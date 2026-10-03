@@ -51,9 +51,11 @@ export function Discussions({
         });
     void refresh();
     const timer = setInterval(refresh, 10000);
+    window.addEventListener("aplime:updates", refresh);
     return () => {
       active = false;
       clearInterval(timer);
+      window.removeEventListener("aplime:updates", refresh);
     };
   }, [data.user.id]);
   const visible = threads.filter(
@@ -61,7 +63,7 @@ export function Discussions({
   );
   const thread =
     visible.find((t) => t.id === selected) ||
-    visible.find((t) => t.project_id === id) ||
+    visible.find((t) => t.id === id || t.project_id === id) ||
     visible[0];
   const other = thread
     ? thread.customer_id === data.user.id
@@ -73,6 +75,7 @@ export function Discussions({
     (["cancelled", "disputed"].includes(thread.status) ||
       (!!thread.selected_pro && thread.selected_pro !== thread.pro_id));
   const blocked = data.blocked.includes(other);
+  useEffect(() => setSelected(""), [id]);
   const [draft, setDraft] = useState("");
   useEffect(() => setDraft(""), [thread?.id]);
   return (

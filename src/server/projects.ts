@@ -2,7 +2,12 @@ import { randomUUID } from "node:crypto";
 import type { User, ProjectAction } from "../shared/domain.js";
 import { allowedTransition, assertFuture } from "../shared/domain.js";
 import { transaction } from "./db/index.js";
-import { getProject, notify, audit } from "./repository.js";
+import {
+  getProject,
+  notify,
+  audit,
+  notifyAdministrators,
+} from "./repository.js";
 import { fail } from "./errors.js";
 export async function projectAction(
   id: string,
@@ -59,11 +64,33 @@ export async function projectAction(
         )
       ).rows[0];
       if (!quote) fail(409, "This estimate is no longer available.");
+      if (action.type === "decline")
+        await notify(
+          c,
+          quote.pro_id,
+          "Estimate declined",
+          p.title + ": the customer declined your estimate.",
+          { page: "messages", id },
+        );
       if (action.type === "accept") {
         if (quote.revision !== action.revision)
           fail(
             409,
             "This estimate changed. Review the latest version before accepting.",
+          );
+        const others = (
+          await c.query(
+            "SELECT pro_id FROM quotes WHERE project_id=$1 AND id<>$2 AND status='pending'",
+            [id, quote.id],
+          )
+        ).rows;
+        for (const other of others)
+          await notify(
+            c,
+            other.pro_id,
+            "Project awarded",
+            p.title + ": the customer selected another professional.",
+            { page: "messages", id },
           );
         await c.query(
           "UPDATE quotes SET status=CASE WHEN id=$1 THEN 'accepted' ELSE 'declined' END WHERE project_id=$2",
@@ -78,6 +105,7 @@ export async function projectAction(
           quote.pro_id,
           "Estimate accepted",
           "Your estimate for " + p.title + " has been accepted.",
+          { page: "project", id },
         );
       } else {
         await c.query("UPDATE quotes SET status='declined' WHERE id=$1", [
@@ -150,13 +178,50 @@ export async function projectAction(
           [id],
         );
     }
+    if (action.type === "dispute")
+      await notifyAdministrators(
+        c,
+        "Project issue needs review",
+        "A project participant opened a support case. Review it in the administrator console.",
+      );
     await audit(c, user.id, action.type, id);
-    await notify(
-      c,
-      user.id === p.customerId ? p.proId : p.customerId,
-      "Project update",
-      p.title + " has an update. Open Aplime for details.",
-    );
+    const titles: Record<string, string> = {
+      quote: "Estimate received or updated",
+      reschedule: "Appointment proposed",
+      respond_appointment:
+        action.type === "respond_appointment" && action.accept
+          ? "Appointment confirmed"
+          : "Appointment proposal declined",
+      start: "Work started",
+      complete: "Please confirm completed work",
+      confirm_completion: "Project completed",
+      cancel: "Project cancelled",
+      dispute: "Project issue reported",
+    };
+    if (titles[action.type])
+      await notify(
+        c,
+        user.id === p.customerId ? p.proId : p.customerId,
+        titles[action.type],
+        p.title + ": open the project to see the update.",
+        { page: "project", id },
+      );
+    if (action.type === "cancel" && !p.proId) {
+      const others = (
+        await c.query(
+          "SELECT pro_id FROM project_discussions WHERE project_id=$1",
+          [id],
+        )
+      ).rows;
+      for (const other of others)
+        await notify(
+          c,
+          other.pro_id,
+          "Project cancelled",
+          p.title + ": the customer cancelled this request.",
+          { page: "messages", id },
+        );
+    }
     return { ok: true };
   });
 }

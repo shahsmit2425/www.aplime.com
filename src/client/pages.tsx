@@ -1637,36 +1637,92 @@ function CreditIcon() {
   return <CheckCircle2 />;
 }
 function Notifications() {
-  const { data, run, busy } = useWorkspace();
+  const { data, run, busy, go } = useWorkspace();
+  const [unreadOnly, setUnreadOnly] = useState(false);
+  const notices = data.notices.filter((n) => !unreadOnly || !n.read);
   return (
     <>
       <Head
-        title="A little update goes a long way."
+        title="Notifications"
         action={
           <button
             className="secondary"
-            disabled={busy}
-            onClick={() => void run(() => request("/notifications/read", {}))}
+            disabled={busy || !data.unreadCount}
+            onClick={() =>
+              void run(() => request("/notifications/read", {}), "")
+            }
           >
             Mark all read
           </button>
         }
       >
-        Your account and project notifications.
+        Your project, conversation, and account updates. {data.unreadCount || 0}{" "}
+        unread.
       </Head>
+      <label className="notification-filter">
+        <input
+          type="checkbox"
+          checked={unreadOnly}
+          onChange={(e) => setUnreadOnly(e.target.checked)}
+        />{" "}
+        Show unread only
+      </label>
       <Panel>
-        {data.notices.length ? (
-          data.notices.map((n) => (
-            <article className="notice-item" key={n.id}>
+        {notices.length ? (
+          notices.map((n) => (
+            <article
+              className={n.read ? "notice-item" : "notice-item unread"}
+              key={n.id}
+            >
               <Badge>{n.read ? "Read" : "New"}</Badge>
               <h3>{n.title}</h3>
               <p>{n.body}</p>
               <small>{date(n.createdAt)}</small>
+              <div className="actions">
+                <button
+                  className="secondary"
+                  disabled={busy}
+                  onClick={() => {
+                    void run(
+                      () => request(`/notifications/${n.id}/read`, {}),
+                      "",
+                    );
+                    go(
+                      n.targetPage || "notifications",
+                      n.targetId || undefined,
+                    );
+                  }}
+                >
+                  View update
+                </button>
+                {!n.read && (
+                  <button
+                    className="text-button"
+                    disabled={busy}
+                    onClick={() =>
+                      void run(
+                        () => request(`/notifications/${n.id}/read`, {}),
+                        "",
+                      )
+                    }
+                  >
+                    Mark read
+                  </button>
+                )}
+              </div>
             </article>
           ))
         ) : (
-          <Empty title="You’re all caught up." />
+          <Empty
+            title={
+              unreadOnly ? "No unread notifications" : "No notifications yet"
+            }
+          />
         )}
+        <p>
+          Showing your latest 100 notifications. Older unread updates are
+          included in the badge count.
+        </p>
       </Panel>
     </>
   );

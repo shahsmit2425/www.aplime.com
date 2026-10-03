@@ -60,6 +60,9 @@ await db.exec(
     "utf8",
   ),
 );
+await db.exec(
+  await readFile("src/server/db/migrations/005_live_notifications.sql", "utf8"),
+);
 test.after(async () => {
   await db.close();
   await pool.end();
@@ -533,5 +536,51 @@ test("private discussions hide messages from outsiders and enforce blocking", as
     await new Promise<void>((resolve, reject) =>
       server.close((error) => (error ? reject(error) : resolve())),
     );
+  }
+});
+
+test("notification records and live events commit together, rollback stays silent", async () => {
+  const { notify } = await import("../src/server/repository.js");
+  const { transaction } = await import("../src/server/db/index.js");
+  const events: string[] = [];
+  const stop = await db.listen("aplime_notifications", (payload) =>
+    events.push(payload),
+  );
+  try {
+    await transaction(async (c) => {
+      await notify(c, customer.id, "Live test", "A project changed.", {
+        page: "project",
+        id: "test-project",
+      });
+      assert.equal(events.length, 0);
+    });
+    assert.deepEqual(events, [customer.id]);
+    const rows = await db.query<{ target_page: string; target_id: string }>(
+      "SELECT target_page,target_id FROM notifications WHERE user_id=$1 AND title='Live test'",
+      [customer.id],
+    );
+    assert.deepEqual(rows.rows[0], {
+      target_page: "project",
+      target_id: "test-project",
+    });
+    await assert.rejects(
+      transaction(async (c) => {
+        await notify(c, customer.id, "Rolled back", "Must not be delivered.");
+        throw new Error("rollback");
+      }),
+    );
+    assert.equal(events.length, 1);
+    assert.equal(
+      (await db.query("SELECT id FROM notifications WHERE title='Rolled back'"))
+        .rows.length,
+      0,
+    );
+    await db.query(
+      "UPDATE notifications SET read=true WHERE user_id=$1 AND title='Live test'",
+      [customer.id],
+    );
+    assert.equal(events.length, 2);
+  } finally {
+    await stop();
   }
 });

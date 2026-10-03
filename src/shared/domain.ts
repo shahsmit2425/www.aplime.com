@@ -105,6 +105,8 @@ export type Ticket = {
   createdAt: string;
 };
 export type Notice = {
+  targetPage: string;
+  targetId: string | null;
   id: string;
   title: string;
   body: string;
@@ -130,6 +132,7 @@ export type Workspace = {
   reviews: Review[];
   tickets: Ticket[];
   notices: Notice[];
+  unreadCount: number;
   uploads: Upload[];
   saved: string[];
   blocked: string[];

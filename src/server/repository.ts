@@ -105,6 +105,12 @@ export async function workspace(user: User): Promise<Workspace> {
     reviews: reviews.rows.map((r) => camel(r)),
     tickets: tickets.rows.map((r) => camel(r)),
     notices: notices.rows.map((r) => camel(r)),
+    unreadCount: (
+      await pool.query(
+        "SELECT count(*)::int AS n FROM notifications WHERE user_id=$1 AND NOT read",
+        [user.id],
+      )
+    ).rows[0].n,
     uploads: uploads.rows.map((r) => camel(r)),
     saved: saved.rows.map((r) => r.pro_id),
     blocked: blocked.rows.map((r) => r.other_id),
@@ -115,11 +121,12 @@ export async function notify(
   userId: string | null,
   title: string,
   body: string,
+  target: { page: string; id?: string } = { page: "notifications" },
 ) {
   if (!userId) return;
   await c.query(
-    "INSERT INTO notifications(id,user_id,title,body) VALUES($1,$2,$3,$4)",
-    [randomUUID(), userId, title, body],
+    "INSERT INTO notifications(id,user_id,title,body,target_page,target_id) VALUES($1,$2,$3,$4,$5,$6)",
+    [randomUUID(), userId, title, body, target.page, target.id || null],
   );
   await c.query(
     "INSERT INTO email_outbox(id,user_id,subject,body) SELECT $1,id,$3,$4 FROM users WHERE id=$2 AND COALESCE((settings->>'emailAlerts')::boolean,true)",
@@ -143,4 +150,14 @@ export async function getProject(c: pg.PoolClient, id: string) {
   ).rows[0];
   if (!p) fail(404, "Project not found.");
   return camel<Project>(p);
+}
+
+export async function notifyAdministrators(
+  c: pg.PoolClient,
+  title: string,
+  body: string,
+) {
+  const users = (await c.query("SELECT id FROM users WHERE role='admin'")).rows;
+  for (const user of users)
+    await notify(c, user.id, title, body, { page: "reports" });
 }

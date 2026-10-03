@@ -56,6 +56,7 @@ webhooks.post(
               ? "Identity verified"
               : "Identity verification needs attention",
             "Open your business profile for the next step.",
+            { page: "profile" },
           );
       }
       if (event.type.startsWith("customer.subscription.")) {
@@ -86,6 +87,24 @@ webhooks.post(
           const correctPrice = current.items.data.some(
             (item) => item.price.id === env.STRIPE_PRO_PRICE_ID,
           );
+          const newStatus = correctPrice
+            ? current.status
+            : "unrecognized_price";
+          if (
+            owner.status !== newStatus ||
+            owner.cancel_at_period_end !== current.cancel_at_period_end
+          )
+            await notify(
+              c,
+              owner.user_id,
+              "Subscription updated",
+              "Your membership status is " +
+                newStatus.replaceAll("_", " ") +
+                (current.cancel_at_period_end
+                  ? ". Cancellation is scheduled at the end of the billing period."
+                  : ". Open your subscription for details."),
+              { page: "subscription" },
+            );
           await c.query(
             "UPDATE professional_subscriptions SET subscription_id=$2,status=$3,cancel_at_period_end=$4,updated_at=now() WHERE user_id=$1",
             [

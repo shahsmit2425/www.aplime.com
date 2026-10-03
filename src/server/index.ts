@@ -1,3 +1,4 @@
+import { closeNotificationStream } from "./notification-stream.js";
 import express from "express";
 import helmet from "helmet";
 import cors from "cors";
@@ -122,6 +123,7 @@ const http = app.listen(env.PORT, "0.0.0.0", () =>
 );
 for (const signal of ["SIGTERM", "SIGINT"])
   process.on(signal, () => {
+    closeNotificationStream();
     http.close(() => {
       void pool.end().then(() => process.exit(0));
     });
