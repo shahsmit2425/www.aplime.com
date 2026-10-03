@@ -91,6 +91,10 @@ businessImages.post("/:id/complete", async (req, res) => {
     await c.query("UPDATE business_images SET status='ready' WHERE id=$1", [
       f.id,
     ]);
+    await c.query(
+      "UPDATE profiles SET review_status='draft',review_note=NULL,submitted_at=NULL,reviewed_at=NULL,reviewed_by=NULL WHERE id=$1",
+      [req.account.id],
+    );
   });
   for (const key of oldKeys)
     try {
@@ -106,12 +110,18 @@ businessImages.delete("/:slot", async (req, res) => {
     await c.query("SELECT id FROM profiles WHERE id=$1 FOR UPDATE", [
       req.account.id,
     ]);
-    return (
+    const removed = (
       await c.query(
         "DELETE FROM business_images WHERE profile_id=$1 AND slot=$2 RETURNING object_key",
         [req.account.id, slot],
       )
     ).rows;
+    if (removed.length)
+      await c.query(
+        "UPDATE profiles SET review_status='draft',review_note=NULL,submitted_at=NULL,reviewed_at=NULL,reviewed_by=NULL WHERE id=$1",
+        [req.account.id],
+      );
+    return removed;
   });
   for (const f of files)
     try {
@@ -125,7 +135,7 @@ export const publicBusinessImages = Router();
 publicBusinessImages.get("/business-images/:id", async (req, res) => {
   const f = (
     await pool.query(
-      "SELECT i.object_key FROM business_images i JOIN profiles p ON p.id=i.profile_id WHERE i.id=$1 AND i.status='ready' AND p.verified AND NOT p.suspended AND EXISTS(SELECT 1 FROM professional_subscriptions s WHERE s.user_id=p.id AND s.status IN ('active','trialing'))",
+      "SELECT i.object_key FROM business_images i JOIN profiles p ON p.id=i.profile_id WHERE i.id=$1 AND i.status='ready' AND p.verified AND p.review_status='approved' AND NOT p.suspended AND EXISTS(SELECT 1 FROM professional_subscriptions s WHERE s.user_id=p.id AND s.status IN ('active','trialing'))",
       [z.string().uuid().parse(req.params.id)],
     )
   ).rows[0];

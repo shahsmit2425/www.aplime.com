@@ -158,8 +158,10 @@ api.put("/profile", async (req, res) => {
   const q = req as AuthRequest;
   if (q.account.role !== "pro") fail(403, "Professional account required.");
   const p = profileSchema.parse(q.body);
+  const location = await locate(p.zip);
+  if (!location) fail(400, "We could not find that ZIP code.");
   await pool.query(
-    "INSERT INTO profiles(id,business,category,bio,zip,rate,available,availability,details) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT(id) DO UPDATE SET business=$2,category=$3,bio=$4,zip=$5,rate=$6,available=$7,availability=$8,details=$9",
+    "INSERT INTO profiles(id,business,category,bio,zip,rate,available,availability,details,service_radius_miles,latitude,longitude) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) ON CONFLICT(id) DO UPDATE SET business=$2,category=$3,bio=$4,zip=$5,rate=$6,available=$7,availability=$8,details=$9,service_radius_miles=$10,latitude=$11,longitude=$12,review_status='draft',review_note=NULL,submitted_at=NULL,reviewed_at=NULL,reviewed_by=NULL",
     [
       q.account.id,
       p.business,
@@ -170,31 +172,96 @@ api.put("/profile", async (req, res) => {
       p.available,
       JSON.stringify(p.availability),
       JSON.stringify(p.details),
+      p.serviceRadiusMiles,
+      location.lat,
+      location.lng,
     ],
   );
   res.json({ ok: true });
 });
+api.post("/profile/submit-review", async (req, res) => {
+  const q = req as AuthRequest;
+  if (q.account.role !== "pro") fail(403, "Professional account required.");
+  await transaction(async (c) => {
+    const profile = (
+      await c.query(
+        "SELECT p.*,count(i.id)::int AS image_count,COALESCE(bool_or(i.slot IN ('logo','cover')),false) AS has_brand_image,COALESCE(bool_or(i.slot LIKE 'work-%'),false) AS has_work_image FROM profiles p LEFT JOIN business_images i ON i.profile_id=p.id AND i.status='ready' WHERE p.id=$1 GROUP BY p.id",
+        [q.account.id],
+      )
+    ).rows[0];
+    if (!profile) fail(409, "Save your business details first.");
+    if (!profile.verified) fail(409, "Complete identity verification first.");
+    if (!profile.has_brand_image || !profile.has_work_image)
+      fail(
+        409,
+        "Add a logo or cover and at least one work photo before review.",
+      );
+    if (profile.review_status === "pending")
+      fail(409, "Your business profile is already under review.");
+    await c.query(
+      "UPDATE profiles SET review_status='pending',review_note=NULL,submitted_at=now() WHERE id=$1",
+      [q.account.id],
+    );
+    await notifyAdministrators(
+      c,
+      "Business profile ready for review",
+      profile.business + " submitted its marketplace listing.",
+    );
+    await audit(c, q.account.id, "submit_profile_review", q.account.id);
+  });
+  res.json({ ok: true });
+});
 api.use("/profile/images", businessImages);
 api.use(discussions);
+const projectDraftSchema = z.record(z.string().max(64), z.unknown());
+api.get("/project-draft", async (req, res) => {
+  if (req.account.role !== "customer") fail(403, "Customer account required.");
+  const row = (
+    await pool.query(
+      "SELECT payload,updated_at FROM project_drafts WHERE user_id=$1",
+      [req.account.id],
+    )
+  ).rows[0];
+  res.json(row ? camel(row) : { payload: null, updatedAt: null });
+});
+api.put("/project-draft", async (req, res) => {
+  if (req.account.role !== "customer") fail(403, "Customer account required.");
+  const payload = projectDraftSchema.parse(req.body);
+  if (JSON.stringify(payload).length > 30000) fail(413, "Draft is too large.");
+  await pool.query(
+    "INSERT INTO project_drafts(user_id,payload) VALUES($1,$2) ON CONFLICT(user_id) DO UPDATE SET payload=$2,updated_at=now()",
+    [req.account.id, JSON.stringify(payload)],
+  );
+  res.json({ ok: true });
+});
+api.delete("/project-draft", async (req, res) => {
+  if (req.account.role !== "customer") fail(403, "Customer account required.");
+  await pool.query("DELETE FROM project_drafts WHERE user_id=$1", [
+    req.account.id,
+  ]);
+  res.json({ ok: true });
+});
 api.post("/projects", async (req, res) => {
   const q = req as AuthRequest;
   if (q.account.role !== "customer") fail(403, "Customer account required.");
   const p = projectSchema.parse(q.body);
   assertFuture(p.scheduledAt);
+  const location = await locate(p.zip);
+  if (!location) fail(400, "We could not find that ZIP code.");
   const id = randomUUID();
   await transaction(async (c) => {
     if (
       p.proId &&
       !(
         await c.query(
-          "SELECT 1 FROM profiles WHERE id=$1 AND category=$2 AND verified AND NOT suspended AND available AND EXISTS (SELECT 1 FROM professional_subscriptions s WHERE s.user_id=profiles.id AND s.status IN ('active','trialing'))",
-          [p.proId, p.category],
+          "SELECT 1 FROM profiles WHERE id=$1 AND category=$2 AND verified AND review_status='approved' AND NOT suspended AND available AND EXISTS (SELECT 1 FROM professional_subscriptions s WHERE s.user_id=profiles.id AND s.status IN ('active','trialing')) AND ((latitude IS NOT NULL AND 3959 * acos(least(1,cos(radians(latitude))*cos(radians($3))*cos(radians($4)-radians(longitude))+sin(radians(latitude))*sin(radians($3)))) <= service_radius_miles) OR (latitude IS NULL AND zip=$5))",
+          [p.proId, p.category, location.lat, location.lng, p.zip],
         )
       ).rowCount
     )
       fail(400, "Choose an available professional in this category.");
     await c.query(
-      "INSERT INTO projects(id,customer_id,pro_id,title,description,category,zip,scheduled_at,intake) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)",
+      "INSERT INTO projects(id,customer_id,pro_id,title,description,category,zip,scheduled_at,intake,urgency,property_type,budget_min,budget_max,latitude,longitude) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)",
       [
         id,
         q.account.id,
@@ -205,6 +272,12 @@ api.post("/projects", async (req, res) => {
         p.zip,
         null,
         JSON.stringify(p.intake),
+        p.urgency,
+        p.propertyType,
+        p.budgetMin,
+        p.budgetMax,
+        location.lat,
+        location.lng,
       ],
     );
     if (p.proId)
@@ -220,8 +293,8 @@ api.post("/projects", async (req, res) => {
     if (!p.proId) {
       const eligible = (
         await c.query(
-          "SELECT f.id FROM profiles f JOIN professional_subscriptions s ON s.user_id=f.id WHERE f.category=$1 AND f.verified AND NOT f.suspended AND f.available AND s.status IN ('active','trialing') AND NOT EXISTS(SELECT 1 FROM blocked b WHERE (b.user_id=$2 AND b.other_id=f.id) OR (b.user_id=f.id AND b.other_id=$2))",
-          [p.category, q.account.id],
+          "SELECT f.id FROM profiles f JOIN professional_subscriptions s ON s.user_id=f.id WHERE f.category=$1 AND f.verified AND f.review_status='approved' AND NOT f.suspended AND f.available AND s.status IN ('active','trialing') AND NOT EXISTS(SELECT 1 FROM blocked b WHERE (b.user_id=$2 AND b.other_id=f.id) OR (b.user_id=f.id AND b.other_id=$2)) AND ((f.latitude IS NOT NULL AND 3959 * acos(least(1,cos(radians(f.latitude))*cos(radians($3))*cos(radians($4)-radians(f.longitude))+sin(radians(f.latitude))*sin(radians($3)))) <= f.service_radius_miles) OR (f.latitude IS NULL AND f.zip=$5))",
+          [p.category, q.account.id, location.lat, location.lng, p.zip],
         )
       ).rows;
       for (const pro of eligible)
@@ -682,6 +755,45 @@ api.post("/admin/profiles/:id", async (req, res) => {
       String(q.params.id),
       suspended ? "Business profile suspended" : "Business profile restored",
       "Open your business profile or contact support for help.",
+      { page: "profile" },
+    );
+  });
+  res.json({ ok: true });
+});
+api.post("/admin/profiles/:id/review", async (req, res) => {
+  const q = req as AuthRequest;
+  const decision = z
+    .object({
+      status: z.enum(["approved", "changes_requested", "rejected"]),
+      note: z.string().trim().max(2000),
+    })
+    .strict()
+    .parse(q.body);
+  if (decision.status !== "approved" && decision.note.length < 10)
+    fail(400, "Explain what the professional needs to change.");
+  await transaction(async (c) => {
+    const profile = (
+      await c.query(
+        "UPDATE profiles SET review_status=$2,review_note=NULLIF($3,''),reviewed_at=now(),reviewed_by=$4 WHERE id=$1 AND review_status='pending' RETURNING business",
+        [q.params.id, decision.status, decision.note, q.account.id],
+      )
+    ).rows[0];
+    if (!profile) fail(409, "This profile is not awaiting review.");
+    await audit(
+      c,
+      q.account.id,
+      "profile_review_" + decision.status,
+      String(q.params.id),
+    );
+    await notify(
+      c,
+      String(q.params.id),
+      decision.status === "approved"
+        ? "Business profile approved"
+        : "Business profile review updated",
+      decision.status === "approved"
+        ? "Your listing is approved. Keep your subscription active and availability current to appear in search."
+        : decision.note,
       { page: "profile" },
     );
   });

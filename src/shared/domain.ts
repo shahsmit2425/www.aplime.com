@@ -31,6 +31,12 @@ export type Profile = {
   rating: number;
   reviewCount: number;
   connectReady?: boolean;
+  serviceRadiusMiles: number;
+  reviewStatus:
+    "draft" | "pending" | "changes_requested" | "approved" | "rejected";
+  reviewNote?: string | null;
+  submittedAt?: string | null;
+  reviewedAt?: string | null;
   details?: BusinessDetails;
 };
 export const statuses = [
@@ -50,6 +56,12 @@ export type Project = {
   title: string;
   description: string;
   intake?: Record<string, string>;
+  urgency: "urgent" | "this_week" | "this_month" | "flexible";
+  propertyType: "home" | "apartment" | "condo" | "commercial" | "other";
+  budgetMin: number | null;
+  budgetMax: number | null;
+  latitude?: number | null;
+  longitude?: number | null;
   category: string;
   zip: string;
   scheduledAt: string | null;
@@ -68,7 +80,12 @@ export type Quote = {
   projectId: string;
   proId: string;
   amount: number;
+  laborAmount: number;
+  materialsAmount: number;
   description: string;
+  exclusions: string;
+  timeline: string;
+  expiresAt: string | null;
   status: string;
   createdAt: string;
 };
@@ -151,6 +168,7 @@ export const profileSchema = z
     bio: text(20, 2000),
     zip: z.string().regex(/^\d{5}$/, "Enter a five-digit ZIP code"),
     rate: z.number().min(1).max(10000),
+    serviceRadiusMiles: z.number().int().min(1).max(100),
     available: z.boolean(),
     availability: z
       .array(z.enum(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]))
@@ -164,11 +182,25 @@ export const projectSchema = z
     category: z.enum(categories),
     intake: z.record(z.string().max(64), text(1, 1500)),
     zip: z.string().regex(/^\d{5}$/),
+    urgency: z.enum(["urgent", "this_week", "this_month", "flexible"]),
+    propertyType: z.enum(["home", "apartment", "condo", "commercial", "other"]),
+    budgetMin: z.number().int().min(0).max(10000000).nullable(),
+    budgetMax: z.number().int().min(0).max(10000000).nullable(),
     proId: z.string().min(1).max(128).nullable().default(null),
     scheduledAt: z.string().datetime().nullable().default(null),
   })
   .strict()
   .superRefine((project, context) => {
+    if (
+      project.budgetMin !== null &&
+      project.budgetMax !== null &&
+      project.budgetMin > project.budgetMax
+    )
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["budgetMax"],
+        message: "Maximum budget must be at least the minimum budget",
+      });
     const questions = questionsFor(project.category as ServiceCategory);
     const allowed = new Set(questions.map((question) => question.id));
     for (const question of questions) {
@@ -194,41 +226,59 @@ export const projectSchema = z
           message: "Unexpected questionnaire answer",
         });
   });
-export const actionSchema = z.discriminatedUnion("type", [
-  z
-    .object({
-      type: z.literal("quote"),
-      amount: z.number().int().min(100).max(10000000),
-      description: text(10, 2000),
-    })
-    .strict(),
-  z
-    .object({
-      type: z.literal("accept"),
-      quoteId: z.string().uuid(),
-      revision: z.number().int().positive(),
-    })
-    .strict(),
-  z.object({ type: z.literal("decline"), quoteId: z.string().uuid() }).strict(),
-  z.object({ type: z.literal("start") }).strict(),
-  z.object({ type: z.literal("complete") }).strict(),
-  z.object({ type: z.literal("confirm_completion") }).strict(),
-  z
-    .object({
-      type: z.literal("respond_appointment"),
-      proposedAt: z.string().datetime(),
-      accept: z.boolean(),
-    })
-    .strict(),
-  z.object({ type: z.literal("cancel"), reason: text(5, 1000) }).strict(),
-  z
-    .object({
-      type: z.literal("reschedule"),
-      scheduledAt: z.string().datetime(),
-    })
-    .strict(),
-  z.object({ type: z.literal("dispute"), reason: text(10, 2000) }).strict(),
-]);
+export const actionSchema = z
+  .discriminatedUnion("type", [
+    z
+      .object({
+        type: z.literal("quote"),
+        laborAmount: z.number().int().min(0).max(10000000),
+        materialsAmount: z.number().int().min(0).max(10000000),
+        description: text(10, 2000),
+        exclusions: z.string().trim().max(2000),
+        timeline: text(3, 300),
+        expiresAt: z.string().datetime().nullable(),
+      })
+      .strict(),
+    z
+      .object({
+        type: z.literal("accept"),
+        quoteId: z.string().uuid(),
+        revision: z.number().int().positive(),
+      })
+      .strict(),
+    z
+      .object({ type: z.literal("decline"), quoteId: z.string().uuid() })
+      .strict(),
+    z.object({ type: z.literal("start") }).strict(),
+    z.object({ type: z.literal("complete") }).strict(),
+    z.object({ type: z.literal("confirm_completion") }).strict(),
+    z
+      .object({
+        type: z.literal("respond_appointment"),
+        proposedAt: z.string().datetime(),
+        accept: z.boolean(),
+      })
+      .strict(),
+    z.object({ type: z.literal("cancel"), reason: text(5, 1000) }).strict(),
+    z
+      .object({
+        type: z.literal("reschedule"),
+        scheduledAt: z.string().datetime(),
+      })
+      .strict(),
+    z.object({ type: z.literal("dispute"), reason: text(10, 2000) }).strict(),
+  ])
+  .superRefine((action, context) => {
+    if (
+      action.type === "quote" &&
+      action.laborAmount + action.materialsAmount < 100
+    )
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Estimate total must be at least $1",
+        path: ["laborAmount"],
+      });
+  });
 export type ProjectAction = z.infer<typeof actionSchema>;
 export function allowedTransition(
   project: Pick<Project, "customerId" | "proId" | "status">,

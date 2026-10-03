@@ -33,8 +33,8 @@ export async function projectAction(
         );
       const profile = (
         await c.query(
-          "SELECT * FROM profiles WHERE id=$1 AND verified AND NOT suspended AND available",
-          [user.id],
+          "SELECT * FROM profiles WHERE id=$1 AND verified AND review_status='approved' AND NOT suspended AND available AND ((latitude IS NOT NULL AND $2::float8 IS NOT NULL AND 3959 * acos(least(1,cos(radians(latitude))*cos(radians($2))*cos(radians($3)-radians(longitude))+sin(radians(latitude))*sin(radians($2)))) <= service_radius_miles) OR ((latitude IS NULL OR $2::float8 IS NULL) AND zip=$4))",
+          [user.id, p.latitude, p.longitude, p.zip],
         )
       ).rows[0];
       if (!profile || profile.category !== p.category)
@@ -47,9 +47,22 @@ export async function projectAction(
       ).rows[0];
       if (existing && existing.status !== "pending")
         fail(409, "This estimate is closed.");
+      const amount = action.laborAmount + action.materialsAmount;
+      if (action.expiresAt) assertFuture(action.expiresAt);
       await c.query(
-        "INSERT INTO quotes(id,project_id,pro_id,amount,description) VALUES($1,$2,$3,$4,$5) ON CONFLICT(project_id,pro_id) DO UPDATE SET amount=EXCLUDED.amount,description=EXCLUDED.description,created_at=now(),revision=quotes.revision+1",
-        [randomUUID(), id, user.id, action.amount, action.description],
+        "INSERT INTO quotes(id,project_id,pro_id,amount,labor_amount,materials_amount,description,exclusions,timeline,expires_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT(project_id,pro_id) DO UPDATE SET amount=EXCLUDED.amount,labor_amount=EXCLUDED.labor_amount,materials_amount=EXCLUDED.materials_amount,description=EXCLUDED.description,exclusions=EXCLUDED.exclusions,timeline=EXCLUDED.timeline,expires_at=EXCLUDED.expires_at,created_at=now(),revision=quotes.revision+1",
+        [
+          randomUUID(),
+          id,
+          user.id,
+          amount,
+          action.laborAmount,
+          action.materialsAmount,
+          action.description,
+          action.exclusions,
+          action.timeline,
+          action.expiresAt,
+        ],
       );
       await c.query(
         "INSERT INTO project_discussions(id,project_id,pro_id) VALUES($1,$2,$3) ON CONFLICT(project_id,pro_id) DO NOTHING",
@@ -59,7 +72,7 @@ export async function projectAction(
     } else if (action.type === "accept" || action.type === "decline") {
       const quote = (
         await c.query(
-          "SELECT q.* FROM quotes q JOIN profiles f ON f.id=q.pro_id WHERE q.id=$1 AND q.project_id=$2 AND q.status='pending' AND f.verified AND NOT f.suspended",
+          "SELECT q.* FROM quotes q JOIN profiles f ON f.id=q.pro_id WHERE q.id=$1 AND q.project_id=$2 AND q.status='pending' AND (q.expires_at IS NULL OR q.expires_at>now()) AND f.verified AND f.review_status='approved' AND NOT f.suspended",
           [action.quoteId, id],
         )
       ).rows[0];

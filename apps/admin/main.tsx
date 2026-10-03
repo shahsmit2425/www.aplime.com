@@ -44,7 +44,8 @@ function Admin() {
   const [resolver, setResolver] = useState<MultiFactorResolver | null>(null),
     [enroll, setEnroll] = useState(false),
     [secret, setSecret] = useState<TotpSecret | null>(null),
-    [page, setPage] = useState("Overview");
+    [page, setPage] = useState("Overview"),
+    [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
   useEffect(() => {
     void (async () => {
       if (!apiUrl || (import.meta.env.PROD && !apiUrl.startsWith("https://")))
@@ -409,6 +410,57 @@ function Admin() {
                         : "Verification pending"}{" "}
                       · {p.suspended ? "Suspended" : "Active"}
                     </p>
+                    <p>
+                      Marketplace review: {p.reviewStatus.replace("_", " ")} ·
+                      service radius {p.serviceRadiusMiles} miles ·{" "}
+                      {p.images?.length || 0} images
+                    </p>
+                    <p>{p.bio}</p>
+                    {p.reviewNote && <p>Previous note: {p.reviewNote}</p>}
+                    {p.reviewStatus === "pending" && (
+                      <>
+                        <textarea
+                          aria-label={"Review note for " + p.business}
+                          placeholder="Required when requesting changes or rejecting"
+                          value={reviewNotes[p.id] || ""}
+                          onChange={(event) =>
+                            setReviewNotes({
+                              ...reviewNotes,
+                              [p.id]: event.target.value,
+                            })
+                          }
+                          maxLength={2000}
+                        />
+                        <div className="actions">
+                          {[
+                            ["approved", "Approve listing"],
+                            ["changes_requested", "Request changes"],
+                            ["rejected", "Reject listing"],
+                          ].map(([status, label]) => (
+                            <button
+                              key={status}
+                              disabled={busy}
+                              onClick={() =>
+                                void run(async () => {
+                                  await request(
+                                    "/profiles/" +
+                                      encodeURIComponent(p.id) +
+                                      "/review",
+                                    {
+                                      status,
+                                      note: reviewNotes[p.id] || "",
+                                    },
+                                  );
+                                  await load();
+                                })
+                              }
+                            >
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
                     <button
                       disabled={busy}
                       onClick={() =>

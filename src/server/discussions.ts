@@ -67,13 +67,13 @@ discussions.post("/projects/:id/discussions", async (req, res) => {
     )
       fail(409, "This project is no longer accepting responses.");
     const eligible = await c.query(
-      "SELECT 1 FROM profiles f JOIN professional_subscriptions s ON s.user_id=f.id WHERE f.id=$1 AND f.category=$2 AND f.verified AND NOT f.suspended AND f.available AND s.status IN ('active','trialing')",
-      [req.account.id, p.category],
+      "SELECT 1 FROM profiles f JOIN professional_subscriptions s ON s.user_id=f.id WHERE f.id=$1 AND f.category=$2 AND f.verified AND f.review_status='approved' AND NOT f.suspended AND f.available AND s.status IN ('active','trialing') AND ((f.latitude IS NOT NULL AND $3::float8 IS NOT NULL AND 3959 * acos(least(1,cos(radians(f.latitude))*cos(radians($3))*cos(radians($4)-radians(f.longitude))+sin(radians(f.latitude))*sin(radians($3)))) <= f.service_radius_miles) OR ((f.latitude IS NULL OR $3::float8 IS NULL) AND f.zip=$5))",
+      [req.account.id, p.category, p.latitude, p.longitude, p.zip],
     );
     if (!eligible.rowCount)
       fail(
         403,
-        "A verified, available business with an active subscription in this category is required.",
+        "An approved, available business with an active subscription in this service area is required.",
       );
     if (
       (

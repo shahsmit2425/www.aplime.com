@@ -84,16 +84,36 @@ test("financial amounts use bounded integer cents and unknown fields are rejecte
   assert.equal(
     actionSchema.safeParse({
       type: "quote",
-      amount: 100.5,
+      laborAmount: 12500,
+      materialsAmount: 2500,
       description: "Detailed scope of work",
+      exclusions: "Permit fees",
+      timeline: "One workday",
+      expiresAt: null,
+    }).success,
+    true,
+  );
+  assert.equal(
+    actionSchema.safeParse({
+      type: "quote",
+      laborAmount: 50,
+      materialsAmount: 0,
+      description: "Detailed scope of work",
+      exclusions: "",
+      timeline: "One workday",
+      expiresAt: null,
     }).success,
     false,
   );
   assert.equal(
     actionSchema.safeParse({
       type: "quote",
-      amount: -100,
+      laborAmount: -100,
+      materialsAmount: 0,
       description: "Detailed scope of work",
+      exclusions: "",
+      timeline: "One workday",
+      expiresAt: null,
     }).success,
     false,
   );

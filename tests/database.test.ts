@@ -66,6 +66,12 @@ await db.exec(
 await db.exec(
   await readFile("src/server/db/migrations/006_business_images.sql", "utf8"),
 );
+await db.exec(
+  await readFile(
+    "src/server/db/migrations/007_marketplace_quality.sql",
+    "utf8",
+  ),
+);
 test.after(async () => {
   await db.close();
   await pool.end();
@@ -83,7 +89,7 @@ test("real PostgreSQL engine enforces ownership workflow and duplicate constrain
       u.role,
     ]);
   await query(
-    "INSERT INTO profiles(id,business,category,bio,zip,rate,verified) VALUES($1,$2,$3,$4,$5,$6,true)",
+    "INSERT INTO profiles(id,business,category,bio,zip,rate,verified,review_status) VALUES($1,$2,$3,$4,$5,$6,true,'approved')",
     [
       professional.id,
       "Test business",
@@ -116,15 +122,23 @@ test("real PostgreSQL engine enforces ownership workflow and duplicate constrain
   );
   await projectAction(id, professional, {
     type: "quote",
-    amount: 15000,
+    laborAmount: 12000,
+    materialsAmount: 3000,
     description: "Labor and materials included.",
+    exclusions: "Permit fees",
+    timeline: "One day",
+    expiresAt: null,
   });
   const quote = (await query("SELECT * FROM quotes WHERE project_id=$1", [id]))
     .rows[0] as any;
   await projectAction(id, professional, {
     type: "quote",
-    amount: 15000,
+    laborAmount: 12000,
+    materialsAmount: 3000,
     description: "Updated labor and materials included.",
+    exclusions: "Permit fees",
+    timeline: "One day",
+    expiresAt: null,
   });
   await assert.rejects(
     projectAction(id, customer, {

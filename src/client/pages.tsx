@@ -214,13 +214,16 @@ function Dashboard() {
               </button>
             ))}
           {pro &&
-          !data.profiles.find((p) => p.id === data.user.id)?.verified ? (
+          (!data.profiles.find((p) => p.id === data.user.id)?.verified ||
+            data.profiles.find((p) => p.id === data.user.id)?.reviewStatus !==
+              "approved") ? (
             <>
               <ShieldCheck />
               <h3>Finish your professional setup.</h3>
               <p>
-                Save your business profile, verify your identity, and activate
-                your subscription.
+                Save your business profile, add business images, verify your
+                identity, submit the listing for review, and activate your
+                subscription.
               </p>
               <button onClick={() => go("profile")}>Continue setup</button>
             </>
@@ -431,7 +434,74 @@ function Projects() {
   const [photos, setPhotos] = useState<ProjectPhoto[]>([]);
   const [savedProjectId, setSavedProjectId] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState("");
+  const [draft, setDraft] = useState<Record<string, any> | null>(null);
+  const [pendingProject, setPendingProject] = useState<Record<
+    string,
+    any
+  > | null>(null);
   const source = page === "leads" ? data.leads : data.projects;
+  useEffect(() => {
+    if (data.user.role !== "customer") return;
+    void request<{ payload: Record<string, any> | null }>("/project-draft")
+      .then((result) => {
+        setDraft(result.payload);
+        if (!selectedProfessional && result.payload?.category)
+          setProjectCategory(result.payload.category as ServiceCategory);
+      })
+      .catch(() => undefined);
+  }, [data.user.id, selectedProfessional?.id]);
+  const payloadFrom = (f: FormData) => ({
+    title: String(f.get("title") || ""),
+    description: String(f.get("description") || ""),
+    category: projectCategory,
+    intake: Object.fromEntries(
+      questionsFor(projectCategory).map((question) => [
+        question.id,
+        String(f.get("intake_" + question.id) || "").trim(),
+      ]),
+    ),
+    zip: String(f.get("zip") || ""),
+    urgency: String(f.get("urgency") || "flexible"),
+    propertyType: String(f.get("propertyType") || "home"),
+    budgetMin: f.get("budgetMin")
+      ? Math.round(Number(f.get("budgetMin")) * 100)
+      : null,
+    budgetMax: f.get("budgetMax")
+      ? Math.round(Number(f.get("budgetMax")) * 100)
+      : null,
+    proId: id || null,
+    scheduledAt: f.get("scheduledAt")
+      ? new Date(String(f.get("scheduledAt"))).toISOString()
+      : null,
+  });
+  const publish = (payload: Record<string, any>) =>
+    run(async () => {
+      const result = savedProjectId
+        ? { id: savedProjectId }
+        : await request("/projects", payload);
+      setSavedProjectId(result.id);
+      try {
+        for (let index = 0; index < photos.length; index++) {
+          setUploadProgress(
+            `Uploading photo ${index + 1} of ${photos.length}…`,
+          );
+          await sendProjectPhoto(result.id, photos[index]);
+        }
+      } catch (error) {
+        setUploadProgress(
+          "Your project is saved. Some photos could not be uploaded. Retry below, or open your project to continue later.",
+        );
+        throw error;
+      }
+      await request("/project-draft", undefined, "DELETE").catch(
+        () => undefined,
+      );
+      setDraft(null);
+      setUploadProgress("");
+      setCreating(false);
+      setPendingProject(null);
+      go("project", result.id);
+    }, "Project created.");
   return (
     <>
       <Head
@@ -472,211 +542,313 @@ function Projects() {
               </strong>
             )}
           </p>
-          <Form
-            busy={busy}
-            onSubmit={(f) =>
-              run(async () => {
-                const result = savedProjectId
-                  ? { id: savedProjectId }
-                  : await request("/projects", {
-                      title: f.get("title"),
-                      description: f.get("description"),
-                      category: projectCategory,
-                      intake: Object.fromEntries(
-                        questionsFor(projectCategory).map((question) => [
-                          question.id,
-                          String(f.get("intake_" + question.id) || "").trim(),
-                        ]),
-                      ),
-                      zip: f.get("zip"),
-                      proId: id || null,
-                      scheduledAt: f.get("scheduledAt")
-                        ? new Date(String(f.get("scheduledAt"))).toISOString()
-                        : null,
-                    });
-                setSavedProjectId(result.id);
-                try {
-                  for (let index = 0; index < photos.length; index++) {
-                    setUploadProgress(
-                      `Uploading photo ${index + 1} of ${photos.length}…`,
-                    );
-                    await sendProjectPhoto(result.id, photos[index]);
-                    setPhotos([...photos]);
-                  }
-                } catch (error) {
-                  setUploadProgress(
-                    "Your project is saved. Some photos could not be uploaded. Retry below, or open your project to continue later.",
-                  );
-                  throw error;
-                }
-                setUploadProgress("");
-                setCreating(false);
-                go("project", result.id);
-              }, "Project created.")
-            }
-          >
-            <fieldset
-              disabled={!!savedProjectId}
-              className="project-details-fields"
+          {pendingProject ? (
+            <section
+              className="intake-summary"
+              aria-label="Review project request"
             >
-              <h3>1. Describe your project</h3>
-              <p>Fields are required unless marked optional.</p>
-              <div className="form-grid">
-                <Field label="Project title">
-                  <input
-                    name="title"
-                    placeholder="For example, repair a leaking kitchen faucet"
-                    required
-                    minLength={5}
-                    maxLength={120}
-                  />
-                </Field>
-                <Field label="Service">
-                  <select
-                    name="category"
-                    value={projectCategory}
-                    disabled={!!selectedProfessional}
-                    onChange={(event) =>
-                      setProjectCategory(event.target.value as ServiceCategory)
-                    }
-                  >
-                    {categories.map((c) => (
-                      <option key={c}>{c}</option>
-                    ))}
-                  </select>
-                </Field>
-                <Field label="ZIP code">
-                  <input
-                    name="zip"
-                    pattern="[0-9]{5}"
-                    maxLength={5}
-                    inputMode="numeric"
-                    required
-                  />
-                </Field>
-                <Field label="Preferred appointment (optional)">
-                  <input name="scheduledAt" type="datetime-local" />
-                </Field>
-              </div>
-              <Field label="What needs to be done?">
-                <textarea
-                  name="description"
-                  required
-                  minLength={20}
-                  maxLength={4000}
-                  rows={4}
-                  placeholder="Describe the problem, where it is, and what you would like done (at least 20 characters)."
-                />
-              </Field>
-              <section className="project-questionnaire">
-                <div className="questionnaire-heading">
-                  <span className="category-icon">
-                    <ServiceIcon service={projectCategory} size={21} />
-                  </span>
-                  <div>
-                    <h3>2. {projectCategory} details</h3>
-                    <p>
-                      These answers help professionals assess the job before
-                      contacting you.
-                    </p>
+              <h3>Review before publishing</h3>
+              <h4>{pendingProject.title}</h4>
+              <p>{pendingProject.description}</p>
+              <dl>
+                <div>
+                  <dt>Service</dt>
+                  <dd>{pendingProject.category}</dd>
+                </div>
+                <div>
+                  <dt>Location</dt>
+                  <dd>{pendingProject.zip}</dd>
+                </div>
+                <div>
+                  <dt>Timing</dt>
+                  <dd>{pendingProject.urgency.replace("_", " ")}</dd>
+                </div>
+                <div>
+                  <dt>Property</dt>
+                  <dd>{pendingProject.propertyType}</dd>
+                </div>
+                <div>
+                  <dt>Budget</dt>
+                  <dd>
+                    {pendingProject.budgetMin === null &&
+                    pendingProject.budgetMax === null
+                      ? "Not specified"
+                      : `${pendingProject.budgetMin === null ? "Any" : money(pendingProject.budgetMin)} – ${pendingProject.budgetMax === null ? "Any" : money(pendingProject.budgetMax)}`}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Photos</dt>
+                  <dd>{photos.length} selected</dd>
+                </div>
+                {Object.entries(pendingProject.intake).map(([key, value]) => (
+                  <div key={key}>
+                    <dt>{questionLabel(pendingProject.category, key)}</dt>
+                    <dd>{String(value)}</dd>
                   </div>
-                </div>
-                {(projectCategory === "Plumbing" ||
-                  projectCategory === "Electrical") && (
-                  <p className="safety-note" role="note">
-                    If there is immediate danger, fire, flooding, gas, or
-                    exposed live wiring, leave the area and contact emergency
-                    services or the appropriate utility. Aplime is not an
-                    emergency service.
-                  </p>
-                )}
-                <div className="questionnaire-grid">
-                  {questionsFor(projectCategory).map((question) => (
-                    <Field
-                      label={question.label}
-                      key={projectCategory + ":" + question.id}
-                    >
-                      {question.type === "select" ? (
-                        <select
-                          name={"intake_" + question.id}
-                          required={question.required}
-                          defaultValue=""
-                        >
-                          <option value="" disabled>
-                            Select an answer
-                          </option>
-                          {question.options?.map((option) => (
-                            <option key={option}>{option}</option>
-                          ))}
-                        </select>
-                      ) : question.type === "textarea" ? (
-                        <textarea
-                          name={"intake_" + question.id}
-                          required={question.required}
-                          minLength={question.required ? 3 : undefined}
-                          maxLength={1500}
-                          rows={3}
-                          placeholder={question.placeholder}
-                        />
-                      ) : (
-                        <input
-                          name={"intake_" + question.id}
-                          required={question.required}
-                          minLength={question.required ? 2 : undefined}
-                          maxLength={1500}
-                          placeholder={question.placeholder}
-                        />
-                      )}
-                    </Field>
-                  ))}
-                </div>
-              </section>
-            </fieldset>
-            <ProjectPhotos
-              photos={photos}
-              onChange={setPhotos}
-              disabled={busy || !!savedProjectId}
-            />
-            <div className="project-submit">
-              <p>
-                Send your request to start discussing the work. This does not
-                confirm an appointment or make a payment.
-              </p>
-              <p role="status" aria-live="polite">
-                {uploadProgress}
-              </p>
+                ))}
+              </dl>
               <div className="actions">
-                <button>
-                  {busy
-                    ? "Saving your project…"
-                    : savedProjectId
-                      ? "Retry remaining photos"
-                      : "Send project request"}
+                <button
+                  disabled={busy}
+                  onClick={() => void publish(pendingProject)}
+                >
+                  Publish project request
                 </button>
-                {savedProjectId && (
-                  <button
-                    type="button"
-                    className="secondary"
-                    onClick={() => go("project", savedProjectId)}
-                  >
-                    Open saved project
-                  </button>
-                )}
-                {!savedProjectId && (
-                  <button
-                    type="button"
-                    className="secondary"
-                    onClick={() => {
-                      setPhotos([]);
-                      setCreating(false);
-                    }}
-                  >
-                    Cancel
-                  </button>
-                )}
+                <button
+                  className="secondary"
+                  disabled={busy}
+                  onClick={() => setPendingProject(null)}
+                >
+                  Back to edit
+                </button>
               </div>
-            </div>
-          </Form>
+            </section>
+          ) : (
+            <Form
+              key={draft ? JSON.stringify(draft) : "new-project"}
+              busy={busy}
+              onSubmit={(f) => {
+                const payload = payloadFrom(f);
+                if (f.get("intent") === "draft")
+                  return run(async () => {
+                    await request("/project-draft", payload, "PUT");
+                    setDraft(payload);
+                  }, "Draft saved. You can continue it from any signed-in device.");
+                setPendingProject(payload);
+                return Promise.resolve();
+              }}
+            >
+              <fieldset
+                disabled={!!savedProjectId}
+                className="project-details-fields"
+              >
+                <h3>1. Describe your project</h3>
+                <p>Fields are required unless marked optional.</p>
+                <div className="form-grid">
+                  <Field label="Project title">
+                    <input
+                      name="title"
+                      defaultValue={draft?.title || ""}
+                      placeholder="For example, repair a leaking kitchen faucet"
+                      required
+                      minLength={5}
+                      maxLength={120}
+                    />
+                  </Field>
+                  <Field label="Service">
+                    <select
+                      name="category"
+                      value={projectCategory}
+                      disabled={!!selectedProfessional}
+                      onChange={(event) =>
+                        setProjectCategory(
+                          event.target.value as ServiceCategory,
+                        )
+                      }
+                    >
+                      {categories.map((c) => (
+                        <option key={c}>{c}</option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="ZIP code">
+                    <input
+                      name="zip"
+                      defaultValue={draft?.zip || ""}
+                      pattern="[0-9]{5}"
+                      maxLength={5}
+                      inputMode="numeric"
+                      required
+                    />
+                  </Field>
+                  <Field label="Preferred appointment (optional)">
+                    <input
+                      name="scheduledAt"
+                      type="datetime-local"
+                      defaultValue={draft?.scheduledAt?.slice(0, 16) || ""}
+                    />
+                  </Field>
+                  <Field label="How soon do you need help?">
+                    <select
+                      name="urgency"
+                      defaultValue={draft?.urgency || "flexible"}
+                    >
+                      <option value="urgent">As soon as possible</option>
+                      <option value="this_week">This week</option>
+                      <option value="this_month">This month</option>
+                      <option value="flexible">Flexible</option>
+                    </select>
+                  </Field>
+                  <Field label="Property type">
+                    <select
+                      name="propertyType"
+                      defaultValue={draft?.propertyType || "home"}
+                    >
+                      <option value="home">House</option>
+                      <option value="apartment">Apartment</option>
+                      <option value="condo">Condo</option>
+                      <option value="commercial">Commercial property</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </Field>
+                  <Field label="Budget minimum (optional)">
+                    <input
+                      name="budgetMin"
+                      type="number"
+                      min="0"
+                      max="100000"
+                      step="1"
+                      defaultValue={
+                        draft?.budgetMin == null ? "" : draft.budgetMin / 100
+                      }
+                    />
+                  </Field>
+                  <Field label="Budget maximum (optional)">
+                    <input
+                      name="budgetMax"
+                      type="number"
+                      min="0"
+                      max="100000"
+                      step="1"
+                      defaultValue={
+                        draft?.budgetMax == null ? "" : draft.budgetMax / 100
+                      }
+                    />
+                  </Field>
+                </div>
+                <Field label="What needs to be done?">
+                  <textarea
+                    name="description"
+                    defaultValue={draft?.description || ""}
+                    required
+                    minLength={20}
+                    maxLength={4000}
+                    rows={4}
+                    placeholder="Describe the problem, where it is, and what you would like done (at least 20 characters)."
+                  />
+                </Field>
+                <section className="project-questionnaire">
+                  <div className="questionnaire-heading">
+                    <span className="category-icon">
+                      <ServiceIcon service={projectCategory} size={21} />
+                    </span>
+                    <div>
+                      <h3>2. {projectCategory} details</h3>
+                      <p>
+                        These answers help professionals assess the job before
+                        contacting you.
+                      </p>
+                    </div>
+                  </div>
+                  {(projectCategory === "Plumbing" ||
+                    projectCategory === "Electrical") && (
+                    <p className="safety-note" role="note">
+                      If there is immediate danger, fire, flooding, gas, or
+                      exposed live wiring, leave the area and contact emergency
+                      services or the appropriate utility. Aplime is not an
+                      emergency service.
+                    </p>
+                  )}
+                  <div className="questionnaire-grid">
+                    {questionsFor(projectCategory).map((question) => (
+                      <Field
+                        label={question.label}
+                        key={projectCategory + ":" + question.id}
+                      >
+                        {question.type === "select" ? (
+                          <select
+                            name={"intake_" + question.id}
+                            required={question.required}
+                            defaultValue={draft?.intake?.[question.id] || ""}
+                          >
+                            <option value="" disabled>
+                              Select an answer
+                            </option>
+                            {question.options?.map((option) => (
+                              <option key={option}>{option}</option>
+                            ))}
+                          </select>
+                        ) : question.type === "textarea" ? (
+                          <textarea
+                            name={"intake_" + question.id}
+                            required={question.required}
+                            minLength={question.required ? 3 : undefined}
+                            maxLength={1500}
+                            rows={3}
+                            placeholder={question.placeholder}
+                            defaultValue={draft?.intake?.[question.id] || ""}
+                          />
+                        ) : (
+                          <input
+                            name={"intake_" + question.id}
+                            required={question.required}
+                            minLength={question.required ? 2 : undefined}
+                            maxLength={1500}
+                            placeholder={question.placeholder}
+                            defaultValue={draft?.intake?.[question.id] || ""}
+                          />
+                        )}
+                      </Field>
+                    ))}
+                  </div>
+                </section>
+              </fieldset>
+              <ProjectPhotos
+                photos={photos}
+                onChange={setPhotos}
+                disabled={busy || !!savedProjectId}
+              />
+              <div className="project-submit">
+                <p>
+                  Review your request before publishing. Publishing does not
+                  confirm an appointment or make a payment.
+                </p>
+                <p role="status" aria-live="polite">
+                  {uploadProgress}
+                </p>
+                <div className="actions">
+                  <button name="intent" value="review">
+                    {busy
+                      ? "Saving your project…"
+                      : savedProjectId
+                        ? "Retry remaining photos"
+                        : "Review project request"}
+                  </button>
+                  {!savedProjectId && (
+                    <button
+                      name="intent"
+                      value="draft"
+                      formNoValidate
+                      className="secondary"
+                    >
+                      Save draft
+                    </button>
+                  )}
+                  {savedProjectId && (
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() => go("project", savedProjectId)}
+                    >
+                      Open saved project
+                    </button>
+                  )}
+                  {!savedProjectId && (
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() => {
+                        setPhotos([]);
+                        setCreating(false);
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  )}
+                </div>
+              </div>
+            </Form>
+          )}
         </Panel>
       )}
       <div className="filters">
@@ -875,6 +1047,16 @@ function ProjectDetail() {
             <dd>{p.proName || "Choosing the right fit"}</dd>
             <dt>Appointment</dt>
             <dd>{date(p.scheduledAt)}</dd>
+            <dt>Timing</dt>
+            <dd>{p.urgency.replace("_", " ")}</dd>
+            <dt>Property type</dt>
+            <dd>{p.propertyType}</dd>
+            <dt>Customer budget</dt>
+            <dd>
+              {p.budgetMin === null && p.budgetMax === null
+                ? "Not specified"
+                : `${p.budgetMin === null ? "Any" : money(p.budgetMin)} – ${p.budgetMax === null ? "Any" : money(p.budgetMax)}`}
+            </dd>
             <dt>Agreed total</dt>
             <dd>{p.amount ? money(p.amount) : "Awaiting an estimate"}</dd>
           </dl>
@@ -1002,6 +1184,18 @@ function ProjectDetail() {
                     "Professional"}
                 </p>
                 <p>{q.description}</p>
+                <dl>
+                  <dt>Labor</dt>
+                  <dd>{money(q.laborAmount)}</dd>
+                  <dt>Materials</dt>
+                  <dd>{money(q.materialsAmount)}</dd>
+                  <dt>Expected timeline</dt>
+                  <dd>{q.timeline}</dd>
+                  <dt>Exclusions</dt>
+                  <dd>{q.exclusions || "None listed"}</dd>
+                  <dt>Valid until</dt>
+                  <dd>{q.expiresAt ? date(q.expiresAt) : "No expiration"}</dd>
+                </dl>
                 {customer && q.status === "pending" && (
                   <div className="actions">
                     <button
@@ -1054,8 +1248,18 @@ function ProjectDetail() {
                     () =>
                       submit({
                         type: "quote",
-                        amount: Math.round(Number(f.get("amount")) * 100),
+                        laborAmount: Math.round(
+                          Number(f.get("laborAmount")) * 100,
+                        ),
+                        materialsAmount: Math.round(
+                          Number(f.get("materialsAmount")) * 100,
+                        ),
                         description: f.get("description"),
+                        exclusions: f.get("exclusions"),
+                        timeline: f.get("timeline"),
+                        expiresAt: f.get("expiresAt")
+                          ? new Date(String(f.get("expiresAt"))).toISOString()
+                          : null,
                       }),
                     "Estimate sent.",
                   )
@@ -1070,24 +1274,41 @@ function ProjectDetail() {
                   Explain the scope, exclusions, and expected timing. Pending
                   estimates can be updated before acceptance.
                 </p>
-                <Field label="Total estimate (USD)">
+                <Field label="Labor (USD)">
                   <input
                     key={
-                      "amount-" +
+                      "labor-" +
                       quotes.find((q) => q.proId === data.user.id)?.revision
                     }
                     defaultValue={
                       quotes.find((q) => q.proId === data.user.id)
-                        ? quotes.find((q) => q.proId === data.user.id)!.amount /
-                          100
+                        ? quotes.find((q) => q.proId === data.user.id)!
+                            .laborAmount / 100
                         : undefined
                     }
                     type="number"
-                    name="amount"
-                    min="1"
+                    name="laborAmount"
+                    min="0"
                     max="100000"
                     step=".01"
                     required
+                  />
+                </Field>
+                <Field label="Materials and other costs (USD)">
+                  <input
+                    name="materialsAmount"
+                    type="number"
+                    min="0"
+                    max="100000"
+                    step=".01"
+                    required
+                    defaultValue={
+                      quotes.find((q) => q.proId === data.user.id)
+                        ?.materialsAmount
+                        ? quotes.find((q) => q.proId === data.user.id)!
+                            .materialsAmount / 100
+                        : 0
+                    }
                   />
                 </Field>
                 <Field label="Scope and inclusions">
@@ -1104,6 +1325,31 @@ function ProjectDetail() {
                     maxLength={2000}
                     required
                   />
+                </Field>
+                <Field label="Expected timeline">
+                  <input
+                    name="timeline"
+                    minLength={3}
+                    maxLength={300}
+                    required
+                    placeholder="For example, one workday after materials arrive"
+                    defaultValue={
+                      quotes.find((q) => q.proId === data.user.id)?.timeline
+                    }
+                  />
+                </Field>
+                <Field label="Exclusions (optional)">
+                  <textarea
+                    name="exclusions"
+                    maxLength={2000}
+                    placeholder="Anything the estimate does not include"
+                    defaultValue={
+                      quotes.find((q) => q.proId === data.user.id)?.exclusions
+                    }
+                  />
+                </Field>
+                <Field label="Estimate expiration (optional)">
+                  <input name="expiresAt" type="datetime-local" />
                 </Field>
                 <button>Send estimate</button>
               </Form>

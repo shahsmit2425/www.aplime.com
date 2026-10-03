@@ -67,7 +67,20 @@ export function BusinessProfile() {
           <ShieldCheck size={18} />
           {p?.verified ? "Identity verified" : "Identity verification needed"}
         </span>
+        <span>
+          <Eye size={18} />
+          {p
+            ? p.reviewStatus === "approved"
+              ? "Marketplace approved"
+              : p.reviewStatus.replace("_", " ")
+            : "Review not started"}
+        </span>
       </div>
+      {p?.reviewNote && (
+        <p className="business-tip">
+          <strong>Profile review note:</strong> {p.reviewNote}
+        </p>
+      )}
       {tab === "preview" && p && (
         <>
           <p className="business-tip">
@@ -120,6 +133,7 @@ export function BusinessProfile() {
                         bio: f.get("bio"),
                         zip: f.get("zip"),
                         rate: Number(f.get("rate")),
+                        serviceRadiusMiles: Number(f.get("serviceRadiusMiles")),
                         available: f.get("available") === "on",
                         availability: f.getAll("days"),
                         details: {
@@ -290,17 +304,29 @@ export function BusinessProfile() {
                         </Field>
                       ))}
                     {group.title === "Contact & location" && (
-                      <Field label="Business ZIP code">
-                        <input
-                          name="zip"
-                          defaultValue={p?.zip}
-                          pattern="[0-9]{5}"
-                          inputMode="numeric"
-                          maxLength={5}
-                          required
-                          placeholder="Five-digit ZIP code"
-                        />
-                      </Field>
+                      <>
+                        <Field label="Business ZIP code">
+                          <input
+                            name="zip"
+                            defaultValue={p?.zip}
+                            pattern="[0-9]{5}"
+                            inputMode="numeric"
+                            maxLength={5}
+                            required
+                            placeholder="Five-digit ZIP code"
+                          />
+                        </Field>
+                        <Field label="Service radius (miles)">
+                          <input
+                            name="serviceRadiusMiles"
+                            type="number"
+                            min={1}
+                            max={100}
+                            required
+                            defaultValue={p?.serviceRadiusMiles ?? 25}
+                          />
+                        </Field>
+                      </>
                     )}
                   </div>
                 </section>
@@ -379,6 +405,34 @@ export function BusinessProfile() {
             </button>
           </Panel>
         </div>
+        <Panel title="Marketplace review">
+          <p>
+            Aplime reviews your saved business details after identity
+            verification. Saving changes returns the listing to draft so the
+            updated information can be reviewed before customers see it.
+          </p>
+          <button
+            disabled={
+              busy ||
+              !p ||
+              !p.verified ||
+              p.reviewStatus === "pending" ||
+              p.reviewStatus === "approved"
+            }
+            onClick={() =>
+              void run(
+                () => request("/profile/submit-review", {}),
+                "Your business profile was submitted for review.",
+              )
+            }
+          >
+            {p?.reviewStatus === "pending"
+              ? "Review in progress"
+              : p?.reviewStatus === "approved"
+                ? "Marketplace approved"
+                : "Submit profile for review"}
+          </button>
+        </Panel>
       </div>
     </>
   );

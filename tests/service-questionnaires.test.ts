@@ -9,6 +9,10 @@ const baseProject = {
   zip: "10001",
   proId: null,
   scheduledAt: null,
+  urgency: "flexible",
+  propertyType: "home",
+  budgetMin: null,
+  budgetMax: null,
 };
 
 test("every service questionnaire produces a valid complete project intake", () => {
