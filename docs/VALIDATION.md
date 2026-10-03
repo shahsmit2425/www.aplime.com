@@ -52,13 +52,11 @@ Expanded public business information is validated on the API and stored in profi
 
 Live Stripe recurring price, Customer Portal configuration, webhook delivery, failed renewal, cancellation, resubscription, and Identity verification still require Stripe test-mode validation. Native purchases/distribution have not been validated; mobile releases remain deferred. Do not publish mobile subscription checkout until store policy and billing implementation are reviewed for the intended distribution.
 
-
 ## Customer project photos
 
 Project creation offers up to five optional JPG/PNG/WebP images, 10 MB each, with previews and removal before submission. Uploads follow project creation; failures retain the saved project and reservation IDs while the form remains open, allowing retries without creating another project. Already completed photos are skipped. Reloading/leaving the form discards local file selections. Pending reservations count toward the five-image cap. Their owner can remove unfinished uploads from the project attachments section to release slots after leaving the form. Existing PDF project attachments remain supported separately.
 
 The API serializes reservations with a project row lock, checks membership and ownership on retries/completion, and verifies object metadata before marking uploads ready. File checks cover declared MIME type and size, not antivirus scanning. Automated tests cover file validation and database reservation limits. Live authenticated browser/R2 uploads, bucket CORS, connection interruption, and signed mobile builds still need development-environment validation; local checks do not establish deployment success.
-
 
 ## Project collaboration redesign
 
@@ -68,24 +66,21 @@ Customers can discuss scope with multiple responding professionals before choosi
 
 Automated validation covers estimate revision conflicts, appointment self-confirmation and duplicate-response rejection, customer completion authority, outsider discussion access, closed discussions, and blocking. Live multi-account browser rendering, actual Daily calls, email delivery and signed native apps remain unverified. No deployment is claimed.
 
-Remaining product work: geographic service-area matching, structured consultation appointments before hiring, saved drafts, admin onboarding approval, quote history/expiry/withdrawal, chat media/read receipts, completion reminders, and in-progress cancellation negotiation. Assessment discussions currently carry text; project attachments remain restricted to the customer and assigned professional. Matching remains service-category based. Pending completion stays in progress until the customer confirms or raises a support issue; there is no automatic completion.
-
+Remaining product work: preference-based category and geographic service-area matching, structured consultation appointments before hiring, quote history/withdrawal, chat media/read receipts, completion reminders, and in-progress cancellation negotiation. Saved drafts and administrator onboarding approval are implemented. Assessment discussions currently carry text; project attachments remain restricted to the customer and assigned professional. For the current release, every approved, subscribed, available professional can browse, chat about, call about, and estimate every open public project category. Pending completion stays in progress until the customer confirms or raises a support issue; there is no automatic completion.
 
 ## Mail-worker startup validation
 
 The supplied Render logs confirmed both API pre-deploy and worker startup were blocked by the missing `STRIPE_PRO_PRICE_ID`. Worker startup now checks only database/SMTP configuration; API pre-deploy still requires the real professional subscription price. Unit tests cover independent worker startup, each missing required value, and invalid SMTP ports. Local tests do not verify Render deployment or Microsoft email delivery. The actual Stripe price must be supplied in the development backend environment group.
 
-
 ## Live in-app notifications
 
 Migration 005 adds notification destinations and a PostgreSQL NOTIFY trigger. Notifications and email outbox entries are saved in the business transaction; rolled-back actions do not publish live events. Each API process holds one dedicated LISTEN connection and relays only an authenticated user's invalidation events over SSE. Streams rotate after 55 seconds to recheck revoked credentials and administrator TOTP policy. Browser tokens are passed in Authorization headers, never URL parameters. The current UI reconnects with backoff and retains its periodic workspace refresh. Initial connection reloads durable records, so events missed offline can be recovered. Read changes synchronize between tabs. There is a 10-connection per-user, per-process limit.
 
-Coverage: account welcome; direct requests and service-category opportunities; new/revised, accepted, declined and competing estimates; assessment discussions and messages; call invitations; appointment proposals/acceptance/decline; work start, completion requests/confirmation, cancellation and disputes; completed attachments; reviews/replies; Stripe identity/subscription state changes; profile suspension/restoration; support receipt/resolution and administrator case alerts. Subscription events notify only on stored-state changes; signed webhook event IDs retain duplicate protection. Private saved-pro and blocking choices intentionally do not alert the other person. New lead alerts follow existing category eligibility, not geographic matching.
+Coverage: account welcome; direct requests and all-category public opportunities; new/revised, accepted, declined and competing estimates; private project chats and messages; audio/video call invitations; appointment proposals/acceptance/decline; work start, completion requests/confirmation, cancellation and disputes; completed attachments; reviews/replies; Stripe identity/subscription state changes; profile suspension/restoration; support receipt/resolution and administrator case alerts. Subscription events notify only on stored-state changes; signed webhook event IDs retain duplicate protection. Private saved-pro and blocking choices intentionally do not alert the other person. New public-project alerts go to every approved, subscribed, available professional except blocked relationships until preference-based matching is implemented.
 
 Tests cover commit/rollback delivery, destination storage, read-change events, recipient isolation, unsubscribe cleanup, SSE framing, and database listener integration using a mocked pg connection plus the real PGlite notification trigger. Real Render proxy streaming, reconnection across API replicas, browser interaction, Daily invitations, Microsoft delivery, and native background behavior still require deployed validation. This implements foreground in-app updates; it does not register service workers, browser push subscriptions, FCM/APNs device tokens, OS notification permission, or closed-app push.
 
 Deploy the API with `npm run db:migrate` before releasing the new web/admin clients. No new environment variables or external realtime vendor is needed. Use the existing direct PostgreSQL connection for LISTEN (not a transaction-pooling proxy). Each API instance uses one additional database connection. The mail worker continues using the transactional email outbox and existing email-alert preference.
-
 
 ## Business profile branding and details
 

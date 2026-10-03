@@ -79,10 +79,11 @@ export function Discussions({
   const [draft, setDraft] = useState("");
   useEffect(() => setDraft(""), [thread?.id]);
   return (
-    <Panel title="Discuss before you decide">
+    <Panel title="Private project chat">
       <p>
-        Each professional has a private conversation with you. A discussion or
-        consultation does not book the job.
+        {data.user.role === "customer"
+          ? "Each professional has a separate private conversation with you. Chatting or calling does not book the job."
+          : "Only you and this customer can read this conversation. Chatting or calling does not book the job."}
       </p>
       {error && <p role="alert">{error}</p>}
       {!!visible.length && (
@@ -143,7 +144,7 @@ export function Discussions({
                     }
                   >
                     {audio ? <Phone size={16} /> : <Video size={16} />}{" "}
-                    {audio ? "Audio" : "Video"} consultation
+                    {audio ? "Audio call" : "Video call"}
                   </button>
                 ))}
               </div>
@@ -215,10 +216,7 @@ export function Discussions({
         </div>
       )}
       {!visible.length && !canStart && (
-        <p>
-          No discussions yet. Professional questions and assessment requests
-          will appear here.
-        </p>
+        <p>No private chats yet. New project conversations will appear here.</p>
       )}
       {canStart && !visible.length && projectId && (
         <Form
@@ -232,16 +230,16 @@ export function Discussions({
             }, "Your assessment request was sent.")
           }
         >
-          <Field label="What do you need to assess before quoting?">
+          <Field label="Your first message to the customer">
             <textarea
               name="body"
               required
               minLength={10}
               maxLength={4000}
-              placeholder="Ask about measurements, access, or a consultation before estimating."
+              placeholder="Introduce your business and ask a clear question about the scope, measurements, access, or timing."
             />
           </Field>
-          <button>Ask a question / request assessment</button>
+          <button>Start private chat</button>
         </Form>
       )}
     </Panel>

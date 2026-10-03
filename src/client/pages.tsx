@@ -430,7 +430,8 @@ function Projects() {
     [projectCategory, setProjectCategory] =
       useState<ServiceCategory>(initialCategory),
     [status, setStatus] = useState(""),
-    [search, setSearch] = useState("");
+    [search, setSearch] = useState(""),
+    [categoryFilter, setCategoryFilter] = useState("");
   const [photos, setPhotos] = useState<ProjectPhoto[]>([]);
   const [savedProjectId, setSavedProjectId] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState("");
@@ -527,7 +528,9 @@ function Projects() {
           ) : undefined
         }
       >
-        Requests, estimates, and updates stay together.
+        {page === "leads"
+          ? "Browse every open customer project across all service categories. Category and location preferences will be added later."
+          : "Requests, estimates, and updates stay together."}
       </Head>
       {creating && data.user.role === "customer" && (
         <Panel title="Tell us about your project">
@@ -853,8 +856,25 @@ function Projects() {
       )}
       <div className="filters">
         <Field label="Search projects">
-          <input value={search} onChange={(e) => setSearch(e.target.value)} />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Title, service, details, or ZIP"
+          />
         </Field>
+        {page === "leads" && (
+          <Field label="Service category">
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+            >
+              <option value="">All service categories</option>
+              {categories.map((category) => (
+                <option key={category}>{category}</option>
+              ))}
+            </select>
+          </Field>
+        )}
         <Field label="Status">
           <select value={status} onChange={(e) => setStatus(e.target.value)}>
             <option value="">All statuses</option>
@@ -876,11 +896,17 @@ function Projects() {
       </div>
       <Panel>
         <ProjectList
-          projects={source.filter(
-            (p) =>
+          projects={source.filter((p) => {
+            const query = search.trim().toLowerCase();
+            return (
               (!status || p.status === status) &&
-              p.title.toLowerCase().includes(search.toLowerCase()),
-          )}
+              (!categoryFilter || p.category === categoryFilter) &&
+              (!query ||
+                `${p.title} ${p.description} ${p.category} ${p.zip}`
+                  .toLowerCase()
+                  .includes(query))
+            );
+          })}
         />
       </Panel>
     </>

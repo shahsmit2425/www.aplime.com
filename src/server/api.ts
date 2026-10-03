@@ -293,8 +293,8 @@ api.post("/projects", async (req, res) => {
     if (!p.proId) {
       const eligible = (
         await c.query(
-          "SELECT f.id FROM profiles f JOIN professional_subscriptions s ON s.user_id=f.id WHERE f.category=$1 AND f.verified AND f.review_status='approved' AND NOT f.suspended AND f.available AND s.status IN ('active','trialing') AND NOT EXISTS(SELECT 1 FROM blocked b WHERE (b.user_id=$2 AND b.other_id=f.id) OR (b.user_id=f.id AND b.other_id=$2)) AND ((f.latitude IS NOT NULL AND 3959 * acos(least(1,cos(radians(f.latitude))*cos(radians($3))*cos(radians($4)-radians(f.longitude))+sin(radians(f.latitude))*sin(radians($3)))) <= f.service_radius_miles) OR (f.latitude IS NULL AND f.zip=$5))",
-          [p.category, q.account.id, location.lat, location.lng, p.zip],
+          "SELECT f.id FROM profiles f JOIN professional_subscriptions s ON s.user_id=f.id WHERE f.verified AND f.review_status='approved' AND NOT f.suspended AND f.available AND s.status IN ('active','trialing') AND NOT EXISTS(SELECT 1 FROM blocked b WHERE (b.user_id=$1 AND b.other_id=f.id) OR (b.user_id=f.id AND b.other_id=$1))",
+          [q.account.id],
         )
       ).rows;
       for (const pro of eligible)

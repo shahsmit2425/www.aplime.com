@@ -33,12 +33,12 @@ export async function projectAction(
         );
       const profile = (
         await c.query(
-          "SELECT * FROM profiles WHERE id=$1 AND verified AND review_status='approved' AND NOT suspended AND available AND ((latitude IS NOT NULL AND $2::float8 IS NOT NULL AND 3959 * acos(least(1,cos(radians(latitude))*cos(radians($2))*cos(radians($3)-radians(longitude))+sin(radians(latitude))*sin(radians($2)))) <= service_radius_miles) OR ((latitude IS NULL OR $2::float8 IS NULL) AND zip=$4))",
-          [user.id, p.latitude, p.longitude, p.zip],
+          "SELECT 1 FROM profiles WHERE id=$1 AND verified AND review_status='approved' AND NOT suspended AND available",
+          [user.id],
         )
       ).rows[0];
-      if (!profile || profile.category !== p.category)
-        fail(403, "Complete verification and use a matching service category.");
+      if (!profile)
+        fail(403, "An approved and available business profile is required.");
       const existing = (
         await c.query(
           "SELECT status FROM quotes WHERE project_id=$1 AND pro_id=$2",

@@ -236,6 +236,38 @@ test("real PostgreSQL engine enforces ownership workflow and duplicate constrain
   assert.equal(disputed.status, "disputed");
   assert.equal(disputed.previous_status, "completed");
 });
+test("approved professionals can discover and quote open projects in every category", async () => {
+  const id = randomUUID();
+  await query(
+    "INSERT INTO projects(id,customer_id,title,description,category,zip) VALUES($1,$2,$3,$4,$5,$6)",
+    [
+      id,
+      customer.id,
+      "Cross-category project",
+      "A cleaning project outside the professional's saved category and ZIP.",
+      "Cleaning",
+      "90210",
+    ],
+  );
+  const available = await workspace(professional);
+  assert.ok(available.leads.some((project) => project.id === id));
+  await projectAction(id, professional, {
+    type: "quote",
+    laborAmount: 10000,
+    materialsAmount: 2500,
+    description: "Complete scope after confirming the project details.",
+    exclusions: "Specialty materials",
+    timeline: "One day",
+    expiresAt: null,
+  });
+  const quoteCount = (
+    await query(
+      "SELECT count(*)::int AS n FROM quotes WHERE project_id=$1 AND pro_id=$2",
+      [id, professional.id],
+    )
+  ).rows[0] as { n: number };
+  assert.equal(quoteCount.n, 1);
+});
 test("unsigned webhooks are rejected and duplicate signed events are idempotent", async () => {
   const express = (await import("express")).default;
   const app = express();
@@ -465,7 +497,9 @@ test("private discussions hide messages from outsiders and enforce blocking", as
   const { default: express } = await import("express");
   const { discussions } = await import("../src/server/discussions.js");
   const thread = (
-    await db.query<{ id: string }>("SELECT id FROM project_discussions LIMIT 1")
+    await db.query<{ id: string }>(
+      "SELECT d.id FROM project_discussions d JOIN projects p ON p.id=d.project_id WHERE p.status='disputed' LIMIT 1",
+    )
   ).rows[0];
   const app = express();
   app.use(express.json());
@@ -516,7 +550,43 @@ test("private discussions hide messages from outsiders and enforce blocking", as
     const rows = (await (
       await call("/discussions", customer.id)
     ).json()) as any[];
-    assert.equal(rows.length, 1);
+    assert.ok(rows.some((row) => row.id === thread.id));
+    const openProjectId = randomUUID();
+    await query(
+      "INSERT INTO projects(id,customer_id,title,description,category,zip) VALUES($1,$2,$3,$4,$5,$6)",
+      [
+        openProjectId,
+        customer.id,
+        "Cross-category conversation",
+        "An electrical project available for a private professional question.",
+        "Electrical",
+        "60601",
+      ],
+    );
+    await query(
+      "UPDATE professional_subscriptions SET status='active' WHERE user_id=$1",
+      [professional.id],
+    );
+    await query(
+      "UPDATE profiles SET verified=true,review_status='approved',suspended=false,available=true WHERE id=$1",
+      [professional.id],
+    );
+    assert.equal(
+      (
+        await call(`/projects/${openProjectId}/discussions`, professional.id, {
+          body: "Could you confirm the panel location and preferred timing?",
+        })
+      ).status,
+      200,
+    );
+    const professionalThreads = (await (
+      await call("/discussions", professional.id)
+    ).json()) as any[];
+    assert.ok(
+      professionalThreads.some(
+        (row) => row.project_id === openProjectId && row.messages.length === 1,
+      ),
+    );
     await db.query(
       "UPDATE projects SET status='booked' WHERE id=(SELECT project_id FROM project_discussions WHERE id=$1)",
       [thread.id],

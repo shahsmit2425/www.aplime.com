@@ -16,8 +16,8 @@ Saving business details after approval returns the listing to draft. The profess
 1. A customer can save one private, cross-device project draft. Drafts may be incomplete and never appear to professionals.
 2. Before publishing, the customer completes the service questionnaire, location, urgency, property type, optional budget, optional appointment proposal, and up to five photos.
 3. A review screen shows the request before it is published.
-4. Publishing geocodes the ZIP code and alerts only approved, subscribed professionals in the same category and within their configured service radius. A direct request is checked against the same rules.
-5. Professionals can ask private questions before the customer chooses one. Calls use private Daily rooms created by the API.
+4. Publishing geocodes the ZIP code and makes the request visible to every approved, subscribed, available professional. Category and service-area preferences are intentionally deferred; until they are added, professionals can filter the all-category opportunity list themselves. Direct requests still verify that the selected professional serves the requested category and location.
+5. An eligible professional can start a private project chat, ask scope questions, submit an estimate, and invite the customer to an audio or video call before the customer chooses one. Calls use private Daily rooms created by the API.
 
 ## Estimate and work
 
@@ -30,4 +30,6 @@ Saving business details after approval returns the listing to draft. The profess
 
 ## Marketplace access rules
 
-The API enforces review status, identity status, subscription status, suspension, availability, category, service radius, project membership, and blocking. Client-side screens explain those rules but are not trusted for authorization.
+The API enforces review status, identity status, subscription status, suspension, availability, project state, participant access, and blocking. Open opportunity browsing, private-chat initiation, and estimates currently allow every service category and location. Category and service-radius checks remain in place for a customer's direct request to a specific professional. Client-side screens explain these rules but are not trusted for authorization.
+
+Each pre-booking conversation is isolated by project and professional. Only that customer and professional may read or send its messages or request its Daily token. Daily rooms are private, limited to two participants, recording-disabled, and entered with one-hour room-scoped tokens. Once a customer books a professional, competing conversations become read-only.
