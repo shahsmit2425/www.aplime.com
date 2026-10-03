@@ -3,6 +3,7 @@ import {
   useContext,
   useEffect,
   useState,
+  useRef,
   type ReactNode,
 } from "react";
 import { onAuthStateChanged, type User as FirebaseUser } from "firebase/auth";
@@ -39,7 +40,7 @@ import {
   logout,
   recover,
   verifyEmail,
-  authErrorCode,
+  configureSession,
   authErrorMessage,
 } from "./auth.js";
 import { request, ApiError } from "./api.js";
@@ -161,6 +162,8 @@ export default function Workspace() {
         ? "pro"
         : "customer",
     ),
+    [resendUntil, setResendUntil] = useState(0),
+    [remember, setRemember] = useState(true),
     [authEmail, setAuthEmail] = useState(""),
     [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null),
     [data, setData] = useState<Data | null>(null),
@@ -196,8 +199,11 @@ export default function Workspace() {
     window.scrollTo(0, 0);
   }
   async function load() {
+    const owner = auth().currentUser;
+    if (!owner) return;
     try {
       const result = await request<Data>("/workspace");
+      if (auth().currentUser !== owner) return;
       if (result.user.role === "admin")
         throw new Error("Use the separate administrator application.");
       setData(result);
@@ -210,6 +216,13 @@ export default function Workspace() {
       );
       if (next !== current) replaceRoute(next);
     } catch (e) {
+      if (auth().currentUser !== owner) return;
+      if (e instanceof ApiError && e.status === 401) {
+        await logout();
+        replaceRoute("login");
+        setNotice("Your session has ended. Please sign in again.");
+        return;
+      }
       if (e instanceof ApiError && e.status === 428) {
         setNeedsAccount(true);
         setData(null);
@@ -255,6 +268,39 @@ export default function Workspace() {
       window.removeEventListener("focus", refresh);
     };
   }, [data?.user.id]);
+  const verificationPending = useRef(false);
+  async function checkVerification() {
+    const user = auth().currentUser;
+    if (!user || verificationPending.current) return false;
+    verificationPending.current = true;
+    try {
+      await user.reload();
+      if (auth().currentUser !== user || !user.emailVerified) return false;
+      await user.getIdToken(true);
+      setLoading(true);
+      try { await load(); } finally { setLoading(false); }
+      return true;
+    } finally { verificationPending.current = false; }
+  }
+  useEffect(() => {
+    if (!firebaseUser || firebaseUser.emailVerified || data || needsAccount) return;
+    const check = () => {
+      if (document.visibilityState === "visible") void checkVerification().catch(() => {});
+    };
+    const timer = setInterval(check, 5000);
+    window.addEventListener("focus", check);
+    document.addEventListener("visibilitychange", check);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("focus", check);
+      document.removeEventListener("visibilitychange", check);
+    };
+  }, [firebaseUser, data, needsAccount]);
+  useEffect(() => {
+    if (!resendUntil) return;
+    const timer = setTimeout(() => setResendUntil(0), Math.max(0, resendUntil - Date.now()));
+    return () => clearTimeout(timer);
+  }, [resendUntil]);
   async function run(fn: () => Promise<unknown>, message = "Saved.") {
     if (busy) return;
     setBusy(true);
@@ -262,7 +308,7 @@ export default function Workspace() {
     setNotice("");
     try {
       await fn();
-      if (firebaseUser?.emailVerified) await load();
+      if (auth().currentUser?.emailVerified) await load();
       if (message) setNotice(message);
     } catch (e) {
       setError(authErrorMessage(e));
@@ -324,31 +370,30 @@ export default function Workspace() {
             <>
               <p>
                 Verify your email using the link we sent to {firebaseUser.email}
-                . Then refresh your verification status.
+                . We’ll continue automatically when verification is confirmed. You can also check below.
               </p>
               <button
                 disabled={busy}
                 onClick={() =>
                   void run(async () => {
-                    await firebaseUser.reload();
-                    await firebaseUser.getIdToken(true);
-                    setFirebaseUser(auth().currentUser);
-                    if (auth().currentUser?.emailVerified) await load();
-                  }, "Verification checked.")
+                    const verified = await checkVerification();
+                    if (!verified) setNotice("Not verified yet. Open the latest email link, then try again. Check your spam folder too.");
+                  }, "")
                 }
               >
                 I’ve verified my email
               </button>
               <button
                 className="secondary"
+                disabled={busy || resendUntil > Date.now()}
                 onClick={() =>
                   void run(
-                    () => verifyEmail(firebaseUser),
+                    async () => { await verifyEmail(firebaseUser); setResendUntil(Date.now() + 60000); },
                     "Verification email sent.",
                   )
                 }
               >
-                Resend email
+                {resendUntil > Date.now() ? "Email sent — wait a minute to resend" : "Resend verification email"}
               </button>
               <button
                 className="text-button"
@@ -424,9 +469,8 @@ export default function Workspace() {
               )}
               {route.page === "login" && (
                 <p className="auth-intro">
-                  Created an account but haven’t verified your email? Sign in
-                  with the same email and password. We’ll take you directly to
-                  verification, where you can resend the email if needed.
+                  Pick up where you left off. We’ll open your account or help
+                  you finish verification automatically.
                 </p>
               )}
               <Form
@@ -439,23 +483,10 @@ export default function Workspace() {
                         await recover(email);
                         return;
                       }
-                      if (route.page === "register") {
-                        try {
-                          await register(email, String(f.get("password")));
-                        } catch (registrationError) {
-                          if (
-                            authErrorCode(registrationError) ===
-                            "auth/email-already-in-use"
-                          ) {
-                            replaceRoute("login");
-                            setNotice(
-                              "This email is already registered. Sign in with your password to continue. If the email is not verified yet, we’ll show verification and resend options next.",
-                            );
-                            return;
-                          }
-                          throw registrationError;
-                        }
-                      } else await login(email, String(f.get("password")));
+                      await configureSession(remember);
+                      if (route.page === "register")
+                        await register(email, String(f.get("password")));
+                      else await login(email.trim(), String(f.get("password")));
                     },
                     route.page === "recovery"
                       ? "If an account exists, a recovery email will arrive shortly."
@@ -488,6 +519,12 @@ export default function Workspace() {
                     />
                   </Field>
                 )}
+                {route.page !== "recovery" && !Capacitor.isNativePlatform() && (
+                  <label className="session-choice">
+                    <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
+                    <span>Keep me signed in<small>Uncheck on a shared device to use this tab only.</small></span>
+                  </label>
+                )}
                 <button>
                   {route.page === "register"
                     ? "Create your account"
@@ -501,14 +538,14 @@ export default function Workspace() {
                   <button
                     className="secondary"
                     disabled={busy}
-                    onClick={() => void run(google, "")}
+                    onClick={() => void run(async () => { await configureSession(remember); await google(); }, "")}
                   >
                     Continue with Google
                   </button>
                   <button
                     className="secondary"
                     disabled={busy}
-                    onClick={() => void run(apple, "")}
+                    onClick={() => void run(async () => { await configureSession(remember); await apple(); }, "")}
                   >
                     Continue with Apple
                   </button>
@@ -586,7 +623,7 @@ export default function Workspace() {
         <button
           aria-label="Sign out"
           className="icon-button"
-          onClick={() => void logout()}
+          onClick={signOutToLogin}
         >
           <LogOut size={18} />
         </button>

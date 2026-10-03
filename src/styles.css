@@ -1796,3 +1796,7 @@ blockquote {
     animation: none;
   }
 }
+
+.session-choice { display:flex; align-items:flex-start; gap:10px; margin:0 0 20px; font-size:14px; color:#234236; }
+.session-choice input { width:18px; height:18px; margin-top:2px; accent-color:#087a46; }
+.session-choice small { display:block; margin-top:4px; font-size:12px; color:#526c61; }

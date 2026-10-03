@@ -10,11 +10,19 @@ import {
   sendEmailVerification,
   sendPasswordResetEmail,
   signOut,
+  setPersistence,
+  browserLocalPersistence,
+  browserSessionPersistence,
   type User,
 } from "firebase/auth";
 import { Capacitor } from "@capacitor/core";
 import { FirebaseAuthentication } from "@capacitor-firebase/authentication";
 import { fallbackConfig } from "../shared/config.js";
+import { createOrResume } from "./registration.js";
+export async function configureSession(remember: boolean) {
+  await setPersistence(auth(), remember || Capacitor.isNativePlatform()
+    ? browserLocalPersistence : browserSessionPersistence);
+}
 export function auth() {
   const c = window.__CONFIG__ || fallbackConfig;
   if (!c.firebase.apiKey) throw new Error("Sign-in is not configured yet.");
@@ -24,9 +32,12 @@ export async function login(email: string, password: string) {
   return signInWithEmailAndPassword(auth(), email, password);
 }
 export async function register(email: string, password: string) {
-  const result = await createUserWithEmailAndPassword(auth(), email, password);
-  await sendEmailVerification(result.user);
-  return result;
+  const { credential, created } = await createOrResume(
+    () => createUserWithEmailAndPassword(auth(), email.trim(), password),
+    () => login(email.trim(), password),
+  );
+  if (created) await sendEmailVerification(credential.user);
+  return credential;
 }
 export async function google() {
   if (!Capacitor.isNativePlatform())
