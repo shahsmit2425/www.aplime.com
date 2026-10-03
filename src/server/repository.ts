@@ -40,7 +40,7 @@ export async function workspace(user: User): Promise<Workspace> {
     user.role === "pro"
       ? (
           await pool.query(
-            "SELECT p.id,p.title,p.description,p.category,p.zip,p.status,p.created_at,p.scheduled_at,NULL AS customer_id,NULL AS pro_id,NULL AS amount FROM projects p JOIN profiles f ON f.id=$1 AND f.category=p.category AND f.verified AND NOT f.suspended AND f.available WHERE p.pro_id IS NULL AND p.status IN ('requested','quoted') ORDER BY p.created_at DESC LIMIT 100",
+            "SELECT p.id,p.title,p.description,p.intake,p.category,p.zip,p.status,p.created_at,p.scheduled_at,NULL AS customer_id,NULL AS pro_id,NULL AS amount FROM projects p JOIN profiles f ON f.id=$1 AND f.category=p.category AND f.verified AND NOT f.suspended AND f.available WHERE p.pro_id IS NULL AND p.status IN ('requested','quoted') ORDER BY p.created_at DESC LIMIT 100",
             [user.id],
           )
         ).rows.map((r) => camel<Project>(r))

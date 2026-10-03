@@ -1,12 +1,10 @@
 import { z } from "zod";
-export const categories = [
-  "Handyman",
-  "Cleaning",
-  "Plumbing",
-  "Electrical",
-  "Painting",
-  "Landscaping",
-] as const;
+import {
+  categories,
+  questionsFor,
+  type ServiceCategory,
+} from "./service-questionnaires.js";
+export { categories } from "./service-questionnaires.js";
 export type Role = "customer" | "pro" | "admin";
 export type User = {
   id: string;
@@ -47,6 +45,7 @@ export type Project = {
   proId: string | null;
   title: string;
   description: string;
+  intake?: Record<string, string>;
   category: string;
   zip: string;
   scheduledAt: string | null;
@@ -151,11 +150,38 @@ export const projectSchema = z
     title: text(5, 120),
     description: text(20, 4000),
     category: z.enum(categories),
+    intake: z.record(z.string().max(64), text(1, 1500)),
     zip: z.string().regex(/^\d{5}$/),
     proId: z.string().min(1).max(128).nullable().default(null),
     scheduledAt: z.string().datetime().nullable().default(null),
   })
-  .strict();
+  .strict()
+  .superRefine((project, context) => {
+    const questions = questionsFor(project.category as ServiceCategory);
+    const allowed = new Set(questions.map((question) => question.id));
+    for (const question of questions) {
+      const answer = project.intake[question.id]?.trim();
+      if (question.required && !answer)
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["intake", question.id],
+          message: `Answer “${question.label}”`,
+        });
+      if (answer && question.options && !question.options.includes(answer))
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["intake", question.id],
+          message: "Choose one of the available answers",
+        });
+    }
+    for (const key of Object.keys(project.intake))
+      if (!allowed.has(key))
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["intake", key],
+          message: "Unexpected questionnaire answer",
+        });
+  });
 export const actionSchema = z.discriminatedUnion("type", [
   z
     .object({

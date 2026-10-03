@@ -18,6 +18,11 @@ import {
   type Project,
   type Profile,
 } from "../shared/domain.js";
+import {
+  questionsFor,
+  questionLabel,
+  type ServiceCategory,
+} from "../shared/service-questionnaires.js";
 import { request, openExternal } from "./api.js";
 import { useWorkspace } from "./workspace.js";
 import {
@@ -377,7 +382,12 @@ function Directory() {
 }
 function Projects() {
   const { data, page, id, run, busy, go } = useWorkspace();
+  const selectedProfessional = data.profiles.find((p) => p.id === id);
+  const initialCategory = (selectedProfessional?.category ||
+    categories[0]) as ServiceCategory;
   const [creating, setCreating] = useState(!!id),
+    [projectCategory, setProjectCategory] =
+      useState<ServiceCategory>(initialCategory),
     [status, setStatus] = useState(""),
     [search, setSearch] = useState("");
   const source = page === "leads" ? data.leads : data.projects;
@@ -404,6 +414,16 @@ function Projects() {
       </Head>
       {creating && data.user.role === "customer" && (
         <Panel title="Tell us about your project">
+          <p className="project-form-intro">
+            A few specific details help professionals understand the work and
+            send a more accurate estimate. Complete every required question
+            before sending your request.
+            {selectedProfessional && (
+              <strong>
+                {" "}This request will be sent to {selectedProfessional.business}.
+              </strong>
+            )}
+          </p>
           <Form
             busy={busy}
             onSubmit={(f) =>
@@ -411,7 +431,13 @@ function Projects() {
                 const result = await request("/projects", {
                   title: f.get("title"),
                   description: f.get("description"),
-                  category: f.get("category"),
+                  category: projectCategory,
+                  intake: Object.fromEntries(
+                    questionsFor(projectCategory).map((question) => [
+                      question.id,
+                      String(f.get("intake_" + question.id) || "").trim(),
+                    ]),
+                  ),
                   zip: f.get("zip"),
                   proId: id || null,
                   scheduledAt: f.get("scheduledAt")
@@ -430,9 +456,10 @@ function Projects() {
               <Field label="Service">
                 <select
                   name="category"
-                  defaultValue={
-                    data.profiles.find((p) => p.id === id)?.category ||
-                    categories[0]
+                  value={projectCategory}
+                  disabled={!!selectedProfessional}
+                  onChange={(event) =>
+                    setProjectCategory(event.target.value as ServiceCategory)
                   }
                 >
                   {categories.map((c) => (
@@ -462,6 +489,68 @@ function Projects() {
                 rows={4}
               />
             </Field>
+            <section className="project-questionnaire">
+              <div className="questionnaire-heading">
+                <span className="category-icon">
+                  <ServiceIcon service={projectCategory} size={21} />
+                </span>
+                <div>
+                  <h3>{projectCategory} details</h3>
+                  <p>
+                    These answers help professionals assess the job before
+                    contacting you.
+                  </p>
+                </div>
+              </div>
+              {(projectCategory === "Plumbing" ||
+                projectCategory === "Electrical") && (
+                <p className="safety-note" role="note">
+                  If there is immediate danger, fire, flooding, gas, or exposed
+                  live wiring, leave the area and contact emergency services or
+                  the appropriate utility. Aplime is not an emergency service.
+                </p>
+              )}
+              <div className="questionnaire-grid">
+                {questionsFor(projectCategory).map((question) => (
+                  <Field
+                    label={question.label}
+                    key={projectCategory + ":" + question.id}
+                  >
+                    {question.type === "select" ? (
+                      <select
+                        name={"intake_" + question.id}
+                        required={question.required}
+                        defaultValue=""
+                      >
+                        <option value="" disabled>
+                          Select an answer
+                        </option>
+                        {question.options?.map((option) => (
+                          <option key={option}>{option}</option>
+                        ))}
+                      </select>
+                    ) : question.type === "textarea" ? (
+                      <textarea
+                        name={"intake_" + question.id}
+                        required={question.required}
+                        minLength={question.required ? 3 : undefined}
+                        maxLength={1500}
+                        rows={3}
+                        placeholder={question.placeholder}
+                      />
+                    ) : (
+                      <input
+                        name={"intake_" + question.id}
+                        required={question.required}
+                        minLength={question.required ? 2 : undefined}
+                        maxLength={1500}
+                        placeholder={question.placeholder}
+                      />
+                    )}
+                  </Field>
+                ))}
+              </div>
+            </section>
             <button>Create project</button>
           </Form>
         </Panel>
@@ -529,6 +618,21 @@ function ProjectDetail() {
       <div className="two-columns">
         <Panel title="Project details">
           <p className="project-description">{p.description}</p>
+          {p.intake && Object.keys(p.intake).length > 0 && (
+            <section className="intake-summary" aria-labelledby="intake-title">
+              <h3 id="intake-title">Service questionnaire</h3>
+              <dl>
+                {Object.entries(p.intake).map(([key, value]) => (
+                  <div key={key}>
+                    <dt>
+                      {questionLabel(p.category as ServiceCategory, key)}
+                    </dt>
+                    <dd>{value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
+          )}
           <dl>
             <dt>Customer</dt>
             <dd>{p.customerName || "Private until booked"}</dd>

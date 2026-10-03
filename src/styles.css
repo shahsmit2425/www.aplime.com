@@ -800,6 +800,85 @@ img {
   grid-template-columns: 1fr 1fr;
   gap: 0 20px;
 }
+.project-form-intro {
+  max-width: 720px;
+  margin: -8px 0 24px;
+  color: #526c61;
+  font-size: 14px;
+}
+.project-questionnaire {
+  margin: 28px 0 24px;
+  padding: 24px;
+  border: 1px solid #cfe2d5;
+  border-radius: 14px;
+  background: #f7fbf8;
+}
+.questionnaire-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+.questionnaire-heading .category-icon {
+  color: #087a46;
+  background: #e2f3e7;
+}
+.questionnaire-heading h3,
+.questionnaire-heading p {
+  margin: 0;
+}
+.questionnaire-heading h3 {
+  color: #173d2e;
+  font-size: 17px;
+}
+.questionnaire-heading p {
+  margin-top: 4px;
+  color: #5d7168;
+  font-size: 12px;
+}
+.questionnaire-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 18px;
+}
+.questionnaire-grid .field:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+.safety-note {
+  margin: -4px 0 22px;
+  padding: 13px 15px;
+  border-left: 4px solid #bd6a20;
+  border-radius: 7px;
+  background: #fff5e9;
+  color: #714117;
+  font-size: 12px;
+  line-height: 1.55;
+}
+.intake-summary {
+  margin: 24px 0;
+  padding: 20px;
+  border-radius: 12px;
+  background: #f4f8f5;
+}
+.intake-summary h3 {
+  margin: 0 0 17px;
+  color: #173d2e;
+  font-size: 16px;
+}
+.intake-summary dl {
+  display: block;
+  margin: 0;
+}
+.intake-summary dl > div {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.8fr) 1fr;
+  gap: 15px;
+  padding: 11px 0;
+  border-bottom: 1px solid #dce8df;
+}
+.intake-summary dl > div:last-child {
+  border-bottom: 0;
+}
 fieldset {
   border: 0;
   margin: 0;
@@ -1568,6 +1647,19 @@ blockquote {
   }
   .form-grid {
     grid-template-columns: 1fr;
+  }
+  .questionnaire-grid {
+    grid-template-columns: 1fr;
+  }
+  .questionnaire-grid .field:last-child:nth-child(odd) {
+    grid-column: auto;
+  }
+  .project-questionnaire {
+    padding: 18px;
+  }
+  .intake-summary dl > div {
+    grid-template-columns: 1fr;
+    gap: 5px;
   }
   .form-grid .field {
     min-width: 0;

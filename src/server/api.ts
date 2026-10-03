@@ -169,7 +169,7 @@ api.post("/projects", async (req, res) => {
     )
       fail(400, "Choose an available professional in this category.");
     await c.query(
-      "INSERT INTO projects(id,customer_id,pro_id,title,description,category,zip,scheduled_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8)",
+      "INSERT INTO projects(id,customer_id,pro_id,title,description,category,zip,scheduled_at,intake) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)",
       [
         id,
         q.account.id,
@@ -179,6 +179,7 @@ api.post("/projects", async (req, res) => {
         p.category,
         p.zip,
         p.scheduledAt,
+        JSON.stringify(p.intake),
       ],
     );
     await notify(

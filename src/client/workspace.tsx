@@ -39,6 +39,8 @@ import {
   logout,
   recover,
   verifyEmail,
+  authErrorCode,
+  authErrorMessage,
 } from "./auth.js";
 import { request, ApiError } from "./api.js";
 import { Brand, Field, Form } from "./ui.js";
@@ -159,6 +161,7 @@ export default function Workspace() {
         ? "pro"
         : "customer",
     ),
+    [authEmail, setAuthEmail] = useState(""),
     [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null),
     [data, setData] = useState<Data | null>(null),
     [loading, setLoading] = useState(true),
@@ -231,7 +234,7 @@ export default function Workspace() {
         else setLoading(false);
       });
     } catch (e) {
-      setError((e as Error).message);
+      setError(authErrorMessage(e));
       setLoading(false);
     }
     return () => {
@@ -262,10 +265,16 @@ export default function Workspace() {
       if (firebaseUser?.emailVerified) await load();
       if (message) setNotice(message);
     } catch (e) {
-      setError((e as Error).message);
+      setError(authErrorMessage(e));
     } finally {
       setBusy(false);
     }
+  }
+  function signOutToLogin() {
+    void run(async () => {
+      await logout();
+      replaceRoute("login");
+    }, "Your account is saved. Sign in to continue verification or setup.");
   }
   const config = window.__CONFIG__ || fallbackConfig;
   if (loading)
@@ -341,8 +350,12 @@ export default function Workspace() {
               >
                 Resend email
               </button>
-              <button className="text-button" onClick={() => void logout()}>
-                Sign out
+              <button
+                className="text-button"
+                disabled={busy}
+                onClick={signOutToLogin}
+              >
+                Use a different account
               </button>
             </>
           ) : needsAccount ? (
@@ -381,7 +394,8 @@ export default function Workspace() {
               <button
                 type="button"
                 className="text-button"
-                onClick={() => void logout()}
+                disabled={busy}
+                onClick={signOutToLogin}
               >
                 Sign out
               </button>
@@ -393,7 +407,7 @@ export default function Workspace() {
                 retry.
               </p>
               <button onClick={() => void run(load, "")}>Retry</button>
-              <button className="text-button" onClick={() => void logout()}>
+              <button className="text-button" onClick={signOutToLogin}>
                 Sign out
               </button>
             </>
@@ -408,6 +422,13 @@ export default function Workspace() {
                   <RoleChoice value={signupRole} onChange={chooseSignupRole} />
                 </>
               )}
+              {route.page === "login" && (
+                <p className="auth-intro">
+                  Created an account but haven’t verified your email? Sign in
+                  with the same email and password. We’ll take you directly to
+                  verification, where you can resend the email if needed.
+                </p>
+              )}
               <Form
                 busy={busy}
                 onSubmit={(f) =>
@@ -418,9 +439,23 @@ export default function Workspace() {
                         await recover(email);
                         return;
                       }
-                      if (route.page === "register")
-                        await register(email, String(f.get("password")));
-                      else await login(email, String(f.get("password")));
+                      if (route.page === "register") {
+                        try {
+                          await register(email, String(f.get("password")));
+                        } catch (registrationError) {
+                          if (
+                            authErrorCode(registrationError) ===
+                            "auth/email-already-in-use"
+                          ) {
+                            replaceRoute("login");
+                            setNotice(
+                              "This email is already registered. Sign in with your password to continue. If the email is not verified yet, we’ll show verification and resend options next.",
+                            );
+                            return;
+                          }
+                          throw registrationError;
+                        }
+                      } else await login(email, String(f.get("password")));
                     },
                     route.page === "recovery"
                       ? "If an account exists, a recovery email will arrive shortly."
@@ -432,6 +467,8 @@ export default function Workspace() {
                   <input
                     type="email"
                     name="email"
+                    value={authEmail}
+                    onChange={(event) => setAuthEmail(event.target.value)}
                     required
                     autoComplete="email"
                   />
