@@ -54,6 +54,12 @@ await db.exec(
     "utf8",
   ),
 );
+await db.exec(
+  await readFile(
+    "src/server/db/migrations/004_project_collaboration.sql",
+    "utf8",
+  ),
+);
 test.after(async () => {
   await db.close();
   await pool.end();
@@ -109,21 +115,81 @@ test("real PostgreSQL engine enforces ownership workflow and duplicate constrain
   });
   const quote = (await query("SELECT * FROM quotes WHERE project_id=$1", [id]))
     .rows[0] as any;
+  await projectAction(id, professional, {
+    type: "quote",
+    amount: 15000,
+    description: "Updated labor and materials included.",
+  });
   await assert.rejects(
-    projectAction(id, professional, {
-      type: "quote",
-      amount: 1,
-      description: "Repeated estimate",
+    projectAction(id, customer, {
+      type: "accept",
+      quoteId: quote.id,
+      revision: 1,
+    }),
+    /changed/,
+  );
+  await assert.rejects(
+    projectAction(id, outsider, {
+      type: "accept",
+      quoteId: quote.id,
+      revision: 2,
     }),
   );
+  await projectAction(id, customer, {
+    type: "accept",
+    quoteId: quote.id,
+    revision: 2,
+  });
+  const proposedAt = new Date(Date.now() + 86400000).toISOString();
+  await projectAction(id, customer, {
+    type: "reschedule",
+    scheduledAt: proposedAt,
+  });
   await assert.rejects(
-    projectAction(id, outsider, { type: "accept", quoteId: quote.id }),
+    projectAction(id, customer, {
+      type: "respond_appointment",
+      proposedAt,
+      accept: true,
+    }),
   );
-  await projectAction(id, customer, { type: "accept", quoteId: quote.id });
+  assert.equal(
+    (
+      await db.query<{ scheduled_at: string | null }>(
+        "SELECT scheduled_at FROM projects WHERE id=$1",
+        [id],
+      )
+    ).rows[0].scheduled_at,
+    null,
+  );
+  await projectAction(id, professional, {
+    type: "respond_appointment",
+    proposedAt,
+    accept: true,
+  });
+  await assert.rejects(
+    projectAction(id, professional, {
+      type: "respond_appointment",
+      proposedAt,
+      accept: true,
+    }),
+  );
   await assert.rejects(projectAction(id, customer, { type: "start" }));
   await projectAction(id, professional, { type: "start" });
   await projectAction(id, professional, { type: "complete" });
   await assert.rejects(projectAction(id, professional, { type: "complete" }));
+  assert.equal(
+    (
+      await db.query<{ status: string }>(
+        "SELECT status FROM projects WHERE id=$1",
+        [id],
+      )
+    ).rows[0].status,
+    "in_progress",
+  );
+  await assert.rejects(
+    projectAction(id, professional, { type: "confirm_completion" }),
+  );
+  await projectAction(id, customer, { type: "confirm_completion" });
   await query(
     "INSERT INTO payments(id,project_id,amount,status,checkout_id) VALUES($1,$2,15000,'pending','cs_test_checkout')",
     [randomUUID(), id],
@@ -373,4 +439,99 @@ test("project image reservations count pending files and reject the sixth image"
     contentType: "application/pdf",
     size: 100,
   });
+});
+
+test("private discussions hide messages from outsiders and enforce blocking", async () => {
+  const { default: express } = await import("express");
+  const { discussions } = await import("../src/server/discussions.js");
+  const thread = (
+    await db.query<{ id: string }>("SELECT id FROM project_discussions LIMIT 1")
+  ).rows[0];
+  const app = express();
+  app.use(express.json());
+  app.use((req, _res, next) => {
+    req.account =
+      req.headers["x-test-user"] === customer.id
+        ? customer
+        : req.headers["x-test-user"] === professional.id
+          ? professional
+          : outsider;
+    next();
+  });
+  app.use(discussions);
+  app.use((error: any, _req: any, res: any, _next: any) =>
+    res.status(error.status || 500).json({ error: error.message }),
+  );
+  const server = app.listen(0, "127.0.0.1");
+  await new Promise<void>((resolve) => server.once("listening", resolve));
+  const port = (server.address() as { port: number }).port;
+  const call = (path: string, user: string, body?: unknown) =>
+    fetch(`http://127.0.0.1:${port}${path}`, {
+      method: body ? "POST" : "GET",
+      headers: { "Content-Type": "application/json", "x-test-user": user },
+      ...(body ? { body: JSON.stringify(body) } : {}),
+    });
+  try {
+    assert.deepEqual(
+      await (await call("/discussions", outsider.id)).json(),
+      [],
+    );
+    assert.equal(
+      (
+        await call(`/discussions/${thread.id}/messages`, outsider.id, {
+          body: "Intrusion",
+        })
+      ).status,
+      404,
+    );
+    // The existing fixture project is disputed; closed threads are read-only.
+    assert.equal(
+      (
+        await call(`/discussions/${thread.id}/messages`, customer.id, {
+          body: "Follow up",
+        })
+      ).status,
+      409,
+    );
+    const rows = (await (
+      await call("/discussions", customer.id)
+    ).json()) as any[];
+    assert.equal(rows.length, 1);
+    await db.query(
+      "UPDATE projects SET status='booked' WHERE id=(SELECT project_id FROM project_discussions WHERE id=$1)",
+      [thread.id],
+    );
+    assert.equal(
+      (
+        await call(`/discussions/${thread.id}/messages`, customer.id, {
+          body: "Confirming access instructions",
+        })
+      ).status,
+      200,
+    );
+    await db.query("INSERT INTO blocked(user_id,other_id) VALUES($1,$2)", [
+      customer.id,
+      professional.id,
+    ]);
+    assert.equal(
+      (
+        await call(`/discussions/${thread.id}/messages`, professional.id, {
+          body: "Blocked reply",
+        })
+      ).status,
+      403,
+    );
+    assert.equal(
+      (
+        await call(`/discussions/${thread.id}/call`, professional.id, {
+          audioOnly: true,
+        })
+      ).status,
+      403,
+    );
+  } finally {
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve())),
+    );
+  }
 });

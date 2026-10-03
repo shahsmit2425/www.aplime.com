@@ -14,8 +14,18 @@ export async function projectAction(
     if (!allowedTransition(p, user, action.type))
       fail(403, "This action is not available for this project.");
     if (action.type === "quote") {
-      if (!(await c.query("SELECT 1 FROM professional_subscriptions WHERE user_id=$1 AND status IN ('active','trialing')", [user.id])).rowCount)
-        fail(403, "An active Aplime subscription is required for new estimates.");
+      if (
+        !(
+          await c.query(
+            "SELECT 1 FROM professional_subscriptions WHERE user_id=$1 AND status IN ('active','trialing')",
+            [user.id],
+          )
+        ).rowCount
+      )
+        fail(
+          403,
+          "An active Aplime subscription is required for new estimates.",
+        );
       const profile = (
         await c.query(
           "SELECT * FROM profiles WHERE id=$1 AND verified AND NOT suspended AND available",
@@ -24,18 +34,21 @@ export async function projectAction(
       ).rows[0];
       if (!profile || profile.category !== p.category)
         fail(403, "Complete verification and use a matching service category.");
-      if (
-        (
-          await c.query(
-            "SELECT 1 FROM quotes WHERE project_id=$1 AND pro_id=$2",
-            [id, user.id],
-          )
-        ).rowCount
-      )
-        fail(409, "You have already submitted an estimate.");
+      const existing = (
+        await c.query(
+          "SELECT status FROM quotes WHERE project_id=$1 AND pro_id=$2",
+          [id, user.id],
+        )
+      ).rows[0];
+      if (existing && existing.status !== "pending")
+        fail(409, "This estimate is closed.");
       await c.query(
-        "INSERT INTO quotes(id,project_id,pro_id,amount,description) VALUES($1,$2,$3,$4,$5)",
+        "INSERT INTO quotes(id,project_id,pro_id,amount,description) VALUES($1,$2,$3,$4,$5) ON CONFLICT(project_id,pro_id) DO UPDATE SET amount=EXCLUDED.amount,description=EXCLUDED.description,created_at=now(),revision=quotes.revision+1",
         [randomUUID(), id, user.id, action.amount, action.description],
+      );
+      await c.query(
+        "INSERT INTO project_discussions(id,project_id,pro_id) VALUES($1,$2,$3) ON CONFLICT(project_id,pro_id) DO NOTHING",
+        [randomUUID(), id, user.id],
       );
       await c.query("UPDATE projects SET status='quoted' WHERE id=$1", [id]);
     } else if (action.type === "accept" || action.type === "decline") {
@@ -47,6 +60,11 @@ export async function projectAction(
       ).rows[0];
       if (!quote) fail(409, "This estimate is no longer available.");
       if (action.type === "accept") {
+        if (quote.revision !== action.revision)
+          fail(
+            409,
+            "This estimate changed. Review the latest version before accepting.",
+          );
         await c.query(
           "UPDATE quotes SET status=CASE WHEN id=$1 THEN 'accepted' ELSE 'declined' END WHERE project_id=$2",
           [quote.id, id],
@@ -70,12 +88,42 @@ export async function projectAction(
           [id],
         );
       }
+    } else if (action.type === "complete") {
+      if (p.completionRequested)
+        fail(409, "Completion has already been requested.");
+      await c.query(
+        "UPDATE projects SET completion_requested=true WHERE id=$1",
+        [id],
+      );
+    } else if (action.type === "confirm_completion") {
+      if (!p.completionRequested)
+        fail(409, "Wait for the professional to request completion.");
+      await c.query(
+        "UPDATE projects SET status='completed',completion_requested=false WHERE id=$1",
+        [id],
+      );
+    } else if (action.type === "respond_appointment") {
+      if (
+        !p.proposedAt ||
+        p.proposedBy === user.id ||
+        new Date(p.proposedAt).getTime() !==
+          new Date(action.proposedAt).getTime()
+      )
+        fail(
+          409,
+          "This appointment proposal is unavailable or cannot be confirmed by you.",
+        );
+      if (action.accept) assertFuture(p.proposedAt);
+      await c.query(
+        "UPDATE projects SET scheduled_at=CASE WHEN $2 THEN proposed_at ELSE scheduled_at END,proposed_at=NULL,proposed_by=NULL WHERE id=$1",
+        [id, action.accept],
+      );
     } else if (action.type === "reschedule") {
       assertFuture(action.scheduledAt);
-      await c.query("UPDATE projects SET scheduled_at=$2 WHERE id=$1", [
-        id,
-        action.scheduledAt,
-      ]);
+      await c.query(
+        "UPDATE projects SET proposed_at=$2,proposed_by=$3 WHERE id=$1",
+        [id, action.scheduledAt, user.id],
+      );
     } else if (action.type === "dispute") {
       await c.query(
         "UPDATE projects SET previous_status=status,status='disputed' WHERE id=$1",
@@ -94,11 +142,7 @@ export async function projectAction(
     } else {
       await c.query("UPDATE projects SET status=$2 WHERE id=$1", [
         id,
-        action.type === "start"
-          ? "in_progress"
-          : action.type === "complete"
-            ? "completed"
-            : "cancelled",
+        action.type === "start" ? "in_progress" : "cancelled",
       ]);
       if (action.type === "cancel")
         await c.query(

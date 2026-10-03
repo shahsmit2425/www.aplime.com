@@ -54,10 +54,14 @@ export type Project = {
   status: Status;
   amount: number | null;
   createdAt: string;
+  completionRequested?: boolean;
+  proposedAt?: string | null;
+  proposedBy?: string | null;
   customerName?: string;
   proName?: string;
 };
 export type Quote = {
+  revision: number;
   id: string;
   projectId: string;
   proId: string;
@@ -193,10 +197,24 @@ export const actionSchema = z.discriminatedUnion("type", [
       description: text(10, 2000),
     })
     .strict(),
-  z.object({ type: z.literal("accept"), quoteId: z.string().uuid() }).strict(),
+  z
+    .object({
+      type: z.literal("accept"),
+      quoteId: z.string().uuid(),
+      revision: z.number().int().positive(),
+    })
+    .strict(),
   z.object({ type: z.literal("decline"), quoteId: z.string().uuid() }).strict(),
   z.object({ type: z.literal("start") }).strict(),
   z.object({ type: z.literal("complete") }).strict(),
+  z.object({ type: z.literal("confirm_completion") }).strict(),
+  z
+    .object({
+      type: z.literal("respond_appointment"),
+      proposedAt: z.string().datetime(),
+      accept: z.boolean(),
+    })
+    .strict(),
   z.object({ type: z.literal("cancel"), reason: text(5, 1000) }).strict(),
   z
     .object({
@@ -222,6 +240,13 @@ export function allowedTransition(
     );
   if (action === "accept" || action === "decline")
     return customer && ["requested", "quoted"].includes(project.status);
+  if (action === "confirm_completion")
+    return customer && project.status === "in_progress";
+  if (action === "respond_appointment")
+    return (
+      (customer || pro) &&
+      ["requested", "quoted", "booked"].includes(project.status)
+    );
   if (action === "start") return pro && project.status === "booked";
   if (action === "complete") return pro && project.status === "in_progress";
   if (action === "cancel" || action === "reschedule")

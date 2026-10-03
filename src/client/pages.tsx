@@ -1,3 +1,4 @@
+import { Discussions } from "./discussions.js";
 import {
   ProjectPhotos,
   sendProjectPhoto,
@@ -185,6 +186,33 @@ function Dashboard() {
           <ProjectList projects={data.projects.slice(0, 4)} />
         </Panel>
         <Panel title="Needs your attention">
+          {data.projects
+            .filter(
+              (p) =>
+                (p.status === "in_progress" &&
+                  p.completionRequested &&
+                  p.customerId === data.user.id) ||
+                (p.proposedAt &&
+                  p.proposedBy !== data.user.id &&
+                  ["requested", "quoted", "booked"].includes(p.status)),
+            )
+            .map((p) => (
+              <button
+                className="project-row"
+                key={p.id}
+                onClick={() => go("project", p.id)}
+              >
+                <span>
+                  <strong>{p.title}</strong>
+                  <small>
+                    {p.completionRequested && p.customerId === data.user.id
+                      ? "Review completed work"
+                      : "Respond to appointment proposal"}
+                  </small>
+                </span>
+                <ArrowUpRight size={18} />
+              </button>
+            ))}
           {pro &&
           !data.profiles.find((p) => p.id === data.user.id)?.verified ? (
             <>
@@ -204,9 +232,10 @@ function Dashboard() {
               </article>
             ))
           ) : (
-            <Empty title="You’re all caught up.">
-              We’ll put important updates here.
-            </Empty>
+            <p>
+              Project updates and requests appear here. Open a project to see
+              your next step.
+            </p>
           )}
         </Panel>
       </div>
@@ -392,10 +421,10 @@ function Projects() {
       <Head
         title={
           page === "leads"
-            ? "Your next great job is nearby."
+            ? "Find your next project"
             : data.user.role === "pro"
-              ? "Good work, in progress."
-              : "A little progress, every day."
+              ? "Manage your projects"
+              : "Your home projects"
         }
         action={
           data.user.role === "customer" ? (
@@ -693,6 +722,120 @@ function ProjectDetail() {
       >
         {p.category} · {p.zip}
       </Head>
+      <section className="project-next-step" aria-label="Your next step">
+        <div>
+          <small>YOUR NEXT STEP</small>
+          <h2>
+            {p.completionRequested
+              ? customer
+                ? "Review the completed work"
+                : "Waiting for customer confirmation"
+              : p.status === "requested"
+                ? customer
+                  ? "Discuss your request with professionals"
+                  : "Ask a question or prepare an estimate"
+                : p.status === "quoted"
+                  ? customer
+                    ? "Compare estimates and choose your professional"
+                    : "Answer questions and keep your estimate up to date"
+                  : p.status === "booked"
+                    ? "Agree on the appointment and prepare for work"
+                    : p.status === "in_progress"
+                      ? "Keep each other updated as work progresses"
+                      : p.status === "completed"
+                        ? "Work completed — share your experience"
+                        : "Check your project status and support updates"}
+          </h2>
+          <p>
+            Service payments are arranged directly. Aplime charges professionals
+            only for their subscription.
+          </p>
+        </div>
+        <ol className="project-journey">
+          {["Request", "Discuss & compare", "Booked", "Work", "Review"].map(
+            (label, index) => (
+              <li
+                key={label}
+                className={
+                  index <=
+                  [
+                    "requested",
+                    "quoted",
+                    "booked",
+                    "in_progress",
+                    "completed",
+                  ].indexOf(p.status)
+                    ? "reached"
+                    : ""
+                }
+              >
+                {label}
+              </li>
+            ),
+          )}
+        </ol>
+      </section>
+      {own &&
+        p.proposedAt &&
+        ["requested", "quoted", "booked"].includes(p.status) && (
+          <Panel title="Appointment proposal">
+            <p>
+              {date(p.proposedAt)} —{" "}
+              {p.proposedBy === data.user.id
+                ? "Waiting for the other participant to confirm."
+                : "Please confirm this time or decline to discuss another."}
+            </p>
+            <p>
+              Your confirmed appointment changes only when the proposal is
+              accepted.
+            </p>
+            {p.proposedBy !== data.user.id && (
+              <div className="actions">
+                {[true, false].map((accept) => (
+                  <button
+                    className={accept ? "" : "secondary"}
+                    key={String(accept)}
+                    disabled={busy}
+                    onClick={() =>
+                      void run(
+                        () =>
+                          submit({
+                            type: "respond_appointment",
+                            proposedAt: p.proposedAt,
+                            accept,
+                          }),
+                        accept
+                          ? "Appointment confirmed."
+                          : "Proposal declined.",
+                      )
+                    }
+                  >
+                    {accept ? "Confirm appointment" : "Decline proposal"}
+                  </button>
+                ))}
+              </div>
+            )}
+          </Panel>
+        )}
+      {customer && p.status === "in_progress" && p.completionRequested && (
+        <Panel title="The professional has requested completion">
+          <p>
+            Review the work before confirming. If something needs attention, use
+            “Get help with this project” below.
+          </p>
+          <button
+            disabled={busy}
+            onClick={() =>
+              void run(
+                () => submit({ type: "confirm_completion" }),
+                "Project completed. You can now leave a review.",
+              )
+            }
+          >
+            Confirm work completed
+          </button>
+        </Panel>
+      )}
       <div className="two-columns">
         <Panel title="Project details">
           <p className="project-description">{p.description}</p>
@@ -739,17 +882,17 @@ function ProjectDetail() {
                 Start work
               </button>
             )}
-            {pro && p.status === "in_progress" && (
+            {pro && p.status === "in_progress" && !p.completionRequested && (
               <button
                 disabled={busy}
                 onClick={() =>
                   void run(
                     () => submit({ type: "complete" }),
-                    "Work marked complete.",
+                    "Completion requested. The customer will confirm.",
                   )
                 }
               >
-                Mark complete
+                Request completion
               </button>
             )}
             {own && ["requested", "quoted", "booked"].includes(p.status) && (
@@ -758,7 +901,7 @@ function ProjectDetail() {
                   className="secondary"
                   onClick={() => setAction("reschedule")}
                 >
-                  Reschedule
+                  Propose appointment
                 </button>
                 <button
                   className="text-button"
@@ -798,7 +941,7 @@ function ProjectDetail() {
             >
               <h3>
                 {action === "reschedule"
-                  ? "Choose a new appointment"
+                  ? "Propose an appointment"
                   : action === "cancel"
                     ? "Confirm cancellation"
                     : "Tell us what happened"}
@@ -834,7 +977,9 @@ function ProjectDetail() {
               <article className="quote-item" key={q.id}>
                 <div>
                   <h3>{money(q.amount)}</h3>
-                  <Badge>{q.status}</Badge>
+                  <Badge>
+                    {q.status} · version {q.revision}
+                  </Badge>
                 </div>
                 <p>
                   {data.profiles.find((p) => p.id === q.proId)?.business ||
@@ -847,7 +992,12 @@ function ProjectDetail() {
                       disabled={busy}
                       onClick={() =>
                         void run(
-                          () => submit({ type: "accept", quoteId: q.id }),
+                          () =>
+                            submit({
+                              type: "accept",
+                              quoteId: q.id,
+                              revision: q.revision,
+                            }),
                           "Estimate accepted.",
                         )
                       }
@@ -878,7 +1028,9 @@ function ProjectDetail() {
           {data.user.role === "pro" &&
             ["requested", "quoted"].includes(p.status) &&
             (!p.proId || pro) &&
-            !quotes.some((q) => q.proId === data.user.id) && (
+            !quotes.some(
+              (q) => q.proId === data.user.id && q.status !== "pending",
+            ) && (
               <Form
                 busy={busy}
                 onSubmit={(f) =>
@@ -893,8 +1045,27 @@ function ProjectDetail() {
                   )
                 }
               >
+                <h3>
+                  {quotes.some((q) => q.proId === data.user.id)
+                    ? "Revise your estimate"
+                    : "Send a priced estimate"}
+                </h3>
+                <p>
+                  Explain the scope, exclusions, and expected timing. Pending
+                  estimates can be updated before acceptance.
+                </p>
                 <Field label="Total estimate (USD)">
                   <input
+                    key={
+                      "amount-" +
+                      quotes.find((q) => q.proId === data.user.id)?.revision
+                    }
+                    defaultValue={
+                      quotes.find((q) => q.proId === data.user.id)
+                        ? quotes.find((q) => q.proId === data.user.id)!.amount /
+                          100
+                        : undefined
+                    }
                     type="number"
                     name="amount"
                     min="1"
@@ -905,6 +1076,13 @@ function ProjectDetail() {
                 </Field>
                 <Field label="Scope and inclusions">
                   <textarea
+                    key={
+                      "scope-" +
+                      quotes.find((q) => q.proId === data.user.id)?.revision
+                    }
+                    defaultValue={
+                      quotes.find((q) => q.proId === data.user.id)?.description
+                    }
                     name="description"
                     minLength={10}
                     maxLength={2000}
@@ -916,6 +1094,14 @@ function ProjectDetail() {
             )}
         </Panel>
       </div>
+      <Discussions
+        projectId={p.id}
+        canStart={
+          data.user.role === "pro" &&
+          ["requested", "quoted"].includes(p.status) &&
+          (!p.proId || pro)
+        }
+      />
       {own && (
         <Panel title="Project attachments">
           <p>
@@ -998,7 +1184,9 @@ function Quotes() {
                 <small>{q.description}</small>
               </span>
               <strong>{money(q.amount)}</strong>
-              <Badge>{q.status}</Badge>
+              <Badge>
+                {q.status} · version {q.revision}
+              </Badge>
             </button>
           ))
         ) : (
@@ -1033,138 +1221,13 @@ function Schedule() {
   );
 }
 function Messages() {
-  const { data, id, go, run, busy } = useWorkspace();
-  const threads = data.projects.filter((p) => p.proId);
-  const p = threads.find((p) => p.id === id) || threads[0];
-  const [draft, setDraft] = useState("");
-  const other = p
-    ? data.user.id === p.customerId
-      ? p.proId
-      : p.customerId
-    : null;
   return (
     <>
-      <Head title="Good work starts with a conversation.">
-        Project details, questions, and updates together.
+      <Head title="Your conversations">
+        Discuss the work, clarify estimates, and arrange a consultation. Each
+        professional has a separate private conversation.
       </Head>
-      {!p ? (
-        <Empty title="No conversations yet.">
-          Choose a professional for your project to start a conversation.
-        </Empty>
-      ) : (
-        <div className="inbox">
-          <aside>
-            {threads.map((t) => (
-              <button
-                className={p.id === t.id ? "thread active" : "thread"}
-                key={t.id}
-                onClick={() => go("messages", t.id)}
-              >
-                <strong>{t.title}</strong>
-                <small>{t.proName || t.customerName}</small>
-              </button>
-            ))}
-          </aside>
-          <section className="chat">
-            <header>
-              <div>
-                <h2>{p.title}</h2>
-                <span>
-                  {data.user.id === p.customerId ? p.proName : p.customerName}
-                </span>
-              </div>
-              <div className="actions">
-                {[true, false].map((audio) => (
-                  <button
-                    className="icon-button"
-                    aria-label={audio ? "Start audio call" : "Start video call"}
-                    disabled={busy || data.blocked.includes(other!)}
-                    key={String(audio)}
-                    onClick={() =>
-                      void run(async () => {
-                        const r = await request("/projects/" + p.id + "/call", {
-                          audioOnly: audio,
-                        });
-                        await openExternal(r.url);
-                      }, "")
-                    }
-                  >
-                    {audio ? <Phone size={20} /> : <Video size={20} />}
-                  </button>
-                ))}
-              </div>
-            </header>
-            <p className="call-note">
-              Calls open in a secure calling window. The other participant can
-              join from this project.
-            </p>
-            <div
-              className="message-log"
-              role="log"
-              aria-label="Project messages"
-            >
-              {data.messages
-                .filter((m) => m.projectId === p.id)
-                .map((m) => (
-                  <article
-                    className={
-                      m.senderId === data.user.id ? "message mine" : "message"
-                    }
-                    key={m.id}
-                  >
-                    <p>{m.body}</p>
-                    <small>{date(m.createdAt)}</small>
-                  </article>
-                ))}
-            </div>
-            <form
-              className="composer"
-              onSubmit={(e) => {
-                e.preventDefault();
-                void run(async () => {
-                  await request("/projects/" + p.id + "/messages", {
-                    body: draft,
-                  });
-                  setDraft("");
-                }, "");
-              }}
-            >
-              <label className="sr-only" htmlFor="message">
-                Your message
-              </label>
-              <input
-                id="message"
-                value={draft}
-                maxLength={4000}
-                onChange={(e) => setDraft(e.target.value)}
-                placeholder="Write a message…"
-                disabled={data.blocked.includes(other!)}
-              />
-              <button
-                disabled={
-                  busy || !draft.trim() || data.blocked.includes(other!)
-                }
-              >
-                Send
-              </button>
-            </form>
-            <button
-              className="text-button"
-              onClick={() =>
-                void run(() =>
-                  request("/blocked/" + other, {
-                    blocked: !data.blocked.includes(other!),
-                  }),
-                )
-              }
-            >
-              {data.blocked.includes(other!)
-                ? "Unblock conversation"
-                : "Block conversation"}
-            </button>
-          </section>
-        </div>
-      )}
+      <Discussions />
     </>
   );
 }

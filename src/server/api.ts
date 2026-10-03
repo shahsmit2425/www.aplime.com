@@ -1,3 +1,4 @@
+import { discussions } from "./discussions.js";
 import { reserveUpload } from "./uploads.js";
 import { uploadSchema } from "../shared/uploads.js";
 import { subscriptions } from "./subscriptions.js";
@@ -156,6 +157,7 @@ api.put("/profile", async (req, res) => {
   );
   res.json({ ok: true });
 });
+api.use(discussions);
 api.post("/projects", async (req, res) => {
   const q = req as AuthRequest;
   if (q.account.role !== "customer") fail(403, "Customer account required.");
@@ -183,10 +185,20 @@ api.post("/projects", async (req, res) => {
         p.description,
         p.category,
         p.zip,
-        p.scheduledAt,
+        null,
         JSON.stringify(p.intake),
       ],
     );
+    if (p.proId)
+      await c.query(
+        "INSERT INTO project_discussions(id,project_id,pro_id) VALUES($1,$2,$3)",
+        [randomUUID(), id, p.proId],
+      );
+    if (p.scheduledAt)
+      await c.query(
+        "UPDATE projects SET proposed_at=$2,proposed_by=$3 WHERE id=$1",
+        [id, p.scheduledAt, q.account.id],
+      );
     await notify(
       c,
       p.proId,
@@ -337,7 +349,7 @@ api.post("/blocked/:id", async (req, res) => {
   if (
     !(
       await pool.query(
-        "SELECT 1 FROM projects WHERE (customer_id=$1 AND pro_id=$2) OR (customer_id=$2 AND pro_id=$1)",
+        "SELECT 1 FROM projects p LEFT JOIN project_discussions d ON d.project_id=p.id WHERE (p.customer_id=$1 AND (p.pro_id=$2 OR d.pro_id=$2)) OR (p.customer_id=$2 AND (p.pro_id=$1 OR d.pro_id=$1))",
         [q.account.id, q.params.id],
       )
     ).rowCount
