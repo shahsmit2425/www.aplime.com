@@ -43,6 +43,7 @@ import {
 import { request, ApiError } from "./api.js";
 import { Brand, Field, Form } from "./ui.js";
 import { Pages } from "./pages.js";
+import { pageAfterAuthentication } from "./onboarding.js";
 type WorkspaceContext = {
   data: Data;
   page: string;
@@ -113,8 +114,51 @@ const navigation = {
   ],
   admin: [],
 };
+function RoleChoice({
+  value,
+  onChange,
+}: {
+  value: "customer" | "pro";
+  onChange: (role: "customer" | "pro") => void;
+}) {
+  return (
+    <div className="role-choice" role="radiogroup" aria-label="Account type">
+      <button
+        type="button"
+        role="radio"
+        aria-checked={value === "customer"}
+        className={value === "customer" ? "role-option selected" : "role-option"}
+        onClick={() => onChange("customer")}
+      >
+        <House size={22} />
+        <span>
+          <strong>Customer</strong>
+          <small>Find and manage help for your home</small>
+        </span>
+      </button>
+      <button
+        type="button"
+        role="radio"
+        aria-checked={value === "pro"}
+        className={value === "pro" ? "role-option selected" : "role-option"}
+        onClick={() => onChange("pro")}
+      >
+        <BriefcaseBusiness size={22} />
+        <span>
+          <strong>Professional</strong>
+          <small>Offer services and manage your work</small>
+        </span>
+      </button>
+    </div>
+  );
+}
 export default function Workspace() {
   const [route, setRoute] = useState(readRoute),
+    [signupRole, setSignupRole] = useState<"customer" | "pro">(() =>
+      new URLSearchParams(location.search).get("role") === "pro"
+        ? "pro"
+        : "customer",
+    ),
     [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null),
     [data, setData] = useState<Data | null>(null),
     [loading, setLoading] = useState(true),
@@ -123,6 +167,19 @@ export default function Workspace() {
     [notice, setNotice] = useState(""),
     [needsAccount, setNeedsAccount] = useState(false),
     [menu, setMenu] = useState(false);
+  function replaceRoute(page: string) {
+    if (Capacitor.isNativePlatform()) location.hash = "/" + page;
+    else history.replaceState({}, "", "/app/" + page);
+    setRoute(readRoute());
+  }
+  function chooseSignupRole(role: "customer" | "pro") {
+    setSignupRole(role);
+    if (!Capacitor.isNativePlatform() && route.page === "register") {
+      const url = new URL(location.href);
+      url.searchParams.set("role", role);
+      history.replaceState({}, "", url);
+    }
+  }
   function go(page: string, id?: string) {
     const path = page + (id ? "/" + encodeURIComponent(id) : "");
     if (Capacitor.isNativePlatform()) location.hash = "/" + path;
@@ -142,6 +199,13 @@ export default function Workspace() {
         throw new Error("Use the separate administrator application.");
       setData(result);
       setNeedsAccount(false);
+      const current = readRoute().page;
+      const next = pageAfterAuthentication(
+        current,
+        result.user.role,
+        result.profiles.some((p) => p.id === result.user.id),
+      );
+      if (next !== current) replaceRoute(next);
     } catch (e) {
       if (e instanceof ApiError && e.status === 428) {
         setNeedsAccount(true);
@@ -156,6 +220,7 @@ export default function Workspace() {
     let unsub = () => {};
     try {
       unsub = onAuthStateChanged(auth(), (u) => {
+        setLoading(true);
         setFirebaseUser(u);
         setData(null);
         setNeedsAccount(false);
@@ -203,6 +268,17 @@ export default function Workspace() {
     }
   }
   const config = window.__CONFIG__ || fallbackConfig;
+  if (loading)
+    return (
+      <div className="auth-page auth-loading-page" role="status">
+        <Brand />
+        <div className="auth-loader" aria-hidden="true" />
+        <div>
+          <h1>Opening your Aplime account…</h1>
+          <p>Checking your secure session.</p>
+        </div>
+      </div>
+    );
   if (!data)
     return (
       <div className="auth-page">
@@ -211,18 +287,31 @@ export default function Workspace() {
           <p className="eyebrow">WELCOME TO APLIME</p>
           <h1>
             {needsAccount
-              ? "A few details, then you’re in."
+              ? `Finish setting up your ${signupRole === "pro" ? "professional" : "customer"} account.`
               : firebaseUser && !firebaseUser.emailVerified
                 ? "Check your inbox."
                 : route.page === "register"
-                  ? "Make yourself at home."
+                  ? "Create your Aplime account."
                   : route.page === "recovery"
                     ? "Let’s get you back in."
-                    : "Welcome home."}
+                    : "Sign in to your account."}
           </h1>
-          {loading ? (
-            <p role="status">Connecting your account…</p>
-          ) : firebaseUser && !firebaseUser.emailVerified ? (
+          {(route.page === "register" ||
+            (firebaseUser && !firebaseUser.emailVerified) ||
+            needsAccount) && (
+            <ol className="auth-steps" aria-label="Registration progress">
+              <li className={route.page === "register" && !firebaseUser ? "current" : "complete"}>
+                <span>1</span> Account
+              </li>
+              <li className={firebaseUser && !firebaseUser.emailVerified ? "current" : needsAccount ? "complete" : ""}>
+                <span>2</span> Verify
+              </li>
+              <li className={needsAccount ? "current" : ""}>
+                <span>3</span> Profile
+              </li>
+            </ol>
+          )}
+          {firebaseUser && !firebaseUser.emailVerified ? (
             <>
               <p>
                 Verify your email using the link we sent to {firebaseUser.email}
@@ -279,21 +368,11 @@ export default function Workspace() {
                   autoComplete="name"
                 />
               </Field>
-              <Field label="I’m here to">
-                <select
-                  name="role"
-                  defaultValue={
-                    new URLSearchParams(location.search).get("role") === "pro"
-                      ? "pro"
-                      : "customer"
-                  }
-                >
-                  <option value="customer">
-                    Find home service professionals
-                  </option>
-                  <option value="pro">Offer professional services</option>
-                </select>
-              </Field>
+              <fieldset className="role-field">
+                <legend>I’m here to</legend>
+                <input type="hidden" name="role" value={signupRole} />
+                <RoleChoice value={signupRole} onChange={chooseSignupRole} />
+              </fieldset>
               <p className="muted">
                 Professionals complete a business profile and identity
                 verification before their listing appears.
@@ -320,6 +399,15 @@ export default function Workspace() {
             </>
           ) : (
             <>
+              {route.page === "register" && (
+                <>
+                  <p className="auth-intro">
+                    Choose how you plan to use Aplime. You can’t change the
+                    account type after finishing registration.
+                  </p>
+                  <RoleChoice value={signupRole} onChange={chooseSignupRole} />
+                </>
+              )}
               <Form
                 busy={busy}
                 onSubmit={(f) =>
