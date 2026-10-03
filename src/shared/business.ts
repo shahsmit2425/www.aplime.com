@@ -1,0 +1,72 @@
+import { z } from "zod";
+export const businessFields = [
+  { key: "legalName", label: "Legal business name", required: true },
+  { key: "phone", label: "Public business phone", required: true },
+  {
+    key: "email",
+    label: "Public business email",
+    required: true,
+    type: "email",
+  },
+  { key: "website", label: "Website (optional, https://)", type: "url" },
+  { key: "city", label: "Business city", required: true },
+  { key: "state", label: "State / region", required: true },
+  { key: "serviceAreas", label: "Cities and ZIP codes served", required: true },
+  {
+    key: "specialties",
+    label: "Specialties and services offered",
+    required: true,
+  },
+  { key: "languages", label: "Languages spoken", required: true },
+  { key: "hours", label: "Working hours and time zone", required: true },
+  {
+    key: "license",
+    label: "License type, number and issuing authority (if applicable)",
+  },
+  {
+    key: "insurance",
+    label: "Insurance coverage and expiration (if applicable)",
+  },
+  { key: "qualifications", label: "Training and certifications (optional)" },
+  { key: "warranty", label: "Workmanship warranty / guarantee (optional)" },
+  {
+    key: "cancellationPolicy",
+    label: "Appointment cancellation policy",
+    required: true,
+  },
+] as const;
+const short = z.string().trim().max(1000).default("");
+export const businessDetailsSchema = z
+  .object({
+    legalName: z.string().trim().min(2).max(150),
+    phone: z
+      .string()
+      .trim()
+      .regex(/^[+()\d .-]{7,30}$/, "Enter a business phone number"),
+    email: z.string().trim().email().max(254),
+    website: z
+      .union([z.literal(""), z.string().url().startsWith("https://")])
+      .default(""),
+    city: z.string().trim().min(2).max(100),
+    state: z.string().trim().min(2).max(100),
+    serviceAreas: z.string().trim().min(2).max(1000),
+    specialties: z.string().trim().min(2).max(1000),
+    languages: z.string().trim().min(2).max(200),
+    hours: z.string().trim().min(2).max(500),
+    license: short,
+    insurance: short,
+    qualifications: short,
+    warranty: short,
+    cancellationPolicy: z.string().trim().min(5).max(1000),
+    yearsExperience: z.number().int().min(0).max(100),
+    teamSize: z.number().int().min(1).max(10000),
+    businessType: z.enum([
+      "Sole proprietor",
+      "LLC",
+      "Corporation",
+      "Partnership",
+      "Other",
+    ]),
+  })
+  .strict();
+export type BusinessDetails = z.infer<typeof businessDetailsSchema>;

@@ -1,3 +1,4 @@
+import { businessFields } from "./shared/business.js";
 import { categories, type Profile } from "./shared/domain.js";
 import { Brand, LinkButton, ServiceIcon } from "./client/ui.js";
 export const serviceCopy: Record<string, string> = {
@@ -53,7 +54,7 @@ export function PublicPage({
               Identity rather than stored as project attachments.
             </p>
             <p>
-              Payments are processed through Stripe. Project files are stored
+              Professional subscriptions are billed through Stripe. Customers and professionals arrange service payments directly. Project files are stored
               privately, and calling is provided by Daily. You can contact
               support from your account to request help or account deletion.
             </p>
@@ -75,6 +76,12 @@ export function PublicPage({
             <h1>{profile.business}</h1>
             <p className="lede">{profile.bio}</p>
             <p>Identity verified · {profile.name}</p>
+            {profile.details?.legalName && <section>
+              <h2>Business details</h2>
+              <p>Business information, licenses, and insurance below are supplied by the professional. Identity verification does not verify trade qualifications.</p>
+              <dl>{businessFields.filter(field => profile.details?.[field.key]).map(field => <div key={field.key}><dt>{field.label}</dt><dd>{profile.details?.[field.key]}</dd></div>)}</dl>
+              <p>{profile.details.yearsExperience} years of experience · Team of {profile.details.teamSize} · {profile.details.businessType}</p>
+            </section>}
             <p>
               Starting at ${profile.rate} per hour. Final pricing is provided in
               your project estimate.

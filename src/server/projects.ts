@@ -14,6 +14,8 @@ export async function projectAction(
     if (!allowedTransition(p, user, action.type))
       fail(403, "This action is not available for this project.");
     if (action.type === "quote") {
+      if (!(await c.query("SELECT 1 FROM professional_subscriptions WHERE user_id=$1 AND status IN ('active','trialing')", [user.id])).rowCount)
+        fail(403, "An active Aplime subscription is required for new estimates.");
       const profile = (
         await c.query(
           "SELECT * FROM profiles WHERE id=$1 AND verified AND NOT suspended AND available",

@@ -3,13 +3,13 @@ import { pool, camel } from "./db/index.js";
 import type pg from "pg";
 import type { User, Workspace, Profile, Project } from "../shared/domain.js";
 import { fail } from "./errors.js";
-export const profileSelect = `SELECT p.id,u.name,p.business,p.category,p.bio,p.zip,p.rate,p.available,p.availability,p.verified,p.suspended,p.connect_ready,
+export const profileSelect = `SELECT p.id,u.name,p.business,p.details,p.category,p.bio,p.zip,p.rate,p.available,p.availability,p.verified,p.suspended,p.connect_ready,
  COALESCE((SELECT avg(r.rating)::float FROM reviews r WHERE r.pro_id=p.id),0) AS rating,
  (SELECT count(*)::int FROM reviews r WHERE r.pro_id=p.id) AS review_count FROM profiles p JOIN users u ON u.id=p.id`;
 export async function publicProfiles(id?: string) {
   const { rows } = await pool.query(
     profileSelect +
-      " WHERE p.verified=true AND p.suspended=false" +
+      " WHERE p.verified=true AND p.suspended=false AND EXISTS (SELECT 1 FROM professional_subscriptions s WHERE s.user_id=p.id AND s.status IN ('active','trialing'))" +
       (id ? " AND p.id=$1" : " ORDER BY p.business LIMIT 200"),
     id ? [id] : [],
   );
@@ -31,7 +31,7 @@ export async function workspace(user: User): Promise<Workspace> {
   const profiles = (
     await pool.query(
       profileSelect +
-        (admin ? "" : " WHERE (p.verified AND NOT p.suspended) OR p.id=$1") +
+        (admin ? "" : " WHERE (p.verified AND NOT p.suspended AND EXISTS (SELECT 1 FROM professional_subscriptions s WHERE s.user_id=p.id AND s.status IN ('active','trialing'))) OR p.id=$1") +
         " ORDER BY p.business LIMIT 500",
       params,
     )
@@ -40,7 +40,7 @@ export async function workspace(user: User): Promise<Workspace> {
     user.role === "pro"
       ? (
           await pool.query(
-            "SELECT p.id,p.title,p.description,p.intake,p.category,p.zip,p.status,p.created_at,p.scheduled_at,NULL AS customer_id,NULL AS pro_id,NULL AS amount FROM projects p JOIN profiles f ON f.id=$1 AND f.category=p.category AND f.verified AND NOT f.suspended AND f.available WHERE p.pro_id IS NULL AND p.status IN ('requested','quoted') ORDER BY p.created_at DESC LIMIT 100",
+            "SELECT p.id,p.title,p.description,p.intake,p.category,p.zip,p.status,p.created_at,p.scheduled_at,NULL AS customer_id,NULL AS pro_id,NULL AS amount FROM projects p JOIN profiles f ON f.id=$1 AND f.category=p.category AND f.verified AND NOT f.suspended AND f.available AND EXISTS (SELECT 1 FROM professional_subscriptions s WHERE s.user_id=f.id AND s.status IN ('active','trialing')) WHERE p.pro_id IS NULL AND p.status IN ('requested','quoted') ORDER BY p.created_at DESC LIMIT 100",
             [user.id],
           )
         ).rows.map((r) => camel<Project>(r))

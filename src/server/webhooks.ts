@@ -58,6 +58,45 @@ webhooks.post(
             "Open your business profile for the next step.",
           );
       }
+      if (event.type.startsWith("customer.subscription.")) {
+        // Serialize per customer and read Stripe's current state: out-of-order events
+        // must not restore an expired subscription or overwrite a newer one.
+        const owner = (
+          await c.query(
+            "SELECT * FROM professional_subscriptions WHERE customer_id=$1 FOR UPDATE",
+            [
+              typeof obj.customer === "string"
+                ? obj.customer
+                : obj.customer?.id,
+            ],
+          )
+        ).rows[0];
+        if (owner) {
+          const current = await stripe().subscriptions.retrieve(obj.id);
+          if (owner.subscription_id && owner.subscription_id !== current.id) {
+            const old = await stripe().subscriptions.retrieve(
+              owner.subscription_id,
+            );
+            if (
+              !["canceled", "incomplete_expired"].includes(old.status) ||
+              ["canceled", "incomplete_expired"].includes(current.status)
+            )
+              return;
+          }
+          const correctPrice = current.items.data.some(
+            (item) => item.price.id === env.STRIPE_PRO_PRICE_ID,
+          );
+          await c.query(
+            "UPDATE professional_subscriptions SET subscription_id=$2,status=$3,cancel_at_period_end=$4,updated_at=now() WHERE user_id=$1",
+            [
+              owner.user_id,
+              current.id,
+              correctPrice ? current.status : "unrecognized_price",
+              current.cancel_at_period_end,
+            ],
+          );
+        }
+      }
       if (event.type === "account.updated")
         await c.query(
           "UPDATE profiles SET connect_ready=$2 WHERE stripe_account_id=$1",

@@ -167,3 +167,13 @@ Run `npm run config:check` after configuring an environment. It prints missing v
 Application values are validated centrally in `src/server/config.ts`; public exposure is an explicit allowlist. Never add a private credential to that public object.
 
 References: [Render environment groups](https://render.com/docs/blueprint-spec#environment-groups), [Render Postgres TLS](https://render.com/docs/postgresql-creating-connecting#ssl-modes-for-internal-connections), [Microsoft SMTP OAuth](https://learn.microsoft.com/en-us/exchange/client-developer/legacy-protocols/how-to-authenticate-an-imap-pop-smtp-application-by-using-oauth).
+
+## Professional subscriptions (current billing model)
+
+Aplime bills professional businesses only. Customer project checkout and new Stripe Connect onboarding are disabled. Existing payment history and legacy signed webhook/refund handling are retained for reconciliation, not new transactions.
+
+Add `STRIPE_PRO_PRICE_ID` to the backend Render environment group for each environment. In Stripe Dashboard, create an Aplime Professional product with your chosen recurring USD price, and copy its `price_...` ID. No amount is hardcoded. Use test-mode keys/prices in development and stagging and live-mode keys/prices in production. Existing `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` remain required. `STRIPE_CONNECT_WEBHOOK_SECRET` is only needed if reconciling historical Connect events; it is no longer a required launch variable.
+
+Configure the Stripe Customer Portal to allow invoices, payment-method updates and subscription cancellation. Add `customer.subscription.created`, `customer.subscription.updated`, and `customer.subscription.deleted` to the standard `/api/webhooks/stripe` endpoint alongside existing identity events. Status is read from Stripe by signed webhooks, never from a checkout return URL. Existing subscriptions using another price must be migrated deliberately before changing the configured price.
+
+Run `npm run db:migrate` before the updated API starts (the existing Render pre-deploy command does this). Migration 003 adds business details and professional subscription state. An active or trialing subscription is required for public discovery and new estimates; existing work and conversations remain accessible. Existing professionals need to complete their expanded profile and enroll before appearing in search.

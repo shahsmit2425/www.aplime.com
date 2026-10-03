@@ -1,3 +1,4 @@
+import { businessFields } from "../shared/business.js";
 import { useEffect, useState } from "react";
 import {
   CalendarDays,
@@ -25,15 +26,7 @@ import {
 } from "../shared/service-questionnaires.js";
 import { request, openExternal } from "./api.js";
 import { useWorkspace } from "./workspace.js";
-import {
-  Empty,
-  Head,
-  Panel,
-  Badge,
-  Field,
-  Form,
-  ServiceIcon,
-} from "./ui.js";
+import { Empty, Head, Panel, Badge, Field, Form, ServiceIcon } from "./ui.js";
 const date = (s: string | null) =>
   s
     ? new Date(s).toLocaleString(undefined, {
@@ -62,7 +55,8 @@ export function Pages() {
       return <Messages />;
     case "payments":
     case "earnings":
-      return <Payments />;
+    case "subscription":
+      return <Subscription />;
     case "reviews":
       return <Reviews />;
     case "profile":
@@ -148,12 +142,8 @@ function Dashboard() {
             data.projects.filter((p) => p.status === "booked").length,
           ],
           [
-            pro ? "Earned so far" : "Payments",
-            money(
-              data.payments
-                .filter((p) => p.status === "paid")
-                .reduce((n, p) => n + p.amount, 0),
-            ),
+            "Completed projects",
+            data.projects.filter((p) => p.status === "completed").length,
           ],
         ].map(([label, value]) => (
           <div className="stat" key={label}>
@@ -196,8 +186,8 @@ function Dashboard() {
               <ShieldCheck />
               <h3>Finish your professional setup.</h3>
               <p>
-                Save your business profile, verify your identity, and connect
-                payouts.
+                Save your business profile, verify your identity, and activate
+                your subscription.
               </p>
               <button onClick={() => go("profile")}>Continue setup</button>
             </>
@@ -297,9 +287,7 @@ function Directory() {
                 <span className="avatar large">{p.name.slice(0, 1)}</span>
                 <div>
                   <h2>{p.business}</h2>
-                  <p>
-                    {p.name}
-                  </p>
+                  <p>{p.name}</p>
                   <span className="pro-service">
                     <ServiceIcon service={p.category} size={15} />
                     {p.category}
@@ -420,7 +408,8 @@ function Projects() {
             before sending your request.
             {selectedProfessional && (
               <strong>
-                {" "}This request will be sent to {selectedProfessional.business}.
+                {" "}
+                This request will be sent to {selectedProfessional.business}.
               </strong>
             )}
           </p>
@@ -604,7 +593,6 @@ function ProjectDetail() {
     pro = p.proId === data.user.id;
   const own = customer || pro;
   const quotes = data.quotes.filter((q) => q.projectId === p.id);
-  const payment = data.payments.find((x) => x.projectId === p.id);
   const submit = (body: unknown) =>
     request("/projects/" + p.id + "/actions", body);
   return (
@@ -624,9 +612,7 @@ function ProjectDetail() {
               <dl>
                 {Object.entries(p.intake).map(([key, value]) => (
                   <div key={key}>
-                    <dt>
-                      {questionLabel(p.category as ServiceCategory, key)}
-                    </dt>
+                    <dt>{questionLabel(p.category as ServiceCategory, key)}</dt>
                     <dd>{value}</dd>
                   </div>
                 ))}
@@ -676,25 +662,6 @@ function ProjectDetail() {
                 Mark complete
               </button>
             )}
-            {customer &&
-              p.status === "completed" &&
-              !payment?.status.includes("paid") &&
-              payment?.status !== "refunded" && (
-                <button
-                  disabled={busy}
-                  onClick={() =>
-                    void run(async () => {
-                      const r = await request(
-                        "/projects/" + p.id + "/checkout",
-                        {},
-                      );
-                      await openExternal(r.url);
-                    }, "")
-                  }
-                >
-                  Pay securely
-                </button>
-              )}
             {own && ["requested", "quoted", "booked"].includes(p.status) && (
               <>
                 <button
@@ -1106,89 +1073,99 @@ function Messages() {
     </>
   );
 }
-function Payments() {
-  const { data, run, busy, page, go } = useWorkspace();
-  const payments = data.payments;
-  const paid = payments
-    .filter((p) => p.status === "paid")
-    .reduce((n, p) => n + p.amount, 0);
+function Subscription() {
+  const { data, busy, run } = useWorkspace();
+  const [billing, setBilling] = useState<{
+    status: string;
+    cancelAtPeriodEnd: boolean;
+    configured: boolean;
+    canManage: boolean;
+  } | null>(null);
+  const [problem, setProblem] = useState("");
+  useEffect(() => {
+    if (data.user.role !== "pro") return;
+    let active = true;
+    const refresh = () =>
+      request("/subscription")
+        .then((result) => {
+          if (active) {
+            setBilling(result);
+            setProblem("");
+          }
+        })
+        .catch((error) => {
+          if (active) setProblem(error.message);
+        });
+    void refresh();
+    const timer = setInterval(refresh, 10000);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, [data.user.id]);
+  if (data.user.role !== "pro")
+    return (
+      <Empty title="No customer payments on Aplime">
+        Arrange service payment directly with your professional. Only businesses
+        pay Aplime for a subscription.
+      </Empty>
+    );
   return (
     <>
-      <Head
-        title={
-          page === "earnings"
-            ? "Good work deserves a clear picture."
-            : "Every payment, accounted for."
-        }
-      >
-        {page === "earnings"
-          ? "Gross payments are shown before platform fees. Stripe manages payout timing."
-          : "Payments are confirmed by Stripe, not by a return-page redirect."}
+      <Head title="Your Aplime business subscription">
+        Your subscription pays for access to Aplime. Customer service payments
+        are arranged directly with customers.
       </Head>
-      <div className="stats">
-        <div className="stat">
-          <span>{page === "earnings" ? "Gross payments" : "Total paid"}</span>
-          <strong>{money(paid)}</strong>
-        </div>
-        <div className="stat">
-          <span>Refunded</span>
-          <strong>
-            {money(
-              payments
-                .filter((p) => p.status === "refunded")
-                .reduce((n, p) => n + p.amount, 0),
-            )}
-          </strong>
-        </div>
-      </div>
-      {data.user.role === "customer" && (
-        <Panel title="Completed work ready for payment">
-          <ProjectList
-            projects={data.projects.filter(
-              (p) =>
-                p.status === "completed" &&
-                !payments.some(
-                  (pay) => pay.projectId === p.id && pay.status !== "pending",
-                ),
-            )}
-          />
-        </Panel>
-      )}
-      <Panel title="Payment history">
-        {payments.length ? (
-          payments.map((pay) => (
-            <article className="payment-row" key={pay.id}>
-              <div>
-                <strong>
-                  {data.projects.find((p) => p.id === pay.projectId)?.title}
-                </strong>
-                <small>{date(pay.createdAt)}</small>
-              </div>
-              <strong>{money(pay.amount)}</strong>
-              <Badge>{pay.status}</Badge>
-              {pay.status !== "pending" && (
-                <button
-                  className="secondary"
-                  disabled={busy}
-                  onClick={() =>
-                    void run(async () => {
-                      const r = await request(
-                        "/payments/" + pay.id + "/receipt",
-                      );
-                      await openExternal(r.url);
-                    }, "")
-                  }
-                >
-                  Receipt
-                </button>
-              )}
-            </article>
-          ))
-        ) : (
-          <Empty title="No payments yet.">
-            Completed project payments will appear here.
-          </Empty>
+      <Panel title="Professional membership">
+        {problem && <p role="alert">{problem}</p>}
+        <p>
+          Status: <strong>{billing?.status || "Loading…"}</strong>
+        </p>
+        {billing?.cancelAtPeriodEnd && (
+          <p>
+            Your subscription will end at the close of the current billing
+            period.
+          </p>
         )}
+        <p>
+          Review the subscription price, billing interval, and recurring charge
+          in Stripe before confirming. After payment, activation may take a
+          moment. This page updates automatically.
+        </p>
+        {!billing?.configured && billing && (
+          <p>Subscription enrollment is not configured yet.</p>
+        )}
+        <div className="actions">
+          <button
+            disabled={
+              busy ||
+              !billing?.configured ||
+              !["none", "canceled", "incomplete_expired"].includes(
+                billing.status,
+              )
+            }
+            onClick={() =>
+              void run(async () => {
+                const result = await request("/subscription/checkout", {});
+                await openExternal(result.url);
+              }, "")
+            }
+          >
+            Start subscription
+          </button>
+          <button
+            className="secondary"
+            disabled={busy || !billing?.canManage}
+            onClick={() =>
+              void run(async () => {
+                const result = await request("/subscription/portal", {});
+                await openExternal(result.url);
+              }, "")
+            }
+          >
+            Manage billing and cancellation
+          </button>
+        </div>
       </Panel>
     </>
   );
@@ -1199,7 +1176,6 @@ function Reviews() {
     (p) =>
       p.status === "completed" &&
       data.user.id === p.customerId &&
-      data.payments.some((x) => x.projectId === p.id && x.status === "paid") &&
       !data.reviews.some((x) => x.projectId === p.id),
   );
   return (
@@ -1276,7 +1252,7 @@ function Reviews() {
           ))
         ) : (
           <Empty title="No reviews yet.">
-            Reviews are available after completed, paid projects.
+            Reviews are available after completed projects.
           </Empty>
         )}
       </Panel>
@@ -1284,23 +1260,22 @@ function Reviews() {
   );
 }
 function Business() {
-  const { data, run, busy } = useWorkspace();
+  const { data, run, busy, go } = useWorkspace();
   if (data.user.role !== "pro")
     return <Empty title="Professional account required." />;
   const p = data.profiles.find((p) => p.id === data.user.id);
   return (
     <>
       <Head title="Let your work make the introduction.">
-        Complete your profile, verify your identity, and set up payouts.
+        Complete your profile, verify your identity, and manage your Aplime
+        subscription.
       </Head>
       <div className="setup-steps">
         <Badge>{p ? "✓ Profile saved" : "1. Create profile"}</Badge>
         <Badge>
           {p?.verified ? "✓ Identity verified" : "2. Verify identity"}
         </Badge>
-        <Badge>
-          {p?.connectReady ? "✓ Payouts ready" : "3. Connect payouts"}
-        </Badge>
+        <Badge>3. Subscribe to Aplime</Badge>
       </div>
       <Panel title="Business profile">
         <Form
@@ -1311,6 +1286,17 @@ function Business() {
                 request(
                   "/profile",
                   {
+                    details: {
+                      ...Object.fromEntries(
+                        businessFields.map((field) => [
+                          field.key,
+                          String(f.get(field.key) || ""),
+                        ]),
+                      ),
+                      yearsExperience: Number(f.get("yearsExperience")),
+                      teamSize: Number(f.get("teamSize")),
+                      businessType: f.get("businessType"),
+                    },
                     business: f.get("business"),
                     category: f.get("category"),
                     bio: f.get("bio"),
@@ -1359,6 +1345,61 @@ function Business() {
                 type="number"
                 step=".01"
                 required
+              />
+            </Field>
+          </div>
+          <h3>Business information</h3>
+          <p>
+            These details appear on your business listing. Use business contact
+            information. Do not enter a home street address, tax ID, or identity
+            document here. Licensing and insurance statements are self-reported.
+          </p>
+          <div className="form-grid">
+            {businessFields.map((field) => (
+              <Field key={field.key} label={field.label}>
+                <input
+                  name={field.key}
+                  defaultValue={p?.details?.[field.key] || ""}
+                  required={"required" in field && field.required}
+                  type={"type" in field ? field.type : "text"}
+                  maxLength={1000}
+                />
+              </Field>
+            ))}
+            <Field label="Business type">
+              <select
+                name="businessType"
+                defaultValue={p?.details?.businessType}
+              >
+                {[
+                  "Sole proprietor",
+                  "LLC",
+                  "Corporation",
+                  "Partnership",
+                  "Other",
+                ].map((t) => (
+                  <option key={t}>{t}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Years of experience">
+              <input
+                name="yearsExperience"
+                type="number"
+                min="0"
+                max="100"
+                required
+                defaultValue={p?.details?.yearsExperience ?? 0}
+              />
+            </Field>
+            <Field label="Team size">
+              <input
+                name="teamSize"
+                type="number"
+                min="1"
+                max="10000"
+                required
+                defaultValue={p?.details?.teamSize ?? 1}
               />
             </Field>
           </div>
@@ -1421,23 +1462,13 @@ function Business() {
             {p?.verified ? "Verified" : "Verify with Stripe"}
           </button>
         </Panel>
-        <Panel title="Receive payments">
-          <CreditIcon />
+        <Panel title="Aplime subscription">
           <p>
-            {p?.connectReady
-              ? "Your payout account is ready."
-              : "Connect your payout details securely through Stripe. Identity verification must be completed first."}
+            Only professional businesses pay Aplime. We do not collect customer
+            service payments or send professional payouts.
           </p>
-          <button
-            disabled={busy || !p?.verified}
-            onClick={() =>
-              void run(async () => {
-                const r = await request("/profile/connect", {});
-                await openExternal(r.url);
-              }, "")
-            }
-          >
-            Set up or update payouts
+          <button onClick={() => go("subscription")}>
+            Manage your business subscription →
           </button>
         </Panel>
       </div>

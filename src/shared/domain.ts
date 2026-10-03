@@ -1,3 +1,4 @@
+import { businessDetailsSchema, type BusinessDetails } from "./business.js";
 import { z } from "zod";
 import {
   categories,
@@ -28,6 +29,7 @@ export type Profile = {
   rating: number;
   reviewCount: number;
   connectReady?: boolean;
+  details?: BusinessDetails;
 };
 export const statuses = [
   "requested",
@@ -135,6 +137,7 @@ export const signupSchema = z
 export const profileSchema = z
   .object({
     business: text(2, 100),
+    details: businessDetailsSchema,
     category: z.enum(categories),
     bio: text(20, 2000),
     zip: z.string().regex(/^\d{5}$/, "Enter a five-digit ZIP code"),

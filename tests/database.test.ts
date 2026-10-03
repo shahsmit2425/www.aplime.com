@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { PGlite } from "@electric-sql/pglite";
+process.env.STRIPE_PRO_PRICE_ID = "price_test_pro";
 process.env.STRIPE_SECRET_KEY = "sk_test_unit_fixture";
 process.env.STRIPE_WEBHOOK_SECRET = "whsec_unit_fixture";
 const { pool } = await import("../src/server/db/index.js");
@@ -44,6 +45,15 @@ const outsider = {
 await db.exec(
   await readFile("src/server/db/migrations/001_marketplace.sql", "utf8"),
 );
+await db.exec(
+  await readFile("src/server/db/migrations/002_project_intake.sql", "utf8"),
+);
+await db.exec(
+  await readFile(
+    "src/server/db/migrations/003_business_subscriptions.sql",
+    "utf8",
+  ),
+);
 test.after(async () => {
   await db.close();
   await pool.end();
@@ -71,6 +81,15 @@ test("real PostgreSQL engine enforces ownership workflow and duplicate constrain
       50,
     ],
   );
+  await query(
+    "INSERT INTO professional_subscriptions(user_id,status) VALUES($1,'active')",
+    [professional.id],
+  );
+  const membership = await query(
+    "SELECT status FROM professional_subscriptions WHERE user_id=$1",
+    [professional.id],
+  );
+  assert.equal((membership.rows[0] as any).status, "active");
   const id = randomUUID();
   await query(
     "INSERT INTO projects(id,customer_id,title,description,category,zip) VALUES($1,$2,$3,$4,$5,$6)",
@@ -237,6 +256,71 @@ test("unsigned webhooks are rejected and duplicate signed events are idempotent"
       false,
     );
   } finally {
+    await new Promise<void>((r) => server.close(() => r()));
+  }
+});
+
+test("subscription webhooks use current Stripe state and match stored customers", async () => {
+  const original = stripe().subscriptions.retrieve;
+  let currentStatus = "active";
+  stripe().subscriptions.retrieve = (async () => ({
+    id: "sub_test_pro",
+    status: currentStatus,
+    cancel_at_period_end: false,
+    items: { data: [{ price: { id: "price_test_pro" } }] },
+  })) as any;
+  await query(
+    "UPDATE professional_subscriptions SET customer_id='cus_test_pro' WHERE user_id=$1",
+    [professional.id],
+  );
+  const app = (await import("express")).default();
+  app.use("/webhooks", webhooks);
+  const server = app.listen(0, "127.0.0.1");
+  await new Promise<void>((r) => server.once("listening", r));
+  try {
+    for (const status of ["active", "past_due", "canceled"]) {
+      currentStatus = status;
+      const body = JSON.stringify({
+        id: "evt_" + randomUUID(),
+        type: "customer.subscription.updated",
+        data: {
+          object: {
+            id: "sub_test_pro",
+            customer: "cus_test_pro",
+            status: "active",
+          },
+        },
+      });
+      const signature = stripe().webhooks.generateTestHeaderString({
+        payload: body,
+        secret: "whsec_unit_fixture",
+      });
+      const response = await fetch(
+        "http://127.0.0.1:" +
+          (server.address() as any).port +
+          "/webhooks/stripe",
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "stripe-signature": signature,
+          },
+          body,
+        },
+      );
+      assert.equal(response.status, 200);
+      assert.equal(
+        ((
+          await query(
+            "SELECT status FROM professional_subscriptions WHERE user_id=$1",
+            [professional.id],
+          )
+        ).rows[0] as {status: string}).status,
+        status,
+      );
+    }
+  } finally {
+    stripe().subscriptions.retrieve = original;
     await new Promise<void>((r) => server.close(() => r()));
   }
 });

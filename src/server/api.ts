@@ -1,3 +1,4 @@
+import { subscriptions } from "./subscriptions.js";
 import { Router, json, type Request } from "express";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -114,6 +115,7 @@ api.use((req, _res, next) => {
   if (!(req as AuthRequest).account) fail(428, "Complete your account setup.");
   next();
 });
+api.use("/subscription", subscriptions);
 api.get("/workspace", async (q, r) =>
   r.json(await workspace((q as AuthRequest).account)),
 );
@@ -137,7 +139,7 @@ api.put("/profile", async (req, res) => {
   if (q.account.role !== "pro") fail(403, "Professional account required.");
   const p = profileSchema.parse(q.body);
   await pool.query(
-    "INSERT INTO profiles(id,business,category,bio,zip,rate,available,availability) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(id) DO UPDATE SET business=$2,category=$3,bio=$4,zip=$5,rate=$6,available=$7,availability=$8",
+    "INSERT INTO profiles(id,business,category,bio,zip,rate,available,availability,details) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT(id) DO UPDATE SET business=$2,category=$3,bio=$4,zip=$5,rate=$6,available=$7,availability=$8,details=$9",
     [
       q.account.id,
       p.business,
@@ -147,6 +149,7 @@ api.put("/profile", async (req, res) => {
       p.rate,
       p.available,
       JSON.stringify(p.availability),
+      JSON.stringify(p.details),
     ],
   );
   res.json({ ok: true });
@@ -162,7 +165,7 @@ api.post("/projects", async (req, res) => {
       p.proId &&
       !(
         await c.query(
-          "SELECT 1 FROM profiles WHERE id=$1 AND category=$2 AND verified AND NOT suspended AND available",
+          "SELECT 1 FROM profiles WHERE id=$1 AND category=$2 AND verified AND NOT suspended AND available AND EXISTS (SELECT 1 FROM professional_subscriptions s WHERE s.user_id=profiles.id AND s.status IN ('active','trialing'))",
           [p.proId, p.category],
         )
       ).rowCount
@@ -286,15 +289,6 @@ api.post("/projects/:id/review", async (req, res) => {
     .parse(q.body);
   if (q.account.id !== p.customerId || p.status !== "completed" || !p.proId)
     fail(403, "Only the customer can review completed work.");
-  if (
-    !(
-      await pool.query(
-        "SELECT 1 FROM payments WHERE project_id=$1 AND status='paid'",
-        [p.id],
-      )
-    ).rowCount
-  )
-    fail(409, "Complete payment before leaving a review.");
   await pool.query(
     "INSERT INTO reviews(id,project_id,pro_id,rating,body) VALUES($1,$2,$3,$4,$5)",
     [randomUUID(), p.id, p.proId, data.rating, data.body],
@@ -390,85 +384,9 @@ api.get("/location/:zip", async (req, res) =>
     ),
   ),
 );
-// Financial endpoints derive amounts and destination accounts from locked database records.
-api.post("/projects/:id/checkout", async (req, res) => {
-  const q = req as AuthRequest;
-  const result = await transaction(async (c) => {
-    const p = await getProject(c, z.string().uuid().parse(q.params.id));
-    if (
-      p.customerId !== q.account.id ||
-      p.status !== "completed" ||
-      !p.amount ||
-      !p.proId
-    )
-      fail(403, "Payment is available to the customer after completion.");
-    const profile = (
-      await c.query("SELECT * FROM profiles WHERE id=$1", [p.proId])
-    ).rows[0];
-    if (!profile?.connect_ready || !profile.verified || profile.suspended)
-      fail(409, "The professional must finish payout setup before payment.");
-    let payment = (
-      await c.query("SELECT * FROM payments WHERE project_id=$1 FOR UPDATE", [
-        p.id,
-      ])
-    ).rows[0];
-    if (payment?.status === "paid" || payment?.status === "refunded")
-      fail(409, "This project has already been paid.");
-    if (payment?.checkout_id) {
-      const previous = await stripe().checkout.sessions.retrieve(
-        payment.checkout_id,
-      );
-      if (previous.status === "open" && previous.url)
-        return { url: previous.url };
-      if (previous.status === "complete")
-        fail(409, "Payment is processing. Refresh shortly.");
-      await c.query("UPDATE payments SET checkout_id=NULL WHERE id=$1", [
-        payment.id,
-      ]);
-    }
-    if (!payment) {
-      payment = { id: randomUUID(), amount: p.amount };
-      await c.query(
-        "INSERT INTO payments(id,project_id,amount) VALUES($1,$2,$3)",
-        [payment.id, p.id, p.amount],
-      );
-    }
-    const session = await stripe().checkout.sessions.create(
-      {
-        mode: "payment",
-        customer_email: q.account.email,
-        line_items: [
-          {
-            price_data: {
-              currency: "usd",
-              unit_amount: p.amount,
-              product_data: { name: p.title },
-            },
-            quantity: 1,
-          },
-        ],
-        payment_intent_data: {
-          application_fee_amount: Math.round(
-            (p.amount * env.STRIPE_PLATFORM_FEE_PERCENT) / 100,
-          ),
-          transfer_data: { destination: profile.stripe_account_id },
-        },
-        success_url: env.SITE_URL + "/app/payments?payment=processing",
-        cancel_url: env.SITE_URL + "/app/payments",
-        metadata: { projectId: p.id },
-      },
-      {
-        idempotencyKey:
-          "checkout:" + p.id + ":" + (payment.checkout_id || "initial"),
-      },
-    );
-    await c.query("UPDATE payments SET checkout_id=$2 WHERE id=$1", [
-      payment.id,
-      session.id,
-    ]);
-    return { url: session.url };
-  });
-  res.json(result);
+// Retired project-payment routes fail closed for old clients.
+api.post(["/projects/:id/checkout", "/profile/connect"], () => {
+  fail(410, "Aplime does not process payments between customers and professionals.");
 });
 api.post("/profile/identity", async (req, res) => {
   const q = req as AuthRequest;
@@ -509,47 +427,6 @@ api.post("/profile/identity", async (req, res) => {
       session.id,
     ]);
     return { url: session.url };
-  });
-  res.json(result);
-});
-api.post("/profile/connect", async (req, res) => {
-  const q = req as AuthRequest;
-  if (q.account.role !== "pro") fail(403, "Professional account required.");
-  const result = await transaction(async (c) => {
-    const p = (
-      await c.query("SELECT * FROM profiles WHERE id=$1 FOR UPDATE", [
-        q.account.id,
-      ])
-    ).rows[0];
-    if (!p?.verified) fail(409, "Complete identity verification first.");
-    let accountId = p.stripe_account_id;
-    if (!accountId) {
-      const account = await stripe().accounts.create(
-        {
-          type: "express",
-          country: "US",
-          email: q.account.email,
-          capabilities: {
-            card_payments: { requested: true },
-            transfers: { requested: true },
-          },
-          metadata: { userId: q.account.id },
-        },
-        { idempotencyKey: "connect:" + q.account.id },
-      );
-      accountId = account.id;
-      await c.query("UPDATE profiles SET stripe_account_id=$2 WHERE id=$1", [
-        q.account.id,
-        accountId,
-      ]);
-    }
-    const link = await stripe().accountLinks.create({
-      account: accountId,
-      type: "account_onboarding",
-      return_url: env.SITE_URL + "/app/profile",
-      refresh_url: env.SITE_URL + "/app/profile",
-    });
-    return { url: link.url };
   });
   res.json(result);
 });

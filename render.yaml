@@ -277,8 +277,6 @@ envVarGroups:
         value: smtp.office365.com
       - key: SMTP_PORT
         value: "587"
-      - key: STRIPE_PLATFORM_FEE_PERCENT
-        value: "10"
   - name: servicetones-stagging-common
     envVars:
       - key: NODE_VERSION
@@ -295,8 +293,6 @@ envVarGroups:
         value: smtp.office365.com
       - key: SMTP_PORT
         value: "587"
-      - key: STRIPE_PLATFORM_FEE_PERCENT
-        value: "10"
   - name: servicetones-production-common
     envVars:
       - key: NODE_VERSION
@@ -313,5 +309,3 @@ envVarGroups:
         value: smtp.office365.com
       - key: SMTP_PORT
         value: "587"
-      - key: STRIPE_PLATFORM_FEE_PERCENT
-        value: "10"
