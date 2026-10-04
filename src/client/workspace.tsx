@@ -178,6 +178,7 @@ export default function Workspace() {
     [needsAccount, setNeedsAccount] = useState(false),
     [menu, setMenu] = useState(false);
   const [liveConnected, setLiveConnected] = useState(false);
+  const loadSequence = useRef(0);
   const [liveNotice, setLiveNotice] = useState<Notice | null>(null);
   const knownNotices = useRef<{ user: string; ids: Set<string> }>({
     user: "",
@@ -269,9 +270,11 @@ export default function Workspace() {
   async function load() {
     const owner = auth().currentUser;
     if (!owner) return;
+    const sequence = ++loadSequence.current;
     try {
       const result = await request<Data>("/workspace");
-      if (auth().currentUser !== owner) return;
+      if (auth().currentUser !== owner || sequence !== loadSequence.current)
+        return;
       if (result.user.role === "admin")
         throw new Error("Use the separate administrator application.");
       setData(result);
@@ -284,7 +287,8 @@ export default function Workspace() {
       );
       if (next !== current) replaceRoute(next);
     } catch (e) {
-      if (auth().currentUser !== owner) return;
+      if (auth().currentUser !== owner || sequence !== loadSequence.current)
+        return;
       if (e instanceof ApiError && e.status === 401) {
         await logout();
         replaceRoute("login");
@@ -391,6 +395,8 @@ export default function Workspace() {
       if (message) setNotice(message);
     } catch (e) {
       setError(authErrorMessage(e));
+      if (e instanceof ApiError && e.status === 409)
+        await load().catch(() => {});
     } finally {
       setBusy(false);
     }

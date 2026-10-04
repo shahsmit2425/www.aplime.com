@@ -78,10 +78,27 @@ await db.exec(
     "utf8",
   ),
 );
+await db.exec(
+  await readFile("src/server/db/migrations/009_project_lifecycle.sql", "utf8"),
+);
+
 test.after(async () => {
   await db.close();
   await pool.end();
 });
+
+async function lifecycleProject(status = "booked", assigned = true) {
+  const id = randomUUID();
+  await query(
+    "INSERT INTO projects(id,customer_id,pro_id,title,description,category,zip,status) VALUES($1,$2,$3,'Lifecycle project','Detailed scope for lifecycle checks','Handyman','10001',$4)",
+    [id, customer.id, assigned ? professional.id : null, status],
+  );
+  return id;
+}
+async function projectRow(id: string) {
+  return (await query("SELECT * FROM projects WHERE id=$1", [id]))
+    .rows[0] as any;
+}
 test("schema starts empty, with no seeded accounts or marketplace data", async () => {
   const result = await query("SELECT count(*)::int AS n FROM users");
   assert.equal((result.rows[0] as any).n, 0);
@@ -216,8 +233,8 @@ test("real PostgreSQL engine enforces ownership workflow and duplicate constrain
       accept: true,
     }),
   );
-  await assert.rejects(projectAction(id, customer, { type: "start" }));
-  await projectAction(id, professional, { type: "start" });
+  await projectAction(id, customer, { type: "start" });
+  await assert.rejects(projectAction(id, professional, { type: "start" }));
   await projectAction(id, professional, { type: "complete" });
   await assert.rejects(projectAction(id, professional, { type: "complete" }));
   assert.equal(
@@ -916,4 +933,402 @@ test("appointment confirmation rejects conflicts and out-of-hours visits", async
     /Choose a professional/,
   );
   c.release();
+});
+
+test("both participants manage work while pauses and completion require the correct actor", async () => {
+  const id = await lifecycleProject();
+  await assert.rejects(projectAction(id, outsider, { type: "start" }));
+  await projectAction(id, customer, { type: "start" }, 1);
+  await projectAction(
+    id,
+    professional,
+    { type: "pause", reason: "Waiting for replacement materials" },
+    2,
+  );
+  assert.equal((await projectRow(id)).paused_from, "in_progress");
+  await assert.rejects(projectAction(id, customer, { type: "resume" }));
+  await assert.rejects(projectAction(id, professional, { type: "complete" }));
+  await assert.rejects(
+    projectAction(id, professional, { type: "resume" }, 2),
+    /changed/,
+  );
+  await projectAction(id, professional, { type: "resume" }, 3);
+  await projectAction(id, customer, { type: "complete" }, 4);
+  await assert.rejects(
+    projectAction(id, customer, { type: "confirm_completion" }),
+  );
+  await projectAction(
+    id,
+    professional,
+    { type: "reject_completion", reason: "A final inspection is still needed" },
+    5,
+  );
+  assert.equal((await projectRow(id)).completion_requested, false);
+  await projectAction(id, professional, { type: "complete" }, 6);
+  await projectAction(id, customer, { type: "confirm_completion" }, 7);
+  const p = await projectRow(id);
+  assert.equal(p.status, "completed");
+  assert.equal(p.version, 8);
+  await assert.rejects(projectAction(id, customer, { type: "start" }));
+  await assert.rejects(
+    projectAction(id, professional, {
+      type: "cancel",
+      reason: "Too late to cancel",
+    }),
+  );
+  const events = (
+    await query("SELECT * FROM project_activity WHERE project_id=$1", [id])
+  ).rows;
+  assert.equal(events.length, 7);
+  for (const u of [customer, professional]) {
+    const notices = (
+      await query(
+        "SELECT * FROM notifications WHERE target_id=$1::text AND user_id=$2",
+        [id, u.id],
+      )
+    ).rows as any[];
+    assert.equal(notices.length, 7);
+    assert.equal(
+      notices.filter((n) => n.title === "Project completed").length,
+      1,
+    );
+  }
+});
+
+test("cancelling work underway requires agreement and rejects stale or self responses", async () => {
+  const id = await lifecycleProject("in_progress");
+  await projectAction(id, professional, {
+    type: "cancel",
+    reason: "Unable to continue the agreed work",
+  });
+  let p = await projectRow(id);
+  const first = p.cancellation_request_id;
+  assert.equal(p.status, "in_progress");
+  await assert.rejects(
+    projectAction(id, professional, {
+      type: "respond_cancellation",
+      requestId: first,
+      accept: true,
+    }),
+  );
+  await assert.rejects(projectAction(id, customer, { type: "complete" }));
+  await assert.rejects(
+    projectAction(id, customer, {
+      type: "respond_cancellation",
+      requestId: randomUUID(),
+      accept: true,
+    }),
+    /changed/,
+  );
+  await projectAction(id, customer, {
+    type: "respond_cancellation",
+    requestId: first,
+    accept: false,
+  });
+  assert.equal((await projectRow(id)).cancellation_requested_by, null);
+  await projectAction(id, customer, {
+    type: "pause",
+    reason: "Waiting to decide on next steps",
+  });
+  await projectAction(id, customer, {
+    type: "cancel",
+    reason: "The remaining work is no longer needed",
+  });
+  await projectAction(id, customer, { type: "withdraw_cancellation" });
+  await projectAction(id, customer, {
+    type: "cancel",
+    reason: "We have agreed to stop remaining work",
+  });
+  p = await projectRow(id);
+  await assert.rejects(
+    projectAction(id, professional, {
+      type: "respond_cancellation",
+      requestId: first,
+      accept: true,
+    }),
+    /changed/,
+  );
+  await projectAction(id, professional, {
+    type: "respond_cancellation",
+    requestId: p.cancellation_request_id,
+    accept: true,
+  });
+  p = await projectRow(id);
+  assert.equal(p.status, "cancelled");
+  assert.equal(p.paused_from, null);
+  assert.equal(p.scheduled_at, null);
+  await assert.rejects(projectAction(id, customer, { type: "complete" }));
+  const prework = await lifecycleProject();
+  await projectAction(prework, professional, {
+    type: "cancel",
+    reason: "Cannot attend this booking",
+  });
+  assert.equal((await projectRow(prework)).status, "cancelled");
+});
+
+test("archive is personal and removal cancels only the customer's unassigned request", async () => {
+  const archivingPro = { ...professional, id: "archive-pro-" + randomUUID() };
+  await query(
+    "INSERT INTO users(id,name,email,role) VALUES($1,'Archive pro',$2,'pro')",
+    [archivingPro.id, archivingPro.id + "@example.invalid"],
+  );
+  const id = await lifecycleProject("completed");
+  await query("UPDATE projects SET pro_id=$2 WHERE id=$1", [
+    id,
+    archivingPro.id,
+  ]);
+  await projectAction(id, archivingPro, { type: "archive" });
+  assert.equal(
+    (await workspace(archivingPro)).projects.find((p) => p.id === id)?.archived,
+    true,
+  );
+  assert.equal(
+    (await workspace(customer)).projects.find((p) => p.id === id)?.archived,
+    false,
+  );
+  assert.equal((await projectRow(id)).status, "completed");
+  await projectAction(id, archivingPro, { type: "restore" });
+  assert.equal(
+    (await workspace(archivingPro)).projects.find((p) => p.id === id)?.archived,
+    false,
+  );
+  await assert.rejects(projectAction(id, outsider, { type: "archive" }));
+  const active = await lifecycleProject();
+  await assert.rejects(projectAction(active, customer, { type: "archive" }));
+  await assert.rejects(
+    projectAction(active, archivingPro, {
+      type: "delete",
+      reason: "Cannot remove another person's project",
+    }),
+  );
+  const open = await lifecycleProject("requested", false);
+  await projectAction(open, customer, {
+    type: "pause",
+    reason: "Need to reconsider the project",
+  });
+  await projectAction(open, customer, {
+    type: "delete",
+    reason: "This request is no longer needed",
+  });
+  assert.equal((await projectRow(open)).status, "cancelled");
+  assert.equal(
+    (await workspace(customer)).projects.find((p) => p.id === open)?.archived,
+    true,
+  );
+  await projectAction(open, customer, { type: "restore" });
+  assert.equal((await projectRow(open)).status, "cancelled");
+});
+
+test("publication alerts every matching pro and pause/resume refreshes the opportunity audience", async () => {
+  const { notifyMatchingProfessionals } =
+    await import("../src/server/project-events.js");
+  const { transaction } = await import("../src/server/db/index.js");
+  const id = await lifecycleProject("requested", false);
+  await query("UPDATE projects SET zip='60601' WHERE id=$1", [id]);
+  const proIds: string[] = [];
+  for (let i = 0; i < 10; i++) {
+    const uid = "notify-pro-" + randomUUID();
+    proIds.push(uid);
+    await query(
+      "INSERT INTO users(id,name,email,role) VALUES($1,'Notification pro',$2,'pro')",
+      [uid, uid + "@example.invalid"],
+    );
+    await query(
+      "INSERT INTO profiles(id,business,category,bio,zip,rate,verified,review_status,service_categories) VALUES($1,'Business','Handyman','Detailed business','60601',50,true,'approved',jsonb_build_array('Handyman'))",
+      [uid],
+    );
+    await query(
+      "INSERT INTO professional_subscriptions(user_id,status) VALUES($1,'active')",
+      [uid],
+    );
+  }
+  await query("INSERT INTO blocked(user_id,other_id) VALUES($1,$2)", [
+    customer.id,
+    proIds[6],
+  ]);
+  await query("UPDATE profiles SET suspended=true WHERE id=$1", [proIds[7]]);
+  await query(
+    "UPDATE profiles SET service_categories=jsonb_build_array('Painting') WHERE id=$1",
+    [proIds[8]],
+  );
+  await query(
+    "UPDATE professional_subscriptions SET status='past_due' WHERE user_id=$1",
+    [proIds[9]],
+  );
+  const events: string[] = [];
+  const stop = await db.listen("aplime_notifications", (value) =>
+    events.push(value),
+  );
+  try {
+    await assert.rejects(
+      transaction(async (c) => {
+        await notifyMatchingProfessionals(c, id);
+        throw new Error("rollback fanout");
+      }),
+    );
+    assert.equal(events.length, 0);
+    await transaction((c) => notifyMatchingProfessionals(c, id));
+    assert.deepEqual(new Set(events), new Set(proIds.slice(0, 6)));
+    assert.equal(
+      (await workspace(customer)).profiles.filter((p) =>
+        p.matchedProjectIds?.includes(id),
+      ).length,
+      5,
+    );
+    await projectAction(id, customer, {
+      type: "pause",
+      reason: "Private reason must not be sent to unassigned professionals",
+    });
+    for (const uid of proIds.slice(0, 6)) {
+      assert.equal(
+        (await workspace({ ...professional, id: uid })).leads.some(
+          (p) => p.id === id,
+        ),
+        false,
+      );
+      const alerts = (
+        await query(
+          "SELECT body FROM notifications WHERE user_id=$1 AND title='Project paused'",
+          [uid],
+        )
+      ).rows as any[];
+      assert.equal(alerts.length, 1);
+      assert.equal(alerts[0].body.includes("Private reason"), false);
+    }
+    await projectAction(id, customer, { type: "resume" });
+    const alerts = (
+      await query(
+        "SELECT user_id FROM notifications WHERE target_id=$1::text AND title='Project available again'",
+        [id],
+      )
+    ).rows as any[];
+    assert.deepEqual(
+      new Set(alerts.map((a) => a.user_id)),
+      new Set(proIds.slice(0, 6)),
+    );
+    assert.equal(
+      (await workspace({ ...professional, id: proIds[0] })).leads.some(
+        (p) => p.id === id,
+      ),
+      true,
+    );
+  } finally {
+    await stop();
+  }
+});
+
+test("professionals can withdraw only their own pending estimate and resubmit a new revision", async () => {
+  const quotingPro = { ...professional, id: "withdraw-pro-" + randomUUID() };
+  await query(
+    "INSERT INTO users(id,name,email,role) VALUES($1,'Quoting pro',$2,'pro')",
+    [quotingPro.id, quotingPro.id + "@example.invalid"],
+  );
+  await query(
+    "INSERT INTO profiles(id,business,category,bio,zip,rate,verified,review_status) VALUES($1,'Business','Handyman','Detailed business','10001',50,true,'approved')",
+    [quotingPro.id],
+  );
+  await query(
+    "INSERT INTO professional_subscriptions(user_id,status) VALUES($1,'active')",
+    [quotingPro.id],
+  );
+  const id = await lifecycleProject("requested", false);
+  const offer = {
+    type: "quote" as const,
+    laborAmount: 10000,
+    materialsAmount: 0,
+    description: "A detailed scope of work",
+    exclusions: "",
+    timeline: "One workday",
+    expiresAt: null,
+  };
+  await projectAction(id, quotingPro, offer);
+  await query("UPDATE profiles SET available=false WHERE id=$1", [
+    quotingPro.id,
+  ]);
+  assert.equal(
+    (await workspace(quotingPro)).leads.some((p) => p.id === id),
+    true,
+  );
+  const q = (await query("SELECT * FROM quotes WHERE project_id=$1", [id]))
+    .rows[0] as any;
+  await assert.rejects(
+    projectAction(id, customer, {
+      type: "withdraw_quote",
+      reason: "Only the professional owns this estimate",
+    }),
+  );
+  await projectAction(id, quotingPro, {
+    type: "withdraw_quote",
+    reason: "Need to revise material costs",
+  });
+  assert.equal((await projectRow(id)).status, "requested");
+  await assert.rejects(
+    projectAction(id, customer, { type: "accept", quoteId: q.id, revision: 1 }),
+    /no longer available/,
+  );
+  await assert.rejects(
+    projectAction(id, quotingPro, {
+      type: "withdraw_quote",
+      reason: "Duplicate should have no effect",
+    }),
+  );
+  await query("UPDATE profiles SET available=true WHERE id=$1", [
+    quotingPro.id,
+  ]);
+  await projectAction(id, quotingPro, offer);
+  const revised = (
+    await query("SELECT * FROM quotes WHERE project_id=$1", [id])
+  ).rows[0] as any;
+  assert.equal(revised.status, "pending");
+  assert.equal(revised.revision, 3);
+  await projectAction(id, customer, {
+    type: "accept",
+    quoteId: q.id,
+    revision: 3,
+  });
+  await assert.rejects(
+    projectAction(id, quotingPro, {
+      type: "withdraw_quote",
+      reason: "Cannot withdraw an accepted estimate",
+    }),
+  );
+});
+
+test("project activity excludes outsiders and competing professional details", async () => {
+  const { readProjectActivity, recordProjectActivity } =
+    await import("../src/server/project-events.js");
+  const { transaction } = await import("../src/server/db/index.js");
+  const id = await lifecycleProject();
+  await transaction(async (c) => {
+    await recordProjectActivity(
+      c,
+      id,
+      customer.id,
+      "publish",
+      "Project published",
+    );
+    await recordProjectActivity(
+      c,
+      id,
+      professional.id,
+      "quote",
+      "Selected estimate",
+    );
+    await recordProjectActivity(
+      c,
+      id,
+      outsider.id,
+      "withdraw_quote",
+      "Competing estimate",
+      "Competitor private scope",
+    );
+  });
+  assert.equal((await readProjectActivity(id, customer.id)).length, 3);
+  const proEvents = await readProjectActivity(id, professional.id);
+  assert.equal(proEvents.length, 2);
+  assert.equal(
+    proEvents.some((e) => e.reason === "Competitor private scope"),
+    false,
+  );
+  await assert.rejects(readProjectActivity(id, outsider.id), /private/);
 });

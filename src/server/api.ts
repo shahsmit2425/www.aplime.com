@@ -1,4 +1,10 @@
 import { preferencesSchema } from "../shared/preferences.js";
+import {
+  recordProjectActivity,
+  readProjectActivity,
+  notifyProjectMembers,
+  notifyMatchingProfessionals,
+} from "./project-events.js";
 import { autocompleteAddress, locateAddress } from "./integrations/address.js";
 import { assertMatch, matchSql } from "./matching.js";
 import { assertAppointment } from "./scheduling.js";
@@ -336,44 +342,38 @@ api.post("/projects", async (req, res) => {
         "UPDATE projects SET proposed_at=$2,proposed_by=$3 WHERE id=$1",
         [id, p.scheduledAt, q.account.id],
       );
-    if (!p.proId) {
-      const eligible = (
-        await c.query(
-          `SELECT f.id FROM profiles f JOIN projects p ON p.id=$1 WHERE ${matchSql()}`,
-          [id],
-        )
-      ).rows;
-      for (const pro of eligible)
-        await notify(
-          c,
-          pro.id,
-          "New service opportunity",
-          p.category +
-            " request in ZIP " +
-            location.zip +
-            ". Review the scope before responding.",
-          { page: "project", id },
-        );
-    }
-    await notify(
+    if (!p.proId) await notifyMatchingProfessionals(c, id);
+    const created = await getProject(c, id);
+    await recordProjectActivity(
       c,
-      p.proId,
-      "New project request",
-      "A customer sent you a project request.",
-      { page: "project", id },
+      id,
+      q.account.id,
+      "publish",
+      "Project published",
+    );
+    await notifyProjectMembers(
+      c,
+      created,
+      "Project published",
+      p.title + ": your project is ready for discussion.",
     );
   });
   res.status(201).json({ id });
 });
-api.post("/projects/:id/actions", async (req, res) =>
+api.post("/projects/:id/actions", async (req, res) => {
+  const { expectedVersion, ...action } = z
+    .object({ expectedVersion: z.number().int().positive() })
+    .passthrough()
+    .parse(req.body);
   res.json(
     await projectAction(
       z.string().uuid().parse(req.params.id),
       (req as AuthRequest).account,
-      actionSchema.parse(req.body),
+      actionSchema.parse(action),
+      expectedVersion,
     ),
-  ),
-);
+  );
+});
 async function memberProject(id: string, user: User) {
   const p = (
     await pool.query("SELECT * FROM projects WHERE id=$1", [
@@ -384,6 +384,14 @@ async function memberProject(id: string, user: User) {
     fail(403, "This project is private.");
   return camel<Project>(p);
 }
+api.get("/projects/:id/activity", async (req, res) => {
+  res.json(
+    await readProjectActivity(
+      z.string().uuid().parse(req.params.id),
+      req.account.id,
+    ),
+  );
+});
 api.post("/projects/:id/messages", async (req, res) => {
   const q = req as AuthRequest;
   const body = z
@@ -893,7 +901,7 @@ api.post("/admin/tickets/:id", async (req, res) => {
       ]);
     } else if (t.project_id)
       await c.query(
-        "UPDATE projects SET status=COALESCE(previous_status,'completed'),previous_status=NULL WHERE id=$1 AND status='disputed'",
+        "UPDATE projects SET status=COALESCE(previous_status,'completed'),previous_status=NULL,version=version+1 WHERE id=$1 AND status='disputed'",
         [t.project_id],
       );
     await c.query(
@@ -906,6 +914,14 @@ api.post("/admin/tickets/:id", async (req, res) => {
     });
     if (t.project_id) {
       const p = await getProject(c, t.project_id);
+      await recordProjectActivity(
+        c,
+        p.id,
+        q.account.id,
+        "resolve_issue",
+        "Support case resolved",
+        resolution,
+      );
       await notify(
         c,
         t.user_id === p.customerId ? p.proId : p.customerId,

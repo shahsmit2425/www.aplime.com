@@ -1,3 +1,4 @@
+import { ProjectControls } from "./project-controls.js";
 import { AddressAutocomplete } from "./address-autocomplete.js";
 import { Preferences } from "./preferences.js";
 import { Availability } from "./availability.js";
@@ -187,7 +188,9 @@ function Dashboard() {
       </section>
       <div className="two-columns">
         <Panel title="Recent projects">
-          <ProjectList projects={data.projects.slice(0, 4)} />
+          <ProjectList
+            projects={data.projects.filter((p) => !p.archived).slice(0, 4)}
+          />
         </Panel>
         <Panel title="Needs your attention">
           {data.projects
@@ -195,7 +198,9 @@ function Dashboard() {
               (p) =>
                 (p.status === "in_progress" &&
                   p.completionRequested &&
-                  p.customerId === data.user.id) ||
+                  (p.completionRequestedBy || p.proId) !== data.user.id) ||
+                (p.cancellationRequestedBy &&
+                  p.cancellationRequestedBy !== data.user.id) ||
                 (p.proposedAt &&
                   p.proposedBy !== data.user.id &&
                   ["requested", "quoted", "booked"].includes(p.status)),
@@ -209,9 +214,12 @@ function Dashboard() {
                 <span>
                   <strong>{p.title}</strong>
                   <small>
-                    {p.completionRequested && p.customerId === data.user.id
-                      ? "Review completed work"
-                      : "Respond to appointment proposal"}
+                    {p.cancellationRequestedBy
+                      ? "Respond to cancellation request"
+                      : p.completionRequested &&
+                          (p.completionRequestedBy || p.proId) !== data.user.id
+                        ? "Review completed work"
+                        : "Respond to appointment proposal"}
                   </small>
                 </span>
                 <ArrowUpRight size={18} />
@@ -424,7 +432,11 @@ function Projects() {
     string,
     any
   > | null>(null);
-  const source = page === "leads" ? data.leads : data.projects;
+  const [showArchived, setShowArchived] = useState(false);
+  const source =
+    page === "leads"
+      ? data.leads
+      : data.projects.filter((p) => !!p.archived === showArchived);
   useEffect(() => {
     if (data.user.role !== "customer") return;
     void request<{ payload: Record<string, any> | null }>("/project-draft")
@@ -515,9 +527,19 @@ function Projects() {
         }
       >
         {page === "leads"
-          ? "These projects match the services and radius in Calendar & preferences."
+          ? "New projects match your service preferences. Requests with your pending estimate stay here so you can manage your response."
           : "Requests, estimates, and updates stay together."}
       </Head>
+      {page !== "leads" && (
+        <label className="checkbox">
+          <input
+            type="checkbox"
+            checked={showArchived}
+            onChange={(e) => setShowArchived(e.target.checked)}
+          />
+          Show archived projects
+        </label>
+      )}
       {creating && data.user.role === "customer" && (
         <Panel title="Tell us about your project">
           <p className="project-form-intro">
@@ -852,6 +874,9 @@ function ProjectDetail() {
   const { data, id, run, busy, go } = useWorkspace();
   const p = [...data.projects, ...data.leads].find((p) => p.id === id);
   const [action, setAction] = useState("");
+  useEffect(() => {
+    setAction("");
+  }, [id, p?.version]);
   if (!p)
     return (
       <Empty title="Project unavailable.">
@@ -863,7 +888,10 @@ function ProjectDetail() {
   const own = customer || pro;
   const quotes = data.quotes.filter((q) => q.projectId === p.id);
   const submit = (body: unknown) =>
-    request("/projects/" + p.id + "/actions", body);
+    request("/projects/" + p.id + "/actions", {
+      ...(body as object),
+      expectedVersion: p.version,
+    });
   return (
     <>
       <Head
@@ -876,25 +904,29 @@ function ProjectDetail() {
         <div>
           <small>YOUR NEXT STEP</small>
           <h2>
-            {p.completionRequested
-              ? customer
-                ? "Review the completed work"
-                : "Waiting for customer confirmation"
-              : p.status === "requested"
-                ? customer
-                  ? "Discuss your request with professionals"
-                  : "Ask a question or prepare an estimate"
-                : p.status === "quoted"
-                  ? customer
-                    ? "Compare estimates and choose your professional"
-                    : "Answer questions and keep your estimate up to date"
-                  : p.status === "booked"
-                    ? "Agree on the appointment and prepare for work"
-                    : p.status === "in_progress"
-                      ? "Keep each other updated as work progresses"
-                      : p.status === "completed"
-                        ? "Work completed — share your experience"
-                        : "Check your project status and support updates"}
+            {p.status === "paused"
+              ? "Agree on the next step before resuming"
+              : p.cancellationRequestedBy
+                ? "Respond to the cancellation request"
+                : p.completionRequested
+                  ? (p.completionRequestedBy || p.proId) !== data.user.id
+                    ? "Review the completed work"
+                    : "Waiting for the other participant to confirm"
+                  : p.status === "requested"
+                    ? customer
+                      ? "Discuss your request with professionals"
+                      : "Ask a question or prepare an estimate"
+                    : p.status === "quoted"
+                      ? customer
+                        ? "Compare estimates and choose your professional"
+                        : "Answer questions and keep your estimate up to date"
+                      : p.status === "booked"
+                        ? "Agree on the appointment and prepare for work"
+                        : p.status === "in_progress"
+                          ? "Keep each other updated as work progresses"
+                          : p.status === "completed"
+                            ? "Work completed — share your experience"
+                            : "Check your project status and support updates"}
           </h2>
           <p>
             Service payments are arranged directly. Aplime charges professionals
@@ -914,7 +946,11 @@ function ProjectDetail() {
                     "booked",
                     "in_progress",
                     "completed",
-                  ].indexOf(p.status)
+                  ].indexOf(
+                    p.status === "paused"
+                      ? p.pausedFrom || "requested"
+                      : p.status,
+                  )
                     ? "reached"
                     : ""
                 }
@@ -973,25 +1009,6 @@ function ProjectDetail() {
             )}
           </Panel>
         )}
-      {customer && p.status === "in_progress" && p.completionRequested && (
-        <Panel title="The professional has requested completion">
-          <p>
-            Review the work before confirming. If something needs attention, use
-            “Get help with this project” below.
-          </p>
-          <button
-            disabled={busy}
-            onClick={() =>
-              void run(
-                () => submit({ type: "confirm_completion" }),
-                "Project completed. You can now leave a review.",
-              )
-            }
-          >
-            Confirm work completed
-          </button>
-        </Panel>
-      )}
       <div className="two-columns">
         <Panel title="Project details">
           <p className="project-description">{p.description}</p>
@@ -1046,54 +1063,18 @@ function ProjectDetail() {
                 Open conversation
               </button>
             )}
-            {pro && p.status === "booked" && (
-              <button
-                disabled={busy}
-                onClick={() =>
-                  void run(() => submit({ type: "start" }), "Work started.")
-                }
-              >
-                Start work
-              </button>
-            )}
-            {pro && p.status === "in_progress" && !p.completionRequested && (
-              <button
-                disabled={busy}
-                onClick={() =>
-                  void run(
-                    () => submit({ type: "complete" }),
-                    "Completion requested. The customer will confirm.",
-                  )
-                }
-              >
-                Request completion
-              </button>
-            )}
-            {own && ["requested", "quoted", "booked"].includes(p.status) && (
-              <>
+            {own &&
+              p.proId &&
+              !p.cancellationRequestedBy &&
+              ["requested", "quoted", "booked"].includes(p.status) && (
                 <button
-                  disabled={!p.proId}
+                  disabled={busy}
                   className="secondary"
                   onClick={() => setAction("reschedule")}
                 >
                   Propose appointment
                 </button>
-                <button
-                  className="text-button"
-                  onClick={() => setAction("cancel")}
-                >
-                  Cancel project
-                </button>
-              </>
-            )}
-            {own && ["in_progress", "completed"].includes(p.status) && (
-              <button
-                className="secondary"
-                onClick={() => setAction("dispute")}
-              >
-                Get help with this project
-              </button>
-            )}
+              )}
           </div>
           {action && (
             <Form
@@ -1213,6 +1194,42 @@ function ProjectDetail() {
                     </button>
                   </div>
                 )}
+                {data.user.role === "pro" &&
+                  q.proId === data.user.id &&
+                  q.status === "pending" &&
+                  ["requested", "quoted"].includes(p.status) && (
+                    <details>
+                      <summary>Withdraw this estimate</summary>
+                      <Form
+                        busy={busy}
+                        onSubmit={(f) =>
+                          run(
+                            () =>
+                              submit({
+                                type: "withdraw_quote",
+                                reason: f.get("reason"),
+                              }),
+                            "Estimate withdrawn.",
+                          )
+                        }
+                      >
+                        <p>
+                          The customer will be notified and cannot accept this
+                          estimate. You can submit a new version while the
+                          request remains open.
+                        </p>
+                        <Field label="Reason for withdrawing">
+                          <textarea
+                            name="reason"
+                            required
+                            minLength={5}
+                            maxLength={1000}
+                          />
+                        </Field>
+                        <button>Confirm withdrawal</button>
+                      </Form>
+                    </details>
+                  )}
               </article>
             ))
           ) : (
@@ -1224,7 +1241,9 @@ function ProjectDetail() {
             ["requested", "quoted"].includes(p.status) &&
             (!p.proId || pro) &&
             !quotes.some(
-              (q) => q.proId === data.user.id && q.status !== "pending",
+              (q) =>
+                q.proId === data.user.id &&
+                !["pending", "withdrawn"].includes(q.status),
             ) && (
               <Form
                 busy={busy}
@@ -1341,6 +1360,7 @@ function ProjectDetail() {
             )}
         </Panel>
       </div>
+      {own && <ProjectControls key={p.id} project={p} />}
       <Discussions
         projectId={p.id}
         canStart={

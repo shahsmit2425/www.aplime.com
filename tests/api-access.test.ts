@@ -34,6 +34,9 @@ test("actual admin routes reject unauthenticated direct requests and forged role
     ["/admin/tickets/other", "POST"],
     ["/workspace?role=admin", "GET"],
     ["/account", "POST"],
+    ["/projects/00000000-0000-4000-8000-000000000001/actions", "POST"],
+    ["/projects/00000000-0000-4000-8000-000000000001/activity", "GET"],
+    ["/notifications/stream", "GET"],
   ]) {
     const r = await fetch(base + "/api" + path, {
       method,

@@ -1,5 +1,17 @@
 # Validation and launch status
 
+## Project lifecycle and notification coverage — October 4, 2026
+
+Local result: `npm run check` passes strict TypeScript, all 59 tests and customer client/SSR plus admin production builds. `npx cap sync` succeeds for Android and iOS asset/plugin synchronization. CocoaPods and Xcode steps are unavailable on Windows. Checks use the temporary, uncommitted Node userInfo workaround described below.
+
+Migration 009 introduces paused projects, the identity of the completion requester, cancellation agreements, project versions, personal archives, an activity timeline and withdrawn estimates. It must run before the new API. Deploy the API and shared client together; older open clients must refresh because action requests now include `expectedVersion`. No environment variables change.
+
+Automated coverage includes both participants starting work and requesting completion; self-confirmation rejection; more-work requests; pause ownership and resumption; cancellation agreement, withdrawal and stale request IDs; personal archive/restore; removal of unassigned requests; withdrawn estimate revisions; activity privacy; and publication fanout to every eligible match independently of the five-card shortlist. A PostgreSQL-trigger test verifies no live notifications escape a rolled-back fanout. Tests use isolated PGlite data, never live marketplace accounts.
+
+The existing authenticated SSE stream, bell/toast/unread counters, reconnect recovery and mail outbox are reused. Important project transitions now notify both assigned participants; opportunity closure alerts previous recipients without private reasons. Old workspace fetch responses are discarded so they cannot overwrite a newer screen. Email follows user settings. Closed-app push, browser push subscriptions, FCM/APNs, live Render delivery and signed-device behavior remain unverified/unimplemented as applicable.
+
+The current local environment has no configured authenticated customer/pro session, so end-to-end multi-account browser checks against Firebase, Daily and Render remain a deployment validation task. No live deployment is claimed. Shared-client and Capacitor checks do not replace native device testing.
+
 ## Address, matching and calendar update — October 4, 2026
 
 `npm run check` passes: strict TypeScript, all 53 tests, customer client/SSR and separate admin production builds. Tests cover Places API request/session handling and invalid addresses, category/radius matching with legacy ZIP fallback, a maximum of five customer matches per project, private address redaction, repeated customer chat creation, blocking, time zones/daylight saving, weekly-hours boundaries and conflicting appointments. Database fixtures remain isolated in PGlite; no marketplace demo data is added.

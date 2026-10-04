@@ -51,12 +51,22 @@ export const statuses = [
   "quoted",
   "booked",
   "in_progress",
+  "paused",
   "completed",
   "cancelled",
   "disputed",
 ] as const;
 export type Status = (typeof statuses)[number];
 export type Project = {
+  version?: number;
+  archived?: boolean;
+  pausedFrom?: Status | null;
+  pausedBy?: string | null;
+  pauseReason?: string | null;
+  completionRequestedBy?: string | null;
+  cancellationRequestedBy?: string | null;
+  cancellationRequestId?: string | null;
+  cancellationReason?: string | null;
   address?: string;
   placeId?: string;
   addressUnit?: string;
@@ -263,8 +273,27 @@ export const actionSchema = z
       .object({ type: z.literal("decline"), quoteId: z.string().uuid() })
       .strict(),
     z.object({ type: z.literal("start") }).strict(),
+    z
+      .object({ type: z.literal("withdraw_quote"), reason: text(5, 1000) })
+      .strict(),
     z.object({ type: z.literal("complete") }).strict(),
     z.object({ type: z.literal("confirm_completion") }).strict(),
+    z
+      .object({ type: z.literal("reject_completion"), reason: text(5, 1000) })
+      .strict(),
+    z.object({ type: z.literal("pause"), reason: text(5, 1000) }).strict(),
+    z.object({ type: z.literal("resume") }).strict(),
+    z.object({ type: z.literal("archive") }).strict(),
+    z.object({ type: z.literal("restore") }).strict(),
+    z.object({ type: z.literal("delete"), reason: text(5, 1000) }).strict(),
+    z
+      .object({
+        type: z.literal("respond_cancellation"),
+        requestId: z.string().uuid(),
+        accept: z.boolean(),
+      })
+      .strict(),
+    z.object({ type: z.literal("withdraw_cancellation") }).strict(),
     z
       .object({
         type: z.literal("respond_appointment"),
@@ -294,7 +323,17 @@ export const actionSchema = z
   });
 export type ProjectAction = z.infer<typeof actionSchema>;
 export function allowedTransition(
-  project: Pick<Project, "customerId" | "proId" | "status">,
+  project: Pick<
+    Project,
+    | "customerId"
+    | "proId"
+    | "status"
+    | "pausedFrom"
+    | "pausedBy"
+    | "completionRequested"
+    | "completionRequestedBy"
+    | "cancellationRequestedBy"
+  >,
   user: Pick<User, "id" | "role">,
   action: ProjectAction["type"],
 ) {
@@ -306,24 +345,81 @@ export function allowedTransition(
       (!project.proId || pro) &&
       ["requested", "quoted"].includes(project.status)
     );
+  if (action === "withdraw_quote")
+    return (
+      user.role === "pro" &&
+      (!project.proId || pro) &&
+      ["requested", "quoted"].includes(project.status)
+    );
   if (action === "accept" || action === "decline")
     return customer && ["requested", "quoted"].includes(project.status);
-  if (action === "confirm_completion")
-    return customer && project.status === "in_progress";
+  const member = customer || pro;
+  if (action === "archive" || action === "restore")
+    return member && ["completed", "cancelled"].includes(project.status);
+  if (action === "delete")
+    return (
+      customer &&
+      !project.proId &&
+      (["requested", "quoted"].includes(project.status) ||
+        (project.status === "paused" &&
+          ["requested", "quoted"].includes(project.pausedFrom || "")))
+    );
+  if (action === "respond_cancellation")
+    return (
+      member &&
+      !!project.cancellationRequestedBy &&
+      project.cancellationRequestedBy !== user.id &&
+      ["in_progress", "paused"].includes(project.status)
+    );
+  if (action === "withdraw_cancellation")
+    return member && project.cancellationRequestedBy === user.id;
+  if (project.cancellationRequestedBy && action !== "dispute") return false;
+  if (action === "pause")
+    return (
+      member &&
+      ["requested", "quoted", "booked", "in_progress"].includes(project.status)
+    );
+  if (action === "resume")
+    return (
+      member && project.status === "paused" && project.pausedBy === user.id
+    );
+  if (action === "confirm_completion" || action === "reject_completion")
+    return (
+      member &&
+      project.status === "in_progress" &&
+      !!project.completionRequested &&
+      (project.completionRequestedBy || project.proId) !== user.id
+    );
   if (action === "respond_appointment")
     return (
       (customer || pro) &&
       ["requested", "quoted", "booked"].includes(project.status)
     );
-  if (action === "start") return pro && project.status === "booked";
-  if (action === "complete") return pro && project.status === "in_progress";
-  if (action === "cancel" || action === "reschedule")
+  if (action === "start")
+    return member && !!project.proId && project.status === "booked";
+  if (action === "complete")
+    return (
+      member &&
+      !!project.proId &&
+      project.status === "in_progress" &&
+      !project.completionRequested
+    );
+  if (action === "cancel")
+    return (
+      member &&
+      ["requested", "quoted", "booked", "in_progress", "paused"].includes(
+        project.status,
+      )
+    );
+  if (action === "reschedule")
     return (
       (customer || pro) &&
       ["requested", "quoted", "booked"].includes(project.status)
     );
   return (
-    (customer || pro) && ["in_progress", "completed"].includes(project.status)
+    action === "dispute" &&
+    member &&
+    ["in_progress", "paused", "completed"].includes(project.status)
   );
 }
 export function isMember(

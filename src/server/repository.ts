@@ -45,7 +45,11 @@ export async function workspace(user: User): Promise<Workspace> {
   const projectWhere = admin ? "" : " WHERE p.customer_id=$1 OR p.pro_id=$1";
   const projects = (
     await pool.query(
-      "SELECT p.*,c.name AS customer_name,u.name AS pro_name FROM projects p JOIN users c ON c.id=p.customer_id LEFT JOIN users u ON u.id=p.pro_id" +
+      "SELECT p.*," +
+        (admin
+          ? "false"
+          : "EXISTS(SELECT 1 FROM project_archives a WHERE a.project_id=p.id AND a.user_id=$1)") +
+        " AS archived,c.name AS customer_name,u.name AS pro_name FROM projects p JOIN users c ON c.id=p.customer_id LEFT JOIN users u ON u.id=p.pro_id" +
         projectWhere +
         " ORDER BY p.created_at DESC LIMIT 500",
       params,
@@ -90,7 +94,7 @@ export async function workspace(user: User): Promise<Workspace> {
     user.role === "pro"
       ? (
           await pool.query(
-            `SELECT p.id,p.title,p.description,p.intake,p.category,p.zip,p.urgency,p.property_type,p.budget_min,p.budget_max,p.status,p.created_at,p.scheduled_at,NULL AS customer_id,NULL AS pro_id,NULL AS amount FROM projects p JOIN profiles f ON f.id=$1 WHERE p.pro_id IS NULL AND p.status IN ('requested','quoted') AND ${matchSql()} ORDER BY p.created_at DESC LIMIT 100`,
+            `SELECT p.id,p.version,p.title,p.description,p.intake,p.category,p.zip,p.urgency,p.property_type,p.budget_min,p.budget_max,p.status,p.created_at,p.scheduled_at,NULL AS customer_id,NULL AS pro_id,NULL AS amount FROM projects p JOIN profiles f ON f.id=$1 WHERE p.pro_id IS NULL AND p.status IN ('requested','quoted') AND (${matchSql()} OR EXISTS(SELECT 1 FROM quotes own_quote WHERE own_quote.project_id=p.id AND own_quote.pro_id=$1 AND own_quote.status='pending')) ORDER BY p.created_at DESC LIMIT 100`,
             [user.id],
           )
         ).rows.map((r) => camel<Project>(r))
