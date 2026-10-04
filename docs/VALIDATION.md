@@ -1,5 +1,15 @@
 # Validation and launch status
 
+## Address, matching and calendar update — October 4, 2026
+
+`npm run check` passes: strict TypeScript, all 53 tests, customer client/SSR and separate admin production builds. Tests cover Places API request/session handling and invalid addresses, category/radius matching with legacy ZIP fallback, a maximum of five customer matches per project, private address redaction, repeated customer chat creation, blocking, time zones/daylight saving, weekly-hours boundaries and conflicting appointments. Database fixtures remain isolated in PGlite; no marketplace demo data is added.
+
+`npx cap sync` completes for Android and iOS. Windows cannot run CocoaPods or Xcode; signed builds, installed native apps and store releases are unverified. Local checks use the existing temporary Node userInfo workaround outside the repository. The browser smoke check confirms the homepage's Start a project link reaches the sign-in screen without console errors. Local authentication is not configured, so authenticated visual journeys, live Google billing/key restrictions, Daily media, SSE delivery and Render deployment still require development-environment validation.
+
+Deployment: run migration `008_matching_preferences_and_addresses.sql` through the existing `npm run db:migrate` pre-deploy step before the new API and client serve traffic. Existing profile categories are retained; hours remain empty until each professional publishes actual hours. Enable Places API (New) on the project/key used by `GOOGLE_MAPS_SERVER_KEY` (see ENVIRONMENT_VARIABLES.md). There are no new environment variables. The exact-address requirement affects new projects and business-profile edits; existing projects remain readable.
+
+This update replaces the earlier all-category browsing and notification behavior described in the historical sections below. Professionals now receive category/location matches, and customers see up to five eligible matches per open project. Weekly hours and one-hour appointment proposals are implemented; date-specific closures, variable-duration bookings and pre-hiring consultation calendars remain future work. Scheduling requires a selected professional and confirmation by the other participant. A proposed time is not a reservation; conflicts are checked again at confirmation. Foreground realtime notifications and private Daily calls reuse the existing integrations. No closed-app push or external calendar sync is claimed.
+
 ## Checked locally
 
 - TypeScript strict compilation.

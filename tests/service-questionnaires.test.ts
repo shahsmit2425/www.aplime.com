@@ -6,7 +6,8 @@ import { questionsFor } from "../src/shared/service-questionnaires.js";
 const baseProject = {
   title: "Repair work at home",
   description: "The project needs professional assessment and repair work.",
-  zip: "10001",
+  address: "350 Fifth Avenue, New York, NY 10118",
+  placeId: "test-place",
   proId: null,
   scheduledAt: null,
   urgency: "flexible",

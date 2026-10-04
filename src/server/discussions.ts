@@ -1,3 +1,4 @@
+import { assertMatch } from "./matching.js";
 import { Router } from "express";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -53,6 +54,43 @@ discussions.get("/discussions", async (req, res) => {
   );
   res.json(result.rows);
 });
+discussions.post("/projects/:id/discussions/:proId", async (req, res) => {
+  if (req.account.role !== "customer") fail(403, "Customer account required.");
+  const result = await transaction(async (c) => {
+    const p = await getProject(c, z.string().uuid().parse(req.params.id));
+    const proId = z.string().min(1).max(128).parse(req.params.proId);
+    if (p.customerId !== req.account.id) fail(404, "Project unavailable.");
+    if (
+      !["requested", "quoted"].includes(p.status) ||
+      (p.proId && p.proId !== proId)
+    )
+      fail(409, "This request is no longer open.");
+    await assertMatch(c, proId, p.id);
+    const created = await c.query(
+      "INSERT INTO project_discussions(id,project_id,pro_id) VALUES($1,$2,$3) ON CONFLICT(project_id,pro_id) DO NOTHING RETURNING id",
+      [randomUUID(), p.id, proId],
+    );
+    const thread =
+      created.rows[0] ||
+      (
+        await c.query(
+          "SELECT id FROM project_discussions WHERE project_id=$1 AND pro_id=$2",
+          [p.id, proId],
+        )
+      ).rows[0];
+    if (created.rowCount)
+      await notify(
+        c,
+        proId,
+        "Customer started a private chat",
+        p.title + ": open the conversation to reply.",
+        { page: "messages", id: thread.id },
+      );
+    return thread;
+  });
+  res.json(result);
+});
+
 discussions.post("/projects/:id/discussions", async (req, res) => {
   const { body } = z
     .object({ body: z.string().trim().min(10).max(4000) })
@@ -66,6 +104,7 @@ discussions.post("/projects/:id/discussions", async (req, res) => {
       (p.proId && p.proId !== req.account.id)
     )
       fail(409, "This project is no longer accepting responses.");
+    await assertMatch(c, req.account.id, p.id);
     const eligible = await c.query(
       "SELECT 1 FROM profiles f JOIN professional_subscriptions s ON s.user_id=f.id WHERE f.id=$1 AND f.verified AND f.review_status='approved' AND NOT f.suspended AND f.available AND s.status IN ('active','trialing')",
       [req.account.id],

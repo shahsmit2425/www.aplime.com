@@ -72,6 +72,12 @@ await db.exec(
     "utf8",
   ),
 );
+await db.exec(
+  await readFile(
+    "src/server/db/migrations/008_matching_preferences_and_addresses.sql",
+    "utf8",
+  ),
+);
 test.after(async () => {
   await db.close();
   await pool.end();
@@ -160,7 +166,24 @@ test("real PostgreSQL engine enforces ownership workflow and duplicate constrain
     quoteId: quote.id,
     revision: 2,
   });
-  const proposedAt = new Date(Date.now() + 86400000).toISOString();
+  const visit = new Date(Date.now() + 86400000);
+  visit.setUTCHours(14, 0, 0, 0);
+  const proposedAt = visit.toISOString();
+  await query(
+    "UPDATE profiles SET weekly_hours=$2,time_zone='UTC' WHERE id=$1",
+    [
+      professional.id,
+      JSON.stringify(
+        Object.fromEntries(
+          ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => [
+            day,
+            { start: "08:00", end: "17:00" },
+          ]),
+        ),
+      ),
+    ],
+  );
+
   await projectAction(id, customer, {
     type: "reschedule",
     scheduledAt: proposedAt,
@@ -236,37 +259,51 @@ test("real PostgreSQL engine enforces ownership workflow and duplicate constrain
   assert.equal(disputed.status, "disputed");
   assert.equal(disputed.previous_status, "completed");
 });
-test("approved professionals can discover and quote open projects in every category", async () => {
-  const id = randomUUID();
-  await query(
-    "INSERT INTO projects(id,customer_id,title,description,category,zip) VALUES($1,$2,$3,$4,$5,$6)",
-    [
-      id,
-      customer.id,
-      "Cross-category project",
-      "A cleaning project outside the professional's saved category and ZIP.",
-      "Cleaning",
-      "90210",
-    ],
-  );
-  const available = await workspace(professional);
-  assert.ok(available.leads.some((project) => project.id === id));
-  await projectAction(id, professional, {
-    type: "quote",
+test("project preferences enforce category and location for feeds and estimates", async () => {
+  const quote = {
+    type: "quote" as const,
     laborAmount: 10000,
-    materialsAmount: 2500,
-    description: "Complete scope after confirming the project details.",
-    exclusions: "Specialty materials",
+    materialsAmount: 0,
+    description: "Detailed scope of repairs",
+    exclusions: "",
     timeline: "One day",
     expiresAt: null,
-  });
-  const quoteCount = (
+  };
+  for (const [category, zip, expected] of [
+    ["Cleaning", "10001", false],
+    ["Handyman", "90210", false],
+    ["Handyman", "10001", true],
+  ] as const) {
+    const id = randomUUID();
     await query(
-      "SELECT count(*)::int AS n FROM quotes WHERE project_id=$1 AND pro_id=$2",
-      [id, professional.id],
-    )
-  ).rows[0] as { n: number };
-  assert.equal(quoteCount.n, 1);
+      "INSERT INTO projects(id,customer_id,title,description,category,zip) VALUES($1,$2,$3,$4,$5,$6)",
+      [
+        id,
+        customer.id,
+        "Preference test",
+        "Detailed test scope",
+        category,
+        zip,
+      ],
+    );
+    const feed = await workspace(professional);
+    assert.equal(
+      feed.leads.some((p) => p.id === id),
+      expected,
+    );
+    if (expected) await projectAction(id, professional, quote);
+    else await assert.rejects(projectAction(id, professional, quote));
+  }
+  const customerView = await workspace(customer);
+  assert.ok(
+    customerView.profiles.some(
+      (p) => p.id === professional.id && p.matchedProjectIds?.length,
+    ),
+  );
+  assert.equal(
+    customerView.profiles.find((p) => p.id === professional.id)?.placeId,
+    "",
+  );
 });
 test("unsigned webhooks are rejected and duplicate signed events are idempotent", async () => {
   const express = (await import("express")).default;
@@ -557,10 +594,10 @@ test("private discussions hide messages from outsiders and enforce blocking", as
       [
         openProjectId,
         customer.id,
-        "Cross-category conversation",
-        "An electrical project available for a private professional question.",
-        "Electrical",
-        "60601",
+        "Matched project conversation",
+        "A matching handyman project for private questions.",
+        "Handyman",
+        "10001",
       ],
     );
     await query(
@@ -733,4 +770,150 @@ test("business image slots preserve a published image while its replacement is p
   } finally {
     await new Promise<void>((resolve) => server.close(() => resolve()));
   }
+});
+test("customer matches cap at five and enforce geographic radius and privacy", async () => {
+  const customerId = "matching-customer-" + randomUUID();
+  await query(
+    "INSERT INTO users(id,name,email,role) VALUES($1,'Matching customer',$2,'customer')",
+    [customerId, customerId + "@example.invalid"],
+  );
+  const id = randomUUID();
+  await query(
+    "INSERT INTO projects(id,customer_id,title,description,category,zip,latitude,longitude,address,place_id) VALUES($1,$2,'Local repairs','Detailed work','Handyman','10001',40.75,-73.99,'Private customer street','private-place')",
+    [id, customerId],
+  );
+  const pros: string[] = [];
+  for (let i = 0; i < 7; i++) {
+    const proId = "matching-pro-" + randomUUID();
+    pros.push(proId);
+    await query(
+      "INSERT INTO users(id,name,email,role) VALUES($1,'Matching pro',$2,'pro')",
+      [proId, proId + "@example.invalid"],
+    );
+    await query(
+      "INSERT INTO profiles(id,business,category,bio,zip,rate,verified,review_status,latitude,longitude,service_radius_miles,address,place_id,service_categories) VALUES($1,'Matching business','Painting','Detailed business','10001',50,true,'approved',$2,$3,25,'Private pro street','private-pro-place',$4)",
+      [
+        proId,
+        i === 6 ? 34.05 : 40.75,
+        i === 6 ? -118.24 : -73.99,
+        JSON.stringify(["Handyman", "Painting"]),
+      ],
+    );
+    await query(
+      "INSERT INTO professional_subscriptions(user_id,status) VALUES($1,'active')",
+      [proId],
+    );
+  }
+  const currentUser = { ...customer, id: customerId };
+  const view = await workspace(currentUser);
+  const matches = view.profiles.filter((p) =>
+    p.matchedProjectIds?.includes(id),
+  );
+  assert.equal(matches.length, 5);
+  assert.equal(
+    matches.some((p) => p.id === pros[6]),
+    false,
+  );
+  assert.ok(matches.every((p) => !p.address && !p.placeId));
+  const proView = await workspace({ ...professional, id: pros[0] });
+  assert.ok(proView.leads.some((p) => p.id === id));
+  assert.equal(proView.leads.find((p) => p.id === id)?.address, undefined);
+  const distant = await workspace({ ...professional, id: pros[6] });
+  assert.equal(
+    distant.leads.some((p) => p.id === id),
+    false,
+  );
+
+  const { discussions } = await import("../src/server/discussions.js");
+  const express = (await import("express")).default;
+  const app = express();
+  app.use(express.json());
+  app.use((req: any, _res, next) => {
+    req.account = { ...currentUser, id: req.headers["x-user"] || customerId };
+    next();
+  });
+  app.use(discussions);
+  app.use((error: any, _req: any, res: any, _next: any) =>
+    res.status(error.status || 500).json({ error: error.message }),
+  );
+  const server = app.listen(0, "127.0.0.1");
+  await new Promise<void>((resolve) => server.once("listening", resolve));
+  const base = "http://127.0.0.1:" + (server.address() as any).port;
+  try {
+    const open = (proId: string, userId = customerId) =>
+      fetch(base + "/projects/" + id + "/discussions/" + proId, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-user": userId },
+        body: "{}",
+      });
+    assert.equal((await open(pros[0], outsider.id)).status, 404);
+    assert.equal((await open(pros[6])).status, 403);
+    const first = await open(pros[0]);
+    assert.equal(first.status, 200);
+    const thread = await first.json();
+    assert.equal((await (await open(pros[0])).json()).id, thread.id);
+    const notifications = await query(
+      "SELECT count(*)::int AS n FROM notifications WHERE user_id=$1 AND title='Customer started a private chat'",
+      [pros[0]],
+    );
+    assert.equal((notifications.rows[0] as any).n, 1);
+    await query("INSERT INTO blocked(user_id,other_id) VALUES($1,$2)", [
+      customerId,
+      pros[0],
+    ]);
+    assert.equal((await open(pros[0])).status, 403);
+  } finally {
+    await new Promise<void>((resolve, reject) =>
+      server.close((err) => (err ? reject(err) : resolve())),
+    );
+  }
+});
+
+test("appointment confirmation rejects conflicts and out-of-hours visits", async () => {
+  const { assertAppointment } = await import("../src/server/scheduling.js");
+  const c = await pool.connect();
+  const id = randomUUID(),
+    otherId = randomUUID();
+  const start = new Date(Date.now() + 7 * 86400000);
+  start.setUTCHours(14, 0, 0, 0);
+  const value = start.toISOString();
+  await query(
+    "INSERT INTO projects(id,customer_id,pro_id,title,description,category,zip,status,scheduled_at) VALUES($1,$2,$3,'Booked visit','Detailed work','Handyman','10001','booked',$4)",
+    [otherId, customer.id, professional.id, value],
+  );
+  await assert.rejects(
+    assertAppointment(
+      c,
+      professional.id,
+      new Date(start.getTime() + 30 * 60000).toISOString(),
+      id,
+    ),
+    /overlaps/,
+  );
+  await assert.doesNotReject(
+    assertAppointment(
+      c,
+      professional.id,
+      new Date(start.getTime() + 60 * 60000).toISOString(),
+      id,
+    ),
+  );
+  await assert.doesNotReject(
+    assertAppointment(c, professional.id, value, otherId),
+  );
+  start.setUTCHours(16, 30, 0, 0);
+  await assert.rejects(
+    assertAppointment(c, professional.id, start.toISOString(), id),
+    /published hours/,
+  );
+  start.setUTCHours(16, 0, 1, 0);
+  await assert.rejects(
+    assertAppointment(c, professional.id, start.toISOString(), id),
+    /published hours/,
+  );
+  await assert.rejects(
+    assertAppointment(c, null, value, id),
+    /Choose a professional/,
+  );
+  c.release();
 });

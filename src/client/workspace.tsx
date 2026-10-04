@@ -97,7 +97,7 @@ const navIcons: Record<string, typeof House> = {
 const navigation = {
   customer: [
     ["dashboard", "Overview"],
-    ["discover", "Find a pro"],
+    ["discover", "Project matches"],
     ["projects", "My projects"],
     ["quotes", "Estimates"],
     ["schedule", "Schedule"],
@@ -107,14 +107,14 @@ const navigation = {
   ],
   pro: [
     ["dashboard", "Overview"],
-    ["leads", "Opportunities"],
+    ["leads", "Matched projects"],
     ["projects", "My jobs"],
     ["quotes", "My estimates"],
     ["schedule", "Schedule"],
     ["messages", "Messages"],
     ["subscription", "Subscription"],
     ["profile", "Business profile"],
-    ["availability", "Availability"],
+    ["availability", "Calendar & preferences"],
     ["reviews", "Reviews"],
   ],
   admin: [],

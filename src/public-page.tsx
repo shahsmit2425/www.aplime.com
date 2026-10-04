@@ -90,7 +90,11 @@ function ServicePage({ category }: { category: (typeof categories)[number] }) {
           <h1>{content.title}</h1>
           <p className="lede">{content.introduction}</p>
           <div className="actions">
-            <LinkButton href={"/app/discover?category=" + category}>
+            <LinkButton
+              href={
+                "/app/projects/new?category=" + encodeURIComponent(category)
+              }
+            >
               Find {category.toLowerCase()} professionals
             </LinkButton>
             <a href="/how-it-works">See how Aplime works →</a>
@@ -358,9 +362,12 @@ export function PublicPage({
             <BusinessDisplay profile={profile} />
             <div className="business-public-action">
               <LinkButton
-                href={"/app/projects/" + encodeURIComponent(profile.id)}
+                href={
+                  "/app/projects/new?category=" +
+                  encodeURIComponent(profile.category)
+                }
               >
-                Request an estimate
+                Start a project to get matched
               </LinkButton>
             </div>
           </section>
@@ -385,8 +392,8 @@ export function PublicPage({
                   every conversation in one place.
                 </p>
                 <div className="actions">
-                  <LinkButton href={"/app/discover"}>
-                    Find a professional
+                  <LinkButton href={"/app/projects/new"}>
+                    Start a project
                   </LinkButton>
                   <a href="/app/register?role=pro">Grow your business →</a>
                 </div>

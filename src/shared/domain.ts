@@ -1,3 +1,4 @@
+import type { WeeklyHours } from "./preferences.js";
 import type { BusinessImage } from "./business-images.js";
 import { businessDetailsSchema, type BusinessDetails } from "./business.js";
 import { z } from "zod";
@@ -16,6 +17,12 @@ export type User = {
   settings: Record<string, unknown>;
 };
 export type Profile = {
+  address: string;
+  placeId: string;
+  serviceCategories: string[];
+  weeklyHours: WeeklyHours;
+  timeZone: string;
+  matchedProjectIds?: string[];
   images?: BusinessImage[];
   id: string;
   name: string;
@@ -50,6 +57,9 @@ export const statuses = [
 ] as const;
 export type Status = (typeof statuses)[number];
 export type Project = {
+  address?: string;
+  placeId?: string;
+  addressUnit?: string;
   id: string;
   customerId: string;
   proId: string | null;
@@ -166,7 +176,8 @@ export const profileSchema = z
     details: businessDetailsSchema,
     category: z.enum(categories),
     bio: text(20, 2000),
-    zip: z.string().regex(/^\d{5}$/, "Enter a five-digit ZIP code"),
+    placeId: text(3, 300),
+    address: text(5, 300),
     rate: z.number().min(1).max(10000),
     serviceRadiusMiles: z.number().int().min(1).max(100),
     available: z.boolean(),
@@ -181,7 +192,9 @@ export const projectSchema = z
     description: text(20, 4000),
     category: z.enum(categories),
     intake: z.record(z.string().max(64), text(1, 1500)),
-    zip: z.string().regex(/^\d{5}$/),
+    placeId: text(3, 300),
+    address: text(5, 300),
+    addressUnit: z.string().trim().max(100).default(""),
     urgency: z.enum(["urgent", "this_week", "this_month", "flexible"]),
     propertyType: z.enum(["home", "apartment", "condo", "commercial", "other"]),
     budgetMin: z.number().int().min(0).max(10000000).nullable(),

@@ -1,3 +1,7 @@
+import { preferencesSchema } from "../shared/preferences.js";
+import { autocompleteAddress, locateAddress } from "./integrations/address.js";
+import { assertMatch, matchSql } from "./matching.js";
+import { assertAppointment } from "./scheduling.js";
 import { businessImages, publicBusinessImages } from "./business-images.js";
 import { notificationStream } from "./notification-stream.js";
 import { discussions } from "./discussions.js";
@@ -139,6 +143,51 @@ api.use("/subscription", subscriptions);
 api.get("/workspace", async (q, r) =>
   r.json(await workspace((q as AuthRequest).account)),
 );
+api.get("/locations/autocomplete", async (req, res) => {
+  const q = z
+    .object({
+      q: z.string().trim().min(3).max(200),
+      sessionToken: z.string().uuid(),
+    })
+    .parse(req.query);
+  res.json(await autocompleteAddress(q.q, q.sessionToken));
+});
+api.get("/locations/details", async (req, res) => {
+  const q = z
+    .object({
+      placeId: z.string().min(3).max(300),
+      sessionToken: z.string().uuid(),
+    })
+    .parse(req.query);
+  res.json(await locateAddress(q.placeId, q.sessionToken));
+});
+api.put("/profile/preferences", async (req, res) => {
+  if (req.account.role !== "pro") fail(403, "Professional account required.");
+  const p = preferencesSchema.parse(req.body);
+  await transaction(async (c) => {
+    const updated = await c.query(
+      "UPDATE profiles SET service_categories=$2,service_radius_miles=$3,available=$4,weekly_hours=$5,time_zone=$6,availability=$7 WHERE id=$1 RETURNING id",
+      [
+        req.account.id,
+        JSON.stringify([...new Set(p.serviceCategories)]),
+        p.serviceRadiusMiles,
+        p.available,
+        JSON.stringify(p.weeklyHours),
+        p.timeZone,
+        JSON.stringify(Object.keys(p.weeklyHours)),
+      ],
+    );
+    if (!updated.rowCount) fail(409, "Save your business profile first.");
+    await notify(
+      c,
+      req.account.id,
+      "Preferences updated",
+      "Your project matches and published hours now use your saved preferences.",
+      { page: "availability" },
+    );
+  });
+  res.json({ ok: true });
+});
 api.put("/account", async (req, res) => {
   const q = req as AuthRequest;
   const data = z
@@ -158,16 +207,16 @@ api.put("/profile", async (req, res) => {
   const q = req as AuthRequest;
   if (q.account.role !== "pro") fail(403, "Professional account required.");
   const p = profileSchema.parse(q.body);
-  const location = await locate(p.zip);
-  if (!location) fail(400, "We could not find that ZIP code.");
+  const location = await locateAddress(p.placeId);
+  if (!location) fail(400, "Select a complete street address.");
   await pool.query(
-    "INSERT INTO profiles(id,business,category,bio,zip,rate,available,availability,details,service_radius_miles,latitude,longitude) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) ON CONFLICT(id) DO UPDATE SET business=$2,category=$3,bio=$4,zip=$5,rate=$6,available=$7,availability=$8,details=$9,service_radius_miles=$10,latitude=$11,longitude=$12,review_status='draft',review_note=NULL,submitted_at=NULL,reviewed_at=NULL,reviewed_by=NULL",
+    "INSERT INTO profiles(id,business,category,bio,zip,rate,available,availability,details,service_radius_miles,latitude,longitude,address,place_id,service_categories) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,jsonb_build_array($3::text)) ON CONFLICT(id) DO UPDATE SET business=$2,category=$3,bio=$4,zip=$5,rate=$6,available=$7,availability=$8,details=$9,service_radius_miles=$10,latitude=$11,longitude=$12,address=$13,place_id=$14,review_status='draft',review_note=NULL,submitted_at=NULL,reviewed_at=NULL,reviewed_by=NULL",
     [
       q.account.id,
       p.business,
       p.category,
       p.bio,
-      p.zip,
+      location.zip,
       p.rate,
       p.available,
       JSON.stringify(p.availability),
@@ -175,6 +224,8 @@ api.put("/profile", async (req, res) => {
       p.serviceRadiusMiles,
       location.lat,
       location.lng,
+      location.label,
+      location.placeId,
     ],
   );
   res.json({ ok: true });
@@ -246,22 +297,12 @@ api.post("/projects", async (req, res) => {
   if (q.account.role !== "customer") fail(403, "Customer account required.");
   const p = projectSchema.parse(q.body);
   assertFuture(p.scheduledAt);
-  const location = await locate(p.zip);
-  if (!location) fail(400, "We could not find that ZIP code.");
+  const location = await locateAddress(p.placeId);
+  if (!location) fail(400, "Select a complete street address.");
   const id = randomUUID();
   await transaction(async (c) => {
-    if (
-      p.proId &&
-      !(
-        await c.query(
-          "SELECT 1 FROM profiles WHERE id=$1 AND category=$2 AND verified AND review_status='approved' AND NOT suspended AND available AND EXISTS (SELECT 1 FROM professional_subscriptions s WHERE s.user_id=profiles.id AND s.status IN ('active','trialing')) AND ((latitude IS NOT NULL AND 3959 * acos(least(1,cos(radians(latitude))*cos(radians($3))*cos(radians($4)-radians(longitude))+sin(radians(latitude))*sin(radians($3)))) <= service_radius_miles) OR (latitude IS NULL AND zip=$5))",
-          [p.proId, p.category, location.lat, location.lng, p.zip],
-        )
-      ).rowCount
-    )
-      fail(400, "Choose an available professional in this category.");
     await c.query(
-      "INSERT INTO projects(id,customer_id,pro_id,title,description,category,zip,scheduled_at,intake,urgency,property_type,budget_min,budget_max,latitude,longitude) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)",
+      "INSERT INTO projects(id,customer_id,pro_id,title,description,category,zip,scheduled_at,intake,urgency,property_type,budget_min,budget_max,latitude,longitude,address,place_id,address_unit) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)",
       [
         id,
         q.account.id,
@@ -269,7 +310,7 @@ api.post("/projects", async (req, res) => {
         p.title,
         p.description,
         p.category,
-        p.zip,
+        location.zip,
         null,
         JSON.stringify(p.intake),
         p.urgency,
@@ -278,8 +319,13 @@ api.post("/projects", async (req, res) => {
         p.budgetMax,
         location.lat,
         location.lng,
+        location.label,
+        location.placeId,
+        p.addressUnit,
       ],
     );
+    if (p.proId) await assertMatch(c, p.proId, id);
+    if (p.scheduledAt) await assertAppointment(c, p.proId, p.scheduledAt, id);
     if (p.proId)
       await c.query(
         "INSERT INTO project_discussions(id,project_id,pro_id) VALUES($1,$2,$3)",
@@ -293,8 +339,8 @@ api.post("/projects", async (req, res) => {
     if (!p.proId) {
       const eligible = (
         await c.query(
-          "SELECT f.id FROM profiles f JOIN professional_subscriptions s ON s.user_id=f.id WHERE f.verified AND f.review_status='approved' AND NOT f.suspended AND f.available AND s.status IN ('active','trialing') AND NOT EXISTS(SELECT 1 FROM blocked b WHERE (b.user_id=$1 AND b.other_id=f.id) OR (b.user_id=f.id AND b.other_id=$1))",
-          [q.account.id],
+          `SELECT f.id FROM profiles f JOIN projects p ON p.id=$1 WHERE ${matchSql()}`,
+          [id],
         )
       ).rows;
       for (const pro of eligible)
@@ -304,7 +350,7 @@ api.post("/projects", async (req, res) => {
           "New service opportunity",
           p.category +
             " request in ZIP " +
-            p.zip +
+            location.zip +
             ". Review the scope before responding.",
           { page: "project", id },
         );

@@ -1,3 +1,6 @@
+import { AddressAutocomplete } from "./address-autocomplete.js";
+import { Preferences } from "./preferences.js";
+import { Availability } from "./availability.js";
 import { BusinessProfile } from "./business-profile.js";
 import { Discussions } from "./discussions.js";
 import {
@@ -65,8 +68,9 @@ export function Pages() {
       return <Subscription />;
     case "reviews":
       return <Reviews />;
-    case "profile":
     case "availability":
+      return <Preferences />;
+    case "profile":
     case "onboarding":
       return <Business />;
     case "notifications":
@@ -128,7 +132,7 @@ function Dashboard() {
         action={
           <button onClick={() => go(pro ? "leads" : "projects")}>
             <Plus size={17} />
-            {pro ? "Find opportunities" : "Start a project"}
+            {pro ? "View matched projects" : "Start a project"}
           </button>
         }
       >
@@ -175,7 +179,7 @@ function Dashboard() {
               : "From quick fixes to fresh starts, find your next go-to professional."}
           </p>
           <button onClick={() => go(pro ? "profile" : "discover")}>
-            {pro ? "Your business profile" : "Find the right pro"}
+            {pro ? "Your business profile" : "View project matches"}
             <ArrowUpRight size={16} />
           </button>
         </div>
@@ -246,176 +250,153 @@ function Dashboard() {
   );
 }
 function Directory() {
-  const { data, page, run, go, busy } = useWorkspace();
-  const [search, setSearch] = useState(""),
-    [category, setCategory] = useState(
-      new URLSearchParams(location.search).get("category") || "",
-    ),
-    [zip, setZip] = useState(""),
-    [locationLabel, setLocationLabel] = useState("");
-  const profiles = data.profiles.filter(
-    (p) =>
-      (page === "people" || (p.verified && !p.suspended)) &&
-      (page !== "saved" || data.saved.includes(p.id)) &&
-      (!category || p.category === category) &&
-      (!zip || p.zip.startsWith(zip)) &&
-      (p.business + " " + p.name).toLowerCase().includes(search.toLowerCase()),
+  const { data, page, id, run, go, busy } = useWorkspace();
+  const [projectId, setProjectId] = useState(id || "");
+  const openProjects = data.projects.filter(
+    (p) => !p.proId && ["requested", "quoted"].includes(p.status),
+  );
+  const selectedId = openProjects.some((p) => p.id === projectId)
+    ? projectId
+    : openProjects[0]?.id;
+  const profiles = data.profiles.filter((p) =>
+    page === "saved"
+      ? data.saved.includes(p.id)
+      : p.matchedProjectIds?.includes(selectedId),
   );
   return (
     <>
       <Head
         title={
-          page === "people"
-            ? "The people behind the good work."
-            : page === "saved"
-              ? "Your home’s go-to people."
-              : "Find your next great professional."
+          page === "saved" ? "Your saved professionals" : "Your project matches"
         }
       >
-        Browse real professional profiles and start a conversation about your
-        project.
+        {page === "saved"
+          ? "Keep trusted professionals close."
+          : "Up to five professionals for each project, matched by service and location."}
       </Head>
-      <div className="filters">
-        <Field label="Search professionals">
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Name or business"
-          />
-        </Field>
-        <Field label="Service">
+      {page !== "saved" && openProjects.length > 0 && (
+        <Field label="Your project">
           <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
+            value={selectedId}
+            onChange={(e) => setProjectId(e.target.value)}
           >
-            <option value="">All services</option>
-            {categories.map((c) => (
-              <option key={c}>{c}</option>
+            {openProjects.map((p) => (
+              <option value={p.id} key={p.id}>
+                {p.title} · {p.zip}
+              </option>
             ))}
           </select>
         </Field>
-        <Field label="ZIP code">
-          <input
-            value={zip}
-            maxLength={5}
-            inputMode="numeric"
-            onChange={(e) => setZip(e.target.value.replace(/\D/g, ""))}
-          />
-        </Field>
-        <button
-          className="secondary"
-          disabled={zip.length !== 5 || busy}
-          onClick={() =>
-            void run(async () => {
-              const l = await request("/location/" + zip);
-              setLocationLabel(l?.label || "No location found.");
-            }, "")
-          }
-        >
-          Check location
-        </button>
-      </div>
-      {locationLabel && <p>{locationLabel}</p>}
+      )}
       {profiles.length ? (
         <div className="pro-grid">
-          {profiles.map((p) => (
-            <Panel key={p.id}>
-              {p.images?.find((i) => i.slot === "cover") && (
-                <img
-                  className="business-directory-cover"
-                  src={p.images.find((i) => i.slot === "cover")!.url}
-                  alt={p.business + " cover"}
-                  loading="lazy"
-                />
-              )}
-              <div className="pro-heading">
-                {p.images?.find((i) => i.slot === "logo") ? (
+          {profiles.map((p) => {
+            const match =
+              page === "saved" ? p.matchedProjectIds?.[0] : selectedId;
+            const cover = p.images?.find((i) => i.slot === "cover"),
+              logo = p.images?.find((i) => i.slot === "logo");
+            return (
+              <Panel key={p.id}>
+                {cover && (
                   <img
-                    className="business-directory-logo"
-                    src={p.images.find((i) => i.slot === "logo")!.url}
-                    alt={p.business + " logo"}
+                    className="business-directory-cover"
+                    src={cover.url}
+                    alt={p.business + " cover"}
+                    loading="lazy"
                   />
-                ) : (
-                  <span className="avatar large">{p.business.slice(0, 1)}</span>
                 )}
-                <div>
-                  <h2>{p.business}</h2>
-                  <p>{p.name}</p>
-                  <span className="pro-service">
-                    <ServiceIcon service={p.category} size={15} />
-                    {p.category}
-                  </span>
+                <div className="pro-heading">
+                  {logo ? (
+                    <img
+                      className="business-directory-logo"
+                      src={logo.url}
+                      alt={p.business + " logo"}
+                    />
+                  ) : (
+                    <span className="category-icon">
+                      <ServiceIcon service={p.category} />
+                    </span>
+                  )}
+                  <div>
+                    <h2>{p.business}</h2>
+                    <span>{p.serviceCategories.join(" · ")}</span>
+                  </div>
                 </div>
-              </div>
-              <p>{p.bio}</p>
-              <div className="pro-meta">
-                <span>
-                  {p.reviewCount
-                    ? p.rating.toFixed(1) + " ★ · " + p.reviewCount + " reviews"
-                    : "No reviews yet"}
-                </span>
-                <span>${p.rate}/hr starting rate</span>
-              </div>
-              <div className="tags">
-                <Badge>
-                  {p.verified ? "Identity verified" : "Verification pending"}
-                </Badge>
-                <Badge>
-                  {p.suspended
-                    ? "Suspended"
-                    : p.available
-                      ? "Available"
-                      : "Not accepting requests"}
-                </Badge>
-                <Badge>{p.zip}</Badge>
-              </div>
-              <div className="actions">
-                {data.user.role === "customer" ? (
-                  <>
+                <p>{p.bio}</p>
+                <div className="pro-meta">
+                  <span>
+                    {p.reviewCount
+                      ? p.rating.toFixed(1) +
+                        " ★ · " +
+                        p.reviewCount +
+                        " reviews"
+                      : "No reviews yet"}
+                  </span>
+                  <span>$ {p.rate}/hr starting rate</span>
+                </div>
+                <Availability profile={p} />
+                <div className="actions">
+                  {match && (
                     <button
-                      disabled={!p.available}
-                      onClick={() => go("projects", p.id)}
-                    >
-                      Request an estimate
-                    </button>
-                    <button
-                      aria-label="Save professional"
-                      className="icon-button"
                       disabled={busy}
                       onClick={() =>
-                        void run(() =>
-                          request("/saved/" + p.id, {
-                            saved: !data.saved.includes(p.id),
-                          }),
-                        )
+                        void run(async () => {
+                          const thread = await request(
+                            "/projects/" + match + "/discussions/" + p.id,
+                            {},
+                          );
+                          go("messages", thread.id);
+                        }, "Conversation ready.")
                       }
                     >
-                      <Heart
-                        fill={
-                          data.saved.includes(p.id) ? "currentColor" : "none"
-                        }
-                        size={19}
-                      />
+                      <MessageCircle size={18} />
+                      Chat with pro
                     </button>
-                  </>
-                ) : null}
-                <a href={"/professionals/" + encodeURIComponent(p.id)}>
-                  View public profile →
-                </a>
-              </div>
-            </Panel>
-          ))}
+                  )}
+                  <a href={"/professionals/" + encodeURIComponent(p.id)}>
+                    Full profile
+                  </a>
+                  <button
+                    className="icon-button"
+                    aria-label={
+                      data.saved.includes(p.id)
+                        ? "Unsave professional"
+                        : "Save professional"
+                    }
+                    disabled={busy}
+                    onClick={() =>
+                      void run(() =>
+                        request("/saved/" + p.id, {
+                          saved: !data.saved.includes(p.id),
+                        }),
+                      )
+                    }
+                  >
+                    <Heart
+                      size={19}
+                      fill={data.saved.includes(p.id) ? "currentColor" : "none"}
+                    />
+                  </button>
+                </div>
+              </Panel>
+            );
+          })}
         </div>
       ) : (
         <Empty
           title={
-            page === "saved"
-              ? "No saved professionals yet."
-              : "No professionals match yet."
+            openProjects.length
+              ? "No matching professionals yet."
+              : "Start a project to receive matches."
           }
         >
-          Try another service or ZIP code. Only verified, active listings appear
-          in search.
+          {openProjects.length
+            ? "Eligible professionals will appear here as they become available in your area."
+            : "Describe the work and choose its address. We will match nearby professionals."}
+          <button onClick={() => go("projects", "new")}>
+            <Plus size={17} />
+            Start a project
+          </button>
         </Empty>
       )}
     </>
@@ -424,14 +405,17 @@ function Directory() {
 function Projects() {
   const { data, page, id, run, busy, go } = useWorkspace();
   const selectedProfessional = data.profiles.find((p) => p.id === id);
+  const requestedCategory = new URLSearchParams(window.location.search).get(
+    "category",
+  );
   const initialCategory = (selectedProfessional?.category ||
+    (categories.includes(requestedCategory as ServiceCategory)
+      ? requestedCategory
+      : null) ||
     categories[0]) as ServiceCategory;
   const [creating, setCreating] = useState(!!id),
     [projectCategory, setProjectCategory] =
-      useState<ServiceCategory>(initialCategory),
-    [status, setStatus] = useState(""),
-    [search, setSearch] = useState(""),
-    [categoryFilter, setCategoryFilter] = useState("");
+      useState<ServiceCategory>(initialCategory);
   const [photos, setPhotos] = useState<ProjectPhoto[]>([]);
   const [savedProjectId, setSavedProjectId] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState("");
@@ -461,7 +445,9 @@ function Projects() {
         String(f.get("intake_" + question.id) || "").trim(),
       ]),
     ),
-    zip: String(f.get("zip") || ""),
+    address: String(f.get("address") || ""),
+    placeId: String(f.get("placeId") || ""),
+    addressUnit: String(f.get("addressUnit") || ""),
     urgency: String(f.get("urgency") || "flexible"),
     propertyType: String(f.get("propertyType") || "home"),
     budgetMin: f.get("budgetMin")
@@ -470,7 +456,7 @@ function Projects() {
     budgetMax: f.get("budgetMax")
       ? Math.round(Number(f.get("budgetMax")) * 100)
       : null,
-    proId: id || null,
+    proId: selectedProfessional?.id || null,
     scheduledAt: f.get("scheduledAt")
       ? new Date(String(f.get("scheduledAt"))).toISOString()
       : null,
@@ -508,7 +494,7 @@ function Projects() {
       <Head
         title={
           page === "leads"
-            ? "Find your next project"
+            ? "Projects matched for you"
             : data.user.role === "pro"
               ? "Manage your projects"
               : "Your home projects"
@@ -529,7 +515,7 @@ function Projects() {
         }
       >
         {page === "leads"
-          ? "Browse every open customer project across all service categories. Category and location preferences will be added later."
+          ? "These projects match the services and radius in Calendar & preferences."
           : "Requests, estimates, and updates stay together."}
       </Head>
       {creating && data.user.role === "customer" && (
@@ -560,7 +546,9 @@ function Projects() {
                 </div>
                 <div>
                   <dt>Location</dt>
-                  <dd>{pendingProject.zip}</dd>
+                  <dd>
+                    {pendingProject.address} {pendingProject.addressUnit}
+                  </dd>
                 </div>
                 <div>
                   <dt>Timing</dt>
@@ -654,21 +642,16 @@ function Projects() {
                       ))}
                     </select>
                   </Field>
-                  <Field label="ZIP code">
+                  <AddressAutocomplete
+                    label="Full service address"
+                    defaultAddress={draft?.address || ""}
+                    defaultPlaceId={draft?.placeId || ""}
+                  />
+                  <Field label="Apartment / unit (optional)">
                     <input
-                      name="zip"
-                      defaultValue={draft?.zip || ""}
-                      pattern="[0-9]{5}"
-                      maxLength={5}
-                      inputMode="numeric"
-                      required
-                    />
-                  </Field>
-                  <Field label="Preferred appointment (optional)">
-                    <input
-                      name="scheduledAt"
-                      type="datetime-local"
-                      defaultValue={draft?.scheduledAt?.slice(0, 16) || ""}
+                      name="addressUnit"
+                      maxLength={100}
+                      defaultValue={draft?.addressUnit || ""}
                     />
                   </Field>
                   <Field label="How soon do you need help?">
@@ -854,60 +837,13 @@ function Projects() {
           )}
         </Panel>
       )}
-      <div className="filters">
-        <Field label="Search projects">
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Title, service, details, or ZIP"
-          />
-        </Field>
-        {page === "leads" && (
-          <Field label="Service category">
-            <select
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-            >
-              <option value="">All service categories</option>
-              {categories.map((category) => (
-                <option key={category}>{category}</option>
-              ))}
-            </select>
-          </Field>
-        )}
-        <Field label="Status">
-          <select value={status} onChange={(e) => setStatus(e.target.value)}>
-            <option value="">All statuses</option>
-            {[
-              "requested",
-              "quoted",
-              "booked",
-              "in_progress",
-              "completed",
-              "cancelled",
-              "disputed",
-            ].map((s) => (
-              <option key={s} value={s}>
-                {s.replace("_", " ")}
-              </option>
-            ))}
-          </select>
-        </Field>
-      </div>
+      {page === "leads" && (
+        <button className="secondary" onClick={() => go("availability")}>
+          Edit project preferences
+        </button>
+      )}
       <Panel>
-        <ProjectList
-          projects={source.filter((p) => {
-            const query = search.trim().toLowerCase();
-            return (
-              (!status || p.status === status) &&
-              (!categoryFilter || p.category === categoryFilter) &&
-              (!query ||
-                `${p.title} ${p.description} ${p.category} ${p.zip}`
-                  .toLowerCase()
-                  .includes(query))
-            );
-          })}
-        />
+        <ProjectList projects={source} />
       </Panel>
     </>
   );
@@ -989,6 +925,12 @@ function ProjectDetail() {
           )}
         </ol>
       </section>
+      {customer && !p.proId && ["requested", "quoted"].includes(p.status) && (
+        <button onClick={() => go("discover", p.id)}>
+          <MessageCircle size={18} />
+          View matching professionals & chat
+        </button>
+      )}
       {own &&
         p.proposedAt &&
         ["requested", "quoted", "booked"].includes(p.status) && (
@@ -1071,6 +1013,14 @@ function ProjectDetail() {
             <dd>{p.customerName || "Private until booked"}</dd>
             <dt>Professional</dt>
             <dd>{p.proName || "Choosing the right fit"}</dd>
+            {own && p.address && (
+              <>
+                <dt>Service address</dt>
+                <dd>
+                  {p.address} {p.addressUnit}
+                </dd>
+              </>
+            )}
             <dt>Appointment</dt>
             <dd>{date(p.scheduledAt)}</dd>
             <dt>Timing</dt>
@@ -1122,6 +1072,7 @@ function ProjectDetail() {
             {own && ["requested", "quoted", "booked"].includes(p.status) && (
               <>
                 <button
+                  disabled={!p.proId}
                   className="secondary"
                   onClick={() => setAction("reschedule")}
                 >
@@ -1170,8 +1121,16 @@ function ProjectDetail() {
                     ? "Confirm cancellation"
                     : "Tell us what happened"}
               </h3>
+              {action === "reschedule" &&
+                data.profiles.find((profile) => profile.id === p.proId) && (
+                  <Availability
+                    profile={data.profiles.find(
+                      (profile) => profile.id === p.proId,
+                    )!}
+                  />
+                )}
               {action === "reschedule" ? (
-                <Field label="New date and time">
+                <Field label="One-hour visit (your device time zone)">
                   <input name="time" type="datetime-local" required />
                 </Field>
               ) : (
@@ -1493,6 +1452,14 @@ function Schedule() {
       <Head title="A little structure for a busy week.">
         Appointment times are shown in your current device timezone.
       </Head>
+      {data.user.role === "pro" &&
+        data.profiles.find((p) => p.id === data.user.id) && (
+          <Panel>
+            <Availability
+              profile={data.profiles.find((p) => p.id === data.user.id)!}
+            />
+          </Panel>
+        )}
       <Panel title="Upcoming appointments">
         <ProjectList
           projects={data.projects

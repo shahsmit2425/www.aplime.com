@@ -75,7 +75,7 @@ export const businessFieldGroups = [
   {
     title: "Contact & location",
     description:
-      "Use contact information that you want customers to see. Your full home address is not needed.",
+      "Use contact information that you want customers to see. Your base street address is private and used only for matching.",
     keys: ["legalName", "phone", "email", "website", "city", "state"],
   },
   {

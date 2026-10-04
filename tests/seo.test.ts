@@ -77,6 +77,11 @@ test("staging and private routes are never indexable", () => {
 });
 test("approved professional pages expose truthful local business metadata", () => {
   const profile: Profile = {
+    address: "",
+    placeId: "",
+    serviceCategories: ["Handyman"],
+    weeklyHours: { Mon: { start: "08:00", end: "17:00" } },
+    timeZone: "America/New_York",
     id: "professional-1",
     name: "Account owner",
     business: "Green Home Repair",

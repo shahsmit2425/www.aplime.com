@@ -1,3 +1,4 @@
+import { matchSql } from "./matching.js";
 import { env } from "./config.js";
 import { imageUrl } from "./integrations/storage.js";
 import { randomUUID } from "node:crypto";
@@ -5,7 +6,7 @@ import { pool, camel } from "./db/index.js";
 import type pg from "pg";
 import type { User, Workspace, Profile, Project } from "../shared/domain.js";
 import { fail } from "./errors.js";
-export const profileSelect = `SELECT p.id,u.name,p.business,p.details,p.category,p.bio,p.zip,p.rate,p.available,p.availability,p.verified,p.suspended,p.connect_ready,p.service_radius_miles,p.review_status,p.review_note,p.submitted_at,p.reviewed_at,
+export const profileSelect = `SELECT p.id,u.name,p.business,p.details,p.category,p.bio,p.zip,p.rate,p.available,p.availability,p.verified,p.suspended,p.connect_ready,p.service_radius_miles,p.address,p.place_id,p.service_categories,p.weekly_hours,p.time_zone,p.review_status,p.review_note,p.submitted_at,p.reviewed_at,
  COALESCE((SELECT json_agg(json_build_object('id',i.id,'slot',i.slot,'key',i.object_key) ORDER BY i.slot) FROM business_images i WHERE i.profile_id=p.id AND i.status='ready'),'[]'::json) AS images,
  COALESCE((SELECT avg(r.rating)::float FROM reviews r WHERE r.pro_id=p.id),0) AS rating,
  (SELECT count(*)::int FROM reviews r WHERE r.pro_id=p.id) AS review_count FROM profiles p JOIN users u ON u.id=p.id`;
@@ -21,6 +22,12 @@ async function mappedProfile(row: Record<string, any>, ownerId?: string) {
           : env.API_URL.replace(/\/$/, "") + "/api/business-images/" + i.id,
     })),
   );
+  if (profile.id !== ownerId) {
+    profile.address = "";
+    profile.placeId = "";
+  }
+  if (!profile.serviceCategories.length)
+    profile.serviceCategories = [profile.category];
   return profile;
 }
 export async function publicProfiles(id?: string) {
@@ -45,24 +52,45 @@ export async function workspace(user: User): Promise<Workspace> {
     )
   ).rows.map((r) => camel<Project>(r));
   const ids = projects.map((p) => p.id);
+  const matchRows =
+    user.role === "customer"
+      ? (
+          await pool.query(
+            `SELECT p.id AS project_id, chosen.id AS pro_id FROM projects p CROSS JOIN LATERAL (
+      SELECT f.id FROM profiles f WHERE ${matchSql()} AND p.pro_id IS NULL AND p.status IN ('requested','quoted')
+      ORDER BY (SELECT avg(r.rating) FROM reviews r WHERE r.pro_id=f.id) DESC NULLS LAST,f.id LIMIT 5
+    ) chosen WHERE p.customer_id=$1`,
+            [user.id],
+          )
+        ).rows
+      : [];
+  const matchedIds = [...new Set(matchRows.map((row) => row.pro_id))];
   const profileRows = (
     await pool.query(
       profileSelect +
         (admin
           ? ""
-          : " WHERE (p.verified AND p.review_status='approved' AND NOT p.suspended AND EXISTS (SELECT 1 FROM professional_subscriptions s WHERE s.user_id=p.id AND s.status IN ('active','trialing'))) OR p.id=$1") +
+          : user.role === "pro"
+            ? " WHERE p.id=$1"
+            : " WHERE p.id=ANY($2::text[]) OR p.id IN (SELECT pro_id FROM projects WHERE customer_id=$1) OR p.id IN (SELECT d.pro_id FROM project_discussions d JOIN projects pj ON pj.id=d.project_id WHERE pj.customer_id=$1) OR (p.verified AND p.review_status='approved' AND NOT p.suspended AND p.id IN (SELECT pro_id FROM saved WHERE user_id=$1))") +
         " ORDER BY p.business LIMIT 500",
-      params,
+      admin ? [] : user.role === "customer" ? [user.id, matchedIds] : [user.id],
     )
   ).rows;
   const profiles = await Promise.all(
-    profileRows.map((r) => mappedProfile(r, user.id)),
+    profileRows.map(async (r) => {
+      const profile = await mappedProfile(r, user.id);
+      profile.matchedProjectIds = matchRows
+        .filter((row) => row.pro_id === profile.id)
+        .map((row) => row.project_id);
+      return profile;
+    }),
   );
   const leads =
     user.role === "pro"
       ? (
           await pool.query(
-            "SELECT p.id,p.title,p.description,p.intake,p.category,p.zip,p.urgency,p.property_type,p.budget_min,p.budget_max,p.status,p.created_at,p.scheduled_at,NULL AS customer_id,NULL AS pro_id,NULL AS amount FROM projects p WHERE p.pro_id IS NULL AND p.status IN ('requested','quoted') AND EXISTS (SELECT 1 FROM profiles f WHERE f.id=$1 AND f.verified AND f.review_status='approved' AND NOT f.suspended AND f.available AND EXISTS (SELECT 1 FROM professional_subscriptions s WHERE s.user_id=f.id AND s.status IN ('active','trialing'))) AND NOT EXISTS (SELECT 1 FROM blocked b WHERE (b.user_id=$1 AND b.other_id=p.customer_id) OR (b.user_id=p.customer_id AND b.other_id=$1)) ORDER BY p.created_at DESC LIMIT 500",
+            `SELECT p.id,p.title,p.description,p.intake,p.category,p.zip,p.urgency,p.property_type,p.budget_min,p.budget_max,p.status,p.created_at,p.scheduled_at,NULL AS customer_id,NULL AS pro_id,NULL AS amount FROM projects p JOIN profiles f ON f.id=$1 WHERE p.pro_id IS NULL AND p.status IN ('requested','quoted') AND ${matchSql()} ORDER BY p.created_at DESC LIMIT 100`,
             [user.id],
           )
         ).rows.map((r) => camel<Project>(r))

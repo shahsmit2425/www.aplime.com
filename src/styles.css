@@ -2676,3 +2676,157 @@ blockquote {
     width: 100%;
   }
 }
+/* Address selection and service preferences */
+.address-autocomplete {
+  position: relative;
+  min-width: 0;
+  display: grid;
+  gap: 7px;
+}
+.address-autocomplete > label {
+  font-weight: 650;
+  color: #244b34;
+}
+.address-autocomplete small {
+  color: #486250;
+  line-height: 1.5;
+}
+.address-input {
+  position: relative;
+}
+.address-input > svg {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #287247;
+  pointer-events: none;
+}
+.address-input > input {
+  width: 100%;
+  padding-left: 40px;
+}
+.address-suggestions {
+  position: absolute;
+  top: 76px;
+  left: 0;
+  right: 0;
+  padding: 6px;
+  margin: 0;
+  list-style: none;
+  background: white;
+  border: 1px solid #bdd5c5;
+  border-radius: 12px;
+  box-shadow: 0 12px 30px #173f2929;
+  z-index: 30;
+}
+.address-suggestions button {
+  width: 100%;
+  background: white;
+  color: #213e2d;
+  border: 0;
+  text-align: left;
+  justify-content: flex-start;
+  padding: 12px;
+}
+.address-suggestions button:hover,
+.address-suggestions [aria-selected="true"] button {
+  background: #e8f4ed;
+}
+.google-attribution {
+  padding: 7px 12px;
+  color: #5e5e5e;
+  font:
+    400 12px Arial,
+    sans-serif;
+  white-space: nowrap;
+  text-align: right;
+}
+.preference-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+}
+.preference-grid > label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid #ceddd3;
+  border-radius: 10px;
+  color: #244b34;
+}
+.preference-grid input,
+.weekly-hours input[type="checkbox"] {
+  width: auto;
+}
+.preference-location {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #496453;
+  line-height: 1.6;
+}
+.weekly-hours {
+  display: grid;
+  gap: 10px;
+  margin: 15px 0 24px;
+}
+.weekly-hours-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 15px;
+  align-items: center;
+  background: #f0f6f2;
+  padding: 12px;
+  border-radius: 10px;
+}
+.weekly-hours-row > label:first-child {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.weekly-hours-row label {
+  display: grid;
+  gap: 5px;
+}
+.published-hours {
+  margin: 20px 0;
+  padding: 16px;
+  background: #f3f8f4;
+  border-radius: 12px;
+  color: #264b35;
+}
+.published-hours h3 {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.published-hours p {
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+.availability-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+}
+.availability-list > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.82rem;
+}
+.availability-list dd {
+  margin: 0;
+}
+@media (max-width: 600px) {
+  .weekly-hours-row {
+    grid-template-columns: 70px 1fr 1fr;
+    gap: 8px;
+  }
+  .weekly-hours-row input[type="time"] {
+    min-width: 0;
+    padding: 8px 3px;
+  }
+}

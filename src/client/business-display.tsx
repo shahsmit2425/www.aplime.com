@@ -1,3 +1,4 @@
+import { Availability } from "./availability.js";
 import type { Profile } from "../shared/domain.js";
 import { businessFields, businessFieldGroups } from "../shared/business.js";
 import { ServiceIcon, Badge } from "./ui.js";
@@ -130,11 +131,12 @@ export function BusinessDisplay({
             </section>
           ))}
         <section>
-          <h2>Availability</h2>
+          <Availability profile={profile} />
+          <h2>Services</h2>
           <p>
-            {profile.availability.length
-              ? profile.availability.join(" · ")
-              : "Ask the business about available days."}
+            {profile.serviceCategories?.length
+              ? profile.serviceCategories.join(" · ")
+              : profile.category}
           </p>
           <p className="muted">
             Appointments and final pricing are agreed directly with your

@@ -1,3 +1,4 @@
+import { AddressAutocomplete } from "./address-autocomplete.js";
 import { useState } from "react";
 import {
   Building2,
@@ -131,7 +132,8 @@ export function BusinessProfile() {
                         business: f.get("business"),
                         category: f.get("category"),
                         bio: f.get("bio"),
-                        zip: f.get("zip"),
+                        address: f.get("address"),
+                        placeId: f.get("placeId"),
                         rate: Number(f.get("rate")),
                         serviceRadiusMiles: Number(f.get("serviceRadiusMiles")),
                         available: f.get("available") === "on",
@@ -305,17 +307,11 @@ export function BusinessProfile() {
                       ))}
                     {group.title === "Contact & location" && (
                       <>
-                        <Field label="Business ZIP code">
-                          <input
-                            name="zip"
-                            defaultValue={p?.zip}
-                            pattern="[0-9]{5}"
-                            inputMode="numeric"
-                            maxLength={5}
-                            required
-                            placeholder="Five-digit ZIP code"
-                          />
-                        </Field>
+                        <AddressAutocomplete
+                          label="Private business base address"
+                          defaultAddress={p?.address}
+                          defaultPlaceId={p?.placeId}
+                        />
                         <Field label="Service radius (miles)">
                           <input
                             name="serviceRadiusMiles"
@@ -331,40 +327,25 @@ export function BusinessProfile() {
                   </div>
                 </section>
               ))}
-              <section className="business-form-section">
-                <h3>
-                  <CalendarDays size={20} />
-                  Availability
-                </h3>
-                <label className="checkbox">
-                  <input
-                    name="available"
-                    type="checkbox"
-                    defaultChecked={p?.available ?? true}
-                  />
-                  Accepting new project requests
-                </label>
-                <fieldset className="days">
-                  <legend>Working days</legend>
-                  {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(
-                    (day) => (
-                      <label key={day}>
-                        <input
-                          type="checkbox"
-                          name="days"
-                          value={day}
-                          defaultChecked={p?.availability.includes(day)}
-                        />
-                        {day}
-                      </label>
-                    ),
-                  )}
-                </fieldset>
-                <p>
-                  These are your normal working days. Confirm each appointment
-                  with the customer.
-                </p>
-              </section>
+              <input
+                type="hidden"
+                name="available"
+                value={p?.available === false ? "" : "on"}
+              />
+              {(p?.availability || []).map((day) => (
+                <input key={day} type="hidden" name="days" value={day} />
+              ))}
+              <p className="business-tip">
+                Manage your project categories and customer-visible hours in{" "}
+                <button
+                  type="button"
+                  className="text-button"
+                  onClick={() => go("availability")}
+                >
+                  Calendar & preferences
+                </button>{" "}
+                after saving your profile.
+              </p>
               <div className="business-save">
                 <p>
                   Save your details, then add photos or preview your profile.

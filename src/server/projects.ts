@@ -1,3 +1,5 @@
+import { assertMatch } from "./matching.js";
+import { assertAppointment } from "./scheduling.js";
 import { randomUUID } from "node:crypto";
 import type { User, ProjectAction } from "../shared/domain.js";
 import { allowedTransition, assertFuture } from "../shared/domain.js";
@@ -19,6 +21,7 @@ export async function projectAction(
     if (!allowedTransition(p, user, action.type))
       fail(403, "This action is not available for this project.");
     if (action.type === "quote") {
+      await assertMatch(c, user.id, id);
       if (
         !(
           await c.query(
@@ -154,13 +157,17 @@ export async function projectAction(
           409,
           "This appointment proposal is unavailable or cannot be confirmed by you.",
         );
-      if (action.accept) assertFuture(p.proposedAt);
+      if (action.accept) {
+        assertFuture(p.proposedAt);
+        await assertAppointment(c, p.proId, p.proposedAt, id);
+      }
       await c.query(
         "UPDATE projects SET scheduled_at=CASE WHEN $2 THEN proposed_at ELSE scheduled_at END,proposed_at=NULL,proposed_by=NULL WHERE id=$1",
         [id, action.accept],
       );
     } else if (action.type === "reschedule") {
       assertFuture(action.scheduledAt);
+      await assertAppointment(c, p.proId, action.scheduledAt, id);
       await c.query(
         "UPDATE projects SET proposed_at=$2,proposed_by=$3 WHERE id=$1",
         [id, action.scheduledAt, user.id],

@@ -117,11 +117,11 @@ Cloudflare DNS/custom-domain management needs no application environment variabl
 
 ## Google Maps
 
-| Variable | Required | Value or source |
-| --- | --- | --- |
-| GOOGLE_MAPS_SERVER_KEY | Yes, secret | Server-side Geocoding API key with billing enabled |
+| Variable               | Required    | Value or source                                                                                                                                                                                                                                                            |
+| ---------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GOOGLE_MAPS_SERVER_KEY | Yes, secret | Server-side Google Maps key with billing, Places API (New), and Geocoding API enabled. Used for authenticated address suggestions, canonical street-address validation and legacy ZIP lookup. Keep in the backend group only; never expose it in a frontend/mobile bundle. |
 
-Restrict to the Geocoding API and, where possible, Render's outbound addresses. Location lookup currently resolves US ZIP codes. No unrestricted browser Maps key is included.
+In the Google Cloud project that owns this key, enable billing and **Places API (New)** as well as **Geocoding API**. Allow both APIs in the key's API restrictions and, where possible, restrict it to Render's outbound IP addresses. Do not use browser-referrer restrictions for this server key. Both the project and business forms now require selecting a full US street address; the server resolves the selected place again before saving. Legacy ZIP lookup still uses Geocoding. No browser Maps key or new Render variable is needed. See Google's [Places API (New) setup](https://developers.google.com/maps/documentation/places/web-service/cloud-setup).
 
 ## Microsoft 365 SMTP alerts
 
