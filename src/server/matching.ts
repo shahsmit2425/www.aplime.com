@@ -2,6 +2,16 @@ import type pg from "pg";
 import { fail } from "./errors.js";
 import { env } from "./config.js";
 
+// Preview relaxes authenticated listing visibility only, never action authorization.
+// Explicit false restores normal discovery; production/stagging cannot enable it.
+export function marketplacePreview() {
+  return (
+    env.APP_ENV === "development" &&
+    env.MARKETPLACE_DISCOVERY_MODE === "open" &&
+    env.MARKETPLACE_PREVIEW !== "false"
+  );
+}
+
 export function eligibleProSql(profile = "f") {
   return `${profile}.verified AND ${profile}.review_status='approved'
     AND NOT ${profile}.suspended AND ${profile}.available

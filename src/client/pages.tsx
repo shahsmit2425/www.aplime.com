@@ -1,4 +1,5 @@
 import { ProjectControls } from "./project-controls.js";
+import { businessFields } from "../shared/business.js";
 import { AddressAutocomplete } from "./address-autocomplete.js";
 import { Preferences } from "./preferences.js";
 import { Availability } from "./availability.js";
@@ -287,10 +288,22 @@ function Directory() {
       >
         {page === "saved"
           ? "Keep trusted professionals close."
-          : openDiscovery
-            ? "Browse eligible businesses across all services and locations. Check their service area and discuss your project before booking."
-            : "Up to five professionals for each project, matched by service and location."}
+          : data.marketplacePreview
+            ? "Browse all saved business profiles in development, including businesses still setting up."
+            : openDiscovery
+              ? "Browse eligible businesses across all services and locations. Check their service area and discuss your project before booking."
+              : "Up to five professionals for each project, matched by service and location."}
       </Head>
+      {data.marketplacePreview && (
+        <Panel title="Development preview">
+          <p>
+            Approval, verification, subscription, and availability do not hide
+            listings in this preview. Suspended and blocked businesses remain
+            excluded. Chat and estimates become available when a business
+            completes its setup.
+          </p>
+        </Panel>
+      )}
       {(page !== "saved" || openDiscovery) && openProjects.length > 0 && (
         <Field label="Choose the project to discuss">
           <select
@@ -321,7 +334,7 @@ function Directory() {
         <div className="pro-grid">
           {profiles.map((p) => {
             const match = openDiscovery
-              ? p.discoverable
+              ? p.discoverable && (!data.marketplacePreview || p.canRespond)
                 ? selectedId
                 : undefined
               : page === "saved"
@@ -357,6 +370,9 @@ function Directory() {
                   </div>
                 </div>
                 <p>{p.bio}</p>
+                {data.marketplacePreview && !p.canRespond && (
+                  <Badge>Preview · business setup incomplete</Badge>
+                )}
                 <div className="pro-meta">
                   <span>
                     {p.reviewCount
@@ -387,9 +403,11 @@ function Directory() {
                       Chat with pro
                     </button>
                   )}
-                  <a href={"/professionals/" + encodeURIComponent(p.id)}>
-                    Full profile
-                  </a>
+                  {(!data.marketplacePreview || p.canRespond) && (
+                    <a href={"/professionals/" + encodeURIComponent(p.id)}>
+                      Full profile
+                    </a>
+                  )}
                   <button
                     className="icon-button"
                     aria-label={
@@ -397,7 +415,17 @@ function Directory() {
                         ? "Unsave professional"
                         : "Save professional"
                     }
-                    disabled={busy}
+                    disabled={
+                      busy ||
+                      (data.marketplacePreview &&
+                        !p.verified &&
+                        !data.saved.includes(p.id))
+                    }
+                    title={
+                      data.marketplacePreview && !p.verified
+                        ? "Saving is available after this business completes verification."
+                        : undefined
+                    }
                     onClick={() =>
                       void run(() =>
                         request("/saved/" + p.id, {
@@ -412,6 +440,36 @@ function Directory() {
                     />
                   </button>
                 </div>
+                {data.marketplacePreview && (
+                  <details>
+                    <summary>Business details</summary>
+                    <dl>
+                      {businessFields.map((field) =>
+                        p.details?.[field.key] ? (
+                          <div key={field.key}>
+                            <dt>{field.label}</dt>
+                            <dd>{p.details[field.key]}</dd>
+                          </div>
+                        ) : null,
+                      )}
+                      <dt>Base ZIP code</dt>
+                      <dd>{p.zip}</dd>
+                      <dt>Service radius</dt>
+                      <dd>{p.serviceRadiusMiles} miles</dd>
+                    </dl>
+                    {p.images
+                      ?.filter((i) => i.slot !== "cover" && i.slot !== "logo")
+                      .map((i) => (
+                        <img
+                          key={i.id}
+                          src={i.url}
+                          alt={p.business + " portfolio"}
+                          loading="lazy"
+                          style={{ maxWidth: "100%" }}
+                        />
+                      ))}
+                  </details>
+                )}
               </Panel>
             );
           })}
@@ -421,20 +479,24 @@ function Directory() {
           title={
             page === "saved"
               ? "No saved professionals yet."
-              : openDiscovery
-                ? "No available professionals yet."
-                : openProjects.length
-                  ? "No matching professionals yet."
-                  : "Start a project to receive matches."
+              : data.marketplacePreview
+                ? "No business profiles yet."
+                : openDiscovery
+                  ? "No available professionals yet."
+                  : openProjects.length
+                    ? "No matching professionals yet."
+                    : "Start a project to receive matches."
           }
         >
           {page === "saved"
             ? "Save a professional to find their profile here."
-            : openDiscovery
-              ? "Businesses appear once approved, verified, subscribed, and available. Check back as more professionals join. No sample profiles are shown."
-              : openProjects.length
-                ? "Eligible professionals will appear here as they become available in your area."
-                : "Describe the work and choose its address. We will match nearby professionals."}
+            : data.marketplacePreview
+              ? "No business profiles have been saved yet. A professional needs to save their business profile before it can appear here."
+              : openDiscovery
+                ? "Businesses appear once approved, verified, subscribed, and available. Check back as more professionals join. No sample profiles are shown."
+                : openProjects.length
+                  ? "Eligible professionals will appear here as they become available in your area."
+                  : "Describe the work and choose its address. We will match nearby professionals."}
           <button onClick={() => go("projects", "new")}>
             <Plus size={17} />
             Start a project
@@ -563,9 +625,11 @@ function Projects() {
         }
       >
         {page === "leads"
-          ? data.discoveryMode === "open"
-            ? "Browse the latest 100 open projects across all services and locations. Your project alerts still follow your preferences. Confirm the scope and travel distance before responding."
-            : "New projects match your service preferences. Requests with your pending estimate stay here so you can manage your response."
+          ? data.marketplacePreview
+            ? "Development preview: browse all open projects across services and locations, even while your business setup is incomplete. Private addresses stay hidden."
+            : data.discoveryMode === "open"
+              ? "Browse the latest 100 open projects across all services and locations. Your project alerts still follow your preferences. Confirm the scope and travel distance before responding."
+              : "New projects match your service preferences. Requests with your pending estimate stay here so you can manage your response."
           : "Requests, estimates, and updates stay together."}
       </Head>
       {page !== "leads" && (
@@ -920,11 +984,13 @@ function Projects() {
       <Panel>
         {page === "leads" && !source.length ? (
           <Empty title="No open projects to show">
-            {data.discoveryRequirements?.length
-              ? "Complete the steps above to receive new opportunities."
-              : data.discoveryMode === "open"
-                ? "New customer projects will appear here when posted. Booked, paused, and closed projects are excluded."
-                : "New projects will appear when they match your service categories and area. You can update your preferences above."}
+            {data.marketplacePreview
+              ? "No unassigned open projects are available. Paused, booked, and closed projects are excluded."
+              : data.discoveryRequirements?.length
+                ? "Complete the steps above to receive new opportunities."
+                : data.discoveryMode === "open"
+                  ? "New customer projects will appear here when posted. Booked, paused, and closed projects are excluded."
+                  : "New projects will appear when they match your service categories and area. You can update your preferences above."}
           </Empty>
         ) : (
           <ProjectList projects={source} />
@@ -963,6 +1029,24 @@ function ProjectDetail() {
       >
         {p.category} · {p.zip}
       </Head>
+      {data.marketplacePreview &&
+        data.user.role === "pro" &&
+        !!data.discoveryRequirements?.length && (
+          <Panel title="Project preview">
+            <p>
+              You can view this project now. Complete your business setup to
+              start a conversation or send an estimate.
+            </p>
+            <ul>
+              {data.discoveryRequirements.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+            <button onClick={() => go("profile")}>
+              Complete business setup
+            </button>
+          </Panel>
+        )}
       <section className="project-next-step" aria-label="Your next step">
         <div>
           <small>YOUR NEXT STEP</small>
@@ -1303,6 +1387,7 @@ function ProjectDetail() {
             </Empty>
           )}
           {data.user.role === "pro" &&
+            !(data.marketplacePreview && data.discoveryRequirements?.length) &&
             ["requested", "quoted"].includes(p.status) &&
             (!p.proId || pro) &&
             !quotes.some(
@@ -1430,6 +1515,7 @@ function ProjectDetail() {
         projectId={p.id}
         canStart={
           data.user.role === "pro" &&
+          !(data.marketplacePreview && data.discoveryRequirements?.length) &&
           ["requested", "quoted"].includes(p.status) &&
           (!p.proId || pro)
         }

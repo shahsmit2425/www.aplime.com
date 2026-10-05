@@ -7,6 +7,7 @@ process.env.STRIPE_PRO_PRICE_ID = "price_test_pro";
 process.env.STRIPE_SECRET_KEY = "sk_test_unit_fixture";
 process.env.STRIPE_WEBHOOK_SECRET = "whsec_unit_fixture";
 process.env.MARKETPLACE_DISCOVERY_MODE = "matched";
+process.env.MARKETPLACE_PREVIEW = "false";
 const { pool } = await import("../src/server/db/index.js");
 const { projectAction } = await import("../src/server/projects.js");
 const { workspace } = await import("../src/server/repository.js");
@@ -789,6 +790,146 @@ test("business image slots preserve a published image while its replacement is p
     await new Promise<void>((resolve) => server.close(() => resolve()));
   }
 });
+test("development preview lists incomplete profiles and every open project without bypassing actions or production restrictions", async () => {
+  const { env } = await import("../src/server/config.js");
+  const { assertMatch } = await import("../src/server/matching.js");
+  const { publicProfiles } = await import("../src/server/repository.js");
+  const saved = {
+    mode: env.MARKETPLACE_DISCOVERY_MODE,
+    preview: env.MARKETPLACE_PREVIEW,
+    app: env.APP_ENV,
+  };
+  const prefix = "preview-" + randomUUID();
+  const owner = { ...customer, id: prefix + "-owner" };
+  const pro = { ...professional, id: prefix + "-1" };
+  const noProfile = { ...professional, id: prefix + "-new" };
+  for (const u of [owner, noProfile])
+    await query("INSERT INTO users(id,name,email,role) VALUES($1,$2,$3,$4)", [
+      u.id,
+      u.name,
+      u.id + "@example.invalid",
+      u.role,
+    ]);
+  await query(
+    "INSERT INTO users(id,name,email,role) SELECT $1 || '-' || n,'Preview test business',$1 || '-' || n || '@example.invalid','pro' FROM generate_series(1,501) n",
+    [prefix],
+  );
+  await query(
+    "INSERT INTO profiles(id,business,category,bio,zip,rate,available,address,place_id,review_note) SELECT $1 || '-' || n,'Preview business','Painting','A real test fixture description','90210',50,false,'Private street','private-place','Private admin note' FROM generate_series(1,501) n",
+    [prefix],
+  );
+  await query(
+    "INSERT INTO projects(id,customer_id,title,description,category,zip,address,place_id) SELECT gen_random_uuid(),$1,'Preview job','Test scope','Handyman','10001','Private customer street','private-place' FROM generate_series(1,101)",
+    [owner.id],
+  );
+  const id = (
+    (
+      await query("SELECT id FROM projects WHERE customer_id=$1 LIMIT 1", [
+        owner.id,
+      ])
+    ).rows[0] as { id: string }
+  ).id;
+  const c = await pool.connect();
+  try {
+    env.APP_ENV = "development";
+    env.MARKETPLACE_DISCOVERY_MODE = "open";
+    env.MARKETPLACE_PREVIEW = undefined;
+    const view = await workspace(owner);
+    assert.equal(view.marketplacePreview, true);
+    const profiles = view.profiles.filter(
+      (p) => p.id.startsWith(prefix) && p.discoverable,
+    );
+    assert.equal(profiles.length, 501);
+    assert.ok(
+      profiles.every(
+        (p) => !p.canRespond && !p.verified && p.reviewStatus === "draft",
+      ),
+    );
+    assert.ok(
+      profiles.every(
+        (p) => !p.address && !p.placeId && p.reviewNote === undefined,
+      ),
+    );
+    assert.equal(
+      (await publicProfiles(pro.id)).length,
+      0,
+      "preview is never published publicly",
+    );
+    for (const user of [pro, noProfile]) {
+      const feed = await workspace(user);
+      assert.equal(
+        feed.leads.filter((p) => p.title === "Preview job").length,
+        101,
+      );
+      assert.ok(feed.discoveryRequirements?.length);
+      assert.ok(
+        feed.leads.every((p) => !p.customerId && p.address === undefined),
+      );
+      await assert.rejects(assertMatch(c, user.id, id), { status: 403 });
+      await assert.rejects(
+        projectAction(id, user, {
+          type: "quote",
+          laborAmount: 100,
+          materialsAmount: 0,
+          description: "Test estimate",
+          exclusions: "",
+          timeline: "Next week",
+          expiresAt: null,
+        }),
+        { status: 403 },
+      );
+    }
+    await query("INSERT INTO blocked(user_id,other_id) VALUES($1,$2)", [
+      pro.id,
+      owner.id,
+    ]);
+    assert.ok(
+      !(await workspace(owner)).profiles.find((p) => p.id === pro.id)
+        ?.discoverable,
+    );
+    assert.ok(!(await workspace(pro)).leads.some((p) => p.id === id));
+    await query("DELETE FROM blocked WHERE user_id=$1", [pro.id]);
+    await query("UPDATE profiles SET suspended=true WHERE id=$1", [pro.id]);
+    assert.ok(
+      !(await workspace(owner)).profiles.find((p) => p.id === pro.id)
+        ?.discoverable,
+    );
+    assert.equal((await workspace(pro)).leads.length, 0);
+    await query("UPDATE profiles SET suspended=false WHERE id=$1", [pro.id]);
+    for (const status of ["paused", "completed", "cancelled", "booked"]) {
+      await query("UPDATE projects SET status=$2 WHERE id=$1", [id, status]);
+      assert.ok(!(await workspace(noProfile)).leads.some((p) => p.id === id));
+    }
+    for (const app of ["production", "stagging"] as const) {
+      env.APP_ENV = app;
+      env.MARKETPLACE_PREVIEW = "true";
+      assert.equal((await workspace(owner)).marketplacePreview, false);
+      assert.ok(
+        !(await workspace(owner)).profiles.some(
+          (p) => p.id.startsWith(prefix) && p.discoverable,
+        ),
+      );
+      assert.equal((await workspace(noProfile)).leads.length, 0);
+    }
+    env.APP_ENV = "development";
+    env.MARKETPLACE_PREVIEW = "false";
+    assert.equal((await workspace(owner)).marketplacePreview, false);
+    assert.ok(
+      !(await workspace(owner)).profiles.some(
+        (p) => p.id.startsWith(prefix) && p.discoverable,
+      ),
+    );
+    env.MARKETPLACE_PREVIEW = "true";
+    env.MARKETPLACE_DISCOVERY_MODE = "matched";
+    assert.equal((await workspace(owner)).marketplacePreview, false);
+  } finally {
+    env.APP_ENV = saved.app;
+    env.MARKETPLACE_DISCOVERY_MODE = saved.mode;
+    env.MARKETPLACE_PREVIEW = saved.preview;
+    c.release();
+  }
+});
+
 test("open discovery crosses service and location preferences but keeps eligibility, privacy, blocking and lifecycle boundaries", async () => {
   const { env } = await import("../src/server/config.js");
   const { assertMatch } = await import("../src/server/matching.js");

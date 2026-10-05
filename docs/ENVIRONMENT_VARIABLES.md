@@ -127,6 +127,12 @@ If autocomplete returns a generic service error on an older deployment, do not r
 
 ## Temporary marketplace discovery
 
+**Development listing preview:** `MARKETPLACE_PREVIEW` is optional in the backend group. With `APP_ENV=development` and `MARKETPLACE_DISCOVERY_MODE=open`, preview is enabled by default; set `MARKETPLACE_PREVIEW=false` and redeploy the API to disable it. It is always disabled in stagging/production and when discovery mode is matched, even if explicitly set to true.
+
+Preview shows all saved, non-suspended and unblocked business profiles regardless of approval, verification, availability or subscription, without the 500-profile response cap. Pros (including accounts without a saved profile) can see all unassigned requested/quoted projects, without the 100-project cap. This uncapped view is intended for the small development dataset only. Closed/paused/direct-assigned projects, private structured addresses, administrator review notes, and blocked relationships stay excluded. Profile photos use short-lived signed links issued through the authenticated workspace; preview-only business details are displayed inside the private directory, not on public SEO pages.
+
+This relaxes **listing visibility only**. Existing authorization for new chats, estimates, bookings and project changes remains enforced; incomplete businesses are labeled as previews, and the UI explains setup requirements. No Stripe or verification state is changed. No demo accounts are created. The normal limits and eligibility rules below apply whenever preview is off. No frontend variable is needed: the authenticated API response supplies preview state.
+
 | Variable | Required / default | Value or source |
 | --- | --- | --- |
 | MARKETPLACE_DISCOVERY_MODE | Optional; `open` | Backend group only. `open` enables browsing across categories/locations. Set `matched` to restore five customer matches per project and preference-based pro discovery. Redeploy the API after changing it. |

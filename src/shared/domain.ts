@@ -24,6 +24,7 @@ export type Profile = {
   timeZone: string;
   matchedProjectIds?: string[];
   discoverable?: boolean;
+  canRespond?: boolean;
   images?: BusinessImage[];
   id: string;
   name: string;
@@ -163,6 +164,7 @@ export type Upload = {
 };
 export type Workspace = {
   discoveryMode?: "open" | "matched";
+  marketplacePreview?: boolean;
   discoveryRequirements?: string[];
   user: User;
   profiles: Profile[];

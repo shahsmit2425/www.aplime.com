@@ -42,6 +42,7 @@ const envSchema = z.object({
   R2_BUCKET: z.string().default(""),
   GOOGLE_MAPS_SERVER_KEY: z.string().default(""),
   MARKETPLACE_DISCOVERY_MODE: z.enum(["open", "matched"]).default("open"),
+  MARKETPLACE_PREVIEW: z.enum(["true", "false"]).optional(),
   SMTP_HOST: z.string().default("smtp.office365.com"),
   SMTP_PORT: z.coerce.number().default(587),
   SMTP_USER: z.string().default(""),

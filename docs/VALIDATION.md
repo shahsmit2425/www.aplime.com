@@ -1,5 +1,13 @@
 # Validation and launch status
 
+## Development listing preview — October 5, 2026
+
+All 62 tests pass; TypeScript and customer client/SSR plus admin production builds pass. An isolated PGlite regression test verifies visibility of 501 incomplete business profiles and 101 open projects, including access for a pro account with no profile. It checks address/review-note redaction, blocking, suspension, project status exclusions, retained estimate authorization, unchanged public profile eligibility, the opt-out flag, and the staging/production guard. Fixtures never touch live data.
+
+Preview is enabled by default only for development with open discovery. Set backend `MARKETPLACE_PREVIEW=false` and redeploy the API to return to ordinary eligibility and response limits; `MARKETPLACE_DISCOVERY_MODE=matched` also disables preview. Customer cards show preview status and inline business details rather than linking incomplete profiles to unavailable public pages. New chats/estimates still require normal business eligibility, and the UI explains this. Preview business image links are authenticated-workspace-issued, short-lived R2 signatures; address and administrator-review-note fields are omitted for nonowners.
+
+No migration is required. Deploy the API and customer client together and refresh the page. Live Render database contents, authenticated browser journeys, R2 image access, and deployed results have not been verified here. Existing professionals must have saved a business profile to appear; the code creates no synthetic profiles.
+
 ## Address diagnostics and temporary open discovery — October 5, 2026
 
 Local validation: all 61 tests pass; strict TypeScript, customer client/SSR and admin production builds pass. After the final discovery-query optimization, TypeScript and all 18 database integration tests pass again. Capacitor sync completes for Android and iOS shared assets/plugins; Windows has no CocoaPods/Xcode, so signed native builds and device behavior remain unverified. Commands use the existing outside-repository Node userInfo workaround.
