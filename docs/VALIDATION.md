@@ -1,5 +1,15 @@
 # Validation and launch status
 
+## Address diagnostics and temporary open discovery — October 5, 2026
+
+Local validation: all 61 tests pass; strict TypeScript, customer client/SSR and admin production builds pass. After the final discovery-query optimization, TypeScript and all 18 database integration tests pass again. Capacitor sync completes for Android and iOS shared assets/plugins; Windows has no CocoaPods/Xcode, so signed native builds and device behavior remain unverified. Commands use the existing outside-repository Node userInfo workaround.
+
+`MARKETPLACE_DISCOVERY_MODE` defaults to `open`: customers can browse eligible businesses without a project, then choose an open project to chat; eligible professionals can browse and estimate projects across service/location preferences. Set `matched` on the API to restore restricted discovery. Approval, identity, subscription, availability, blocking, project ownership and lifecycle rules remain enforced. Private structured addresses and customer identity are omitted from discovery. Open opportunities remain limited to the latest 100, profile responses to 500. Existing pending estimates remain accessible for management. Preference-based notifications remain unchanged. Tests cover discovery before posting, cross-category/cross-ZIP estimates, both directions of blocking, each eligibility gate, closed/assigned project exclusion, privacy, notification targeting and switching back to matching. No database migration is introduced.
+
+The reported generic autocomplete error hid all provider failures. Known address errors now return fixed public messages/codes, while server logs contain only HTTP status and allowlisted provider reasons. Missing credentials, denied configuration, quota, timeout/network errors, empty predictions, malformed payloads and unknown-error masking have test coverage. The input has a retry action and matches the API's 200-character search limit. No key or Google raw error is sent to clients. Whitespace around the server key is trimmed.
+
+The specific live Render/Google cause is **not confirmed or repaired** by these local checks: there are no local provider credentials or active authenticated browser tabs. After deployment, run `npm run maps:check` in the API service's Render Shell and use the troubleshooting steps in ENVIRONMENT_VARIABLES.md. This command tests the service's Google configuration; authenticated full-form requests also depend on Firebase, Redis and PostgreSQL. No live deployment, Google billing/key change, or multi-account browser verification is claimed.
+
 ## Project lifecycle and notification coverage — October 4, 2026
 
 Local result: `npm run check` passes strict TypeScript, all 59 tests and customer client/SSR plus admin production builds. `npx cap sync` succeeds for Android and iOS asset/plugin synchronization. CocoaPods and Xcode steps are unavailable on Windows. Checks use the temporary, uncommitted Node userInfo workaround described below.

@@ -133,7 +133,7 @@ function Dashboard() {
         action={
           <button onClick={() => go(pro ? "leads" : "projects")}>
             <Plus size={17} />
-            {pro ? "View matched projects" : "Start a project"}
+            {pro ? "Browse projects" : "Start a project"}
           </button>
         }
       >
@@ -180,7 +180,7 @@ function Dashboard() {
               : "From quick fixes to fresh starts, find your next go-to professional."}
           </p>
           <button onClick={() => go(pro ? "profile" : "discover")}>
-            {pro ? "Your business profile" : "View project matches"}
+            {pro ? "Your business profile" : "Find professionals"}
             <ArrowUpRight size={16} />
           </button>
         </div>
@@ -259,6 +259,7 @@ function Dashboard() {
 }
 function Directory() {
   const { data, page, id, run, go, busy } = useWorkspace();
+  const openDiscovery = data.discoveryMode === "open";
   const [projectId, setProjectId] = useState(id || "");
   const openProjects = data.projects.filter(
     (p) => !p.proId && ["requested", "quoted"].includes(p.status),
@@ -269,21 +270,29 @@ function Directory() {
   const profiles = data.profiles.filter((p) =>
     page === "saved"
       ? data.saved.includes(p.id)
-      : p.matchedProjectIds?.includes(selectedId),
+      : openDiscovery
+        ? p.discoverable
+        : p.matchedProjectIds?.includes(selectedId),
   );
   return (
     <>
       <Head
         title={
-          page === "saved" ? "Your saved professionals" : "Your project matches"
+          page === "saved"
+            ? "Your saved professionals"
+            : openDiscovery
+              ? "Find professionals"
+              : "Your project matches"
         }
       >
         {page === "saved"
           ? "Keep trusted professionals close."
-          : "Up to five professionals for each project, matched by service and location."}
+          : openDiscovery
+            ? "Browse eligible businesses across all services and locations. Check their service area and discuss your project before booking."
+            : "Up to five professionals for each project, matched by service and location."}
       </Head>
-      {page !== "saved" && openProjects.length > 0 && (
-        <Field label="Your project">
+      {(page !== "saved" || openDiscovery) && openProjects.length > 0 && (
+        <Field label="Choose the project to discuss">
           <select
             value={selectedId}
             onChange={(e) => setProjectId(e.target.value)}
@@ -296,11 +305,28 @@ function Directory() {
           </select>
         </Field>
       )}
+      {openDiscovery && !openProjects.length && (
+        <Panel>
+          <p>
+            You can browse businesses now. Post a project to start a private
+            chat about the work.
+          </p>
+          <button onClick={() => go("projects", "new")}>
+            <Plus size={17} />
+            Start a project
+          </button>
+        </Panel>
+      )}
       {profiles.length ? (
         <div className="pro-grid">
           {profiles.map((p) => {
-            const match =
-              page === "saved" ? p.matchedProjectIds?.[0] : selectedId;
+            const match = openDiscovery
+              ? p.discoverable
+                ? selectedId
+                : undefined
+              : page === "saved"
+                ? p.matchedProjectIds?.[0]
+                : selectedId;
             const cover = p.images?.find((i) => i.slot === "cover"),
               logo = p.images?.find((i) => i.slot === "logo");
             return (
@@ -393,14 +419,22 @@ function Directory() {
       ) : (
         <Empty
           title={
-            openProjects.length
-              ? "No matching professionals yet."
-              : "Start a project to receive matches."
+            page === "saved"
+              ? "No saved professionals yet."
+              : openDiscovery
+                ? "No available professionals yet."
+                : openProjects.length
+                  ? "No matching professionals yet."
+                  : "Start a project to receive matches."
           }
         >
-          {openProjects.length
-            ? "Eligible professionals will appear here as they become available in your area."
-            : "Describe the work and choose its address. We will match nearby professionals."}
+          {page === "saved"
+            ? "Save a professional to find their profile here."
+            : openDiscovery
+              ? "Businesses appear once approved, verified, subscribed, and available. Check back as more professionals join. No sample profiles are shown."
+              : openProjects.length
+                ? "Eligible professionals will appear here as they become available in your area."
+                : "Describe the work and choose its address. We will match nearby professionals."}
           <button onClick={() => go("projects", "new")}>
             <Plus size={17} />
             Start a project
@@ -506,7 +540,9 @@ function Projects() {
       <Head
         title={
           page === "leads"
-            ? "Projects matched for you"
+            ? data.discoveryMode === "open"
+              ? "Open projects"
+              : "Projects matched for you"
             : data.user.role === "pro"
               ? "Manage your projects"
               : "Your home projects"
@@ -527,7 +563,9 @@ function Projects() {
         }
       >
         {page === "leads"
-          ? "New projects match your service preferences. Requests with your pending estimate stay here so you can manage your response."
+          ? data.discoveryMode === "open"
+            ? "Browse the latest 100 open projects across all services and locations. Your project alerts still follow your preferences. Confirm the scope and travel distance before responding."
+            : "New projects match your service preferences. Requests with your pending estimate stay here so you can manage your response."
           : "Requests, estimates, and updates stay together."}
       </Head>
       {page !== "leads" && (
@@ -864,8 +902,33 @@ function Projects() {
           Edit project preferences
         </button>
       )}
+      {page === "leads" && !!data.discoveryRequirements?.length && (
+        <Panel title="Get ready to respond to projects">
+          <ul>
+            {data.discoveryRequirements.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+          <div className="actions">
+            <button onClick={() => go("profile")}>Business profile</button>
+            <button className="secondary" onClick={() => go("subscription")}>
+              Subscription & verification
+            </button>
+          </div>
+        </Panel>
+      )}
       <Panel>
-        <ProjectList projects={source} />
+        {page === "leads" && !source.length ? (
+          <Empty title="No open projects to show">
+            {data.discoveryRequirements?.length
+              ? "Complete the steps above to receive new opportunities."
+              : data.discoveryMode === "open"
+                ? "New customer projects will appear here when posted. Booked, paused, and closed projects are excluded."
+                : "New projects will appear when they match your service categories and area. You can update your preferences above."}
+          </Empty>
+        ) : (
+          <ProjectList projects={source} />
+        )}
       </Panel>
     </>
   );
@@ -964,7 +1027,9 @@ function ProjectDetail() {
       {customer && !p.proId && ["requested", "quoted"].includes(p.status) && (
         <button onClick={() => go("discover", p.id)}>
           <MessageCircle size={18} />
-          View matching professionals & chat
+          {data.discoveryMode === "open"
+            ? "Find professionals & chat"
+            : "View matching professionals & chat"}
         </button>
       )}
       {own &&

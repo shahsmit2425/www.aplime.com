@@ -4,7 +4,8 @@ import helmet from "helmet";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
 import * as Sentry from "@sentry/node";
-import { ZodError } from "zod";
+import { errorResponse } from "./error-response.js";
+import { AddressError } from "./integrations/address-error.js";
 import { env, publicConfig, validateDeployment } from "./config.js";
 import { api } from "./api.js";
 import { webhooks } from "./webhooks.js";
@@ -94,28 +95,17 @@ app.use(
     res: express.Response,
     _next: express.NextFunction,
   ) => {
-    const e = error as { status?: number; message?: string; code?: string };
-    const status =
-      error instanceof ZodError
-        ? 400
-        : e.code === "23505"
-          ? 409
-          : e.code === "22P02"
-            ? 400
-            : e.status || 500;
-    const message =
-      error instanceof ZodError
-        ? error.issues[0]?.message
-        : e.code === "23505"
-          ? "This action has already been completed."
-          : status < 500
-            ? e.message
-            : "The service is temporarily unavailable. Please try again.";
+    const e = (error || {}) as { code?: string };
+    const { status, body } = errorResponse(error);
     if (status >= 500) {
-      console.error("Request failed", e.code || "internal");
+      console.error(
+        "Request failed",
+        e.code || "internal",
+        error instanceof AddressError ? error.diagnostic : {},
+      );
       Sentry.captureException(error);
     }
-    res.status(status).json({ error: message });
+    res.status(status).json(body);
   },
 );
 const http = app.listen(env.PORT, "0.0.0.0", () =>

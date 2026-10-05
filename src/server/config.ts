@@ -41,6 +41,7 @@ const envSchema = z.object({
   R2_SECRET_ACCESS_KEY: z.string().default(""),
   R2_BUCKET: z.string().default(""),
   GOOGLE_MAPS_SERVER_KEY: z.string().default(""),
+  MARKETPLACE_DISCOVERY_MODE: z.enum(["open", "matched"]).default("open"),
   SMTP_HOST: z.string().default("smtp.office365.com"),
   SMTP_PORT: z.coerce.number().default(587),
   SMTP_USER: z.string().default(""),
@@ -110,7 +111,9 @@ export function validateDeployment() {
       "SITE_URL must be the exact canonical origin without a path or trailing slash.",
     );
   if (new URL(env.API_URL).origin !== env.API_URL)
-    throw new Error("API_URL must be an exact origin without a path or trailing slash.");
+    throw new Error(
+      "API_URL must be an exact origin without a path or trailing slash.",
+    );
   if (
     env.APP_ENV !== "production" &&
     !env.STRIPE_SECRET_KEY.startsWith("sk_test_")

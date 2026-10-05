@@ -23,6 +23,7 @@ export type Profile = {
   weeklyHours: WeeklyHours;
   timeZone: string;
   matchedProjectIds?: string[];
+  discoverable?: boolean;
   images?: BusinessImage[];
   id: string;
   name: string;
@@ -161,6 +162,8 @@ export type Upload = {
   status: string;
 };
 export type Workspace = {
+  discoveryMode?: "open" | "matched";
+  discoveryRequirements?: string[];
   user: User;
   profiles: Profile[];
   projects: Project[];

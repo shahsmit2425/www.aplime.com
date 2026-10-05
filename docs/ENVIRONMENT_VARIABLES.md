@@ -117,6 +117,24 @@ Cloudflare DNS/custom-domain management needs no application environment variabl
 
 ## Google Maps
 
+If autocomplete returns a generic service error on an older deployment, do not replace the server key with a browser key or remove address validation. After deploying the address-diagnostics update, run `npm run maps:check` in the **API service's Render Shell**. This uses that service's actual configuration and reports only a safe error code and allowlisted Google reason; it never prints the credential or submitted address. It makes one billable Places autocomplete request and does not change application data.
+
+1. Confirm `GOOGLE_MAPS_SERVER_KEY` is set in the backend group linked to the API service, with no empty or outdated service-level override. Save and redeploy the API after changing it.
+2. In the Google Cloud project that owns the key, enable billing and **Places API (New)**. Enabling Maps JavaScript API or the legacy Places API alone does not enable this endpoint.
+3. Edit the server key's API restrictions to allow **Places API (New)** (and Geocoding for legacy ZIP lookup). Application restrictions must permit Render's backend outbound IPs, not HTTP referrers. Keep your separate browser key restricted to browser use.
+4. Interpret API logs: `ADDRESS_CONFIGURATION_ERROR` with `SERVICE_DISABLED` means enable Places New; `BILLING_DISABLED` means fix project billing; `API_KEY_INVALID` means correct the credential; `API_KEY_SERVICE_BLOCKED`, `API_KEY_IP_ADDRESS_BLOCKED`, or `API_KEY_HTTP_REFERRER_BLOCKED` means fix the corresponding key restriction. `ADDRESS_RATE_LIMITED` means check quota; `ADDRESS_TIMEOUT` means retry/check provider connectivity. If the reason is absent, inspect the key/project settings against the upstream HTTP status. Raw Google messages are deliberately not exposed.
+5. Confirm the diagnostic succeeds, then test a real US street address in a signed-in project/business form. Random text can correctly return no suggestions. A direct address-bar request without the app's bearer token will be rejected. The diagnostic only checks Google; it does not verify authentication, Redis, or database middleware.
+
+## Temporary marketplace discovery
+
+| Variable | Required / default | Value or source |
+| --- | --- | --- |
+| MARKETPLACE_DISCOVERY_MODE | Optional; `open` | Backend group only. `open` enables browsing across categories/locations. Set `matched` to restore five customer matches per project and preference-based pro discovery. Redeploy the API after changing it. |
+
+This release defaults to `open`, so no new Render variable is required to broaden browsing. Customers can browse eligible businesses without first posting a project; a project is still required to start a private conversation. Professionals can browse the latest 100 unassigned requested/quoted projects. Profile responses remain bounded at 500. Verified identity, administrator approval, availability, active/trialing subscription, blocking rules, private-address protection, and lifecycle authorization remain enforced. Existing business relationships remain accessible for management even when they are no longer discoverable. New-project notifications continue to target service/location matches in both modes, rather than notifying every professional nationwide.
+
+## Google Maps key reference
+
 | Variable               | Required    | Value or source                                                                                                                                                                                                                                                            |
 | ---------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | GOOGLE_MAPS_SERVER_KEY | Yes, secret | Server-side Google Maps key with billing, Places API (New), and Geocoding API enabled. Used for authenticated address suggestions, canonical street-address validation and legacy ZIP lookup. Keep in the backend group only; never expose it in a frontend/mobile bundle. |

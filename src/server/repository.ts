@@ -1,4 +1,9 @@
-import { matchSql } from "./matching.js";
+import {
+  matchSql,
+  discoverySql,
+  eligibleProSql,
+  unblockedSql,
+} from "./matching.js";
 import { env } from "./config.js";
 import { imageUrl } from "./integrations/storage.js";
 import { randomUUID } from "node:crypto";
@@ -40,6 +45,7 @@ export async function publicProfiles(id?: string) {
   return Promise.all(rows.map((r) => mappedProfile(r)));
 }
 export async function workspace(user: User): Promise<Workspace> {
+  const openDiscovery = env.MARKETPLACE_DISCOVERY_MODE === "open";
   const admin = user.role === "admin",
     params = admin ? [] : [user.id];
   const projectWhere = admin ? "" : " WHERE p.customer_id=$1 OR p.pro_id=$1";
@@ -71,12 +77,17 @@ export async function workspace(user: User): Promise<Workspace> {
   const matchedIds = [...new Set(matchRows.map((row) => row.pro_id))];
   const profileRows = (
     await pool.query(
-      profileSelect +
+      profileSelect.replace(
+        "SELECT p.id",
+        user.role === "customer" && openDiscovery
+          ? `SELECT (${eligibleProSql("p")} AND ${unblockedSql("p", "$1")}) AS discoverable,p.id`
+          : "SELECT false AS discoverable,p.id",
+      ) +
         (admin
           ? ""
           : user.role === "pro"
             ? " WHERE p.id=$1"
-            : " WHERE p.id=ANY($2::text[]) OR p.id IN (SELECT pro_id FROM projects WHERE customer_id=$1) OR p.id IN (SELECT d.pro_id FROM project_discussions d JOIN projects pj ON pj.id=d.project_id WHERE pj.customer_id=$1) OR (p.verified AND p.review_status='approved' AND NOT p.suspended AND p.id IN (SELECT pro_id FROM saved WHERE user_id=$1))") +
+            : ` WHERE (${openDiscovery ? `(${eligibleProSql("p")} AND ${unblockedSql("p", "$1")}) OR ` : ""}p.id=ANY($2::text[]) OR p.id IN (SELECT pro_id FROM projects WHERE customer_id=$1) OR p.id IN (SELECT d.pro_id FROM project_discussions d JOIN projects pj ON pj.id=d.project_id WHERE pj.customer_id=$1) OR (p.verified AND p.review_status='approved' AND NOT p.suspended AND p.id IN (SELECT pro_id FROM saved WHERE user_id=$1)))`) +
         " ORDER BY p.business LIMIT 500",
       admin ? [] : user.role === "customer" ? [user.id, matchedIds] : [user.id],
     )
@@ -90,11 +101,43 @@ export async function workspace(user: User): Promise<Workspace> {
       return profile;
     }),
   );
+  const discoveryRequirements: string[] = [];
+  if (user.role === "pro") {
+    const own = profiles.find((p) => p.id === user.id);
+    if (!own) discoveryRequirements.push("Create your business profile.");
+    else {
+      if (!own.verified)
+        discoveryRequirements.push(
+          "Complete professional identity verification.",
+        );
+      if (own.reviewStatus !== "approved")
+        discoveryRequirements.push(
+          "Your business profile needs administrator approval.",
+        );
+      if (own.suspended)
+        discoveryRequirements.push(
+          "Contact support about your suspended business profile.",
+        );
+      if (!own.available)
+        discoveryRequirements.push(
+          "Turn on availability in your business profile.",
+        );
+    }
+    if (
+      !(
+        await pool.query(
+          "SELECT 1 FROM professional_subscriptions WHERE user_id=$1 AND status IN ('active','trialing')",
+          [user.id],
+        )
+      ).rowCount
+    )
+      discoveryRequirements.push("Activate your professional subscription.");
+  }
   const leads =
     user.role === "pro"
       ? (
           await pool.query(
-            `SELECT p.id,p.version,p.title,p.description,p.intake,p.category,p.zip,p.urgency,p.property_type,p.budget_min,p.budget_max,p.status,p.created_at,p.scheduled_at,NULL AS customer_id,NULL AS pro_id,NULL AS amount FROM projects p JOIN profiles f ON f.id=$1 WHERE p.pro_id IS NULL AND p.status IN ('requested','quoted') AND (${matchSql()} OR EXISTS(SELECT 1 FROM quotes own_quote WHERE own_quote.project_id=p.id AND own_quote.pro_id=$1 AND own_quote.status='pending')) ORDER BY p.created_at DESC LIMIT 100`,
+            `SELECT p.id,p.version,p.title,p.description,p.intake,p.category,p.zip,p.urgency,p.property_type,p.budget_min,p.budget_max,p.status,p.created_at,p.scheduled_at,NULL AS customer_id,NULL AS pro_id,NULL AS amount FROM projects p JOIN profiles f ON f.id=$1 WHERE p.pro_id IS NULL AND p.status IN ('requested','quoted') AND ${unblockedSql()} AND (${discoverySql()} OR EXISTS(SELECT 1 FROM quotes own_quote WHERE own_quote.project_id=p.id AND own_quote.pro_id=$1 AND own_quote.status='pending')) ORDER BY p.created_at DESC LIMIT 100`,
             [user.id],
           )
         ).rows.map((r) => camel<Project>(r))
@@ -148,6 +191,8 @@ export async function workspace(user: User): Promise<Workspace> {
   ]);
   return {
     user,
+    discoveryMode: env.MARKETPLACE_DISCOVERY_MODE,
+    discoveryRequirements,
     profiles,
     projects,
     leads,

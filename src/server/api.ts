@@ -6,7 +6,7 @@ import {
   notifyMatchingProfessionals,
 } from "./project-events.js";
 import { autocompleteAddress, locateAddress } from "./integrations/address.js";
-import { assertMatch, matchSql } from "./matching.js";
+import { assertMatch } from "./matching.js";
 import { assertAppointment } from "./scheduling.js";
 import { businessImages, publicBusinessImages } from "./business-images.js";
 import { notificationStream } from "./notification-stream.js";

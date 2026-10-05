@@ -6,6 +6,7 @@ import { PGlite } from "@electric-sql/pglite";
 process.env.STRIPE_PRO_PRICE_ID = "price_test_pro";
 process.env.STRIPE_SECRET_KEY = "sk_test_unit_fixture";
 process.env.STRIPE_WEBHOOK_SECRET = "whsec_unit_fixture";
+process.env.MARKETPLACE_DISCOVERY_MODE = "matched";
 const { pool } = await import("../src/server/db/index.js");
 const { projectAction } = await import("../src/server/projects.js");
 const { workspace } = await import("../src/server/repository.js");
@@ -788,6 +789,169 @@ test("business image slots preserve a published image while its replacement is p
     await new Promise<void>((resolve) => server.close(() => resolve()));
   }
 });
+test("open discovery crosses service and location preferences but keeps eligibility, privacy, blocking and lifecycle boundaries", async () => {
+  const { env } = await import("../src/server/config.js");
+  const { assertMatch } = await import("../src/server/matching.js");
+  const { notifyMatchingProfessionals } =
+    await import("../src/server/project-events.js");
+  const mode = env.MARKETPLACE_DISCOVERY_MODE;
+  const owner = { ...customer, id: "open-customer-" + randomUUID() };
+  const pro = { ...professional, id: "open-pro-" + randomUUID() };
+  const id = randomUUID();
+  for (const u of [owner, pro])
+    await query("INSERT INTO users(id,name,email,role) VALUES($1,$2,$3,$4)", [
+      u.id,
+      u.name,
+      u.id + "@example.invalid",
+      u.role,
+    ]);
+  await query(
+    "INSERT INTO profiles(id,business,category,bio,zip,rate,verified,review_status,address,place_id) VALUES($1,'Open business','Painting','Experienced painting business','90210',50,true,'approved','Private business address','private-place')",
+    [pro.id],
+  );
+  await query(
+    "INSERT INTO professional_subscriptions(user_id,status) VALUES($1,'active')",
+    [pro.id],
+  );
+  const c = await pool.connect();
+  try {
+    env.MARKETPLACE_DISCOVERY_MODE = "open";
+    const beforeProject = await workspace(owner);
+    assert.equal(beforeProject.discoveryMode, "open");
+    assert.ok(
+      beforeProject.profiles.find((p) => p.id === pro.id)?.discoverable,
+      "customers may browse before posting",
+    );
+    await query(
+      "INSERT INTO projects(id,customer_id,title,description,category,zip,address,place_id) VALUES($1,$2,'Open repairs','Scope without private address','Handyman','10001','Private customer address','private-customer-place')",
+      [id, owner.id],
+    );
+    const customerView = await workspace(owner);
+    const listed = customerView.profiles.find((p) => p.id === pro.id)!;
+    assert.ok(listed.discoverable);
+    assert.equal(listed.address, "");
+    assert.equal(listed.placeId, "");
+    const project = (await workspace(pro)).leads.find((p) => p.id === id)!;
+    assert.ok(project);
+    assert.equal(project.customerId, null);
+    assert.equal(project.address, undefined);
+    assert.equal(project.placeId, undefined);
+    assert.equal((project as any).latitude, undefined);
+    await assertMatch(c, pro.id, id);
+    await notifyMatchingProfessionals(c, id);
+    assert.equal(
+      (await query("SELECT 1 FROM notifications WHERE user_id=$1", [pro.id]))
+        .rowCount,
+      0,
+      "broad browsing does not notify unrelated professionals",
+    );
+    await projectAction(id, pro, {
+      type: "quote",
+      laborAmount: 10000,
+      materialsAmount: 0,
+      description: "Can complete the requested work",
+      exclusions: "",
+      timeline: "Next week",
+      expiresAt: null,
+    });
+    assert.equal(
+      (
+        await query("SELECT 1 FROM quotes WHERE project_id=$1 AND pro_id=$2", [
+          id,
+          pro.id,
+        ])
+      ).rowCount,
+      1,
+    );
+    await projectAction(id, pro, {
+      type: "withdraw_quote",
+      reason: "No longer available for this request",
+    });
+
+    for (const [column, value, restored] of [
+      ["verified", false, true],
+      ["suspended", true, false],
+      ["available", false, true],
+      ["review_status", "pending", "approved"],
+    ] as const) {
+      await query(`UPDATE profiles SET ${column}=$2 WHERE id=$1`, [
+        pro.id,
+        value,
+      ]);
+      assert.ok(
+        !(await workspace(owner)).profiles.find((p) => p.id === pro.id)
+          ?.discoverable,
+      );
+      const view = await workspace(pro);
+      assert.ok(!view.leads.some((p) => p.id === id));
+      assert.ok(view.discoveryRequirements?.length);
+      await assert.rejects(assertMatch(c, pro.id, id), { status: 403 });
+      await query(`UPDATE profiles SET ${column}=$2 WHERE id=$1`, [
+        pro.id,
+        restored,
+      ]);
+    }
+    await query(
+      "UPDATE professional_subscriptions SET status='canceled' WHERE user_id=$1",
+      [pro.id],
+    );
+    assert.ok(
+      !(await workspace(owner)).profiles.find((p) => p.id === pro.id)
+        ?.discoverable,
+    );
+    assert.ok(!(await workspace(pro)).leads.some((p) => p.id === id));
+    await assert.rejects(assertMatch(c, pro.id, id), { status: 403 });
+    await query(
+      "UPDATE professional_subscriptions SET status='active' WHERE user_id=$1",
+      [pro.id],
+    );
+    for (const [a, b] of [
+      [owner.id, pro.id],
+      [pro.id, owner.id],
+    ]) {
+      await query("INSERT INTO blocked(user_id,other_id) VALUES($1,$2)", [
+        a,
+        b,
+      ]);
+      assert.ok(
+        !(await workspace(owner)).profiles.find((p) => p.id === pro.id)
+          ?.discoverable,
+      );
+      assert.ok(!(await workspace(pro)).leads.some((p) => p.id === id));
+      await assert.rejects(assertMatch(c, pro.id, id), { status: 403 });
+      await query("DELETE FROM blocked WHERE user_id=$1 AND other_id=$2", [
+        a,
+        b,
+      ]);
+    }
+    for (const status of [
+      "paused",
+      "booked",
+      "cancelled",
+      "completed",
+      "disputed",
+    ]) {
+      await query("UPDATE projects SET status=$2 WHERE id=$1", [id, status]);
+      assert.ok(!(await workspace(pro)).leads.some((p) => p.id === id));
+    }
+    await query(
+      "UPDATE projects SET status='requested',pro_id=$2 WHERE id=$1",
+      [id, pro.id],
+    );
+    assert.ok(
+      !(await workspace(pro)).leads.some((p) => p.id === id),
+      "direct requests stay out of public leads",
+    );
+    await query("UPDATE projects SET pro_id=NULL WHERE id=$1", [id]);
+    env.MARKETPLACE_DISCOVERY_MODE = "matched";
+    assert.ok(!(await workspace(pro)).leads.some((p) => p.id === id));
+    await assert.rejects(assertMatch(c, pro.id, id), { status: 403 });
+  } finally {
+    env.MARKETPLACE_DISCOVERY_MODE = mode;
+    c.release();
+  }
+});
+
 test("customer matches cap at five and enforce geographic radius and privacy", async () => {
   const customerId = "matching-customer-" + randomUUID();
   await query(

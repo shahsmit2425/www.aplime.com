@@ -19,6 +19,8 @@ export function AddressAutocomplete({
     [active, setActive] = useState(-1);
   const [problem, setProblem] = useState(""),
     [loading, setLoading] = useState(false);
+  const [retry, setRetry] = useState(0),
+    [canRetry, setCanRetry] = useState(false);
   const session = useRef(crypto.randomUUID()),
     version = useRef(0);
   useEffect(() => {
@@ -30,10 +32,13 @@ export function AddressAutocomplete({
     const current = ++version.current;
     if (placeId || value.trim().length < 3) {
       setRows([]);
+      setLoading(false);
       return;
     }
     const timer = setTimeout(() => {
       setLoading(true);
+      setProblem("");
+      setCanRetry(false);
       void request<Suggestion[]>(
         "/locations/autocomplete?q=" +
           encodeURIComponent(value.trim()) +
@@ -55,6 +60,7 @@ export function AddressAutocomplete({
           if (current === version.current) {
             setRows([]);
             setProblem(error.message);
+            setCanRetry(true);
           }
         })
         .finally(() => {
@@ -65,12 +71,13 @@ export function AddressAutocomplete({
       clearTimeout(timer);
       version.current++;
     };
-  }, [value, placeId]);
+  }, [value, placeId, retry]);
   async function select(row: Suggestion) {
     const current = ++version.current;
     setRows([]);
     setLoading(true);
     setProblem("");
+    setCanRetry(false);
     try {
       const selected = await request<{ label: string; placeId: string }>(
         "/locations/details?placeId=" +
@@ -83,7 +90,10 @@ export function AddressAutocomplete({
       setPlaceId(selected.placeId);
       session.current = crypto.randomUUID();
     } catch (error) {
-      if (current === version.current) setProblem((error as Error).message);
+      if (current === version.current) {
+        setProblem((error as Error).message);
+        setCanRetry(true);
+      }
     } finally {
       if (current === version.current) setLoading(false);
     }
@@ -100,7 +110,7 @@ export function AddressAutocomplete({
           value={value}
           required
           minLength={5}
-          maxLength={300}
+          maxLength={200}
           autoComplete="off"
           role="combobox"
           aria-autocomplete="list"
@@ -116,6 +126,7 @@ export function AddressAutocomplete({
             setRows([]);
             setActive(-1);
             setProblem("");
+            setCanRetry(false);
             setLoading(false);
           }}
           onKeyDown={(event) => {
@@ -166,6 +177,15 @@ export function AddressAutocomplete({
               ? "Address selected."
               : "Choose a complete US street address from Google suggestions.")}
       </small>
+      {canRetry && !loading && (
+        <button
+          type="button"
+          className="secondary"
+          onClick={() => setRetry((n) => n + 1)}
+        >
+          Retry address search
+        </button>
+      )}
     </div>
   );
 }
