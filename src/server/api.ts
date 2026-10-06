@@ -50,6 +50,7 @@ import { meeting } from "./integrations/daily.js";
 import {
   uploadUrl,
   downloadUrl,
+  imageUrl,
   inspectObject,
   removeObject,
 } from "./integrations/storage.js";
@@ -535,12 +536,22 @@ api.post("/saved/:id", async (req, res) => {
   const q = req as AuthRequest;
   if (q.account.role !== "customer") fail(403, "Customer account required.");
   const { saved } = z.object({ saved: z.boolean() }).strict().parse(q.body);
-  if (saved)
-    await pool.query(
-      "INSERT INTO saved(user_id,pro_id) SELECT $1,id FROM profiles WHERE id=$2 AND verified AND NOT suspended ON CONFLICT DO NOTHING",
+  if (saved) {
+    const inserted = await pool.query(
+      "INSERT INTO saved(user_id,pro_id) SELECT $1,id FROM profiles WHERE id=$2 AND NOT suspended ON CONFLICT DO NOTHING",
       [q.account.id, q.params.id],
     );
-  else
+    if (
+      !inserted.rowCount &&
+      !(
+        await pool.query(
+          "SELECT 1 FROM saved WHERE user_id=$1 AND pro_id=$2",
+          [q.account.id, q.params.id],
+        )
+      ).rowCount
+    )
+      fail(404, "This professional is not available to save.");
+  } else
     await pool.query("DELETE FROM saved WHERE user_id=$1 AND pro_id=$2", [
       q.account.id,
       q.params.id,
@@ -787,7 +798,13 @@ api.get("/uploads/:id", async (req, res) => {
     String(f.content_type).startsWith("image/") &&
     (await isOpenLead(q.account.id, f.project_id));
   if (!openLead) await memberProject(f.project_id, q.account);
-  res.json({ url: await downloadUrl(f.object_key) });
+  // Images open inline so participants can view photos in the browser;
+  // documents keep the attachment disposition.
+  const inline = String(f.content_type).startsWith("image/");
+  res.json({
+    url: inline ? await imageUrl(f.object_key) : await downloadUrl(f.object_key),
+    inline,
+  });
 });
 api.use("/admin", (req, _res, next) => {
   if ((req as AuthRequest).account.role !== "admin")

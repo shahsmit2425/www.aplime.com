@@ -60,6 +60,9 @@ app.use(
       },
     },
     crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
+    // The customer site embeds /api/business-images responses as <img> from a
+    // different origin; helmet's same-origin default makes browsers drop them.
+    crossOriginResourcePolicy: { policy: "cross-origin" },
   }),
 );
 app.use(

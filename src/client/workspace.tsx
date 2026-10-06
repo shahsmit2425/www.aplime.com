@@ -789,7 +789,9 @@ export default function Workspace() {
               <b>
                 /{" "}
                 {links.find((l) => l[0] === route.page)?.[1] ||
-                  "Project details"}
+                  (route.page === "pro"
+                    ? "Professional profile"
+                    : "Project details")}
               </b>
             </span>
             <div className="actions">

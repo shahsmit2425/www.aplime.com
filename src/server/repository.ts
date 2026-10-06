@@ -20,7 +20,7 @@ export const profileSelect = `SELECT p.id,u.name,p.business,p.details,p.category
 async function mappedProfile(
   row: Record<string, any>,
   ownerId?: string,
-  previewImages = false,
+  signedImages = false,
   administrator = false,
 ) {
   const profile = camel<Profile>(row);
@@ -29,7 +29,7 @@ async function mappedProfile(
       id: i.id,
       slot: i.slot,
       url:
-        profile.id === ownerId || previewImages
+        profile.id === ownerId || signedImages
           ? await imageUrl(i.key)
           : env.API_URL.replace(/\/$/, "") + "/api/business-images/" + i.id,
     })),
@@ -102,7 +102,7 @@ export async function workspace(user: User): Promise<Workspace> {
           ? ""
           : user.role === "pro"
             ? " WHERE p.id=$1"
-            : ` WHERE (${openDiscovery ? `(${visiblePro} AND ${unblockedSql("p", "$1")}) OR ` : ""}p.id=ANY($2::text[]) OR p.id IN (SELECT pro_id FROM projects WHERE customer_id=$1) OR p.id IN (SELECT d.pro_id FROM project_discussions d JOIN projects pj ON pj.id=d.project_id WHERE pj.customer_id=$1) OR (p.verified AND p.review_status='approved' AND NOT p.suspended AND p.id IN (SELECT pro_id FROM saved WHERE user_id=$1)))`) +
+            : ` WHERE (${openDiscovery ? `(${visiblePro} AND ${unblockedSql("p", "$1")}) OR ` : ""}p.id=ANY($2::text[]) OR p.id IN (SELECT pro_id FROM projects WHERE customer_id=$1) OR p.id IN (SELECT d.pro_id FROM project_discussions d JOIN projects pj ON pj.id=d.project_id WHERE pj.customer_id=$1) OR p.id IN (SELECT q.pro_id FROM quotes q JOIN projects pj ON pj.id=q.project_id WHERE pj.customer_id=$1) OR (NOT p.suspended AND ${unblockedSql("p", "$1")} AND p.id IN (SELECT pro_id FROM saved WHERE user_id=$1)))`) +
         (preview && user.role === "customer"
           ? " ORDER BY p.business,p.id"
           : " ORDER BY p.business LIMIT 500"),
@@ -111,12 +111,10 @@ export async function workspace(user: User): Promise<Workspace> {
   ).rows;
   const profiles = await Promise.all(
     profileRows.map(async (r) => {
-      const profile = await mappedProfile(
-        r,
-        user.id,
-        preview && user.role === "customer" && !!r.discoverable,
-        admin,
-      );
+      // Every workspace viewer is authenticated and already authorized to see
+      // this profile, so images use short-lived signed URLs; the public
+      // redirect route stays reserved for fully approved public listings.
+      const profile = await mappedProfile(r, user.id, true, admin);
       profile.matchedProjectIds = matchRows
         .filter((row) => row.pro_id === profile.id)
         .map((row) => row.project_id);

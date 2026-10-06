@@ -5,6 +5,7 @@ import { AddressAutocomplete } from "./address-autocomplete.js";
 import { Preferences } from "./preferences.js";
 import { Availability } from "./availability.js";
 import { BusinessProfile } from "./business-profile.js";
+import { BusinessDisplay } from "./business-display.js";
 import { Discussions } from "./discussions.js";
 import {
   ProjectActionBar,
@@ -30,13 +31,13 @@ import {
   Upload,
   Phone,
   Video,
-  Heart,
 } from "lucide-react";
 import {
   categories,
   money,
   type Project,
   type Profile,
+  type Upload as UploadFile,
 } from "../shared/domain.js";
 import {
   questionsFor,
@@ -61,6 +62,8 @@ export function Pages() {
     case "discover":
     case "saved":
       return <Directory />;
+    case "pro":
+      return <ProProfile />;
     case "projects":
     case "leads":
       return <Projects />;
@@ -411,42 +414,13 @@ function Directory() {
                       Chat with pro
                     </button>
                   )}
-                  {(!data.marketplacePreview || p.canRespond) && (
-                    <a href={"/professionals/" + encodeURIComponent(p.id)}>
-                      Full profile
-                    </a>
-                  )}
                   <button
-                    className="icon-button"
-                    aria-label={
-                      data.saved.includes(p.id)
-                        ? "Unsave professional"
-                        : "Save professional"
-                    }
-                    disabled={
-                      busy ||
-                      (data.marketplacePreview &&
-                        !p.verified &&
-                        !data.saved.includes(p.id))
-                    }
-                    title={
-                      data.marketplacePreview && !p.verified
-                        ? "Saving is available after this business completes verification."
-                        : undefined
-                    }
-                    onClick={() =>
-                      void run(() =>
-                        request("/saved/" + p.id, {
-                          saved: !data.saved.includes(p.id),
-                        }),
-                      )
-                    }
+                    className="secondary"
+                    onClick={() => go("pro", p.id)}
                   >
-                    <Heart
-                      size={19}
-                      fill={data.saved.includes(p.id) ? "currentColor" : "none"}
-                    />
+                    Full profile
                   </button>
+                  <SavePro proId={p.id} />
                 </div>
                 {data.marketplacePreview && (
                   <details>
@@ -512,6 +486,124 @@ function Directory() {
         </Empty>
       )}
     </>
+  );
+}
+function ProProfile() {
+  const { data, id, go } = useWorkspace();
+  const openDiscovery = data.discoveryMode === "open";
+  const p = data.profiles.find((x) => x.id === id);
+  const [projectId, setProjectId] = useState("");
+  if (!p)
+    return (
+      <>
+        <Head title="Professional profile" />
+        <Empty title="This professional is not available.">
+          The profile may have been removed or is not visible to your account
+          right now.
+          <button onClick={() => go("discover")}>
+            <Search size={17} />
+            Browse professionals
+          </button>
+        </Empty>
+      </>
+    );
+  const openProjects = data.projects.filter(
+    (x) => !x.proId && ["requested", "quoted"].includes(x.status),
+  );
+  const selectedId = openProjects.some((x) => x.id === projectId)
+    ? projectId
+    : openProjects[0]?.id;
+  const match =
+    data.user.role === "customer"
+      ? openDiscovery
+        ? p.discoverable && (!data.marketplacePreview || p.canRespond)
+          ? selectedId
+          : undefined
+        : p.matchedProjectIds?.includes(selectedId)
+          ? selectedId
+          : undefined
+      : undefined;
+  return (
+    <>
+      <Head
+        title={p.business}
+        action={<SavePro proId={p.id} label />}
+      >
+        Review this business, its work photos, and its service details.
+      </Head>
+      {data.marketplacePreview && !p.canRespond && (
+        <p className="business-tip">
+          Development preview: this business is still completing its setup.
+          Chat and estimates open up once setup is finished.
+        </p>
+      )}
+      {match && openProjects.length > 1 && (
+        <Field label="Choose the project to discuss">
+          <select
+            value={selectedId}
+            onChange={(e) => setProjectId(e.target.value)}
+          >
+            {openProjects.map((x) => (
+              <option value={x.id} key={x.id}>
+                {x.title} · {x.zip}
+              </option>
+            ))}
+          </select>
+        </Field>
+      )}
+      <div className="actions">
+        {match && (
+          <ChatWithPro projectId={match} proId={p.id} secondary={false} />
+        )}
+        <button className="secondary" onClick={() => go("discover")}>
+          <Search size={17} />
+          Back to professionals
+        </button>
+      </div>
+      <BusinessDisplay profile={p} />
+    </>
+  );
+}
+function UploadPreview({ file }: { file: UploadFile }) {
+  const [url, setUrl] = useState("");
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    let active = true;
+    setUrl("");
+    setFailed(false);
+    request<{ url: string }>("/uploads/" + file.id)
+      .then((r) => {
+        if (active) setUrl(r.url);
+      })
+      .catch(() => {
+        if (active) setFailed(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, [file.id]);
+  if (failed)
+    return (
+      <span className="upload-preview">
+        {file.name} could not be loaded right now.
+      </span>
+    );
+  if (!url) return <span className="upload-preview">Loading {file.name}…</span>;
+  return (
+    <a
+      className="upload-preview"
+      href={url}
+      target="_blank"
+      rel="noreferrer"
+      onClick={(e) => {
+        e.preventDefault();
+        void request<{ url: string }>("/uploads/" + file.id)
+          .then((r) => openExternal(r.url))
+          .catch(() => {});
+      }}
+    >
+      <img src={url} alt={file.name} loading="lazy" />
+    </a>
   );
 }
 function Projects() {
@@ -1462,15 +1554,12 @@ function ProjectDetail() {
                       {["pending", "accepted"].includes(q.status) && (
                         <ChatWithPro projectId={p.id} proId={q.proId} />
                       )}
-                      {(!data.marketplacePreview ||
-                        data.profiles.find((x) => x.id === q.proId)
-                          ?.canRespond) && (
-                        <a
-                          href={"/professionals/" + encodeURIComponent(q.proId)}
-                        >
-                          View profile
-                        </a>
-                      )}
+                      <button
+                        className="secondary"
+                        onClick={() => go("pro", q.proId)}
+                      >
+                        View profile
+                      </button>
                       <SavePro proId={q.proId} label />
                     </div>
                   )}
@@ -1729,21 +1818,11 @@ function ProjectDetail() {
             The customer shared these photos to help you prepare an accurate
             estimate.
           </p>
-          {sharedPhotos.map((f) => (
-            <button
-              key={f.id}
-              className="secondary"
-              disabled={busy}
-              onClick={() =>
-                void run(async () => {
-                  const r = await request("/uploads/" + f.id);
-                  await openExternal(r.url);
-                }, "")
-              }
-            >
-              {f.name}
-            </button>
-          ))}
+          <div className="upload-gallery">
+            {sharedPhotos.map((f) => (
+              <UploadPreview key={f.id} file={f} />
+            ))}
+          </div>
         </Panel>
       )}
       {own && (
@@ -1778,8 +1857,25 @@ function ProjectDetail() {
               }}
             />
           </Field>
+          <div className="upload-gallery">
+            {data.uploads
+              .filter(
+                (f) =>
+                  f.projectId === p.id &&
+                  f.status === "ready" &&
+                  f.contentType.startsWith("image/"),
+              )
+              .map((f) => (
+                <UploadPreview key={f.id} file={f} />
+              ))}
+          </div>
           {data.uploads
-            .filter((f) => f.projectId === p.id)
+            .filter(
+              (f) =>
+                f.projectId === p.id &&
+                (f.status === "pending" ||
+                  !f.contentType.startsWith("image/")),
+            )
             .map((f) => (
               <button
                 key={f.id}

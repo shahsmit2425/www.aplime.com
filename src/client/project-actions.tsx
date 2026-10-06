@@ -41,8 +41,6 @@ export function SavePro({
   const { data, run, busy } = useWorkspace();
   if (data.user.role !== "customer") return null;
   const saved = data.saved.includes(proId);
-  const profile = data.profiles.find((p) => p.id === proId);
-  const locked = !saved && !!profile && !profile.verified;
   const name = saved ? "Unsave professional" : "Save professional";
   return (
     <button
@@ -50,14 +48,12 @@ export function SavePro({
       className={label ? "secondary" : "icon-button"}
       aria-label={name}
       aria-pressed={saved}
-      disabled={busy || locked}
-      title={
-        locked
-          ? "Saving is available after this business completes verification."
-          : undefined
-      }
+      disabled={busy}
       onClick={() =>
-        void run(() => request("/saved/" + proId, { saved: !saved }))
+        void run(
+          () => request("/saved/" + proId, { saved: !saved }),
+          saved ? "Removed from your saved pros." : "Professional saved.",
+        )
       }
     >
       <Heart size={label ? 17 : 19} fill={saved ? "currentColor" : "none"} />

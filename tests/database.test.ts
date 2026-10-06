@@ -8,6 +8,12 @@ process.env.STRIPE_SECRET_KEY = "sk_test_unit_fixture";
 process.env.STRIPE_WEBHOOK_SECRET = "whsec_unit_fixture";
 process.env.MARKETPLACE_DISCOVERY_MODE = "matched";
 process.env.MARKETPLACE_PREVIEW = "false";
+// Workspace responses presign R2 image URLs; signing is offline, so fixture
+// credentials are enough for tests.
+process.env.R2_ACCOUNT_ID = "r2-test-account";
+process.env.R2_ACCESS_KEY_ID = "r2-test-key";
+process.env.R2_SECRET_ACCESS_KEY = "r2-test-secret";
+process.env.R2_BUCKET = "r2-test-bucket";
 const { pool } = await import("../src/server/db/index.js");
 const { projectAction } = await import("../src/server/projects.js");
 const { workspace } = await import("../src/server/repository.js");
