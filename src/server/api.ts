@@ -1,4 +1,5 @@
 import { preferencesSchema } from "../shared/preferences.js";
+import { hasBusinessBranding } from "../shared/business-images.js";
 import {
   recordProjectActivity,
   readProjectActivity,
@@ -295,17 +296,14 @@ api.post("/profile/submit-review", async (req, res) => {
   await transaction(async (c) => {
     const profile = (
       await c.query(
-        "SELECT p.*,count(i.id)::int AS image_count,COALESCE(bool_or(i.slot IN ('logo','cover')),false) AS has_brand_image,COALESCE(bool_or(i.slot LIKE 'work-%'),false) AS has_work_image FROM profiles p LEFT JOIN business_images i ON i.profile_id=p.id AND i.status='ready' WHERE p.id=$1 GROUP BY p.id",
+        "SELECT p.*,COALESCE(array_agg(i.slot) FILTER (WHERE i.slot IS NOT NULL),ARRAY[]::text[]) AS ready_slots FROM profiles p LEFT JOIN business_images i ON i.profile_id=p.id AND i.status='ready' WHERE p.id=$1 GROUP BY p.id",
         [q.account.id],
       )
     ).rows[0];
     if (!profile) fail(409, "Save your business details first.");
     if (!profile.verified) fail(409, "Complete identity verification first.");
-    if (!profile.has_brand_image || !profile.has_work_image)
-      fail(
-        409,
-        "Add a logo or cover and at least one work photo before review.",
-      );
+    if (!hasBusinessBranding(profile.ready_slots))
+      fail(409, "Add your business logo and advertising image before review.");
     if (profile.review_status === "pending")
       fail(409, "Your business profile is already under review.");
     await c.query(
@@ -592,10 +590,10 @@ api.post("/saved/:id", async (req, res) => {
     if (
       !inserted.rowCount &&
       !(
-        await pool.query(
-          "SELECT 1 FROM saved WHERE user_id=$1 AND pro_id=$2",
-          [q.account.id, q.params.id],
-        )
+        await pool.query("SELECT 1 FROM saved WHERE user_id=$1 AND pro_id=$2", [
+          q.account.id,
+          q.params.id,
+        ])
       ).rowCount
     )
       fail(404, "This professional is not available to save.");
@@ -850,7 +848,9 @@ api.get("/uploads/:id", async (req, res) => {
   // documents keep the attachment disposition.
   const inline = String(f.content_type).startsWith("image/");
   res.json({
-    url: inline ? await imageUrl(f.object_key) : await downloadUrl(f.object_key),
+    url: inline
+      ? await imageUrl(f.object_key)
+      : await downloadUrl(f.object_key),
     inline,
   });
 });

@@ -9,6 +9,9 @@ export const businessImageSlots = [
   "work-4",
   "work-5",
 ] as const;
+export function hasBusinessBranding(readySlots: readonly string[]) {
+  return readySlots.includes("logo") && readySlots.includes("cover");
+}
 export const businessImageSchema = z
   .object({
     slot: z.enum(businessImageSlots),

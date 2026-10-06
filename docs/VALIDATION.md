@@ -1,5 +1,13 @@
 # Validation and launch status
 
+## Simplified business profile — October 6, 2026
+
+Based on the refreshed development checkout at `8735cb6`, preserving the Codespaces changes to listing visibility during re-review, R2 delivery, saved professionals and project actions. The editor now contains basic business details, two branding images, the shared weekly schedule, profile preview, and account setup. Required basic fields are business name, primary service, description, phone, email, starting rate, full base address and service radius; website is optional. Legal structure, team size, experience, duplicated location/hours text and credential questionnaires are no longer required to save. Previously stored metadata is preserved when editing basic details. Missing optional facts and empty detail groups are omitted from the customer profile.
+
+The image editor defaults to logo and advertising image (existing storage slot `cover`). Existing portfolio images are preserved and can be managed through an expandable control. Review submission requires ready logo and cover images, not a portfolio photo; the client and API use the same branding rule. Identity/subscription/review authorization and the existing `listed` behavior remain in place. Scheduling reuses the existing preferences endpoint and validation, preserving service categories and radius when only hours are edited. Switching profile tabs keeps unfinished detail/schedule form values mounted.
+
+Local checks: TypeScript, all 82 tests, and customer client/SSR plus admin builds pass. Regression tests cover the minimal details payload, legacy detail retention, contact/unknown-field validation and the two-image review requirement. No new environment variables or database migrations are introduced. Deploy API and customer client together so the shorter payload and changed image-review requirement are supported. Live authenticated form submissions, Google address lookup, R2 uploads, review submission, Render deployment and signed mobile-device behavior have not been verified. Tests use the existing outside-repository Windows Node userInfo workaround.
+
 ## Development listing preview — October 5, 2026
 
 All 62 tests pass; TypeScript and customer client/SSR plus admin production builds pass. An isolated PGlite regression test verifies visibility of 501 incomplete business profiles and 101 open projects, including access for a pro account with no profile. It checks address/review-note redaction, blocking, suspension, project status exclusions, retained estimate authorization, unchanged public profile eligibility, the opt-out flag, and the staging/production guard. Fixtures never touch live data.

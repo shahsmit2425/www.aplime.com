@@ -38,7 +38,7 @@ export const businessFields = [
 const short = z.string().trim().max(1000).default("");
 export const businessDetailsSchema = z
   .object({
-    legalName: z.string().trim().min(2).max(150),
+    legalName: z.string().trim().max(150).default(""),
     phone: z
       .string()
       .trim()
@@ -47,26 +47,22 @@ export const businessDetailsSchema = z
     website: z
       .union([z.literal(""), z.string().url().startsWith("https://")])
       .default(""),
-    city: z.string().trim().min(2).max(100),
-    state: z.string().trim().min(2).max(100),
-    serviceAreas: z.string().trim().min(2).max(1000),
-    specialties: z.string().trim().min(2).max(1000),
-    languages: z.string().trim().min(2).max(200),
-    hours: z.string().trim().min(2).max(500),
+    city: z.string().trim().max(100).default(""),
+    state: z.string().trim().max(100).default(""),
+    serviceAreas: short,
+    specialties: short,
+    languages: z.string().trim().max(200).default(""),
+    hours: z.string().trim().max(500).default(""),
     license: short,
     insurance: short,
     qualifications: short,
     warranty: short,
-    cancellationPolicy: z.string().trim().min(5).max(1000),
-    yearsExperience: z.number().int().min(0).max(100),
-    teamSize: z.number().int().min(1).max(10000),
-    businessType: z.enum([
-      "Sole proprietor",
-      "LLC",
-      "Corporation",
-      "Partnership",
-      "Other",
-    ]),
+    cancellationPolicy: short,
+    yearsExperience: z.number().int().min(0).max(100).optional(),
+    teamSize: z.number().int().min(1).max(10000).optional(),
+    businessType: z
+      .enum(["Sole proprietor", "LLC", "Corporation", "Partnership", "Other"])
+      .optional(),
   })
   .strict();
 export type BusinessDetails = z.infer<typeof businessDetailsSchema>;

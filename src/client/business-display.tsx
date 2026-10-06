@@ -67,16 +67,20 @@ export function BusinessDisplay({
           <h2>About the business</h2>
           <p className="business-description">{profile.bio}</p>
           <div className="business-facts">
-            <div>
-              <strong>
-                {profile.details?.yearsExperience ?? "Not listed"}
-              </strong>
-              <span>Years of experience</span>
-            </div>
-            <div>
-              <strong>{profile.details?.teamSize ?? "Not listed"}</strong>
-              <span>Team members</span>
-            </div>
+            {profile.details?.yearsExperience !== undefined && (
+              <div>
+                <strong>
+                  {profile.details?.yearsExperience ?? "Not listed"}
+                </strong>
+                <span>Years of experience</span>
+              </div>
+            )}
+            {profile.details?.teamSize !== undefined && (
+              <div>
+                <strong>{profile.details?.teamSize ?? "Not listed"}</strong>
+                <span>Team members</span>
+              </div>
+            )}
             <div>
               <strong>${profile.rate}</strong>
               <span>Starting hourly rate</span>
@@ -105,31 +109,39 @@ export function BusinessDisplay({
           </section>
         )}
         {profile.details &&
-          businessFieldGroups.map((group) => (
-            <section key={group.title}>
-              <h2>{group.title}</h2>
-              {group.title.startsWith("Credentials") && (
-                <p className="muted">
-                  Licensing and insurance details are provided by the business
-                  and have not been independently verified by Aplime.
-                </p>
-              )}
-              <dl className="business-detail-list">
-                {businessFields
-                  .filter(
-                    (field) =>
-                      (group.keys as readonly string[]).includes(field.key) &&
-                      profile.details?.[field.key],
-                  )
-                  .map((field) => (
-                    <div key={field.key}>
-                      <dt>{field.label.replace(/ \(optional.*\)/, "")}</dt>
-                      <dd>{profile.details?.[field.key]}</dd>
-                    </div>
-                  ))}
-              </dl>
-            </section>
-          ))}
+          businessFieldGroups
+            .filter((group) =>
+              businessFields.some(
+                (field) =>
+                  (group.keys as readonly string[]).includes(field.key) &&
+                  profile.details?.[field.key],
+              ),
+            )
+            .map((group) => (
+              <section key={group.title}>
+                <h2>{group.title}</h2>
+                {group.title.startsWith("Credentials") && (
+                  <p className="muted">
+                    Licensing and insurance details are provided by the business
+                    and have not been independently verified by Aplime.
+                  </p>
+                )}
+                <dl className="business-detail-list">
+                  {businessFields
+                    .filter(
+                      (field) =>
+                        (group.keys as readonly string[]).includes(field.key) &&
+                        profile.details?.[field.key],
+                    )
+                    .map((field) => (
+                      <div key={field.key}>
+                        <dt>{field.label.replace(/ \(optional.*\)/, "")}</dt>
+                        <dd>{profile.details?.[field.key]}</dd>
+                      </div>
+                    ))}
+                </dl>
+              </section>
+            ))}
         <section>
           <Availability profile={profile} />
           <h2>Services</h2>

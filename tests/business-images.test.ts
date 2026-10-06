@@ -3,7 +3,17 @@ import assert from "node:assert/strict";
 import {
   businessImageSchema,
   matchesImageSignature,
+  hasBusinessBranding,
 } from "../src/shared/business-images.js";
+
+test("business review needs exactly the two branding roles, without requiring portfolio photos", () => {
+  assert.equal(hasBusinessBranding(["logo", "cover"]), true);
+  assert.equal(hasBusinessBranding(["logo", "cover", "work-1"]), true);
+  assert.equal(hasBusinessBranding(["logo", "work-1"]), false);
+  assert.equal(hasBusinessBranding(["cover", "work-1"]), false);
+  assert.equal(hasBusinessBranding(["logo", "logo"]), false);
+  assert.equal(hasBusinessBranding([]), false);
+});
 test("business images allow only bounded image slots and supported image files", () => {
   const valid = {
     slot: "logo",

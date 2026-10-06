@@ -29,18 +29,20 @@ export function Preferences() {
     </>
   );
 }
-function PreferencesForm({
+export function PreferencesForm({
   profile,
   run,
   busy,
+  scheduleOnly = false,
 }: {
   profile: Profile;
   run: (fn: () => Promise<unknown>, message?: string) => Promise<void>;
   busy: boolean;
+  scheduleOnly?: boolean;
 }) {
   const [hours, setHours] = useState<WeeklyHours>(profile.weeklyHours || {});
   return (
-    <Panel title="Project preferences">
+    <Panel title={scheduleOnly ? "Work schedule" : "Project preferences"}>
       <Form
         busy={busy}
         onSubmit={(f) =>
@@ -61,41 +63,66 @@ function PreferencesForm({
           )
         }
       >
-        <fieldset>
-          <legend>Services you want to receive</legend>
-          <div className="preference-grid">
-            {categories.map((category) => (
-              <label key={category}>
-                <input
-                  type="checkbox"
-                  name="serviceCategories"
-                  value={category}
-                  defaultChecked={profile.serviceCategories?.includes(category)}
-                />
-                <span>{category}</span>
-              </label>
+        {scheduleOnly ? (
+          <>
+            {(profile.serviceCategories?.length
+              ? profile.serviceCategories
+              : [profile.category]
+            ).map((category) => (
+              <input
+                key={category}
+                type="hidden"
+                name="serviceCategories"
+                value={category}
+              />
             ))}
-          </div>
-        </fieldset>
-        <div className="form-grid">
-          <Field label="Service radius (miles)">
             <input
+              type="hidden"
               name="serviceRadiusMiles"
-              type="number"
-              min="1"
-              max="100"
-              required
-              defaultValue={profile.serviceRadiusMiles}
+              value={profile.serviceRadiusMiles}
             />
-          </Field>
-          <div className="preference-location">
-            <MapPin size={19} />
-            <span>
-              Measured from {profile.address || profile.zip}. Update your base
-              address in Business profile.
-            </span>
-          </div>
-        </div>
+          </>
+        ) : (
+          <>
+            <fieldset>
+              <legend>Services you want to receive</legend>
+              <div className="preference-grid">
+                {categories.map((category) => (
+                  <label key={category}>
+                    <input
+                      type="checkbox"
+                      name="serviceCategories"
+                      value={category}
+                      defaultChecked={profile.serviceCategories?.includes(
+                        category,
+                      )}
+                    />
+                    <span>{category}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            <div className="form-grid">
+              <Field label="Service radius (miles)">
+                <input
+                  name="serviceRadiusMiles"
+                  type="number"
+                  min="1"
+                  max="100"
+                  required
+                  defaultValue={profile.serviceRadiusMiles}
+                />
+              </Field>
+              <div className="preference-location">
+                <MapPin size={19} />
+                <span>
+                  Measured from {profile.address || profile.zip}. Update your
+                  base address in Business profile.
+                </span>
+              </div>
+            </div>
+          </>
+        )}
         <label className="checkbox">
           <input
             type="checkbox"
@@ -192,7 +219,7 @@ function PreferencesForm({
         </div>
         <button>
           <Check size={18} />
-          Save preferences and hours
+          {scheduleOnly ? "Save work schedule" : "Save preferences and hours"}
         </button>
       </Form>
     </Panel>

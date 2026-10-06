@@ -8,6 +8,9 @@ import { request } from "./api.js";
 import { Panel } from "./ui.js";
 export function BusinessMedia({ profile }: { profile?: Profile }) {
   const { run, busy } = useWorkspace();
+  const [showOlderPhotos, setShowOlderPhotos] = useState(false);
+  const olderPhotos =
+    profile?.images?.filter((image) => image.slot.startsWith("work-")) || [];
   const [pending, setPending] = useState<{
       slot: string;
       file: File;
@@ -63,10 +66,10 @@ export function BusinessMedia({ profile }: { profile?: Profile }) {
       }
     }, "Business image saved.");
   return (
-    <Panel title="Business photos & branding">
+    <Panel title="Your two business images">
       <p>
-        A recognizable logo, a welcoming cover photo, and examples of your work
-        help customers get to know your business.
+        Add your business logo and one advertising image. The advertising image
+        is the wide banner customers see at the top of your profile.
       </p>
       {!profile && (
         <p className="business-tip">
@@ -79,81 +82,103 @@ export function BusinessMedia({ profile }: { profile?: Profile }) {
         private information.
       </p>
       <div className="business-media-grid">
-        {businessImageSlots.map((slot) => {
-          const image = profile?.images?.find((i) => i.slot === slot),
-            selected = pending?.slot === slot ? pending : null;
-          const label =
-            slot === "logo"
-              ? "Business logo"
-              : slot === "cover"
-                ? "Cover photo"
-                : "Work photo " + slot.slice(-1);
-          return (
-            <section key={slot} className={"business-media-slot " + slot}>
-              <div className="business-image-frame">
-                {selected || image ? (
-                  <img src={selected?.preview || image?.url} alt={label} />
-                ) : (
-                  <div className="business-image-empty">
-                    <ImagePlus size={30} />
-                    <span>{label}</span>
-                  </div>
-                )}
-              </div>
-              <strong>{label}</strong>
-              <small>
-                {slot === "logo"
-                  ? "Square image works best"
-                  : slot === "cover"
-                    ? "Wide landscape photo works best"
-                    : "Show a real project or your team"}
-              </small>
-              <label className="business-image-picker">
-                <Upload size={16} />
-                {image ? "Replace image" : "Choose image"}
-                <input
-                  aria-label={"Upload " + label}
-                  type="file"
-                  accept={IMAGE_TYPES.join(",")}
-                  disabled={!profile || busy || !!pending}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    e.target.value = "";
-                    if (!file) return;
-                    const error = imageError(file);
-                    if (error) {
-                      setProgress(error);
-                      return;
+        {businessImageSlots
+          .filter(
+            (slot) =>
+              slot === "logo" ||
+              slot === "cover" ||
+              (showOlderPhotos &&
+                olderPhotos.some((image) => image.slot === slot)),
+          )
+          .map((slot) => {
+            const image = profile?.images?.find((i) => i.slot === slot),
+              selected = pending?.slot === slot ? pending : null;
+            const label =
+              slot === "logo"
+                ? "Business logo"
+                : slot === "cover"
+                  ? "Advertising image"
+                  : "Work photo " + slot.slice(-1);
+            return (
+              <section key={slot} className={"business-media-slot " + slot}>
+                <div className="business-image-frame">
+                  {selected || image ? (
+                    <img src={selected?.preview || image?.url} alt={label} />
+                  ) : (
+                    <div className="business-image-empty">
+                      <ImagePlus size={30} />
+                      <span>{label}</span>
+                    </div>
+                  )}
+                </div>
+                <strong>{label}</strong>
+                <small>
+                  {slot === "logo"
+                    ? "Square image works best"
+                    : slot === "cover"
+                      ? "Wide landscape photo works best"
+                      : "Show a real project or your team"}
+                </small>
+                <label className="business-image-picker">
+                  <Upload size={16} />
+                  {image ? "Replace image" : "Choose image"}
+                  <input
+                    aria-label={"Upload " + label}
+                    type="file"
+                    accept={IMAGE_TYPES.join(",")}
+                    disabled={!profile || busy || !!pending}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = "";
+                      if (!file) return;
+                      const error = imageError(file);
+                      if (error) {
+                        setProgress(error);
+                        return;
+                      }
+                      const preview = URL.createObjectURL(file);
+                      urls.current.add(preview);
+                      const item = { slot, file, preview };
+                      setPending(item);
+                      upload(item);
+                    }}
+                  />
+                </label>
+                {image && (
+                  <button
+                    type="button"
+                    className="text-button"
+                    disabled={busy || !!pending}
+                    onClick={() =>
+                      void run(
+                        () =>
+                          request(
+                            `/profile/images/${slot}`,
+                            undefined,
+                            "DELETE",
+                          ),
+                        "Business image removed.",
+                      )
                     }
-                    const preview = URL.createObjectURL(file);
-                    urls.current.add(preview);
-                    const item = { slot, file, preview };
-                    setPending(item);
-                    upload(item);
-                  }}
-                />
-              </label>
-              {image && (
-                <button
-                  type="button"
-                  className="text-button"
-                  disabled={busy || !!pending}
-                  onClick={() =>
-                    void run(
-                      () =>
-                        request(`/profile/images/${slot}`, undefined, "DELETE"),
-                      "Business image removed.",
-                    )
-                  }
-                >
-                  <X size={14} />
-                  Remove
-                </button>
-              )}
-            </section>
-          );
-        })}
+                  >
+                    <X size={14} />
+                    Remove
+                  </button>
+                )}
+              </section>
+            );
+          })}
       </div>
+      {olderPhotos.length > 0 && (
+        <button
+          type="button"
+          className="text-button"
+          onClick={() => setShowOlderPhotos(!showOlderPhotos)}
+        >
+          {showOlderPhotos ? "Hide" : "Manage"} previously uploaded work photos
+          ({olderPhotos.length})
+        </button>
+      )}
       {progress && <p role="status">{progress}</p>}
       {pending && !busy && (
         <div className="actions">
