@@ -810,6 +810,185 @@ test("business image slots preserve a published image while its replacement is p
     await new Promise<void>((resolve) => server.close(() => resolve()));
   }
 });
+test("API image uploads enforce ownership and file limits and preserve saved images through failure and retry", async () => {
+  const { S3Client } = await import("@aws-sdk/client-s3");
+  const original = S3Client.prototype.send;
+  const { businessImages } = await import("../src/server/business-images.js");
+  const { errorResponse } = await import("../src/server/error-response.js");
+  const express = (await import("express")).default;
+  const owner = { ...professional, id: "upload-pro-" + randomUUID() };
+  await query(
+    "INSERT INTO users(id,name,email,role) VALUES($1,'Image owner',$2,'pro')",
+    [owner.id, owner.id + "@example.invalid"],
+  );
+  await query(
+    "INSERT INTO profiles(id,business,category,bio,zip,rate) VALUES($1,'Image business','Handyman','Test image business','10001',50)",
+    [owner.id],
+  );
+  const old = randomUUID();
+  await query(
+    "INSERT INTO business_images(id,profile_id,slot,object_key,name,content_type,size,status) VALUES($1,$2,'logo','old-logo','old.png','image/png',20,'ready')",
+    [old, owner.id],
+  );
+  const bytes = Buffer.concat([
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+    Buffer.alloc(12),
+  ]);
+  const stored = new Map<string, { body: Buffer; type: string }>();
+  stored.set("old-logo", { body: bytes, type: "image/png" });
+  let denyStorage = false,
+    puts = 0;
+  S3Client.prototype.send = (async (command: any) => {
+    const input = command.input;
+    if (command.constructor.name === "PutObjectCommand") {
+      if (denyStorage)
+        throw Object.assign(new Error("SECRET provider response"), {
+          $metadata: { httpStatusCode: 403 },
+        });
+      puts++;
+      stored.set(input.Key, { body: input.Body, type: input.ContentType });
+      return {};
+    }
+    if (command.constructor.name === "DeleteObjectCommand") {
+      stored.delete(input.Key);
+      return {};
+    }
+    const object = stored.get(input.Key);
+    if (!object) throw new Error("Missing test object");
+    if (command.constructor.name === "HeadObjectCommand")
+      return { ContentLength: object.body.length, ContentType: object.type };
+    return {
+      Body: { transformToByteArray: async () => object.body.subarray(0, 12) },
+    };
+  }) as typeof original;
+  const app = express();
+  app.use(express.json());
+  app.use((req, _res, next) => {
+    req.account =
+      req.headers["x-actor"] === "other"
+        ? professional
+        : req.headers["x-actor"] === "customer"
+          ? customer
+          : owner;
+    next();
+  });
+  app.use("/profile/images", businessImages);
+  app.use((error: unknown, _req: any, res: any, _next: any) => {
+    const output = errorResponse(error);
+    res.status(output.status).json(output.body);
+  });
+  const server = app.listen(0, "127.0.0.1");
+  await new Promise<void>((resolve) => server.once("listening", resolve));
+  const base = "http://127.0.0.1:" + (server.address() as any).port;
+  try {
+    const reserve = await fetch(base + "/profile/images", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        slot: "logo",
+        name: "new.png",
+        size: bytes.length,
+        contentType: "image/png",
+        transport: "api",
+      }),
+    });
+    assert.equal(reserve.status, 200);
+    const item = await reserve.json();
+    assert.equal(
+      item.url,
+      undefined,
+      "API transport never exposes a presigned PUT",
+    );
+    assert.equal(item.uploadPath, "/profile/images/" + item.id + "/content");
+    const put = (body: Buffer, actor = "owner", type = "image/png") =>
+      fetch(base + item.uploadPath, {
+        method: "PUT",
+        headers: { "Content-Type": type, "x-actor": actor },
+        body: new Uint8Array(body),
+      });
+    assert.equal((await put(bytes, "other")).status, 404);
+    assert.equal((await put(bytes, "customer")).status, 403);
+    assert.equal((await put(bytes, "owner", "image/svg+xml")).status, 415);
+    assert.equal((await put(Buffer.alloc(20))).status, 400);
+    assert.equal(
+      (await put(Buffer.concat([bytes, Buffer.alloc(1)]))).status,
+      400,
+    );
+    assert.equal((await put(Buffer.alloc(10485761))).status, 413);
+    assert.equal(puts, 0);
+    denyStorage = true;
+    const failure = await put(bytes);
+    assert.equal(failure.status, 503);
+    const error = await failure.json();
+    assert.equal(error.code, "STORAGE_CONFIGURATION_ERROR");
+    assert.doesNotMatch(JSON.stringify(error), /SECRET/);
+    assert.equal(
+      (
+        (
+          await query(
+            "SELECT id FROM business_images WHERE profile_id=$1 AND status='ready'",
+            [owner.id],
+          )
+        ).rows[0] as { id: string } | undefined
+      )?.id,
+      old,
+    );
+    denyStorage = false;
+    assert.equal((await put(bytes)).status, 200);
+    assert.equal(puts, 1);
+    assert.ok(stored.has("old-logo"), "old image remains until completion");
+    const complete = () =>
+      fetch(base + "/profile/images/" + item.id + "/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
+    assert.equal((await complete()).status, 200);
+    assert.equal(
+      (await complete()).status,
+      200,
+      "completion retries are idempotent",
+    );
+    assert.equal(stored.has("old-logo"), false);
+    assert.equal(
+      (await put(bytes)).status,
+      404,
+      "ready objects cannot be overwritten through the API upload route",
+    );
+    const remove = (imageId: string) =>
+      fetch(base + "/profile/images/logo", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageId }),
+      });
+    assert.equal((await remove(old)).status, 409);
+    assert.equal((await remove(item.id)).status, 200);
+    assert.equal(
+      (
+        await query("SELECT 1 FROM business_images WHERE profile_id=$1", [
+          owner.id,
+        ])
+      ).rowCount,
+      0,
+    );
+    const replacement = randomUUID();
+    await query(
+      "INSERT INTO business_images(id,profile_id,slot,object_key,name,content_type,size) VALUES($1::uuid,$2,'logo',$1::text,'later.png','image/png',20)",
+      [replacement, owner.id],
+    );
+    assert.equal((await remove(item.id)).status, 200);
+    assert.equal(
+      (await query("SELECT 1 FROM business_images WHERE id=$1", [replacement]))
+        .rowCount,
+      1,
+      "repeated delete does not discard another session's pending replacement",
+    );
+  } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    S3Client.prototype.send = original;
+  }
+});
+
 test("development preview lists incomplete profiles and every open project without bypassing actions or production restrictions", async () => {
   const { env } = await import("../src/server/config.js");
   const { assertMatch } = await import("../src/server/matching.js");

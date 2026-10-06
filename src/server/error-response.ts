@@ -1,8 +1,9 @@
 import { ZodError } from "zod";
 import { AddressError } from "./integrations/address-error.js";
+import { StorageError } from "./integrations/storage-error.js";
 
 export function errorResponse(error: unknown) {
-  if (error instanceof AddressError)
+  if (error instanceof AddressError || error instanceof StorageError)
     return {
       status: error.status,
       body: { error: error.message, code: error.code },

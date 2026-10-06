@@ -8,6 +8,7 @@ import {
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { env } from "../config.js";
 import { requireValue } from "../errors.js";
+import { StorageError } from "./storage-error.js";
 let s3: S3Client | undefined;
 function client() {
   requireValue(
@@ -42,6 +43,40 @@ export async function uploadUrl(key: string, type: string, size: number) {
     }),
     { expiresIn: 300 },
   );
+}
+export async function storeBusinessImage(
+  key: string,
+  type: string,
+  body: Buffer,
+) {
+  if (!(
+    env.R2_ACCOUNT_ID &&
+    env.R2_ACCESS_KEY_ID &&
+    env.R2_SECRET_ACCESS_KEY &&
+    env.R2_BUCKET
+  ))
+    throw new StorageError("STORAGE_CONFIGURATION_ERROR");
+  try {
+    await client().send(
+      new PutObjectCommand({
+        Bucket: env.R2_BUCKET,
+        Key: key,
+        ContentType: type,
+        ContentLength: body.length,
+        Body: body,
+      }),
+      { abortSignal: AbortSignal.timeout(60000) },
+    );
+  } catch (error) {
+    const status = (error as { $metadata?: { httpStatusCode?: number } })
+      ?.$metadata?.httpStatusCode;
+    throw new StorageError(
+      status && [400, 401, 403, 404].includes(status)
+        ? "STORAGE_CONFIGURATION_ERROR"
+        : "STORAGE_UNAVAILABLE",
+      typeof status === "number" ? { upstreamStatus: status } : {},
+    );
+  }
 }
 export async function downloadUrl(key: string) {
   return getSignedUrl(
@@ -83,7 +118,8 @@ export async function imageUrl(key: string) {
     { expiresIn: IMAGE_URL_TTL },
   );
   if (imageUrls.size > 5000)
-    for (const [k, v] of imageUrls) if (v.until <= Date.now()) imageUrls.delete(k);
+    for (const [k, v] of imageUrls)
+      if (v.until <= Date.now()) imageUrls.delete(k);
   imageUrls.set(key, { url, until: Date.now() + (IMAGE_URL_TTL - 180) * 1000 });
   return url;
 }

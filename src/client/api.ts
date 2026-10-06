@@ -42,3 +42,36 @@ export async function openExternal(url: string) {
     await Browser.open({ url });
   } else window.location.assign(url);
 }
+
+export async function uploadImageContent(
+  path: string,
+  file: File,
+  signal: AbortSignal,
+) {
+  const token = await auth().currentUser?.getIdToken();
+  const base = (window.__CONFIG__ || fallbackConfig).apiUrl;
+  let response: Response;
+  try {
+    response = await fetch(base + "/api" + path, {
+      method: "PUT",
+      headers: {
+        ...(token ? { Authorization: "Bearer " + token } : {}),
+        "Content-Type": file.type,
+      },
+      body: file,
+      signal,
+    });
+  } catch (error) {
+    if (signal.aborted)
+      throw new Error("Upload stopped. You can retry or choose another image.");
+    throw new Error(
+      "Could not reach image storage. Check your connection and retry.",
+    );
+  }
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok)
+    throw new ApiError(
+      data.error || "Image upload failed. Please retry.",
+      response.status,
+    );
+}

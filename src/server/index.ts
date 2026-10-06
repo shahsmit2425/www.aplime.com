@@ -6,6 +6,7 @@ import rateLimit from "express-rate-limit";
 import * as Sentry from "@sentry/node";
 import { errorResponse } from "./error-response.js";
 import { AddressError } from "./integrations/address-error.js";
+import { StorageError } from "./integrations/storage-error.js";
 import { env, publicConfig, validateDeployment } from "./config.js";
 import { api } from "./api.js";
 import { webhooks } from "./webhooks.js";
@@ -104,7 +105,9 @@ app.use(
       console.error(
         "Request failed",
         e.code || "internal",
-        error instanceof AddressError ? error.diagnostic : {},
+        error instanceof AddressError || error instanceof StorageError
+          ? error.diagnostic
+          : {},
       );
       Sentry.captureException(error);
     }

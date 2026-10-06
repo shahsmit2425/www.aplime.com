@@ -115,6 +115,28 @@ Create three private buckets. Grant the credential access only to its intended b
 
 Cloudflare DNS/custom-domain management needs no application environment variable when configured in its dashboard.
 
+## Business image uploads and R2 CORS
+
+The current logo/advertising-image editor uploads through the authenticated API (`PUT /api/profile/images/:id/content`); the API writes to the private R2 bucket. Browser-to-R2 CORS is not required for this new business-image path. Deploy the API before or together with the new customer client. Existing S3 credentials still need object read/write access to the correct bucket. No new environment variables are needed. Use the actual R2 S3 **Access Key ID** and **Secret Access Key**, not the Cloudflare account ID or a Cloudflare API bearer token.
+
+Older clients and project attachments still upload directly with presigned URLs. For those paths, configure the development bucket's CORS policy in Cloudflare R2 → bucket → Settings → CORS:
+
+```json
+[
+  {
+    "AllowedOrigins": ["https://aplime-development-web.onrender.com"],
+    "AllowedMethods": ["GET", "PUT", "HEAD"],
+    "AllowedHeaders": ["Content-Type"],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
+Add any other exact origins actually used by this environment (for example a verified custom web domain or native origin). Merge with existing valid rules; do not copy development origins into production blindly. API `ALLOWED_ORIGINS` does not configure R2 bucket CORS. Keep the bucket private. Google/Stripe settings do not affect this error. See [Cloudflare's CORS documentation](https://developers.cloudflare.com/r2/buckets/cors/).
+
+API uploads report `STORAGE_CONFIGURATION_ERROR` for missing credentials or upstream 400/401/403/404 and `STORAGE_UNAVAILABLE` for other storage failures. Logs include only a safe code and upstream HTTP status, never raw storage responses or file content. A browser CORS error can also mask an expired/invalid presigned URL, so the absence of CORS headers alone does not prove that bucket CORS is the only misconfiguration.
+
 ## Google Maps
 
 If autocomplete returns a generic service error on an older deployment, do not replace the server key with a browser key or remove address validation. After deploying the address-diagnostics update, run `npm run maps:check` in the **API service's Render Shell**. This uses that service's actual configuration and reports only a safe error code and allowlisted Google reason; it never prints the credential or submitted address. It makes one billable Places autocomplete request and does not change application data.

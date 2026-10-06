@@ -2330,6 +2330,57 @@ blockquote {
   gap: 10px;
   margin: 20px 0;
 }
+.business-image-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.business-image-status {
+  font-size: 0.8rem;
+  background: #eaf5ed;
+  color: #205739;
+  padding: 4px 9px;
+  border-radius: 20px;
+}
+.business-file-name {
+  overflow-wrap: anywhere;
+}
+.business-image-save {
+  background: #f3f7f4;
+  border: 1px solid #d4e0d8;
+  border-radius: 12px;
+  padding: 14px;
+}
+.business-image-save p {
+  margin-top: 0;
+}
+.business-upload-error {
+  color: #8c261b;
+  background: #fff2ef;
+  border: 1px solid #e7b2aa;
+  padding: 14px;
+  border-radius: 10px;
+}
+.business-image-dialog {
+  width: min(900px, 94vw);
+  max-height: 90vh;
+  border: 0;
+  border-radius: 16px;
+  padding: 20px;
+  color: #173c32;
+}
+.business-image-dialog::backdrop {
+  background: rgb(0 0 0 / 65%);
+}
+.business-image-dialog > img {
+  display: block;
+  max-width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+  margin: 16px auto 0;
+}
 .business-section-nav a {
   display: flex;
   align-items: center;
