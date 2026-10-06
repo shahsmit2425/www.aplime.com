@@ -13,7 +13,7 @@ import { pool, camel } from "./db/index.js";
 import type pg from "pg";
 import type { User, Workspace, Profile, Project } from "../shared/domain.js";
 import { fail } from "./errors.js";
-export const profileSelect = `SELECT p.id,u.name,p.business,p.details,p.category,p.bio,p.zip,p.rate,p.available,p.availability,p.verified,p.suspended,p.connect_ready,p.service_radius_miles,p.address,p.place_id,p.service_categories,p.weekly_hours,p.time_zone,p.review_status,p.review_note,p.submitted_at,p.reviewed_at,
+export const profileSelect = `SELECT p.id,u.name,p.business,p.details,p.category,p.bio,p.zip,p.rate,p.available,p.availability,p.verified,p.suspended,p.listed,p.connect_ready,p.service_radius_miles,p.address,p.place_id,p.service_categories,p.weekly_hours,p.time_zone,p.review_status,p.review_note,p.submitted_at,p.reviewed_at,
  COALESCE((SELECT json_agg(json_build_object('id',i.id,'slot',i.slot,'key',i.object_key) ORDER BY i.slot) FROM business_images i WHERE i.profile_id=p.id AND i.status='ready'),'[]'::json) AS images,
  COALESCE((SELECT avg(r.rating)::float FROM reviews r WHERE r.pro_id=p.id),0) AS rating,
  (SELECT count(*)::int FROM reviews r WHERE r.pro_id=p.id) AS review_count FROM profiles p JOIN users u ON u.id=p.id`;
@@ -51,7 +51,7 @@ async function mappedProfile(
 export async function publicProfiles(id?: string) {
   const { rows } = await pool.query(
     profileSelect +
-      " WHERE p.verified=true AND p.review_status='approved' AND p.suspended=false AND EXISTS (SELECT 1 FROM professional_subscriptions s WHERE s.user_id=p.id AND s.status IN ('active','trialing'))" +
+      " WHERE p.verified=true AND (p.review_status='approved' OR p.listed) AND p.suspended=false AND EXISTS (SELECT 1 FROM professional_subscriptions s WHERE s.user_id=p.id AND s.status IN ('active','trialing'))" +
       (id ? " AND p.id=$1" : " ORDER BY p.business LIMIT 200"),
     id ? [id] : [],
   );
@@ -130,7 +130,7 @@ export async function workspace(user: User): Promise<Workspace> {
         discoveryRequirements.push(
           "Complete professional identity verification.",
         );
-      if (own.reviewStatus !== "approved")
+      if (own.reviewStatus !== "approved" && !own.listed)
         discoveryRequirements.push(
           "Your business profile needs administrator approval.",
         );

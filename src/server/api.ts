@@ -214,31 +214,79 @@ api.put("/account", async (req, res) => {
   );
   res.json({ ok: true });
 });
+// Stable stringify so jsonb key reordering never looks like an edit.
+const canonical = (value: unknown): string =>
+  JSON.stringify(value, (_key, v) =>
+    v && typeof v === "object" && !Array.isArray(v)
+      ? Object.fromEntries(
+          Object.entries(v as Record<string, unknown>).sort(([a], [b]) =>
+            a.localeCompare(b),
+          ),
+        )
+      : v,
+  );
 api.put("/profile", async (req, res) => {
   const q = req as AuthRequest;
   if (q.account.role !== "pro") fail(403, "Professional account required.");
   const p = profileSchema.parse(q.body);
   const location = await locateAddress(p.placeId);
   if (!location) fail(400, "Select a complete street address.");
-  await pool.query(
-    "INSERT INTO profiles(id,business,category,bio,zip,rate,available,availability,details,service_radius_miles,latitude,longitude,address,place_id,service_categories) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,jsonb_build_array($3::text)) ON CONFLICT(id) DO UPDATE SET business=$2,category=$3,bio=$4,zip=$5,rate=$6,available=$7,availability=$8,details=$9,service_radius_miles=$10,latitude=$11,longitude=$12,address=$13,place_id=$14,review_status='draft',review_note=NULL,submitted_at=NULL,reviewed_at=NULL,reviewed_by=NULL",
-    [
-      q.account.id,
-      p.business,
-      p.category,
-      p.bio,
-      location.zip,
-      p.rate,
-      p.available,
-      JSON.stringify(p.availability),
-      JSON.stringify(p.details),
-      p.serviceRadiusMiles,
-      location.lat,
-      location.lng,
-      location.label,
-      location.placeId,
-    ],
-  );
+  await transaction(async (c) => {
+    const existing = (
+      await c.query("SELECT * FROM profiles WHERE id=$1 FOR UPDATE", [
+        q.account.id,
+      ])
+    ).rows[0];
+    // Customer-facing listing content needs review; availability, schedule
+    // and service-radius changes are operational and never unlist a business.
+    const material =
+      !existing ||
+      existing.business !== p.business ||
+      existing.category !== p.category ||
+      existing.bio !== p.bio ||
+      Number(existing.rate) !== p.rate ||
+      existing.place_id !== location.placeId ||
+      canonical(existing.details) !== canonical(p.details);
+    await c.query(
+      "INSERT INTO profiles(id,business,category,bio,zip,rate,available,availability,details,service_radius_miles,latitude,longitude,address,place_id,service_categories) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,jsonb_build_array($3::text)) ON CONFLICT(id) DO UPDATE SET business=$2,category=$3,bio=$4,zip=$5,rate=$6,available=$7,availability=$8,details=$9,service_radius_miles=$10,latitude=$11,longitude=$12,address=$13,place_id=$14",
+      [
+        q.account.id,
+        p.business,
+        p.category,
+        p.bio,
+        location.zip,
+        p.rate,
+        p.available,
+        JSON.stringify(p.availability),
+        JSON.stringify(p.details),
+        p.serviceRadiusMiles,
+        location.lat,
+        location.lng,
+        location.label,
+        location.placeId,
+      ],
+    );
+    if (material) {
+      // A listed business stays visible while its edits are re-reviewed;
+      // unlisted ones return to draft and resubmit manually.
+      const relist =
+        !!existing &&
+        (existing.listed || existing.review_status === "approved");
+      await c.query(
+        relist
+          ? "UPDATE profiles SET review_status='pending',review_note=NULL,submitted_at=now(),reviewed_at=NULL,reviewed_by=NULL WHERE id=$1"
+          : "UPDATE profiles SET review_status='draft',review_note=NULL,submitted_at=NULL,reviewed_at=NULL,reviewed_by=NULL WHERE id=$1",
+        [q.account.id],
+      );
+      if (relist)
+        await notifyAdministrators(
+          c,
+          "Listed business profile updated",
+          p.business +
+            " changed its live listing. Review the updates in the administrator console.",
+        );
+    }
+  });
   res.json({ ok: true });
 });
 api.post("/profile/submit-review", async (req, res) => {
@@ -866,7 +914,7 @@ api.post("/admin/profiles/:id/review", async (req, res) => {
   await transaction(async (c) => {
     const profile = (
       await c.query(
-        "UPDATE profiles SET review_status=$2,review_note=NULLIF($3,''),reviewed_at=now(),reviewed_by=$4 WHERE id=$1 AND review_status='pending' RETURNING business",
+        "UPDATE profiles SET review_status=$2,listed=($2='approved'),review_note=NULLIF($3,''),reviewed_at=now(),reviewed_by=$4 WHERE id=$1 AND review_status='pending' RETURNING business",
         [q.params.id, decision.status, decision.note, q.account.id],
       )
     ).rows[0];

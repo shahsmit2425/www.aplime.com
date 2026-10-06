@@ -45,7 +45,10 @@ export function BusinessMedia({ profile }: { profile?: Profile }) {
           body: item.file,
           signal: AbortSignal.timeout(120000),
         });
-        if (!result.ok) throw new Error("Image upload failed. Please retry.");
+        if (!result.ok)
+          throw new Error(
+            `Image upload failed (storage responded ${result.status}). Please retry.`,
+          );
         setProgress("Checking your image…");
         await request(`/profile/images/${r.id}/complete`, {});
         URL.revokeObjectURL(item.preview);

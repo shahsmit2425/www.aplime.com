@@ -172,3 +172,15 @@ This release fixes image upload/retrieval and reworks how customers reach profes
 - The business profile editor is restructured into four steps (Business details, Photos & logo, Verification & review, Profile preview) with per-step completion indicators; all fields, validation and endpoints are unchanged.
 
 Automated tests pass against the PGlite fixture (workspace tests now run with fixture R2 credentials since every workspace response presigns image URLs). Live R2 upload/download against a real bucket, bucket CORS, browser rendering of the new profile page and thumbnails, and native builds were not exercised here and still need development-environment validation.
+
+## Listed businesses stay live during re-review; favorites coverage
+
+Migration `011_listed_profiles.sql` is required (run `npm run db:migrate` before deploying this API). It adds `profiles.listed`, backfilled from currently approved profiles. No environment variable changes.
+
+- Approving a review sets `listed`; rejecting or requesting changes clears it. Every eligibility check (public pages, discovery/matching, chat, estimates, estimate acceptance, the public image route) now accepts `review_status='approved' OR listed`.
+- Saving business details only resets the review when customer-facing content actually changed (name, category, bio, rate, address, details are compared with a key-order-stable serializer). Availability, schedule and service-radius edits never touch review state, and an unchanged re-save no longer un-approves a profile.
+- When a listed business changes material content or photos, the profile auto-resubmits (`pending`, administrators notified) but the listing stays publicly visible with the new content until an administrator approves, requests changes, or rejects. This is deliberate post-moderation for already-approved businesses: unreviewed edits of a listed profile are public until actioned. First-time and previously declined submissions still fail closed (draft, not public). The administrator console flags pending profiles that are currently listed.
+- Upload failures in the browser now include the storage HTTP status in the error message.
+- New tests cover: saved draft/unverified professionals staying visible to the customer (so they can always be unsaved), blocked professionals excluded from the saved list, estimate senders included in the customer workspace, the suspended-profile save refusal predicate, and listed-while-pending public visibility including delisting on changes requested. The `POST /saved/:id` HTTP 404 path and the full `PUT /profile` route (it calls Google address lookup) are exercised only at the SQL-predicate level, not over HTTP.
+
+Boundary: PGlite tests only; migration 011 has not been run against a Render database, and the admin review flow for a live-listed edit was not exercised in a browser.

@@ -14,7 +14,7 @@ export function marketplacePreview() {
 }
 
 export function eligibleProSql(profile = "f") {
-  return `${profile}.verified AND ${profile}.review_status='approved'
+  return `${profile}.verified AND (${profile}.review_status='approved' OR ${profile}.listed)
     AND NOT ${profile}.suspended AND ${profile}.available
     AND EXISTS (SELECT 1 FROM professional_subscriptions s WHERE s.user_id=${profile}.id AND s.status IN ('active','trialing'))`;
 }

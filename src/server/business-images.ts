@@ -16,6 +16,25 @@ import {
   inspectObject,
   removeObject,
 } from "./integrations/storage.js";
+import { notifyAdministrators } from "./repository.js";
+import type pg from "pg";
+// A listed business keeps its public listing while photo changes are
+// re-reviewed; unlisted ones return to draft and resubmit manually.
+async function resetReview(c: pg.PoolClient, profileId: string) {
+  const reviewed = (
+    await c.query(
+      "UPDATE profiles SET review_status=CASE WHEN listed THEN 'pending' ELSE 'draft' END,review_note=NULL,submitted_at=CASE WHEN listed THEN now() ELSE NULL END,reviewed_at=NULL,reviewed_by=NULL WHERE id=$1 RETURNING listed,business",
+      [profileId],
+    )
+  ).rows[0];
+  if (reviewed?.listed)
+    await notifyAdministrators(
+      c,
+      "Listed business photos updated",
+      reviewed.business +
+        " changed photos on its live listing. Review the updates in the administrator console.",
+    );
+}
 export const businessImages = Router();
 businessImages.use((req, _res, next) => {
   if (req.account.role !== "pro") fail(403, "Professional account required.");
@@ -91,10 +110,7 @@ businessImages.post("/:id/complete", async (req, res) => {
     await c.query("UPDATE business_images SET status='ready' WHERE id=$1", [
       f.id,
     ]);
-    await c.query(
-      "UPDATE profiles SET review_status='draft',review_note=NULL,submitted_at=NULL,reviewed_at=NULL,reviewed_by=NULL WHERE id=$1",
-      [req.account.id],
-    );
+    await resetReview(c, req.account.id);
   });
   for (const key of oldKeys)
     try {
@@ -116,11 +132,7 @@ businessImages.delete("/:slot", async (req, res) => {
         [req.account.id, slot],
       )
     ).rows;
-    if (removed.length)
-      await c.query(
-        "UPDATE profiles SET review_status='draft',review_note=NULL,submitted_at=NULL,reviewed_at=NULL,reviewed_by=NULL WHERE id=$1",
-        [req.account.id],
-      );
+    if (removed.length) await resetReview(c, req.account.id);
     return removed;
   });
   for (const f of files)
@@ -135,7 +147,7 @@ export const publicBusinessImages = Router();
 publicBusinessImages.get("/business-images/:id", async (req, res) => {
   const f = (
     await pool.query(
-      "SELECT i.object_key FROM business_images i JOIN profiles p ON p.id=i.profile_id WHERE i.id=$1 AND i.status='ready' AND p.verified AND p.review_status='approved' AND NOT p.suspended AND EXISTS(SELECT 1 FROM professional_subscriptions s WHERE s.user_id=p.id AND s.status IN ('active','trialing'))",
+      "SELECT i.object_key FROM business_images i JOIN profiles p ON p.id=i.profile_id WHERE i.id=$1 AND i.status='ready' AND p.verified AND (p.review_status='approved' OR p.listed) AND NOT p.suspended AND EXISTS(SELECT 1 FROM professional_subscriptions s WHERE s.user_id=p.id AND s.status IN ('active','trialing'))",
       [z.string().uuid().parse(req.params.id)],
     )
   ).rows[0];

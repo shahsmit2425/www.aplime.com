@@ -35,6 +35,7 @@ export type Profile = {
   rate: number;
   verified: boolean;
   suspended: boolean;
+  listed: boolean;
   available: boolean;
   availability: string[];
   rating: number;

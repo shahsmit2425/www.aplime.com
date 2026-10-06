@@ -95,6 +95,9 @@ await db.exec(
     "utf8",
   ),
 );
+await db.exec(
+  await readFile("src/server/db/migrations/011_listed_profiles.sql", "utf8"),
+);
 
 test.after(async () => {
   await db.close();
@@ -2133,4 +2136,121 @@ test("customers edit an open request, interested pros are told, and locked state
     revision: q.revision,
   });
   await assert.rejects(projectAction(id, customer, edit), /not available/);
+});
+
+test("saved, estimating and blocked professionals resolve correctly in the customer workspace", async () => {
+  const prefix = "saved-" + randomUUID();
+  const shopper = {
+    id: prefix + "-shopper",
+    name: "Saving customer",
+    email: prefix + "-shopper@example.invalid",
+    role: "customer" as const,
+    settings: {},
+  };
+  const pros = {
+    heart: prefix + "-heart",
+    quote: prefix + "-quote",
+    blocked: prefix + "-blocked",
+  };
+  await query("INSERT INTO users(id,name,email,role) VALUES($1,$2,$3,$4)", [
+    shopper.id,
+    shopper.name,
+    shopper.email,
+    "customer",
+  ]);
+  for (const id of Object.values(pros)) {
+    await query("INSERT INTO users(id,name,email,role) VALUES($1,$2,$3,$4)", [
+      id,
+      "Fixture pro",
+      id + "@example.invalid",
+      "pro",
+    ]);
+    // Draft, unverified profiles: saving must not depend on review state.
+    await query(
+      "INSERT INTO profiles(id,business,category,bio,zip,rate) VALUES($1,'Business ' || $1,'Painting','A plain unreviewed business profile','10001',40)",
+      [id],
+    );
+  }
+  await query("INSERT INTO saved(user_id,pro_id) VALUES($1,$2),($1,$3)", [
+    shopper.id,
+    pros.heart,
+    pros.blocked,
+  ]);
+  await query("INSERT INTO blocked(user_id,other_id) VALUES($1,$2)", [
+    shopper.id,
+    pros.blocked,
+  ]);
+  const projectId = randomUUID();
+  await query(
+    "INSERT INTO projects(id,customer_id,title,description,category,zip) VALUES($1,$2,'Fence painting','Repaint the back fence completely','Painting','10001')",
+    [projectId, shopper.id],
+  );
+  await query(
+    "INSERT INTO quotes(id,project_id,pro_id,amount,description) VALUES($1,$2,$3,20000,'Fence repaint estimate')",
+    [randomUUID(), projectId, pros.quote],
+  );
+  const view = await workspace(shopper);
+  assert.ok(view.saved.includes(pros.heart));
+  const shown = view.profiles.map((p) => p.id);
+  assert.ok(
+    shown.includes(pros.heart),
+    "a saved draft profile stays visible so it can be unsaved",
+  );
+  assert.ok(
+    shown.includes(pros.quote),
+    "a professional who sent an estimate is available to the customer",
+  );
+  assert.ok(
+    !shown.includes(pros.blocked),
+    "a blocked professional is hidden even when saved",
+  );
+  // The save endpoint's insert predicate refuses suspended profiles.
+  await query("UPDATE profiles SET suspended=true WHERE id=$1", [pros.quote]);
+  const refused = await query(
+    "INSERT INTO saved(user_id,pro_id) SELECT $1,id FROM profiles WHERE id=$2 AND NOT suspended ON CONFLICT DO NOTHING",
+    [shopper.id, pros.quote],
+  );
+  assert.equal(refused.rowCount, 0);
+  const allowed = await query(
+    "INSERT INTO saved(user_id,pro_id) SELECT $1,id FROM profiles WHERE id=$2 AND NOT suspended ON CONFLICT DO NOTHING",
+    [shopper.id, pros.heart],
+  );
+  assert.equal(allowed.rowCount, 0); // already saved: conflict, not an error
+});
+
+test("a listed business stays publicly visible while edits await re-review", async () => {
+  const prefix = "listed-" + randomUUID();
+  const id = prefix + "-pro";
+  await query(
+    "INSERT INTO users(id,name,email,role) VALUES($1,'Listed pro',$2,'pro')",
+    [id, prefix + "@example.invalid"],
+  );
+  await query(
+    "INSERT INTO profiles(id,business,category,bio,zip,rate,verified,review_status,listed) VALUES($1,'Listed business','Painting','A reviewed business profile','10001',60,true,'approved',true)",
+    [id],
+  );
+  await query(
+    "INSERT INTO professional_subscriptions(user_id,status) VALUES($1,'active')",
+    [id],
+  );
+  const { publicProfiles } = await import("../src/server/repository.js");
+  assert.equal((await publicProfiles(id)).length, 1);
+  // A material edit auto-resubmits for review but keeps the listing live.
+  await query(
+    "UPDATE profiles SET review_status='pending',submitted_at=now() WHERE id=$1",
+    [id],
+  );
+  assert.equal((await publicProfiles(id)).length, 1);
+  // Rejecting or requesting changes clears the flag and takes the page down.
+  await query(
+    "UPDATE profiles SET review_status='changes_requested',listed=false WHERE id=$1",
+    [id],
+  );
+  assert.equal((await publicProfiles(id)).length, 0);
+  // A never-approved pending submission is not public.
+  await query(
+    "UPDATE profiles SET review_status='pending',listed=false WHERE id=$1",
+    [id],
+  );
+  assert.equal((await publicProfiles(id)).length, 0);
 });

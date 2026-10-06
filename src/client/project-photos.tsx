@@ -31,7 +31,9 @@ export async function sendProjectPhoto(projectId: string, photo: ProjectPhoto) {
       signal: AbortSignal.timeout(120000),
     });
     if (!result.ok)
-      throw new Error("Image upload failed. Check your connection and retry.");
+      throw new Error(
+        `Image upload failed (storage responded ${result.status}). Check your connection and retry.`,
+      );
     await request(`/uploads/${photo.uploadId}/complete`, {});
   }
   photo.done = true;

@@ -1164,7 +1164,7 @@ function ProjectDetail() {
     ownProfile.verified &&
     !ownProfile.suspended &&
     ownProfile.available &&
-    ownProfile.reviewStatus === "approved";
+    (ownProfile.reviewStatus === "approved" || ownProfile.listed);
   const previewBlocked =
     !!data.marketplacePreview && !!data.discoveryRequirements?.length;
   const ownQuote = quotes.find((q) => q.proId === data.user.id);
@@ -1851,7 +1851,9 @@ function ProjectDetail() {
                       body: file,
                     });
                     if (!uploaded.ok)
-                      throw new Error("The file could not be uploaded.");
+                      throw new Error(
+                        `The file could not be uploaded (storage responded ${uploaded.status}). Please retry.`,
+                      );
                     await request("/uploads/" + r.id + "/complete", {});
                   }, "File uploaded.");
               }}

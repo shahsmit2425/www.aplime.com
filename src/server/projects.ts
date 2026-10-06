@@ -48,7 +48,7 @@ export async function projectAction(
         );
       const profile = (
         await c.query(
-          "SELECT 1 FROM profiles WHERE id=$1 AND verified AND review_status='approved' AND NOT suspended AND available",
+          "SELECT 1 FROM profiles WHERE id=$1 AND verified AND (review_status='approved' OR listed) AND NOT suspended AND available",
           [user.id],
         )
       ).rows[0];
@@ -103,7 +103,7 @@ export async function projectAction(
       const quote = (
         await c.query(
           action.type === "accept"
-            ? "SELECT q.* FROM quotes q JOIN profiles f ON f.id=q.pro_id WHERE q.id=$1 AND q.project_id=$2 AND q.status='pending' AND (q.expires_at IS NULL OR q.expires_at>now()) AND f.verified AND f.review_status='approved' AND NOT f.suspended"
+            ? "SELECT q.* FROM quotes q JOIN profiles f ON f.id=q.pro_id WHERE q.id=$1 AND q.project_id=$2 AND q.status='pending' AND (q.expires_at IS NULL OR q.expires_at>now()) AND f.verified AND (f.review_status='approved' OR f.listed) AND NOT f.suspended"
             : "SELECT q.* FROM quotes q WHERE q.id=$1 AND q.project_id=$2 AND q.status='pending'",
           [action.quoteId, id],
         )

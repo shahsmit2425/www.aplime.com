@@ -91,6 +91,7 @@ test("approved professional pages expose truthful local business metadata", () =
     rate: 75,
     verified: true,
     suspended: false,
+    listed: true,
     available: true,
     availability: ["Mon"],
     rating: 4.8,

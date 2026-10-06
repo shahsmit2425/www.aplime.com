@@ -42,12 +42,14 @@ export function BusinessProfile() {
       id: "setup",
       label: "Verification & review",
       Icon: ShieldCheck,
-      done: !!p?.verified && p?.reviewStatus === "approved",
+      done: !!p?.verified && (p?.reviewStatus === "approved" || !!p?.listed),
       status: !p?.verified
         ? "Identity verification needed"
         : p.reviewStatus === "approved"
           ? "Marketplace approved"
-          : "Review " + p.reviewStatus.replace("_", " "),
+          : p.listed
+            ? "Listed · changes under review"
+            : "Review " + p.reviewStatus.replace("_", " "),
     },
     {
       id: "preview",
@@ -158,8 +160,9 @@ export function BusinessProfile() {
           <Panel title="Marketplace review">
             <p>
               Aplime reviews your saved business details after identity
-              verification. Saving changes returns the listing to draft so the
-              updated information can be reviewed before customers see it.
+              verification. Once you are approved, your listing stays live
+              while later edits are re-checked. New or previously declined
+              listings stay in draft until you resubmit them.
             </p>
             <button
               disabled={
@@ -177,7 +180,9 @@ export function BusinessProfile() {
               }
             >
               {p?.reviewStatus === "pending"
-                ? "Review in progress"
+                ? p?.listed
+                  ? "Listed · changes under review"
+                  : "Review in progress"
                 : p?.reviewStatus === "approved"
                   ? "Marketplace approved"
                   : "Submit profile for review"}

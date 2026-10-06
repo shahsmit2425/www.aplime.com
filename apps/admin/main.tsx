@@ -411,8 +411,11 @@ function Admin() {
                       · {p.suspended ? "Suspended" : "Active"}
                     </p>
                     <p>
-                      Marketplace review: {p.reviewStatus.replace("_", " ")} ·
-                      service radius {p.serviceRadiusMiles} miles ·{" "}
+                      Marketplace review: {p.reviewStatus.replace("_", " ")} ·{" "}
+                      {p.listed
+                        ? "currently listed (edits are live)"
+                        : "not listed"}{" "}
+                      · service radius {p.serviceRadiusMiles} miles ·{" "}
                       {p.images?.length || 0} images
                     </p>
                     <p>{p.bio}</p>

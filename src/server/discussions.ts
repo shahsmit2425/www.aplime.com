@@ -106,7 +106,7 @@ discussions.post("/projects/:id/discussions", async (req, res) => {
       fail(409, "This project is no longer accepting responses.");
     await assertMatch(c, req.account.id, p.id);
     const eligible = await c.query(
-      "SELECT 1 FROM profiles f JOIN professional_subscriptions s ON s.user_id=f.id WHERE f.id=$1 AND f.verified AND f.review_status='approved' AND NOT f.suspended AND f.available AND s.status IN ('active','trialing')",
+      "SELECT 1 FROM profiles f JOIN professional_subscriptions s ON s.user_id=f.id WHERE f.id=$1 AND f.verified AND (f.review_status='approved' OR f.listed) AND NOT f.suspended AND f.available AND s.status IN ('active','trialing')",
       [req.account.id],
     );
     if (!eligible.rowCount)
