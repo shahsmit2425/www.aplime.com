@@ -37,27 +37,47 @@ webhooks.post(
         return;
       const obj = event.data.object as unknown as Record<string, any>;
       if (
-        event.type === "identity.verification_session.verified" ||
-        event.type === "identity.verification_session.requires_input"
+        [
+          "identity.verification_session.verified",
+          "identity.verification_session.requires_input",
+          "identity.verification_session.processing",
+          "identity.verification_session.canceled",
+        ].includes(event.type)
       ) {
-        const verified = event.type.endsWith(".verified");
-        // Match the stored session, not a caller-controlled profile field.
-        const rows = (
+        const owner = (
           await c.query(
-            "UPDATE profiles SET verified=$2 WHERE identity_session_id=$1 RETURNING id",
-            [obj.id, verified],
+            "SELECT id,verified FROM profiles WHERE identity_session_id=$1 FOR UPDATE",
+            [obj.id],
           )
-        ).rows;
-        if (rows[0])
-          await notify(
-            c,
-            rows[0].id,
-            verified
-              ? "Identity verified"
-              : "Identity verification needs attention",
-            "Open your business profile for the next step.",
-            { page: "profile" },
+        ).rows[0];
+        if (owner) {
+          // Read current Stripe state so a delayed retry event cannot undo verification.
+          // Only the stored session may update this account; metadata is never authority.
+          const current = await stripe().identity.verificationSessions.retrieve(
+            obj.id,
           );
+          const verified = current.status === "verified";
+          await c.query(
+            "UPDATE profiles SET verified=$2 WHERE identity_session_id=$1",
+            [obj.id, verified],
+          );
+          if (
+            verified !== owner.verified ||
+            current.status === "requires_input" ||
+            current.status === "canceled"
+          )
+            await notify(
+              c,
+              owner.id,
+              verified
+                ? "Identity verified"
+                : current.status === "canceled"
+                  ? "Identity verification canceled"
+                  : "Identity verification needs attention",
+              "Open identity verification for the result and next step.",
+              { page: "verification" },
+            );
+        }
       }
       if (event.type.startsWith("customer.subscription.")) {
         // Serialize per customer and read Stripe's current state: out-of-order events

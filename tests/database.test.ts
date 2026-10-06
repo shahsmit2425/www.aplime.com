@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { PGlite } from "@electric-sql/pglite";
 process.env.STRIPE_PRO_PRICE_ID = "price_test_pro";
+process.env.STRIPE_PUBLISHABLE_KEY = "pk_test_fixture";
 process.env.STRIPE_SECRET_KEY = "sk_test_unit_fixture";
 process.env.STRIPE_WEBHOOK_SECRET = "whsec_unit_fixture";
 process.env.MARKETPLACE_DISCOVERY_MODE = "matched";
@@ -2432,4 +2433,196 @@ test("a listed business stays publicly visible while edits await re-review", asy
     [id],
   );
   assert.equal((await publicProfiles(id)).length, 0);
+});
+
+test("identity workflow resumes the owner's session and trusts only confirmed signed results", async () => {
+  const { default: express } = await import("express");
+  const { identityVerification } =
+    await import("../src/server/identity-verification.js");
+  const { errorResponse } = await import("../src/server/error-response.js");
+  const owner = {
+    ...professional,
+    id: "identity-owner-" + randomUUID(),
+    email: "identity-" + randomUUID() + "@example.invalid",
+  };
+  await query("INSERT INTO users(id,name,email,role) VALUES($1,$2,$3,'pro')", [
+    owner.id,
+    owner.name,
+    owner.email,
+  ]);
+  await query(
+    "INSERT INTO profiles(id,business,category,bio,zip,rate) VALUES($1,'Identity test business','Handyman','Verification fixture','10001',50)",
+    [owner.id],
+  );
+  const sessions = stripe().identity.verificationSessions;
+  const originalRetrieve = sessions.retrieve,
+    originalCreate = sessions.create;
+  let status = "requires_input",
+    sessionId = "vs_fixture_" + randomUUID(),
+    creates = 0;
+  let failure: any = null;
+  const fakeSession = () => ({
+    id: sessionId,
+    status,
+    url: "https://verify.stripe.com/fixture",
+    client_secret: "owner-only-secret",
+    last_error: failure,
+    verified_outputs: { id_number: "PRIVATE_DOCUMENT" },
+  });
+  sessions.retrieve = (async (id: string) => {
+    assert.equal(id, sessionId);
+    return fakeSession();
+  }) as any;
+  sessions.create = (async (body: any, options: any) => {
+    creates++;
+    assert.equal(body.return_url.endsWith("/app/verification/return"), true);
+    assert.deepEqual(body.options, {
+      document: { require_matching_selfie: true },
+    });
+    assert.equal(body.metadata.userId, owner.id);
+    assert.ok(options.idempotencyKey.startsWith("identity:" + owner.id + ":"));
+    status = "requires_input";
+    failure = null;
+    return fakeSession();
+  }) as any;
+  const app = express();
+  app.use("/webhooks", webhooks);
+  app.use(express.json());
+  app.use((req, _r, next) => {
+    req.account = req.headers["x-test-user"] === owner.id ? owner : outsider;
+    next();
+  });
+  app.use("/identity", identityVerification);
+  app.use((e: any, _q: any, r: any, _n: any) => {
+    const result = errorResponse(e);
+    r.status(result.status).json(result.body);
+  });
+  const server = app.listen(0, "127.0.0.1");
+  await new Promise<void>((resolve) => server.once("listening", resolve));
+  const base = "http://127.0.0.1:" + (server.address() as any).port;
+  const call = (method = "GET", user = owner.id) =>
+    fetch(base + "/identity", {
+      method,
+      headers: { "x-test-user": user, "Content-Type": "application/json" },
+      ...(method === "POST"
+        ? {
+            body: JSON.stringify({
+              userId: professional.id,
+              verified: true,
+              return_url: "https://evil.example",
+            }),
+          }
+        : {}),
+    });
+  const sendEvent = async (type: string, id = sessionId) => {
+    const payload = JSON.stringify({
+      id: "evt_identity_flow_" + randomUUID(),
+      type,
+      data: { object: { id, metadata: { userId: professional.id } } },
+    });
+    const signature = stripe().webhooks.generateTestHeaderString({
+      payload,
+      secret: "whsec_unit_fixture",
+    });
+    const response = await fetch(base + "/webhooks/stripe", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "stripe-signature": signature,
+      },
+      body: payload,
+    });
+    assert.equal(response.status, 200);
+  };
+  try {
+    assert.equal((await call("GET", outsider.id)).status, 403);
+    assert.equal((await call("POST", outsider.id)).status, 403);
+    assert.equal((await (await call()).json()).status, "not_started");
+    const start = await call("POST");
+    assert.equal(start.headers.get("cache-control"), "no-store");
+    const initial = await start.json();
+    assert.equal(initial.clientSecret, "owner-only-secret");
+    assert.equal(initial.publishableKey, "pk_test_fixture");
+    assert.equal(initial.verified_outputs, undefined);
+    assert.equal(creates, 1);
+    await call("POST");
+    assert.equal(creates, 1, "resume must reuse the stored session");
+    const safe = await (await call()).json();
+    assert.equal(safe.status, "requires_input");
+    assert.equal(safe.clientSecret, undefined);
+    assert.equal(safe.url, undefined);
+    assert.equal(JSON.stringify(safe).includes("PRIVATE_DOCUMENT"), false);
+    failure = { code: "document_expired", reason: "PRIVATE_PROVIDER_TEXT" };
+    const attention = await (await call()).json();
+    assert.equal(attention.needsAttention, true);
+    assert.match(attention.message, /unexpired/);
+    assert.equal(
+      JSON.stringify(attention).includes("PRIVATE_PROVIDER_TEXT"),
+      false,
+    );
+    status = "processing";
+    assert.equal((await (await call("POST")).json()).status, "processing");
+    assert.equal(creates, 1);
+    status = "verified";
+    const waiting = await (await call()).json();
+    assert.equal(waiting.status, "processing");
+    assert.equal(waiting.awaitingConfirmation, true);
+    assert.equal((await (await call("POST")).json()).status, "processing");
+    assert.equal(creates, 1);
+    assert.equal(
+      (
+        (await query("SELECT verified FROM profiles WHERE id=$1", [owner.id]))
+          .rows[0] as { verified: boolean }
+      ).verified,
+      false,
+    );
+    await sendEvent("identity.verification_session.verified");
+    assert.equal((await (await call()).json()).status, "verified");
+    // A delayed requires_input event reads the current verified Stripe state.
+    await sendEvent("identity.verification_session.requires_input");
+    assert.equal(
+      (
+        (await query("SELECT verified FROM profiles WHERE id=$1", [owner.id]))
+          .rows[0] as { verified: boolean }
+      ).verified,
+      true,
+    );
+    assert.equal((await (await call("POST")).json()).status, "verified");
+    assert.equal(creates, 1);
+    await query("UPDATE profiles SET verified=false WHERE id=$1", [owner.id]);
+    status = "canceled";
+    await sendEvent("identity.verification_session.canceled");
+    assert.equal((await (await call()).json()).status, "canceled");
+    const previousId = sessionId;
+    sessionId = "vs_restarted_" + randomUUID();
+    // Retrieve the canceled session, create a fresh one, then ignore the old session's late webhook.
+    sessions.retrieve = (async (id: string) =>
+      id === previousId
+        ? { ...fakeSession(), id, status: "canceled" }
+        : fakeSession()) as any;
+    await call("POST");
+    assert.equal(creates, 2);
+    await sendEvent("identity.verification_session.verified", previousId);
+    assert.equal(
+      (
+        (await query("SELECT verified FROM profiles WHERE id=$1", [owner.id]))
+          .rows[0] as { verified: boolean }
+      ).verified,
+      false,
+    );
+    assert.equal(
+      (
+        (
+          await query("SELECT identity_session_id FROM profiles WHERE id=$1", [
+            owner.id,
+          ])
+        ).rows[0] as any
+      ).identity_session_id,
+      sessionId,
+    );
+  } finally {
+    sessions.retrieve = originalRetrieve;
+    sessions.create = originalCreate;
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
 });

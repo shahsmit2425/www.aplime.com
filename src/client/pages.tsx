@@ -5,6 +5,7 @@ import { AddressAutocomplete } from "./address-autocomplete.js";
 import { Preferences } from "./preferences.js";
 import { Availability } from "./availability.js";
 import { BusinessProfile } from "./business-profile.js";
+import { IdentityVerification } from "./identity-verification.js";
 import { BusinessDisplay } from "./business-display.js";
 import { Discussions } from "./discussions.js";
 import {
@@ -83,6 +84,8 @@ export function Pages() {
       return <Reviews />;
     case "availability":
       return <Preferences />;
+    case "verification":
+      return <IdentityVerification />;
     case "profile":
     case "onboarding":
       return <Business />;
@@ -414,10 +417,7 @@ function Directory() {
                       Chat with pro
                     </button>
                   )}
-                  <button
-                    className="secondary"
-                    onClick={() => go("pro", p.id)}
-                  >
+                  <button className="secondary" onClick={() => go("pro", p.id)}>
                     Full profile
                   </button>
                   <SavePro proId={p.id} />
@@ -525,42 +525,62 @@ function ProProfile() {
       : undefined;
   return (
     <>
-      <Head
-        title={p.business}
-        action={<SavePro proId={p.id} label />}
-      >
-        Review this business, its work photos, and its service details.
-      </Head>
+      <div className="profile-page-toolbar">
+        <button className="secondary" onClick={() => go("discover")}>
+          <Search size={17} /> Back to professionals
+        </button>
+        <SavePro proId={p.id} label />
+      </div>
       {data.marketplacePreview && !p.canRespond && (
         <p className="business-tip">
-          Development preview: this business is still completing its setup.
-          Chat and estimates open up once setup is finished.
+          Development preview: this business is still completing its setup. Chat
+          and estimates open up once setup is finished.
         </p>
       )}
-      {match && openProjects.length > 1 && (
-        <Field label="Choose the project to discuss">
-          <select
-            value={selectedId}
-            onChange={(e) => setProjectId(e.target.value)}
-          >
-            {openProjects.map((x) => (
-              <option value={x.id} key={x.id}>
-                {x.title} · {x.zip}
-              </option>
-            ))}
-          </select>
-        </Field>
-      )}
-      <div className="actions">
-        {match && (
-          <ChatWithPro projectId={match} proId={p.id} secondary={false} />
-        )}
-        <button className="secondary" onClick={() => go("discover")}>
-          <Search size={17} />
-          Back to professionals
-        </button>
-      </div>
-      <BusinessDisplay profile={p} />
+      <BusinessDisplay
+        profile={p}
+        actions={
+          data.user.role === "customer" ? (
+            <>
+              {match && openProjects.length > 1 && (
+                <Field label="Project to discuss">
+                  <select
+                    value={selectedId}
+                    onChange={(e) => setProjectId(e.target.value)}
+                  >
+                    {openProjects.map((x) => (
+                      <option value={x.id} key={x.id}>
+                        {x.title} · {x.zip}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              )}
+              {match ? (
+                <ChatWithPro projectId={match} proId={p.id} secondary={false} />
+              ) : p.canRespond === false ? (
+                <p className="business-tip">
+                  This business is completing its setup. Messaging will be
+                  available when it is ready.
+                </p>
+              ) : (
+                <>
+                  <p>
+                    Start a project to discuss the work with this professional.
+                  </p>
+                  <button onClick={() => go("projects", "new")}>
+                    <Plus size={17} /> Start a project
+                  </button>
+                </>
+              )}
+              <small className="muted">
+                Chat, audio and video calls are available in your project
+                conversation.
+              </small>
+            </>
+          ) : undefined
+        }
+      />
     </>
   );
 }
@@ -1875,8 +1895,7 @@ function ProjectDetail() {
             .filter(
               (f) =>
                 f.projectId === p.id &&
-                (f.status === "pending" ||
-                  !f.contentType.startsWith("image/")),
+                (f.status === "pending" || !f.contentType.startsWith("image/")),
             )
             .map((f) => (
               <button

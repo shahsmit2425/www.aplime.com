@@ -17,9 +17,13 @@ type Selection = {
 export function BusinessMedia({ profile }: { profile?: Profile }) {
   const { run, busy } = useWorkspace();
   const [showOlderPhotos, setShowOlderPhotos] = useState(false);
-  const [pending, setPending] = useState<Selection | null>(null);
-  const [progress, setProgress] = useState("");
-  const [failed, setFailed] = useState(false);
+  const [pending, setPending] = useState<Record<string, Selection>>({});
+  const [statuses, setStatuses] = useState<
+    Record<string, { progress: string; failed: boolean }>
+  >({});
+  const [activeSlot, setActiveSlot] = useState<string | null>(null);
+  const status = (slot: string, progress: string, failed = false) =>
+    setStatuses((current) => ({ ...current, [slot]: { progress, failed } }));
   const [confirmDelete, setConfirmDelete] = useState<{
     slot: string;
     id: string;
@@ -41,25 +45,30 @@ export function BusinessMedia({ profile }: { profile?: Profile }) {
   }, [view]);
   const olderPhotos =
     profile?.images?.filter((image) => image.slot.startsWith("work-")) || [];
-  const clear = () => {
-    if (pending) {
-      URL.revokeObjectURL(pending.preview);
-      urls.current.delete(pending.preview);
+  const clear = (slot: string) => {
+    const selected = pending[slot];
+    if (selected) {
+      URL.revokeObjectURL(selected.preview);
+      urls.current.delete(selected.preview);
     }
-    setPending(null);
-    setProgress("");
-    setFailed(false);
+    setPending((current) => {
+      const next = { ...current };
+      delete next[slot];
+      return next;
+    });
+    status(slot, "");
     setView(null);
   };
   const upload = (item: Selection) => {
     if (uploading.current || busy) return;
     uploading.current = true;
+    setActiveSlot(item.slot);
     void run(async () => {
-      setFailed(false);
+      status(item.slot, "");
       controller.current = new AbortController();
       try {
         if (!item.uploaded) {
-          setProgress("Preparing a secure upload…");
+          status(item.slot, "Preparing a secure upload…");
           const reservation = await request<{ id: string; uploadPath: string }>(
             "/profile/images",
             {
@@ -71,7 +80,7 @@ export function BusinessMedia({ profile }: { profile?: Profile }) {
             },
           );
           item.reservation = reservation.id;
-          setProgress("Uploading image… Keep this page open.");
+          status(item.slot, "Uploading image… Keep this page open.");
           await uploadImageContent(
             reservation.uploadPath,
             item.file,
@@ -82,20 +91,22 @@ export function BusinessMedia({ profile }: { profile?: Profile }) {
           );
           item.uploaded = true;
         }
-        setProgress("Checking and saving your image…");
+        status(item.slot, "Checking and saving your image…");
         await request("/profile/images/" + item.reservation + "/complete", {});
-        clear();
+        clear(item.slot);
       } catch (error) {
-        setFailed(true);
-        setProgress(
+        status(
+          item.slot,
           item.uploaded
             ? "The file uploaded, but saving could not be confirmed. Retry to check and finish saving."
             : (error as Error).message +
                 " Your saved image has not been replaced.",
+          true,
         );
         throw error;
       } finally {
         uploading.current = false;
+        setActiveSlot(null);
         controller.current = null;
       }
     }, "Business image saved.");
@@ -126,7 +137,11 @@ export function BusinessMedia({ profile }: { profile?: Profile }) {
           )
           .map((slot) => {
             const image = profile?.images?.find((i) => i.slot === slot);
-            const selected = pending?.slot === slot ? pending : null;
+            const selected = pending[slot];
+            const { progress, failed } = statuses[slot] || {
+              progress: "",
+              failed: false,
+            };
             const label =
               slot === "logo"
                 ? "Business logo"
@@ -198,26 +213,27 @@ export function BusinessMedia({ profile }: { profile?: Profile }) {
                       aria-label={"Choose " + label}
                       type="file"
                       accept={IMAGE_TYPES.join(",")}
-                      disabled={!profile || busy || (!!pending && !selected)}
+                      disabled={!profile || busy}
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         e.target.value = "";
                         if (!file) return;
                         const problem = imageError(file);
                         if (problem) {
-                          setProgress(problem);
-                          setFailed(true);
+                          status(slot, problem, true);
                           return;
                         }
-                        if (pending) {
-                          URL.revokeObjectURL(pending.preview);
-                          urls.current.delete(pending.preview);
+                        if (selected) {
+                          URL.revokeObjectURL(selected.preview);
+                          urls.current.delete(selected.preview);
                         }
                         const preview = URL.createObjectURL(file);
                         urls.current.add(preview);
-                        setPending({ slot, file, preview });
-                        setProgress("");
-                        setFailed(false);
+                        setPending((current) => ({
+                          ...current,
+                          [slot]: { slot, file, preview },
+                        }));
+                        status(slot, "");
                         setConfirmDelete(null);
                         setView(null);
                       }}
@@ -227,7 +243,7 @@ export function BusinessMedia({ profile }: { profile?: Profile }) {
                     <button
                       type="button"
                       className="text-button"
-                      disabled={busy || !!pending}
+                      disabled={busy}
                       onClick={() => setConfirmDelete({ slot, id: image.id })}
                     >
                       <Trash2 size={16} />
@@ -253,7 +269,7 @@ export function BusinessMedia({ profile }: { profile?: Profile }) {
                         ) : (
                           <Upload size={16} />
                         )}
-                        {busy
+                        {activeSlot === slot
                           ? "Saving…"
                           : failed
                             ? "Retry save"
@@ -263,7 +279,7 @@ export function BusinessMedia({ profile }: { profile?: Profile }) {
                         type="button"
                         className="secondary"
                         disabled={busy}
-                        onClick={clear}
+                        onClick={() => clear(slot)}
                       >
                         Discard selection
                       </button>
@@ -309,23 +325,25 @@ export function BusinessMedia({ profile }: { profile?: Profile }) {
                     </div>
                   </div>
                 )}
+                {progress && (
+                  <p
+                    className={
+                      failed ? "business-upload-error" : "business-tip"
+                    }
+                    role={failed ? "alert" : "status"}
+                  >
+                    {progress}
+                  </p>
+                )}
               </section>
             );
           })}
       </div>
-      {progress && (
-        <p
-          className={failed ? "business-upload-error" : "business-tip"}
-          role={failed ? "alert" : "status"}
-        >
-          {progress}
-        </p>
-      )}
       {olderPhotos.length > 0 && (
         <button
           type="button"
           className="text-button"
-          disabled={busy || !!pending}
+          disabled={busy}
           onClick={() => setShowOlderPhotos(!showOlderPhotos)}
         >
           {showOlderPhotos ? "Hide" : "Manage"} previous work photos (

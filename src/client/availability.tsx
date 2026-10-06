@@ -2,6 +2,10 @@ import { CalendarDays } from "lucide-react";
 import { weekdays } from "../shared/preferences.js";
 import type { Profile } from "../shared/domain.js";
 export function Availability({ profile }: { profile: Profile }) {
+  const formatTime = (time: string) => {
+    const [hour, minute] = time.split(":").map(Number);
+    return `${hour % 12 || 12}:${String(minute).padStart(2, "0")} ${hour >= 12 ? "PM" : "AM"}`;
+  };
   return (
     <div className="published-hours">
       <h3>
@@ -12,12 +16,24 @@ export function Availability({ profile }: { profile: Profile }) {
         <dl className="availability-list">
           {weekdays.map((day) => (
             <div key={day}>
-              <dt>{day}</dt>
+              <dt>
+                {
+                  {
+                    Mon: "Monday",
+                    Tue: "Tuesday",
+                    Wed: "Wednesday",
+                    Thu: "Thursday",
+                    Fri: "Friday",
+                    Sat: "Saturday",
+                    Sun: "Sunday",
+                  }[day]
+                }
+              </dt>
               <dd>
                 {profile.weeklyHours?.[day]
-                  ? profile.weeklyHours[day]!.start +
+                  ? formatTime(profile.weeklyHours[day]!.start) +
                     " – " +
-                    profile.weeklyHours[day]!.end
+                    formatTime(profile.weeklyHours[day]!.end)
                   : "Closed"}
               </dd>
             </div>

@@ -33,6 +33,8 @@ test("actual admin routes reject unauthenticated direct requests and forged role
     ["/admin/profiles/other", "POST"],
     ["/admin/tickets/other", "POST"],
     ["/workspace?role=admin", "GET"],
+    ["/profile/identity", "GET"],
+    ["/profile/identity", "POST"],
     ["/account", "POST"],
     ["/projects/00000000-0000-4000-8000-000000000001/actions", "POST"],
     ["/projects/00000000-0000-4000-8000-000000000001/activity", "GET"],

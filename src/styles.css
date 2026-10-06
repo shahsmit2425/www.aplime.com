@@ -2980,3 +2980,516 @@ blockquote {
   align-items: center;
   gap: 6px;
 }
+
+/* Business profile: keep uploaded advertisements legible instead of cropping them. */
+.profile-page-toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+.business-profile-design {
+  overflow: visible;
+  border: 0;
+  background: transparent;
+}
+.profile-preview-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  color: #236344;
+  background: #e6f3e9;
+  border-radius: 16px 16px 0 0;
+  font-size: 0.85rem;
+}
+.profile-brand-header {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 32px;
+  border: 1px solid #d7e4db;
+  border-radius: 20px;
+  background: linear-gradient(110deg, #fff 45%, #eef7ef);
+  margin-bottom: 24px;
+}
+.profile-preview-label + .profile-brand-header {
+  border-radius: 0 0 20px 20px;
+}
+.profile-brand-mark {
+  width: 112px;
+  height: 112px;
+  flex-shrink: 0;
+  padding: 12px;
+  border: 1px solid #dde8df;
+  border-radius: 22px;
+  background: #fff;
+  display: grid;
+  place-items: center;
+  color: #087943;
+}
+.profile-brand-mark button {
+  background: transparent;
+  border: 0;
+  border-radius: 12px;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+}
+.profile-brand-mark img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.profile-brand-copy {
+  min-width: 0;
+}
+.profile-brand-copy .eyebrow {
+  margin: 0 0 8px;
+  font-size: 0.74rem;
+}
+.profile-brand-copy h1 {
+  margin: 0 0 12px;
+  font-size: clamp(1.8rem, 3.5vw, 2.5rem);
+  letter-spacing: -0.04em;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+.profile-location {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  color: #526359;
+  font-size: 0.93rem;
+  margin: 0;
+}
+.profile-trust-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+.profile-trust {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #e8f3eb;
+  color: #1f633d;
+  padding: 7px 10px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+.profile-trust.pending {
+  background: #f6f0df;
+  color: #795a1d;
+}
+.profile-content-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(280px, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+.profile-main-content,
+.profile-sidebar {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+}
+.profile-content-card {
+  padding: 26px;
+  border: 1px solid #dce6df;
+  border-radius: 18px;
+  background: white;
+  box-shadow: 0 4px 20px #1b403506;
+  min-width: 0;
+}
+.profile-content-card h2 {
+  font-size: 1.15rem;
+  line-height: 1.4;
+  margin: 0 0 16px;
+  letter-spacing: -0.02em;
+}
+.profile-content-card > .eyebrow {
+  font-size: 0.7rem;
+  margin: 0 0 9px;
+}
+.profile-content-card p {
+  line-height: 1.7;
+  color: #4c6054;
+}
+.profile-content-card .business-description {
+  color: #304b3b;
+  margin-bottom: 24px;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+.profile-service-tags {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.profile-service-tags > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 13px;
+  background: #f1f7f2;
+  color: #25533a;
+  font-weight: 600;
+  border-radius: 9px;
+  font-size: 0.88rem;
+}
+.profile-fact-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  border-top: 1px solid #e3ebe5;
+  padding-top: 24px;
+  margin-top: 24px;
+}
+.profile-fact-strip > div {
+  display: grid;
+  gap: 6px;
+  flex: 1 1 140px;
+}
+.profile-fact-strip strong {
+  color: #14643d;
+  font-size: 1.65rem;
+}
+.profile-fact-strip strong small {
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+.profile-fact-strip span {
+  color: #627268;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+.profile-card-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.profile-card-heading h2 {
+  margin: 0;
+}
+.profile-card-heading > span {
+  color: #6a786e;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.profile-advertisement {
+  padding: 18px;
+}
+.profile-advertisement-image {
+  display: block;
+  padding: 0;
+  background: #f4f4ed;
+  border: 1px solid #e4e8de;
+  border-radius: 12px;
+  width: 100%;
+  overflow: hidden;
+  color: #31523b;
+}
+.profile-advertisement-image img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 520px;
+  object-fit: contain;
+}
+.profile-advertisement-image span,
+.profile-photo-button span {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  padding: 12px;
+  background: #f5f8f5;
+}
+.profile-contact-list {
+  display: grid;
+  gap: 18px;
+}
+.profile-contact-list > a,
+.profile-contact-list > div {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  color: #244c36;
+  text-decoration: none;
+  font-weight: 600;
+  min-width: 0;
+}
+.profile-contact-list svg {
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+.profile-contact-list span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.9rem;
+}
+.profile-contact-list small {
+  display: block;
+  color: #64796b;
+  font-weight: 400;
+  font-size: 0.75rem;
+  margin-bottom: 4px;
+}
+.profile-contact-list a:hover {
+  text-decoration: underline;
+}
+.profile-contact-actions {
+  border-top: 4px solid #087c48;
+}
+.profile-contact-actions > button {
+  width: 100%;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+.profile-contact-actions > small {
+  display: block;
+  line-height: 1.6;
+  margin-top: 8px;
+}
+.profile-photo-button {
+  display: block;
+  padding: 0;
+  overflow: hidden;
+  background: #f3f7f3;
+  border: 1px solid #dce6df;
+  border-radius: 12px;
+}
+.profile-photo-button img {
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+  display: block;
+}
+.profile-payment-note {
+  font-size: 0.8rem;
+  line-height: 1.7;
+  color: #617669;
+  padding: 0 6px;
+  margin: 0;
+}
+.business-profile-design .published-hours {
+  margin: 0;
+  background: transparent;
+  padding: 0;
+}
+.business-profile-design .published-hours h3 {
+  margin: 0 0 8px;
+  font-size: 1.15rem;
+}
+.business-profile-design .availability-list {
+  grid-template-columns: 1fr;
+  gap: 0;
+}
+.business-profile-design .availability-list > div {
+  padding: 11px 0;
+  border-bottom: 1px solid #edf1ed;
+  font-size: 0.9rem;
+}
+.business-profile-design .availability-list > div:last-child {
+  border-bottom: 0;
+}
+.business-profile-design .availability-list dd {
+  font-weight: 600;
+  color: #365942;
+}
+.identity-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(280px, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+.identity-main,
+.identity-guide {
+  background: #fff;
+  padding: 32px;
+  border: 1px solid #d7e4db;
+  border-radius: 20px;
+}
+.identity-main {
+  border-top: 4px solid #087c48;
+}
+.identity-status-icon {
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 20px;
+  color: #087c48;
+  background: #eaf6ed;
+  margin-bottom: 24px;
+}
+.identity-main h2 {
+  font-size: clamp(1.6rem, 3vw, 2rem);
+  letter-spacing: -0.035em;
+  margin: 10px 0 16px;
+}
+.identity-main > p,
+.identity-guide p {
+  color: #526659;
+  line-height: 1.7;
+}
+.identity-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 26px 0 14px;
+}
+.identity-progress {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  border-top: 1px solid #e0e8e1;
+  padding-top: 24px;
+  margin-top: 30px;
+}
+.identity-progress > div {
+  display: grid;
+  gap: 9px;
+  font-size: 0.8rem;
+  color: #6f7b73;
+}
+.identity-progress span {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  background: #eef2ee;
+  border-radius: 50%;
+}
+.identity-progress .complete {
+  color: #087c48;
+}
+.identity-progress .complete span {
+  background: #e3f3e7;
+}
+.identity-guide h2 {
+  font-size: 1.2rem;
+  margin: 0 0 24px;
+}
+.identity-guide > div:not(.identity-help-links) {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 22px;
+}
+.identity-guide > div > svg {
+  flex-shrink: 0;
+  color: #087c48;
+}
+.identity-guide strong {
+  font-size: 0.95rem;
+  color: #294c37;
+}
+.identity-guide p {
+  font-size: 0.85rem;
+  margin: 6px 0 0;
+}
+.identity-guide .identity-scope {
+  border-top: 1px solid #e0e8e1;
+  padding-top: 20px;
+  margin-top: 20px;
+}
+.identity-help-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-top: 20px;
+  font-size: 0.85rem;
+}
+.identity-help-links a {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  color: #087043;
+}
+.identity-main .business-tip svg {
+  vertical-align: middle;
+}
+@media (max-width: 1000px) {
+  .profile-content-grid,
+  .identity-layout {
+    grid-template-columns: 1fr;
+  }
+  .profile-sidebar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .profile-contact-actions {
+    grid-column: 1/-1;
+  }
+  .profile-advertisement-image img {
+    max-height: 600px;
+  }
+}
+@media (max-width: 600px) {
+  .profile-brand-header {
+    align-items: flex-start;
+    padding: 20px;
+    gap: 14px;
+    flex-direction: column;
+  }
+  .profile-brand-mark {
+    width: 82px;
+    height: 82px;
+    padding: 8px;
+  }
+  .profile-location {
+    font-size: 0.85rem;
+  }
+  .profile-content-card,
+  .identity-main,
+  .identity-guide {
+    padding: 20px;
+  }
+  .profile-content-grid {
+    gap: 16px;
+  }
+  .profile-sidebar {
+    grid-template-columns: 1fr;
+  }
+  .profile-page-toolbar button {
+    font-size: 0.8rem;
+    padding: 10px;
+  }
+  .profile-trust-row {
+    gap: 6px;
+  }
+  .profile-trust {
+    font-size: 0.72rem;
+  }
+  .profile-brand-copy h1 {
+    font-size: 1.9rem;
+  }
+  .identity-actions > button {
+    width: 100%;
+    justify-content: center;
+  }
+  .identity-progress {
+    gap: 9px;
+  }
+  .identity-progress strong {
+    font-size: 0.7rem;
+  }
+}
+
+@media (max-width: 1000px) {
+  .profile-content-grid .profile-sidebar {
+    display: contents;
+  }
+  .profile-content-grid .profile-contact-actions {
+    order: -1;
+  }
+}

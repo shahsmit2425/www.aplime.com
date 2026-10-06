@@ -10,7 +10,7 @@ import {
 import { categories } from "../shared/domain.js";
 import { hasBusinessBranding } from "../shared/business-images.js";
 import { useWorkspace } from "./workspace.js";
-import { request, openExternal } from "./api.js";
+import { request } from "./api.js";
 import { Empty, Head, Panel, Field, Form } from "./ui.js";
 import { BusinessMedia } from "./business-media.js";
 import { BusinessDisplay } from "./business-display.js";
@@ -98,18 +98,12 @@ export function BusinessProfile() {
               <p>
                 {p?.verified
                   ? "Your identity is verified. This does not verify business licensing or insurance."
-                  : "Save your details, then complete identity verification securely through Stripe."}
+                  : "Verify the account holder’s ID and selfie securely with Stripe. Track the result and resume verification from one place."}
               </p>
-              <button
-                disabled={busy || !p || p.verified}
-                onClick={() =>
-                  void run(async () => {
-                    const r = await request("/profile/identity", {});
-                    await openExternal(r.url);
-                  }, "")
-                }
-              >
-                {p?.verified ? "Identity verified" : "Verify identity"}
+              <button disabled={!p} onClick={() => go("verification")}>
+                {p?.verified
+                  ? "View verification status"
+                  : "Open identity verification"}
               </button>
             </Panel>
             <Panel title="Business membership">

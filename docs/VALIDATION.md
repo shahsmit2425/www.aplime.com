@@ -1,3 +1,17 @@
+## Business profile redesign and Stripe Identity flow - October 6, 2026
+
+The saved business profile preview and customer/public profile share a brand header, content cards, full advertisement image with image dialog, contact links, services, rates, and a vertically readable weekly schedule. Request availability respects server eligibility. Mobile places project discussion actions before the remaining profile content. Private base addresses are not rendered. Browser review checked desktop and 390px viewport layouts using an isolated, labeled local fixture without database records or authentication bypass; no horizontal overflow was present.
+
+Identity verification has a professional-only page at `/app/verification` and a return page at `/app/verification/return`. Authenticated start/resume responses optionally enable Stripe.js's in-website modal, with hosted fallback and native hosted flow. Status handles initial, resumed, needs-input, processing, awaiting webhook, canceled and verified sessions. Documents/selfies remain collected by Stripe. Returning from the hosted flow or finishing the modal never grants verification. Signed webhooks reconcile current Stripe state and ignore sessions no longer attached to the account.
+
+Validation: TypeScript and web/SSR/admin builds passed; all 84 tests passed. Regression tests cover owner-only access, session reuse, server-chosen return URL and selfie checks, safe status responses, client-submitted verification rejection, canceled session replacement, delayed events, and webhook confirmation. Live Stripe modal/credentials/webhook delivery and signed native return behavior have not been verified. Capacitor asset/plugin sync passed for Android and iOS; CocoaPods/Xcode checks were unavailable on Windows. Git commit was blocked by permission denied for `.git/index.lock`; changes remain local on development. Render deployment remains pending.
+
+## Independent business image selections - October 6, 2026
+
+Logo and advertising image keep independent pending previews, errors and progress. Saving or discarding one preserves the other. Actual writes remain serialized; only the active card reports saving. Storage failures log only allowlisted provider codes/status and missing variable names, never credentials or raw provider messages.
+
+Validation: 83 tests passed; TypeScript and web/SSR/admin builds passed. Live R2 credentials and authenticated browser interaction are not verified. Render configuration must be corrected before claiming upload recovery.
+
 # Validation and launch status
 
 ## Business-image upload recovery and controls — October 6, 2026

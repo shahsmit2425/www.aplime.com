@@ -8,10 +8,10 @@ For website-only testing, leave GitHub `MOBILE_RELEASES_ENABLED` unset or set it
 
 Use two Render groups per environment. Replace development with stagging or production for the other environments.
 
-| Group | Linked services | Variables |
-| --- | --- | --- |
-| servicetones-development-common | Customer web, admin static site, API, mail worker | NODE_ENV, NODE_VERSION, APP_ENV, SITE_URL, API_URL |
-| servicetones-development-backend | API and mail worker only | Every other application variable below, including DATABASE_URL, ADMIN_ALLOWED_UIDS and provider credentials |
+| Group                            | Linked services                                   | Variables                                                                                                   |
+| -------------------------------- | ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| servicetones-development-common  | Customer web, admin static site, API, mail worker | NODE_ENV, NODE_VERSION, APP_ENV, SITE_URL, API_URL                                                          |
+| servicetones-development-backend | API and mail worker only                          | Every other application variable below, including DATABASE_URL, ADMIN_ALLOWED_UIDS and provider credentials |
 
 The Blueprint creates six groups and links them to the correct services. It supplies non-secret defaults only. Add SITE_URL/API_URL manually to common. After creating the database, copy its internal URL into backend DATABASE_URL. PostgreSQL itself does not consume an application group. Do not duplicate variable names between groups or leave conflicting service-level overrides.
 
@@ -25,7 +25,7 @@ SITE_URL=https://<customer-domain>
 API_URL=https://<api-domain>
 ```
 
-Put ALLOWED_ORIGINS, SUPPORT_EMAIL, DATABASE_URL, DATABASE_SSL, optional DATABASE_CA_CERT, all FIREBASE_* values, ADMIN_ALLOWED_UIDS, UPSTASH_*, STRIPE_*, DAILY_API_KEY, R2_*, GOOGLE_MAPS_SERVER_KEY, SMTP_*, MICROSOFT_*, SENTRY_DSN and PUBLIC_SENTRY_DSN in backend. Some of these are non-secret, but only the backend consumes them directly. Its public-config allowlist intentionally returns the Firebase web configuration, public Sentry DSN and support email to clients.
+Put ALLOWED_ORIGINS, SUPPORT_EMAIL, DATABASE_URL, DATABASE_SSL, optional DATABASE_CA_CERT, all FIREBASE_* values, ADMIN_ALLOWED_UIDS, UPSTASH__, STRIPE__, DAILY_API_KEY, R2__, GOOGLE_MAPS_SERVER_KEY, SMTP__, MICROSOFT_*, SENTRY_DSN and PUBLIC_SENTRY_DSN in backend. Some of these are non-secret, but only the backend consumes them directly. Its public-config allowlist intentionally returns the Firebase web configuration, public Sentry DSN and support email to clients.
 
 Admin builds derive their public settings from common API_URL and APP_ENV; do not add duplicate VITE variables. Both frontend build configurations disable automatic prefixed-variable exposure. Private values must never appear in browser bundles or public configuration.
 
@@ -37,20 +37,20 @@ If migrating from the previous single group: create/populate both new groups fir
 
 ## Core and database
 
-| Variable | Required / default | Value or source |
-| --- | --- | --- |
-| NODE_ENV | Render: `production`; local: `development` | Controls optimized server execution, independent of APP_ENV |
-| APP_ENV | Required | `development`, `stagging`, or `production` |
-| NODE_VERSION | Blueprint sets `22.16.0` | Render build/runtime Node version; maintain within Node 22 |
-| PORT | Render supplies; local defaults to `5173` | HTTP listening port |
-| SITE_URL | Required HTTPS on Render | Exact canonical website URL, no trailing slash |
-| ALLOWED_ORIGINS | Required for your domain setup | Comma-separated site origin plus `capacitor://localhost,https://localhost`; local origins only in development |
-| DATABASE_URL | Required; enter in backend group | Matching Render Postgres **internal** connection string. Never expose publicly |
-| DATABASE_SSL | Blueprint: `render-internal`; default: `require` | `require` validates certificates; `render-internal` encrypts to Render's private dpg host with its self-signed certificate; `disable` only for local Postgres |
-| DATABASE_CA_CERT | Optional | PEM CA for certificate-validated external Postgres connections |
-| RENDER_GIT_COMMIT | Render automatically supplies | Deployed commit ID; used to match web/mobile releases |
-| RENDER | Render automatically supplies | The private-host TLS policy requires `true`; do not set this locally to bypass checks |
-| SUPPORT_EMAIL | Required | Your actual support mailbox |
+| Variable          | Required / default                               | Value or source                                                                                                                                               |
+| ----------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| NODE_ENV          | Render: `production`; local: `development`       | Controls optimized server execution, independent of APP_ENV                                                                                                   |
+| APP_ENV           | Required                                         | `development`, `stagging`, or `production`                                                                                                                    |
+| NODE_VERSION      | Blueprint sets `22.16.0`                         | Render build/runtime Node version; maintain within Node 22                                                                                                    |
+| PORT              | Render supplies; local defaults to `5173`        | HTTP listening port                                                                                                                                           |
+| SITE_URL          | Required HTTPS on Render                         | Exact canonical website URL, no trailing slash                                                                                                                |
+| ALLOWED_ORIGINS   | Required for your domain setup                   | Comma-separated site origin plus `capacitor://localhost,https://localhost`; local origins only in development                                                 |
+| DATABASE_URL      | Required; enter in backend group                 | Matching Render Postgres **internal** connection string. Never expose publicly                                                                                |
+| DATABASE_SSL      | Blueprint: `render-internal`; default: `require` | `require` validates certificates; `render-internal` encrypts to Render's private dpg host with its self-signed certificate; `disable` only for local Postgres |
+| DATABASE_CA_CERT  | Optional                                         | PEM CA for certificate-validated external Postgres connections                                                                                                |
+| RENDER_GIT_COMMIT | Render automatically supplies                    | Deployed commit ID; used to match web/mobile releases                                                                                                         |
+| RENDER            | Render automatically supplies                    | The private-host TLS policy requires `true`; do not set this locally to bypass checks                                                                         |
+| SUPPORT_EMAIL     | Required                                         | Your actual support mailbox                                                                                                                                   |
 
 The Blueprint disables external database access. Internal TLS uses Render's documented self-signed-certificate behavior; the special mode is rejected outside Render or for an unrelated hostname. Do not set `NODE_TLS_REJECT_UNAUTHORIZED=0`.
 
@@ -58,15 +58,15 @@ The Blueprint disables external database access. Internal TLS uses Render's docu
 
 Use a **separate Firebase project per environment**. Enable Email/Password, Google, and Apple in Firebase Authentication.
 
-| Variable | Visibility | Value or source |
-| --- | --- | --- |
-| FIREBASE_PROJECT_ID | Public project identifier | Firebase project ID |
-| FIREBASE_CLIENT_EMAIL | Server only | Service-account client_email |
-| FIREBASE_PRIVATE_KEY | Secret | Service-account private_key PEM; literal `\\n` is accepted and converted to newlines |
-| FIREBASE_WEB_API_KEY | Public, restricted | Firebase web app apiKey; restrict API usage appropriately |
-| FIREBASE_AUTH_DOMAIN | Public | Firebase authDomain; authorize your website domain in Firebase |
-| FIREBASE_APP_ID | Public | Firebase web app appId |
-| FIREBASE_MESSAGING_SENDER_ID | Public, optional for current auth | Firebase messagingSenderId |
+| Variable                     | Visibility                        | Value or source                                                                      |
+| ---------------------------- | --------------------------------- | ------------------------------------------------------------------------------------ |
+| FIREBASE_PROJECT_ID          | Public project identifier         | Firebase project ID                                                                  |
+| FIREBASE_CLIENT_EMAIL        | Server only                       | Service-account client_email                                                         |
+| FIREBASE_PRIVATE_KEY         | Secret                            | Service-account private_key PEM; literal `\\n` is accepted and converted to newlines |
+| FIREBASE_WEB_API_KEY         | Public, restricted                | Firebase web app apiKey; restrict API usage appropriately                            |
+| FIREBASE_AUTH_DOMAIN         | Public                            | Firebase authDomain; authorize your website domain in Firebase                       |
+| FIREBASE_APP_ID              | Public                            | Firebase web app appId                                                               |
+| FIREBASE_MESSAGING_SENDER_ID | Public, optional for current auth | Firebase messagingSenderId                                                           |
 
 A Firebase web API key identifies the project; it is not an Admin service-account secret. The public config endpoint exposes only the web fields, never `FIREBASE_PRIVATE_KEY` or `FIREBASE_CLIENT_EMAIL`.
 
@@ -74,42 +74,54 @@ Google OAuth web client configuration is managed in Firebase/Google Cloud. Andro
 
 ## Upstash Redis
 
-| Variable | Required | Value or source |
-| --- | --- | --- |
-| UPSTASH_REDIS_REST_URL | Yes on Render | Upstash database REST endpoint |
-| UPSTASH_REDIS_REST_TOKEN | Yes, secret | Upstash REST token |
+| Variable                 | Required      | Value or source                |
+| ------------------------ | ------------- | ------------------------------ |
+| UPSTASH_REDIS_REST_URL   | Yes on Render | Upstash database REST endpoint |
+| UPSTASH_REDIS_REST_TOKEN | Yes, secret   | Upstash REST token             |
 
 Use a distinct database per environment. Rate-limit keys are additionally prefixed by APP_ENV. Local development can omit Redis; deployed environments fail config validation if it is missing.
 
-## Stripe payments, payouts and document verification
+## Stripe membership and identity verification
 
-| Variable | Required | Value or source |
-| --- | --- | --- |
-| STRIPE_SECRET_KEY | Yes, secret | `sk_test_...` in development/stagging; `sk_live_...` in production |
-| STRIPE_WEBHOOK_SECRET | Yes, secret | Signing secret for this environment's `/api/webhooks/stripe` endpoint |
-| STRIPE_CONNECT_WEBHOOK_SECRET | Yes, secret | Signing secret for the connected-account `/api/webhooks/stripe-connect` endpoint |
-| STRIPE_PLATFORM_FEE_PERCENT | Default `10` | Platform fee, 0–30; confirm your business pricing before live payments |
+| Variable                      | Required                                                             | Value or source                                                                                                                                                                                                                     |
+| ----------------------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| STRIPE_SECRET_KEY             | Yes, secret                                                          | Stripe Dashboard > Developers > API keys. Use `sk_test_...` in development/stagging and `sk_live_...` in production.                                                                                                                |
+| STRIPE_PUBLISHABLE_KEY        | Optional for hosted flow; required for the in-website Identity modal | Copy the publishable `pk_test_...` or `pk_live_...` key from the same Stripe account and mode as the secret key. Put it in the backend environment group. Only authenticated verification-session responses return this public key. |
+| STRIPE_WEBHOOK_SECRET         | Yes, secret                                                          | Signing secret for this environment's `/api/webhooks/stripe` endpoint.                                                                                                                                                              |
+| STRIPE_PRO_PRICE_ID           | Yes                                                                  | The `price_...` ID of the recurring professional membership price in the matching Stripe mode.                                                                                                                                      |
+| STRIPE_CONNECT_WEBHOOK_SECRET | Historical Connect reconciliation only                               | Signing secret for `/api/webhooks/stripe-connect`, if still receiving historical Connect events.                                                                                                                                    |
 
-Checkout is Stripe-hosted, so there is no browser publishable key in this implementation. Enable Stripe Identity and Connect in the account. Identity and Connect serve different purposes; both are required for professional onboarding.
+Enable Stripe Identity in the Stripe account. Aplime verifies the account holder with a document and matching selfie; it does not certify business registration, licensing, insurance or workmanship. Checkout remains Stripe-hosted for professional membership. Aplime does not process customer-to-professional service payments; Stripe Connect is not required for current professional onboarding.
 
-Register `identity.verification_session.verified`, `identity.verification_session.requires_input`, `checkout.session.completed`, `checkout.session.async_payment_succeeded`, and `charge.refunded` at `/api/webhooks/stripe`. Configure a separate connected-account destination for `account.updated` at `/api/webhooks/stripe-connect`, with its own `STRIPE_CONNECT_WEBHOOK_SECRET`.
+Register these events at the standard webhook destination: `identity.verification_session.verified`, `identity.verification_session.requires_input`, `identity.verification_session.processing`, `identity.verification_session.canceled`, `customer.subscription.created`, `customer.subscription.updated`, and `customer.subscription.deleted`. Keep any historical payment events needed by existing records. The webhook verifies signatures and reads current Stripe state to handle delayed events safely.
+
+### Identity page and return URLs
+
+- Professional workflow: `${SITE_URL}/app/verification`.
+- Hosted Stripe return: `${SITE_URL}/app/verification/return` (configured by the server; no separate URL variable).
+- Status and start/resume: authenticated `GET` and `POST` `${API_URL}/api/profile/identity`.
+- Signed webhook: `${API_URL}/api/webhooks/stripe`.
+
+The web flow opens Stripe.js's secure Identity modal when `STRIPE_PUBLISHABLE_KEY` is configured. Otherwise it opens Stripe's hosted verification URL, which is also available as a fallback button. Native wrappers use the hosted flow; on browser return, the professional can resume the app and refresh status. Signed native return/deep-link behavior remains unverified. The website CSP permits Stripe's required scripts and frames. Both private routes remain noindex. Documents and selfies are collected directly by Stripe, never uploaded to R2. Session secrets are sent only to the authenticated owner, excluded from status responses, and not stored in browser storage or URLs by Aplime.
+
+After adding the publishable key, redeploy the API and customer web service. Test with Stripe test mode before production; successful submission or a return URL never grants verification. Only a signed webhook updates the profile's verified flag. See [Stripe Identity integration](https://docs.stripe.com/identity/verify-identity-documents?platform=web&type=modal).
 
 ## Daily calls
 
-| Variable | Required | Value or source |
-| --- | --- | --- |
+| Variable      | Required    | Value or source            |
+| ------------- | ----------- | -------------------------- |
 | DAILY_API_KEY | Yes, secret | Daily account REST API key |
 
 “Saily.io” was interpreted as Daily.co / Daily calling. The implementation uses the official `api.daily.co` REST API. Use distinct Daily domains/accounts for isolation where available. No Daily API key is shipped to clients; only short-lived, room-scoped participant tokens.
 
 ## Cloudflare R2 file storage
 
-| Variable | Required | Value or source |
-| --- | --- | --- |
-| R2_ACCOUNT_ID | Yes | Cloudflare account ID |
-| R2_ACCESS_KEY_ID | Yes, secret | Bucket-scoped R2 S3 access key |
-| R2_SECRET_ACCESS_KEY | Yes, secret | Matching R2 secret key |
-| R2_BUCKET | Yes | Private bucket for this environment |
+| Variable             | Required    | Value or source                     |
+| -------------------- | ----------- | ----------------------------------- |
+| R2_ACCOUNT_ID        | Yes         | Cloudflare account ID               |
+| R2_ACCESS_KEY_ID     | Yes, secret | Bucket-scoped R2 S3 access key      |
+| R2_SECRET_ACCESS_KEY | Yes, secret | Matching R2 secret key              |
+| R2_BUCKET            | Yes         | Private bucket for this environment |
 
 Create three private buckets. Grant the credential access only to its intended bucket. Configure bucket CORS for the website and native origins; allow PUT/GET/HEAD and Content-Type. The app generates signed upload/download URLs. Do not set a public bucket URL or use a Cloudflare global API key.
 
@@ -155,9 +167,9 @@ Preview shows all saved, non-suspended and unblocked business profiles regardles
 
 This relaxes **listing visibility only**. Existing authorization for new chats, estimates, bookings and project changes remains enforced; incomplete businesses are labeled as previews, and the UI explains setup requirements. No Stripe or verification state is changed. No demo accounts are created. The normal limits and eligibility rules below apply whenever preview is off. No frontend variable is needed: the authenticated API response supplies preview state.
 
-| Variable | Required / default | Value or source |
-| --- | --- | --- |
-| MARKETPLACE_DISCOVERY_MODE | Optional; `open` | Backend group only. `open` enables browsing across categories/locations. Set `matched` to restore five customer matches per project and preference-based pro discovery. Redeploy the API after changing it. |
+| Variable                   | Required / default | Value or source                                                                                                                                                                                             |
+| -------------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| MARKETPLACE_DISCOVERY_MODE | Optional; `open`   | Backend group only. `open` enables browsing across categories/locations. Set `matched` to restore five customer matches per project and preference-based pro discovery. Redeploy the API after changing it. |
 
 This release defaults to `open`, so no new Render variable is required to broaden browsing. Customers can browse eligible businesses without first posting a project; a project is still required to start a private conversation. Professionals can browse the latest 100 unassigned requested/quoted projects. Profile responses remain bounded at 500. Verified identity, administrator approval, availability, active/trialing subscription, blocking rules, private-address protection, and lifecycle authorization remain enforced. Existing business relationships remain accessible for management even when they are no longer discoverable. New-project notifications continue to target service/location matches in both modes, rather than notifying every professional nationwide.
 
@@ -171,24 +183,24 @@ In the Google Cloud project that owns this key, enable billing and **Places API 
 
 ## Microsoft 365 SMTP alerts
 
-| Variable | Required / default | Value or source |
-| --- | --- | --- |
-| SMTP_HOST | `smtp.office365.com` | Microsoft 365 SMTP endpoint |
-| SMTP_PORT | `587` | STARTTLS port |
-| SMTP_USER | Yes | Licensed/authorized sending mailbox |
-| SMTP_FROM | Yes | Sender, e.g. `Aplime <notifications@yourdomain.com>` |
-| MICROSOFT_TENANT_ID | Yes | Microsoft Entra tenant ID |
-| MICROSOFT_CLIENT_ID | Yes | Entra app client ID |
-| MICROSOFT_CLIENT_SECRET | Yes, secret | Entra app client secret |
+| Variable                | Required / default   | Value or source                                      |
+| ----------------------- | -------------------- | ---------------------------------------------------- |
+| SMTP_HOST               | `smtp.office365.com` | Microsoft 365 SMTP endpoint                          |
+| SMTP_PORT               | `587`                | STARTTLS port                                        |
+| SMTP_USER               | Yes                  | Licensed/authorized sending mailbox                  |
+| SMTP_FROM               | Yes                  | Sender, e.g. `Aplime <notifications@yourdomain.com>` |
+| MICROSOFT_TENANT_ID     | Yes                  | Microsoft Entra tenant ID                            |
+| MICROSOFT_CLIENT_ID     | Yes                  | Entra app client ID                                  |
+| MICROSOFT_CLIENT_SECRET | Yes, secret          | Entra app client secret                              |
 
 This uses OAuth client credentials, **not SMTP username/password basic authentication**. Configure `SMTP.SendAsApp`, admin consent, Exchange service-principal registration, mailbox permissions, and SMTP AUTH for the sending mailbox. Firebase handles authentication verification/recovery emails; Microsoft 365 sends project/account activity alerts.
 
 ## Sentry monitoring
 
-| Variable | Required | Value or source |
-| --- | --- | --- |
-| SENTRY_DSN | Optional, recommended before launch | Server Sentry project DSN |
-| PUBLIC_SENTRY_DSN | Optional, intentionally public | Browser/mobile Sentry project DSN |
+| Variable          | Required                            | Value or source                   |
+| ----------------- | ----------------------------------- | --------------------------------- |
+| SENTRY_DSN        | Optional, recommended before launch | Server Sentry project DSN         |
+| PUBLIC_SENTRY_DSN | Optional, intentionally public      | Browser/mobile Sentry project DSN |
 
 APP_ENV and RENDER_GIT_COMMIT label errors automatically. Default PII collection is disabled; requests, users, and breadcrumbs are stripped from sent events. Session replay and source-map uploads are not enabled. No Sentry auth token is required unless you later add source-map publishing.
 
@@ -223,7 +235,6 @@ Add `STRIPE_PRO_PRICE_ID` to the backend Render environment group for each envir
 Configure the Stripe Customer Portal to allow invoices, payment-method updates and subscription cancellation. Add `customer.subscription.created`, `customer.subscription.updated`, and `customer.subscription.deleted` to the standard `/api/webhooks/stripe` endpoint alongside existing identity events. Status is read from Stripe by signed webhooks, never from a checkout return URL. Existing subscriptions using another price must be migrated deliberately before changing the configured price.
 
 Run `npm run db:migrate` before the updated API starts (the existing Render pre-deploy command does this). Migration 003 adds business details and professional subscription state. An active or trialing subscription is required for public discovery and new estimates; existing work and conversations remain accessible. Existing professionals need to complete their expanded profile and enroll before appearing in search.
-
 
 ### Missing professional subscription price during deployment
 

@@ -49,13 +49,18 @@ export async function storeBusinessImage(
   type: string,
   body: Buffer,
 ) {
-  if (!(
-    env.R2_ACCOUNT_ID &&
-    env.R2_ACCESS_KEY_ID &&
-    env.R2_SECRET_ACCESS_KEY &&
-    env.R2_BUCKET
-  ))
-    throw new StorageError("STORAGE_CONFIGURATION_ERROR");
+  const required = [
+    "R2_ACCOUNT_ID",
+    "R2_ACCESS_KEY_ID",
+    "R2_SECRET_ACCESS_KEY",
+    "R2_BUCKET",
+  ] as const;
+  const missing = required.filter((name) => !env[name]?.trim());
+  if (missing.length)
+    throw new StorageError("STORAGE_CONFIGURATION_ERROR", {
+      reason: "MISSING_CONFIGURATION",
+      missing,
+    });
   try {
     await client().send(
       new PutObjectCommand({
@@ -70,11 +75,30 @@ export async function storeBusinessImage(
   } catch (error) {
     const status = (error as { $metadata?: { httpStatusCode?: number } })
       ?.$metadata?.httpStatusCode;
+    const name = (error as { name?: string })?.name;
+    // Only known provider codes are safe to log; never retain raw provider messages.
+    const reason =
+      name &&
+      [
+        "InvalidAccessKeyId",
+        "SignatureDoesNotMatch",
+        "AccessDenied",
+        "NoSuchBucket",
+        "InvalidBucketName",
+        "AuthorizationHeaderMalformed",
+        "ExpiredToken",
+        "InvalidToken",
+      ].includes(name)
+        ? name
+        : "UNKNOWN_PROVIDER_ERROR";
     throw new StorageError(
       status && [400, 401, 403, 404].includes(status)
         ? "STORAGE_CONFIGURATION_ERROR"
         : "STORAGE_UNAVAILABLE",
-      typeof status === "number" ? { upstreamStatus: status } : {},
+      {
+        ...(typeof status === "number" ? { upstreamStatus: status } : {}),
+        reason,
+      },
     );
   }
 }

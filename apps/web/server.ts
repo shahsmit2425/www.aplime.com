@@ -74,7 +74,13 @@ app.use(
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "https://apis.google.com"],
+        scriptSrc: [
+          "'self'",
+          "'unsafe-inline'",
+          "https://apis.google.com",
+          "https://js.stripe.com",
+          "https://*.js.stripe.com",
+        ],
         connectSrc: [
           "'self'",
           apiUrl,
@@ -84,6 +90,8 @@ app.use(
           "https://*.ingest.us.sentry.io",
           "https://*.ingest.de.sentry.io",
           "https://*.r2.cloudflarestorage.com",
+          "https://api.stripe.com",
+          "https://*.stripe.com",
           ...(env.NODE_ENV === "production"
             ? []
             : ["ws://127.0.0.1:*", "ws://localhost:*"]),
@@ -92,6 +100,10 @@ app.use(
           "https://*.firebaseapp.com",
           "https://*.google.com",
           "https://appleid.apple.com",
+          "https://js.stripe.com",
+          "https://*.js.stripe.com",
+          "https://verify.stripe.com",
+          "https://hooks.stripe.com",
         ],
         imgSrc: ["'self'", "data:", "blob:", "https:", apiUrl],
         styleSrc: ["'self'", "'unsafe-inline'"],

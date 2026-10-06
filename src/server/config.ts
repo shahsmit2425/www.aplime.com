@@ -32,6 +32,10 @@ const envSchema = z.object({
   UPSTASH_REDIS_REST_URL: z.string().default(""),
   UPSTASH_REDIS_REST_TOKEN: z.string().default(""),
   STRIPE_PRO_PRICE_ID: z.string().default(""),
+  STRIPE_PUBLISHABLE_KEY: z
+    .string()
+    .regex(/^$|^pk_(test|live)_[A-Za-z0-9]+$/, "Use a Stripe publishable key")
+    .default(""),
   STRIPE_SECRET_KEY: z.string().default(""),
   STRIPE_WEBHOOK_SECRET: z.string().default(""),
   STRIPE_CONNECT_WEBHOOK_SECRET: z.string().default(""),

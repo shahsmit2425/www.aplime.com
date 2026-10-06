@@ -2,7 +2,11 @@ export class StorageError extends Error {
   readonly status = 503;
   constructor(
     readonly code: "STORAGE_CONFIGURATION_ERROR" | "STORAGE_UNAVAILABLE",
-    readonly diagnostic: { upstreamStatus?: number } = {},
+    readonly diagnostic: {
+      upstreamStatus?: number;
+      reason?: string;
+      missing?: string[];
+    } = {},
   ) {
     super(
       code === "STORAGE_CONFIGURATION_ERROR"

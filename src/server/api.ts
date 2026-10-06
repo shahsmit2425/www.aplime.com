@@ -1,3 +1,4 @@
+import { identityVerification } from "./identity-verification.js";
 import { preferencesSchema } from "../shared/preferences.js";
 import { hasBusinessBranding } from "../shared/business-images.js";
 import {
@@ -689,48 +690,7 @@ api.post(["/projects/:id/checkout", "/profile/connect"], () => {
     "Aplime does not process payments between customers and professionals.",
   );
 });
-api.post("/profile/identity", async (req, res) => {
-  const q = req as AuthRequest;
-  if (q.account.role !== "pro") fail(403, "Professional account required.");
-  const result = await transaction(async (c) => {
-    const p = (
-      await c.query("SELECT * FROM profiles WHERE id=$1 FOR UPDATE", [
-        q.account.id,
-      ])
-    ).rows[0];
-    if (!p) fail(409, "Save your business profile first.");
-    if (p.verified) fail(409, "Identity is already verified.");
-    if (p.identity_session_id) {
-      const old = await stripe().identity.verificationSessions.retrieve(
-        p.identity_session_id,
-      );
-      if (old.status === "processing")
-        fail(409, "Verification is processing. Please check back shortly.");
-      if (old.status === "requires_input" && old.url) return { url: old.url };
-    }
-    const session = await stripe().identity.verificationSessions.create(
-      {
-        type: "document",
-        metadata: { userId: q.account.id },
-        options: { document: { require_matching_selfie: true } },
-        return_url: env.SITE_URL + "/app/profile",
-      },
-      {
-        idempotencyKey:
-          "identity:" +
-          q.account.id +
-          ":" +
-          (p.identity_session_id || "initial"),
-      },
-    );
-    await c.query("UPDATE profiles SET identity_session_id=$2 WHERE id=$1", [
-      q.account.id,
-      session.id,
-    ]);
-    return { url: session.url };
-  });
-  res.json(result);
-});
+api.use("/profile/identity", identityVerification);
 api.get("/payments/:id/receipt", async (req, res) => {
   const q = req as AuthRequest;
   const row = (
