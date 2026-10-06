@@ -3,8 +3,9 @@ import {
   recordProjectActivity,
   notifyProjectMembers,
   notifyProjectObservers,
+  notifyMatchingProfessionals,
 } from "./project-events.js";
-import { assertMatch } from "./matching.js";
+import { assertMatch, assertIndependentParties } from "./matching.js";
 import { assertAppointment } from "./scheduling.js";
 import { randomUUID } from "node:crypto";
 import type { User, ProjectAction } from "../shared/domain.js";
@@ -31,6 +32,7 @@ export async function projectAction(
     let extraRecipient: string | undefined;
     if (action.type === "quote") {
       extraRecipient = user.id;
+      await assertIndependentParties(c, p.customerId, user.id);
       await assertMatch(c, user.id, id);
       if (
         !(
@@ -58,7 +60,10 @@ export async function projectAction(
           [id, user.id],
         )
       ).rows[0];
-      if (existing && !["pending", "withdrawn"].includes(existing.status))
+      if (
+        existing &&
+        !["pending", "withdrawn", "expired"].includes(existing.status)
+      )
         fail(409, "This estimate is closed.");
       const amount = action.laborAmount + action.materialsAmount;
       if (action.expiresAt) assertFuture(action.expiresAt);
@@ -97,7 +102,9 @@ export async function projectAction(
     } else if (action.type === "accept" || action.type === "decline") {
       const quote = (
         await c.query(
-          "SELECT q.* FROM quotes q JOIN profiles f ON f.id=q.pro_id WHERE q.id=$1 AND q.project_id=$2 AND q.status='pending' AND (q.expires_at IS NULL OR q.expires_at>now()) AND f.verified AND f.review_status='approved' AND NOT f.suspended",
+          action.type === "accept"
+            ? "SELECT q.* FROM quotes q JOIN profiles f ON f.id=q.pro_id WHERE q.id=$1 AND q.project_id=$2 AND q.status='pending' AND (q.expires_at IS NULL OR q.expires_at>now()) AND f.verified AND f.review_status='approved' AND NOT f.suspended"
+            : "SELECT q.* FROM quotes q WHERE q.id=$1 AND q.project_id=$2 AND q.status='pending'",
           [action.quoteId, id],
         )
       ).rows[0];
@@ -109,12 +116,22 @@ export async function projectAction(
             409,
             "This estimate changed. Review the latest version before accepting.",
           );
-        await c.query(
-          "UPDATE quotes SET status=CASE WHEN id=$1 THEN 'accepted' ELSE 'declined' END WHERE project_id=$2",
-          [quote.id, id],
+        const eligible = await c.query(
+          `SELECT 1 FROM professional_subscriptions s WHERE s.user_id=$1 AND s.status IN ('active','trialing')
+           AND NOT EXISTS (SELECT 1 FROM blocked b WHERE (b.user_id=$1 AND b.other_id=$2) OR (b.other_id=$1 AND b.user_id=$2))`,
+          [quote.pro_id, p.customerId],
         );
+        if (!eligible.rowCount)
+          fail(
+            409,
+            "This professional can no longer be booked. Choose another estimate.",
+          );
+        await assertIndependentParties(c, p.customerId, quote.pro_id);
+        await c.query("UPDATE quotes SET status='accepted' WHERE id=$1", [
+          quote.id,
+        ]);
         await c.query(
-          "UPDATE projects SET status='booked',pro_id=$2,amount=$3 WHERE id=$1",
+          "UPDATE projects SET status='booked',pro_id=$2,amount=$3,award_accepted=false WHERE id=$1",
           [id, quote.pro_id, quote.amount],
         );
       } else {
@@ -126,6 +143,33 @@ export async function projectAction(
           [id],
         );
       }
+    } else if (action.type === "open_request") {
+      extraRecipient = p.proId || undefined;
+      await c.query(
+        "UPDATE projects SET pro_id=NULL,status=CASE WHEN EXISTS(SELECT 1 FROM quotes WHERE project_id=$1 AND status='pending') THEN 'quoted' ELSE 'requested' END WHERE id=$1",
+        [id],
+      );
+    } else if (action.type === "accept_award") {
+      await c.query("UPDATE projects SET award_accepted=true WHERE id=$1", [
+        id,
+      ]);
+      await c.query(
+        "UPDATE quotes SET status='declined' WHERE project_id=$1 AND status='pending'",
+        [id],
+      );
+    } else if (
+      action.type === "decline_award" ||
+      action.type === "withdraw_award"
+    ) {
+      extraRecipient = p.proId || undefined;
+      await c.query(
+        "UPDATE quotes SET status=$3,revision=revision+1 WHERE project_id=$1 AND pro_id=$2 AND status='accepted'",
+        [id, p.proId, action.type === "decline_award" ? "declined" : "pending"],
+      );
+      await c.query(
+        "UPDATE projects SET pro_id=NULL,amount=NULL,award_accepted=true,proposed_at=NULL,proposed_by=NULL,scheduled_at=NULL,status=CASE WHEN EXISTS(SELECT 1 FROM quotes WHERE project_id=$1 AND status='pending') THEN 'quoted' ELSE 'requested' END WHERE id=$1",
+        [id],
+      );
     } else if (action.type === "respond_appointment") {
       if (
         !p.proposedAt ||
@@ -156,8 +200,12 @@ export async function projectAction(
     await c.query("UPDATE projects SET version=version+1 WHERE id=$1", [id]);
     const titles: Record<string, string> = {
       quote: "Estimate received or updated",
-      accept: "Estimate accepted",
+      accept: "Estimate selected: awaiting professional confirmation",
+      accept_award: "Professional confirmed the job",
+      decline_award: "Professional declined the job",
+      withdraw_award: "Customer withdrew the award",
       decline: "Estimate declined",
+      open_request: "Request opened to more professionals",
       withdraw_quote: "Estimate withdrawn",
       reschedule: "Appointment proposed",
       respond_appointment:
@@ -183,8 +231,21 @@ export async function projectAction(
       p.title + ": open the project for the update.",
       extraRecipient ? [extraRecipient] : [],
     );
-    if (action.type === "accept")
-      await notifyProjectObservers(c, updated, "Project awarded");
+    if (action.type === "accept_award")
+      await notifyProjectObservers(
+        c,
+        updated,
+        "Project awarded",
+        "The customer chose another professional for " +
+          p.title +
+          ". Your estimate was not selected.",
+      );
+    if (
+      action.type === "open_request" ||
+      action.type === "decline_award" ||
+      action.type === "withdraw_award"
+    )
+      await notifyMatchingProfessionals(c, id, "Project open for estimates");
     return { ok: true };
   });
 }

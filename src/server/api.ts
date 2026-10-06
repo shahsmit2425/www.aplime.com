@@ -6,7 +6,11 @@ import {
   notifyMatchingProfessionals,
 } from "./project-events.js";
 import { autocompleteAddress, locateAddress } from "./integrations/address.js";
-import { assertMatch } from "./matching.js";
+import {
+  assertIndependentParties,
+  assertMatch,
+  isOpenLead,
+} from "./matching.js";
 import { assertAppointment } from "./scheduling.js";
 import { businessImages, publicBusinessImages } from "./business-images.js";
 import { notificationStream } from "./notification-stream.js";
@@ -471,6 +475,19 @@ api.post("/projects/:id/review", async (req, res) => {
   if (q.account.id !== p.customerId || p.status !== "completed" || !p.proId)
     fail(403, "Only the customer can review completed work.");
   await transaction(async (c) => {
+    await assertIndependentParties(c, p.customerId, p.proId!);
+    if (
+      (
+        await c.query(
+          "SELECT 1 FROM reviews r JOIN projects pj ON pj.id=r.project_id WHERE pj.customer_id=$1 AND r.pro_id=$2 AND r.created_at>now()-interval '30 days'",
+          [p.customerId, p.proId],
+        )
+      ).rowCount
+    )
+      fail(
+        429,
+        "You already reviewed this professional recently. Reviews for the same professional are limited to one every 30 days.",
+      );
     await c.query(
       "INSERT INTO reviews(id,project_id,pro_id,rating,body) VALUES($1,$2,$3,$4,$5)",
       [randomUUID(), p.id, p.proId, data.rating, data.body],
@@ -765,7 +782,11 @@ api.get("/uploads/:id", async (req, res) => {
     ])
   ).rows[0];
   if (!f) fail(404, "File not found.");
-  await memberProject(f.project_id, q.account);
+  const openLead =
+    q.account.role === "pro" &&
+    String(f.content_type).startsWith("image/") &&
+    (await isOpenLead(q.account.id, f.project_id));
+  if (!openLead) await memberProject(f.project_id, q.account);
   res.json({ url: await downloadUrl(f.object_key) });
 });
 api.use("/admin", (req, _res, next) => {

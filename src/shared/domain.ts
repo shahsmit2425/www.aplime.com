@@ -62,6 +62,7 @@ export type Status = (typeof statuses)[number];
 export type Project = {
   version?: number;
   archived?: boolean;
+  awardAccepted?: boolean;
   pausedFrom?: Status | null;
   pausedBy?: string | null;
   pauseReason?: string | null;
@@ -110,6 +111,7 @@ export type Quote = {
   expiresAt: string | null;
   status: string;
   createdAt: string;
+  projectTitle?: string | null;
 };
 export type Message = {
   id: string;
@@ -277,6 +279,12 @@ export const actionSchema = z
     z
       .object({ type: z.literal("decline"), quoteId: z.string().uuid() })
       .strict(),
+    z.object({ type: z.literal("open_request") }).strict(),
+    z.object({ type: z.literal("accept_award") }).strict(),
+    z
+      .object({ type: z.literal("decline_award"), reason: text(5, 1000) })
+      .strict(),
+    z.object({ type: z.literal("withdraw_award") }).strict(),
     z.object({ type: z.literal("start") }).strict(),
     z
       .object({ type: z.literal("withdraw_quote"), reason: text(5, 1000) })
@@ -333,6 +341,7 @@ export function allowedTransition(
     | "customerId"
     | "proId"
     | "status"
+    | "awardAccepted"
     | "pausedFrom"
     | "pausedBy"
     | "completionRequested"
@@ -358,7 +367,24 @@ export function allowedTransition(
     );
   if (action === "accept" || action === "decline")
     return customer && ["requested", "quoted"].includes(project.status);
-  const member = customer || pro;
+  if (action === "open_request")
+    return (
+      customer &&
+      !!project.proId &&
+      ["requested", "quoted"].includes(project.status)
+    );
+  // Until the professional confirms an award, they may only accept/decline it or discuss times.
+  const awaitingAward = project.awardAccepted === false;
+  if (action === "accept_award" || action === "decline_award")
+    return pro && awaitingAward && project.status === "booked";
+  if (action === "withdraw_award")
+    return customer && awaitingAward && project.status === "booked";
+  const stage =
+    project.status === "paused" ? project.pausedFrom : project.status;
+  const beforeBooking =
+    ["requested", "quoted"].includes(stage || "") ||
+    (stage === "booked" && awaitingAward);
+  const member = customer || (pro && !beforeBooking);
   if (action === "archive" || action === "restore")
     return member && ["completed", "cancelled"].includes(project.status);
   if (action === "delete")
@@ -401,7 +427,9 @@ export function allowedTransition(
       ["requested", "quoted", "booked"].includes(project.status)
     );
   if (action === "start")
-    return member && !!project.proId && project.status === "booked";
+    return (
+      member && !!project.proId && project.status === "booked" && !awaitingAward
+    );
   if (action === "complete")
     return (
       member &&
@@ -444,5 +472,7 @@ export function assertFuture(value: string | null) {
     value &&
     (!Number.isFinite(Date.parse(value)) || Date.parse(value) <= Date.now())
   )
-    throw new Error("Choose a future appointment time.");
+    throw Object.assign(new Error("Choose a future appointment time."), {
+      status: 400,
+    });
 }

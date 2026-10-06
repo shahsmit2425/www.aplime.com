@@ -63,7 +63,12 @@ export function Discussions({
   );
   const thread =
     visible.find((t) => t.id === selected) ||
-    visible.find((t) => t.id === id || t.project_id === id) ||
+    visible.find((t) => t.id === id) ||
+    visible.find(
+      (t) =>
+        t.project_id === id && !!t.selected_pro && t.selected_pro === t.pro_id,
+    ) ||
+    visible.find((t) => t.project_id === id) ||
     visible[0];
   const other = thread
     ? thread.customer_id === data.user.id

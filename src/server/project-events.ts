@@ -1,8 +1,8 @@
 import type pg from "pg";
 import { randomUUID } from "node:crypto";
 import type { Project } from "../shared/domain.js";
-import { matchSql } from "./matching.js";
-import { notify } from "./repository.js";
+import { matchSql, rankSql } from "./matching.js";
+import { notifyMany } from "./repository.js";
 import { pool } from "./db/index.js";
 import { fail } from "./errors.js";
 
@@ -36,7 +36,8 @@ export async function recordProjectActivity(
   );
 }
 
-// Every eligible professional is alerted, independently of the five-card customer shortlist.
+// The best-ranked eligible professionals are alerted (capped so one request cannot flood the outbox).
+export const ALERT_LIMIT = 50;
 export async function notifyMatchingProfessionals(
   c: pg.PoolClient,
   projectId: string,
@@ -44,16 +45,19 @@ export async function notifyMatchingProfessionals(
 ) {
   const matches = (
     await c.query(
-      `SELECT f.id,p.category,p.zip FROM profiles f JOIN projects p ON p.id=$1 WHERE p.pro_id IS NULL AND p.status IN ('requested','quoted') AND ${matchSql()}`,
-      [projectId],
+      `SELECT f.id,p.category,p.zip FROM profiles f JOIN projects p ON p.id=$1 WHERE p.pro_id IS NULL AND p.status IN ('requested','quoted') AND ${matchSql()}
+       AND NOT EXISTS (SELECT 1 FROM quotes q WHERE q.project_id=p.id AND q.pro_id=f.id)
+       AND NOT EXISTS (SELECT 1 FROM notifications n WHERE n.user_id=f.id AND n.target_page='project' AND n.target_id=p.id::text AND n.title=$2 AND n.created_at>now()-interval '12 hours')
+       ORDER BY ${rankSql()} LIMIT ${ALERT_LIMIT}`,
+      [projectId, title],
     )
   ).rows;
-  for (const row of matches)
-    await notify(
+  if (matches.length)
+    await notifyMany(
       c,
-      row.id,
+      matches.map((row) => row.id as string),
       title,
-      `${row.category} request in ZIP ${row.zip}. Review the project before responding.`,
+      `${matches[0].category} request in ZIP ${matches[0].zip}. Review the project before responding.`,
       { page: "project", id: projectId },
     );
   return matches.map((row) => row.id as string);
@@ -66,10 +70,17 @@ export async function notifyProjectMembers(
   body: string,
   extraIds: string[] = [],
 ) {
-  for (const id of new Set(
-    [p.customerId, p.proId, ...extraIds].filter(Boolean) as string[],
-  ))
-    await notify(c, id, title, body, { page: "project", id: p.id });
+  await notifyMany(
+    c,
+    [
+      ...new Set(
+        [p.customerId, p.proId, ...extraIds].filter(Boolean) as string[],
+      ),
+    ],
+    title,
+    body,
+    { page: "project", id: p.id },
+  );
 }
 
 // Close stale opportunities and notify interested pros without exposing participant-only reasons.
@@ -77,6 +88,7 @@ export async function notifyProjectObservers(
   c: pg.PoolClient,
   p: Project,
   title: string,
+  body = "A project you received has changed. Check your matched projects and conversations.",
 ) {
   const observers = (
     await c.query(
@@ -88,12 +100,11 @@ export async function notifyProjectObservers(
       [p.id, p.customerId, p.proId],
     )
   ).rows;
-  for (const row of observers)
-    await notify(
-      c,
-      row.user_id,
-      title,
-      "A project you received has changed. Check your matched projects and conversations.",
-      { page: "leads" },
-    );
+  await notifyMany(
+    c,
+    observers.map((row) => row.user_id as string),
+    title,
+    body,
+    { page: "leads" },
+  );
 }

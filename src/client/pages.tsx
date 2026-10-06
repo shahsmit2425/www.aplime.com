@@ -1,3 +1,4 @@
+import { AwardResponse } from "./award-response.js";
 import { ProjectControls } from "./project-controls.js";
 import { businessFields } from "../shared/business.js";
 import { AddressAutocomplete } from "./address-autocomplete.js";
@@ -132,7 +133,7 @@ function Dashboard() {
       <Head
         title={"Welcome back, " + data.user.name.split(" ")[0] + "."}
         action={
-          <button onClick={() => go(pro ? "leads" : "projects")}>
+          <button onClick={() => (pro ? go("leads") : go("projects", "new"))}>
             <Plus size={17} />
             {pro ? "Browse projects" : "Start a project"}
           </button>
@@ -524,6 +525,10 @@ function Projects() {
   const [savedProjectId, setSavedProjectId] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState("");
   const [draft, setDraft] = useState<Record<string, any> | null>(null);
+  const [formValues, setFormValues] = useState<Record<string, any> | null>(
+    null,
+  );
+  const initial = formValues || draft;
   const [pendingProject, setPendingProject] = useState<Record<
     string,
     any
@@ -569,34 +574,43 @@ function Projects() {
       ? new Date(String(f.get("scheduledAt"))).toISOString()
       : null,
   });
-  const publish = (payload: Record<string, any>) =>
-    run(async () => {
-      const result = savedProjectId
-        ? { id: savedProjectId }
-        : await request("/projects", payload);
-      setSavedProjectId(result.id);
-      try {
-        for (let index = 0; index < photos.length; index++) {
+  const publish = (payload: Record<string, any>) => {
+    let createdId = "";
+    return run(
+      async () => {
+        const result = savedProjectId
+          ? { id: savedProjectId }
+          : await request("/projects", payload);
+        setSavedProjectId(result.id);
+        createdId = result.id;
+        try {
+          for (let index = 0; index < photos.length; index++) {
+            setUploadProgress(
+              `Uploading photo ${index + 1} of ${photos.length}…`,
+            );
+            await sendProjectPhoto(result.id, photos[index]);
+          }
+        } catch (error) {
           setUploadProgress(
-            `Uploading photo ${index + 1} of ${photos.length}…`,
+            "Your project is saved. Some photos could not be uploaded. Retry below, or open your project to continue later.",
           );
-          await sendProjectPhoto(result.id, photos[index]);
+          throw error;
         }
-      } catch (error) {
-        setUploadProgress(
-          "Your project is saved. Some photos could not be uploaded. Retry below, or open your project to continue later.",
+        await request("/project-draft", undefined, "DELETE").catch(
+          () => undefined,
         );
-        throw error;
-      }
-      await request("/project-draft", undefined, "DELETE").catch(
-        () => undefined,
-      );
-      setDraft(null);
-      setUploadProgress("");
-      setCreating(false);
-      setPendingProject(null);
-      go("project", result.id);
-    }, "Project created.");
+        setDraft(null);
+        setUploadProgress("");
+        setCreating(false);
+        setPendingProject(null);
+        setFormValues(null);
+        setSavedProjectId(null);
+        setPhotos([]);
+      },
+      "Project published. Matching professionals have been notified.",
+      () => go("project", createdId),
+    );
+  };
   return (
     <>
       <Head
@@ -702,33 +716,52 @@ function Projects() {
                   </div>
                 ))}
               </dl>
+              <p role="status" aria-live="polite">
+                {busy && !uploadProgress
+                  ? "Publishing your project…"
+                  : uploadProgress}
+              </p>
               <div className="actions">
                 <button
                   disabled={busy}
                   onClick={() => void publish(pendingProject)}
                 >
-                  Publish project request
+                  {savedProjectId
+                    ? "Retry remaining photos"
+                    : "Publish project request"}
                 </button>
-                <button
-                  className="secondary"
-                  disabled={busy}
-                  onClick={() => setPendingProject(null)}
-                >
-                  Back to edit
-                </button>
+                {savedProjectId ? (
+                  <button
+                    className="secondary"
+                    disabled={busy}
+                    onClick={() => go("project", savedProjectId)}
+                  >
+                    Open saved project
+                  </button>
+                ) : (
+                  <button
+                    className="secondary"
+                    disabled={busy}
+                    onClick={() => setPendingProject(null)}
+                  >
+                    Back to edit
+                  </button>
+                )}
               </div>
             </section>
           ) : (
             <Form
-              key={draft ? JSON.stringify(draft) : "new-project"}
+              key={initial ? JSON.stringify(initial) : "new-project"}
               busy={busy}
               onSubmit={(f) => {
                 const payload = payloadFrom(f);
                 if (f.get("intent") === "draft")
                   return run(async () => {
                     await request("/project-draft", payload, "PUT");
+                    setFormValues(null);
                     setDraft(payload);
                   }, "Draft saved. You can continue it from any signed-in device.");
+                setFormValues(payload);
                 setPendingProject(payload);
                 return Promise.resolve();
               }}
@@ -743,7 +776,7 @@ function Projects() {
                   <Field label="Project title">
                     <input
                       name="title"
-                      defaultValue={draft?.title || ""}
+                      defaultValue={initial?.title || ""}
                       placeholder="For example, repair a leaking kitchen faucet"
                       required
                       minLength={5}
@@ -768,20 +801,20 @@ function Projects() {
                   </Field>
                   <AddressAutocomplete
                     label="Full service address"
-                    defaultAddress={draft?.address || ""}
-                    defaultPlaceId={draft?.placeId || ""}
+                    defaultAddress={initial?.address || ""}
+                    defaultPlaceId={initial?.placeId || ""}
                   />
                   <Field label="Apartment / unit (optional)">
                     <input
                       name="addressUnit"
                       maxLength={100}
-                      defaultValue={draft?.addressUnit || ""}
+                      defaultValue={initial?.addressUnit || ""}
                     />
                   </Field>
                   <Field label="How soon do you need help?">
                     <select
                       name="urgency"
-                      defaultValue={draft?.urgency || "flexible"}
+                      defaultValue={initial?.urgency || "flexible"}
                     >
                       <option value="urgent">As soon as possible</option>
                       <option value="this_week">This week</option>
@@ -792,7 +825,7 @@ function Projects() {
                   <Field label="Property type">
                     <select
                       name="propertyType"
-                      defaultValue={draft?.propertyType || "home"}
+                      defaultValue={initial?.propertyType || "home"}
                     >
                       <option value="home">House</option>
                       <option value="apartment">Apartment</option>
@@ -809,7 +842,9 @@ function Projects() {
                       max="100000"
                       step="1"
                       defaultValue={
-                        draft?.budgetMin == null ? "" : draft.budgetMin / 100
+                        initial?.budgetMin == null
+                          ? ""
+                          : initial.budgetMin / 100
                       }
                     />
                   </Field>
@@ -821,7 +856,9 @@ function Projects() {
                       max="100000"
                       step="1"
                       defaultValue={
-                        draft?.budgetMax == null ? "" : draft.budgetMax / 100
+                        initial?.budgetMax == null
+                          ? ""
+                          : initial.budgetMax / 100
                       }
                     />
                   </Field>
@@ -829,7 +866,7 @@ function Projects() {
                 <Field label="What needs to be done?">
                   <textarea
                     name="description"
-                    defaultValue={draft?.description || ""}
+                    defaultValue={initial?.description || ""}
                     required
                     minLength={20}
                     maxLength={4000}
@@ -869,7 +906,7 @@ function Projects() {
                           <select
                             name={"intake_" + question.id}
                             required={question.required}
-                            defaultValue={draft?.intake?.[question.id] || ""}
+                            defaultValue={initial?.intake?.[question.id] || ""}
                           >
                             <option value="" disabled>
                               Select an answer
@@ -886,7 +923,7 @@ function Projects() {
                             maxLength={1500}
                             rows={3}
                             placeholder={question.placeholder}
-                            defaultValue={draft?.intake?.[question.id] || ""}
+                            defaultValue={initial?.intake?.[question.id] || ""}
                           />
                         ) : (
                           <input
@@ -895,7 +932,7 @@ function Projects() {
                             minLength={question.required ? 2 : undefined}
                             maxLength={1500}
                             placeholder={question.placeholder}
-                            defaultValue={draft?.intake?.[question.id] || ""}
+                            defaultValue={initial?.intake?.[question.id] || ""}
                           />
                         )}
                       </Field>
@@ -949,6 +986,7 @@ function Projects() {
                       className="secondary"
                       onClick={() => {
                         setPhotos([]);
+                        setFormValues(null);
                         setCreating(false);
                       }}
                     >
@@ -1016,6 +1054,20 @@ function ProjectDetail() {
     pro = p.proId === data.user.id;
   const own = customer || pro;
   const quotes = data.quotes.filter((q) => q.projectId === p.id);
+  const open = ["requested", "quoted"].includes(p.status);
+  const ownProfile = data.profiles.find((x) => x.id === data.user.id);
+  const canQuote =
+    !!ownProfile &&
+    ownProfile.verified &&
+    !ownProfile.suspended &&
+    ownProfile.available &&
+    ownProfile.reviewStatus === "approved";
+  const previewBlocked =
+    !!data.marketplacePreview && !!data.discoveryRequirements?.length;
+  const ownQuote = quotes.find((q) => q.proId === data.user.id);
+  const sharedPhotos = own
+    ? []
+    : data.uploads.filter((f) => f.projectId === p.id && f.status === "ready");
   const submit = (body: unknown) =>
     request("/projects/" + p.id + "/actions", {
       ...(body as object),
@@ -1067,47 +1119,116 @@ function ProjectDetail() {
                       ? customer
                         ? "Compare estimates and choose your professional"
                         : "Answer questions and keep your estimate up to date"
-                      : p.status === "booked"
-                        ? "Agree on the appointment and prepare for work"
-                        : p.status === "in_progress"
-                          ? "Keep each other updated as work progresses"
-                          : p.status === "completed"
-                            ? "Work completed — share your experience"
-                            : "Check your project status and support updates"}
+                      : p.status === "booked" && p.awardAccepted === false
+                        ? pro
+                          ? "Confirm you can take this job"
+                          : "Waiting for the professional to confirm the job"
+                        : p.status === "booked"
+                          ? "Agree on the appointment and prepare for work"
+                          : p.status === "in_progress"
+                            ? "Keep each other updated as work progresses"
+                            : p.status === "completed"
+                              ? customer
+                                ? "Work completed — share your experience"
+                                : "Work completed"
+                              : p.status === "cancelled"
+                                ? "This project was cancelled"
+                                : p.status === "disputed"
+                                  ? "Our team is reviewing the reported issue"
+                                  : "Check your project status and support updates"}
           </h2>
           <p>
             Service payments are arranged directly. Aplime charges professionals
             only for their subscription.
           </p>
-        </div>
-        <ol className="project-journey">
-          {["Request", "Discuss & compare", "Booked", "Work", "Review"].map(
-            (label, index) => (
-              <li
-                key={label}
-                className={
-                  index <=
-                  [
-                    "requested",
-                    "quoted",
-                    "booked",
-                    "in_progress",
-                    "completed",
-                  ].indexOf(
-                    p.status === "paused"
-                      ? p.pausedFrom || "requested"
-                      : p.status,
-                  )
-                    ? "reached"
-                    : ""
-                }
-              >
-                {label}
-              </li>
-            ),
+          {customer && p.status === "completed" && (
+            <button onClick={() => go("reviews")}>Leave a review</button>
           )}
-        </ol>
+        </div>
+        {!["cancelled", "disputed"].includes(p.status) && (
+          <ol className="project-journey">
+            {["Request", "Discuss & compare", "Booked", "Work", "Review"].map(
+              (label, index) => (
+                <li
+                  key={label}
+                  className={
+                    index <=
+                    [
+                      "requested",
+                      "quoted",
+                      "booked",
+                      "in_progress",
+                      "completed",
+                    ].indexOf(
+                      p.status === "paused"
+                        ? p.pausedFrom || "requested"
+                        : p.status,
+                    )
+                      ? "reached"
+                      : ""
+                  }
+                >
+                  {label}
+                </li>
+              ),
+            )}
+          </ol>
+        )}
       </section>
+      {customer && p.proId && open && (
+        <Panel title="Waiting on your chosen professional">
+          <p>
+            This request was sent to {p.proName || "one professional"} only. If
+            they are slow to answer or you want to compare options, open it to
+            every matching professional. Estimates already received stay
+            available.
+          </p>
+          <button
+            disabled={busy}
+            onClick={() => {
+              if (
+                !window.confirm(
+                  "Open this request to all matching professionals?",
+                )
+              )
+                return;
+              void run(
+                () => submit({ type: "open_request" }),
+                "Your request is now open to matching professionals.",
+              );
+            }}
+          >
+            Open to all matching professionals
+          </button>
+        </Panel>
+      )}
+      {p.status === "booked" && p.awardAccepted === false && (
+        <AwardResponse
+          busy={busy}
+          customer={customer}
+          proName={p.proName}
+          amount={p.amount}
+          accept={() =>
+            run(
+              () => submit({ type: "accept_award" }),
+              "Job confirmed. Agree on the appointment next.",
+            )
+          }
+          decline={(reason) =>
+            run(
+              () => submit({ type: "decline_award", reason }),
+              "You declined this job. The customer was notified.",
+              () => go("leads"),
+            )
+          }
+          withdraw={() =>
+            run(
+              () => submit({ type: "withdraw_award" }),
+              "Award withdrawn. Your request is open for estimates again.",
+            )
+          }
+        />
+      )}
       {customer && !p.proId && ["requested", "quoted"].includes(p.status) && (
         <button onClick={() => go("discover", p.id)}>
           <MessageCircle size={18} />
@@ -1199,8 +1320,20 @@ function ProjectDetail() {
                 ? "Not specified"
                 : `${p.budgetMin === null ? "Any" : money(p.budgetMin)} – ${p.budgetMax === null ? "Any" : money(p.budgetMax)}`}
             </dd>
-            <dt>Agreed total</dt>
-            <dd>{p.amount ? money(p.amount) : "Awaiting an estimate"}</dd>
+            <dt>
+              {p.amount
+                ? "Agreed total"
+                : ownQuote
+                  ? "Your estimate"
+                  : "Agreed total"}
+            </dt>
+            <dd>
+              {p.amount
+                ? money(p.amount)
+                : ownQuote && ownQuote.status === "pending"
+                  ? money(ownQuote.amount)
+                  : "Awaiting an estimate"}
+            </dd>
           </dl>
           <div className="actions">
             {own && p.proId && (
@@ -1291,7 +1424,14 @@ function ProjectDetail() {
                 <div>
                   <h3>{money(q.amount)}</h3>
                   <Badge>
-                    {q.status} · version {q.revision}
+                    {q.status === "pending" && !open
+                      ? "on hold"
+                      : q.status === "pending" &&
+                          q.expiresAt &&
+                          new Date(q.expiresAt).getTime() <= Date.now()
+                        ? "expired"
+                        : q.status}{" "}
+                    · version {q.revision}
                   </Badge>
                 </div>
                 <p>
@@ -1311,24 +1451,38 @@ function ProjectDetail() {
                   <dt>Valid until</dt>
                   <dd>{q.expiresAt ? date(q.expiresAt) : "No expiration"}</dd>
                 </dl>
-                {customer && q.status === "pending" && (
+                {customer && q.status === "pending" && open && (
                   <div className="actions">
-                    <button
-                      disabled={busy}
-                      onClick={() =>
-                        void run(
-                          () =>
-                            submit({
-                              type: "accept",
-                              quoteId: q.id,
-                              revision: q.revision,
-                            }),
-                          "Estimate accepted.",
-                        )
-                      }
-                    >
-                      Accept estimate
-                    </button>
+                    {!(
+                      q.expiresAt &&
+                      new Date(q.expiresAt).getTime() <= Date.now()
+                    ) && (
+                      <button
+                        disabled={busy}
+                        onClick={() => {
+                          const business =
+                            data.profiles.find((x) => x.id === q.proId)
+                              ?.business || "this professional";
+                          if (
+                            !window.confirm(
+                              `Accept ${money(q.amount)} from ${business}? This professional must confirm the job. Your other estimates stay on hold until they do.`,
+                            )
+                          )
+                            return;
+                          void run(
+                            () =>
+                              submit({
+                                type: "accept",
+                                quoteId: q.id,
+                                revision: q.revision,
+                              }),
+                            "Estimate selected. The professional must confirm the job before work starts.",
+                          );
+                        }}
+                      >
+                        Accept estimate
+                      </button>
+                    )}
                     <button
                       disabled={busy}
                       className="secondary"
@@ -1387,13 +1541,27 @@ function ProjectDetail() {
             </Empty>
           )}
           {data.user.role === "pro" &&
-            !(data.marketplacePreview && data.discoveryRequirements?.length) &&
-            ["requested", "quoted"].includes(p.status) &&
+            !previewBlocked &&
+            open &&
+            (!p.proId || pro) &&
+            !canQuote && (
+              <p className="project-state-note" role="note">
+                Your business profile must be approved, verified and set to
+                available before you can send estimates.{" "}
+                <button className="text-button" onClick={() => go("profile")}>
+                  Review your profile
+                </button>
+              </p>
+            )}
+          {data.user.role === "pro" &&
+            !previewBlocked &&
+            canQuote &&
+            open &&
             (!p.proId || pro) &&
             !quotes.some(
               (q) =>
                 q.proId === data.user.id &&
-                !["pending", "withdrawn"].includes(q.status),
+                !["pending", "withdrawn", "expired"].includes(q.status),
             ) && (
               <Form
                 busy={busy}
@@ -1415,7 +1583,7 @@ function ProjectDetail() {
                           ? new Date(String(f.get("expiresAt"))).toISOString()
                           : null,
                       }),
-                    "Estimate sent.",
+                    ownQuote ? "Estimate updated." : "Estimate sent.",
                   )
                 }
               >
@@ -1505,7 +1673,9 @@ function ProjectDetail() {
                 <Field label="Estimate expiration (optional)">
                   <input name="expiresAt" type="datetime-local" />
                 </Field>
-                <button>Send estimate</button>
+                <button>
+                  {ownQuote ? "Update estimate" : "Send estimate"}
+                </button>
               </Form>
             )}
         </Panel>
@@ -1515,11 +1685,35 @@ function ProjectDetail() {
         projectId={p.id}
         canStart={
           data.user.role === "pro" &&
-          !(data.marketplacePreview && data.discoveryRequirements?.length) &&
+          !previewBlocked &&
+          canQuote &&
           ["requested", "quoted"].includes(p.status) &&
           (!p.proId || pro)
         }
       />
+      {sharedPhotos.length > 0 && (
+        <Panel title="Customer photos">
+          <p>
+            The customer shared these photos to help you prepare an accurate
+            estimate.
+          </p>
+          {sharedPhotos.map((f) => (
+            <button
+              key={f.id}
+              className="secondary"
+              disabled={busy}
+              onClick={() =>
+                void run(async () => {
+                  const r = await request("/uploads/" + f.id);
+                  await openExternal(r.url);
+                }, "")
+              }
+            >
+              {f.name}
+            </button>
+          ))}
+        </Panel>
+      )}
       {own && (
         <Panel title="Project attachments">
           <p>
@@ -1591,12 +1785,17 @@ function Quotes() {
             <button
               className="project-row"
               key={q.id}
+              disabled={
+                !data.projects.some((p) => p.id === q.projectId) &&
+                !data.leads.some((p) => p.id === q.projectId)
+              }
               onClick={() => go("project", q.projectId)}
             >
               <span>
                 <strong>
                   {data.projects.find((p) => p.id === q.projectId)?.title ||
                     data.leads.find((p) => p.id === q.projectId)?.title ||
+                    q.projectTitle ||
                     "Project estimate"}
                 </strong>
                 <small>{q.description}</small>

@@ -1,5 +1,6 @@
 import {
   matchSql,
+  rankSql,
   discoverySql,
   eligibleProSql,
   unblockedSql,
@@ -20,6 +21,7 @@ async function mappedProfile(
   row: Record<string, any>,
   ownerId?: string,
   previewImages = false,
+  administrator = false,
 ) {
   const profile = camel<Profile>(row);
   profile.images = await Promise.all(
@@ -35,7 +37,12 @@ async function mappedProfile(
   if (profile.id !== ownerId) {
     profile.address = "";
     profile.placeId = "";
+  }
+  if (profile.id !== ownerId && !administrator) {
     delete profile.reviewNote;
+    delete profile.submittedAt;
+    delete profile.reviewedAt;
+    delete profile.connectReady;
   }
   if (!profile.serviceCategories.length)
     profile.serviceCategories = [profile.category];
@@ -76,7 +83,7 @@ export async function workspace(user: User): Promise<Workspace> {
           await pool.query(
             `SELECT p.id AS project_id, chosen.id AS pro_id FROM projects p CROSS JOIN LATERAL (
       SELECT f.id FROM profiles f WHERE ${matchSql()} AND p.pro_id IS NULL AND p.status IN ('requested','quoted')
-      ORDER BY (SELECT avg(r.rating) FROM reviews r WHERE r.pro_id=f.id) DESC NULLS LAST,f.id LIMIT 5
+      ORDER BY ${rankSql()} LIMIT 5
     ) chosen WHERE p.customer_id=$1`,
             [user.id],
           )
@@ -108,6 +115,7 @@ export async function workspace(user: User): Promise<Workspace> {
         r,
         user.id,
         preview && user.role === "customer" && !!r.discoverable,
+        admin,
       );
       profile.matchedProjectIds = matchRows
         .filter((row) => row.pro_id === profile.id)
@@ -171,7 +179,7 @@ export async function workspace(user: User): Promise<Workspace> {
     pool.query(
       admin
         ? "SELECT * FROM quotes ORDER BY created_at DESC LIMIT 1000"
-        : "SELECT * FROM quotes WHERE project_id=ANY($1::uuid[]) AND (pro_id=$2 OR project_id IN (SELECT id FROM projects WHERE customer_id=$2)) ORDER BY created_at DESC",
+        : "SELECT q.*,(SELECT title FROM projects WHERE id=q.project_id) AS project_title FROM quotes q WHERE q.pro_id=$2 OR (q.project_id=ANY($1::uuid[]) AND q.project_id IN (SELECT id FROM projects WHERE customer_id=$2)) ORDER BY q.created_at DESC",
       admin ? [] : [allIds, user.id],
     ),
     pool.query(
@@ -197,8 +205,8 @@ export async function workspace(user: User): Promise<Workspace> {
       [user.id],
     ),
     pool.query(
-      "SELECT id,project_id,name,content_type,size,status FROM uploads WHERE project_id=ANY($1::uuid[]) AND (status='ready' OR user_id=$2) ORDER BY created_at",
-      [admin ? [] : ids, user.id],
+      "SELECT id,project_id,name,content_type,size,status FROM uploads WHERE (project_id=ANY($1::uuid[]) AND (status='ready' OR user_id=$2)) OR (project_id=ANY($3::uuid[]) AND status='ready' AND content_type LIKE 'image/%') ORDER BY created_at",
+      [admin ? [] : ids, user.id, leads.map((lead) => lead.id)],
     ),
     pool.query("SELECT pro_id FROM saved WHERE user_id=$1", [user.id]),
     pool.query("SELECT other_id FROM blocked WHERE user_id=$1", [user.id]),
@@ -243,6 +251,24 @@ export async function notify(
   await c.query(
     "INSERT INTO email_outbox(id,user_id,subject,body) SELECT $1,id,$3,$4 FROM users WHERE id=$2 AND COALESCE((settings->>'emailAlerts')::boolean,true)",
     [randomUUID(), userId, title, body],
+  );
+}
+// One bulk insert for fan-out alerts: a notification per user plus an email for those who allow email alerts.
+export async function notifyMany(
+  c: pg.PoolClient,
+  userIds: string[],
+  title: string,
+  body: string,
+  target: { page: string; id?: string } = { page: "notifications" },
+) {
+  if (!userIds.length) return;
+  await c.query(
+    "INSERT INTO notifications(id,user_id,title,body,target_page,target_id) SELECT gen_random_uuid(),u,$2,$3,$4,$5 FROM unnest($1::text[]) AS u",
+    [userIds, title, body, target.page, target.id || null],
+  );
+  await c.query(
+    "INSERT INTO email_outbox(id,user_id,subject,body) SELECT gen_random_uuid(),id,$2,$3 FROM users WHERE id=ANY($1::text[]) AND COALESCE((settings->>'emailAlerts')::boolean,true)",
+    [userIds, title, body],
   );
 }
 export async function audit(

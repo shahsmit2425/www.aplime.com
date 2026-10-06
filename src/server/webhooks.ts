@@ -175,11 +175,24 @@ webhooks.post(
             [obj.payment_intent],
           )
         ).rows[0];
-        if (paid)
-          await c.query(
-            "UPDATE projects SET status='cancelled' WHERE id=$1 AND status='disputed'",
-            [paid.project_id],
-          );
+        if (paid) {
+          const closed = (
+            await c.query(
+              "UPDATE projects SET status='cancelled',version=version+1 WHERE id=$1 AND status='disputed' RETURNING customer_id,pro_id,title",
+              [paid.project_id],
+            )
+          ).rows[0];
+          if (closed)
+            for (const userId of [closed.customer_id, closed.pro_id])
+              await notify(
+                c,
+                userId,
+                "Refund processed",
+                closed.title +
+                  ": the payment was refunded and the project is closed.",
+                { page: "project", id: paid.project_id },
+              );
+        }
       }
     });
     res.json({ received: true });

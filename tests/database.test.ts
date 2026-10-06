@@ -83,6 +83,12 @@ await db.exec(
 await db.exec(
   await readFile("src/server/db/migrations/009_project_lifecycle.sql", "utf8"),
 );
+await db.exec(
+  await readFile(
+    "src/server/db/migrations/010_award_handshake_and_expiry.sql",
+    "utf8",
+  ),
+);
 
 test.after(async () => {
   await db.close();
@@ -185,6 +191,11 @@ test("real PostgreSQL engine enforces ownership workflow and duplicate constrain
     quoteId: quote.id,
     revision: 2,
   });
+  await assert.rejects(
+    projectAction(id, customer, { type: "start" }),
+    /not available/,
+  );
+  await projectAction(id, professional, { type: "accept_award" });
   const visit = new Date(Date.now() + 86400000);
   visit.setUTCHours(14, 0, 0, 0);
   const proposedAt = visit.toISOString();
@@ -1636,4 +1647,446 @@ test("project activity excludes outsiders and competing professional details", a
     false,
   );
   await assert.rejects(readProjectActivity(id, outsider.id), /private/);
+});
+
+async function approvedPro(label: string) {
+  const pro = { ...professional, id: label + "-" + randomUUID() };
+  await query("INSERT INTO users(id,name,email,role) VALUES($1,$2,$3,'pro')", [
+    pro.id,
+    label,
+    pro.id + "@example.invalid",
+  ]);
+  await query(
+    "INSERT INTO profiles(id,business,category,bio,zip,rate,verified,review_status,review_note) VALUES($1,$2,'Handyman','Detailed business','10001',50,true,'approved','Internal reviewer note')",
+    [pro.id, label + " business"],
+  );
+  await query(
+    "INSERT INTO professional_subscriptions(user_id,status) VALUES($1,'active')",
+    [pro.id],
+  );
+  return pro;
+}
+const estimate = {
+  type: "quote" as const,
+  laborAmount: 20000,
+  materialsAmount: 0,
+  description: "A detailed scope of work",
+  exclusions: "",
+  timeline: "One workday",
+  expiresAt: null,
+};
+
+test("customers can decline an expired estimate but cannot accept it", async () => {
+  const pro = await approvedPro("expiring");
+  const id = await lifecycleProject("requested", false);
+  await projectAction(id, pro, estimate);
+  await query(
+    "UPDATE quotes SET expires_at=now()-interval '1 day' WHERE project_id=$1",
+    [id],
+  );
+  const q = (await query("SELECT * FROM quotes WHERE project_id=$1", [id]))
+    .rows[0] as any;
+  await assert.rejects(
+    projectAction(id, customer, {
+      type: "accept",
+      quoteId: q.id,
+      revision: q.revision,
+    }),
+    /no longer available/,
+  );
+  await projectAction(id, customer, { type: "decline", quoteId: q.id });
+  assert.equal((await projectRow(id)).status, "requested");
+});
+
+test("accepting an estimate re-checks subscription and blocking, and keeps withdrawn history", async () => {
+  const lapsed = await approvedPro("lapsed");
+  const withdrawn = await approvedPro("withdrawn");
+  const id = await lifecycleProject("requested", false);
+  await projectAction(id, lapsed, estimate);
+  await projectAction(id, withdrawn, estimate);
+  await projectAction(id, withdrawn, {
+    type: "withdraw_quote",
+    reason: "Cannot take this job",
+  });
+  await query(
+    "UPDATE professional_subscriptions SET status='canceled' WHERE user_id=$1",
+    [lapsed.id],
+  );
+  const q = (await query("SELECT * FROM quotes WHERE pro_id=$1", [lapsed.id]))
+    .rows[0] as any;
+  await assert.rejects(
+    projectAction(id, customer, {
+      type: "accept",
+      quoteId: q.id,
+      revision: q.revision,
+    }),
+    /can no longer be booked/,
+  );
+  await query(
+    "UPDATE professional_subscriptions SET status='active' WHERE user_id=$1",
+    [lapsed.id],
+  );
+  await projectAction(id, customer, {
+    type: "accept",
+    quoteId: q.id,
+    revision: q.revision,
+  });
+  const statuses = Object.fromEntries(
+    (
+      await query("SELECT pro_id,status FROM quotes WHERE project_id=$1", [id])
+    ).rows.map((r: any) => [r.pro_id, r.status]),
+  );
+  assert.equal(statuses[lapsed.id], "accepted");
+  assert.equal(statuses[withdrawn.id], "withdrawn");
+});
+
+test("a directly requested professional cannot hold the request hostage and the customer can open it up", async () => {
+  const direct = await approvedPro("direct");
+  const other = await approvedPro("other-open");
+  const id = await lifecycleProject("requested", false);
+  await query("UPDATE projects SET pro_id=$2 WHERE id=$1", [id, direct.id]);
+  await assert.rejects(
+    projectAction(id, direct, {
+      type: "pause",
+      reason: "Not interested right now",
+    }),
+    /not available/,
+  );
+  await assert.rejects(
+    projectAction(id, direct, {
+      type: "cancel",
+      reason: "Not interested right now",
+    }),
+    /not available/,
+  );
+  await assert.rejects(projectAction(id, other, estimate), /not available/);
+  await assert.rejects(
+    projectAction(id, direct, { type: "open_request" }),
+    /not available/,
+  );
+  await projectAction(id, customer, { type: "open_request" });
+  assert.equal((await projectRow(id)).pro_id, null);
+  await projectAction(id, other, estimate);
+  assert.equal((await projectRow(id)).status, "quoted");
+  const alerts = (
+    await query(
+      "SELECT user_id FROM notifications WHERE target_id=$1 AND title='Project open for estimates'",
+      [id],
+    )
+  ).rows as any[];
+  assert.equal(
+    alerts.filter((row) => row.user_id === other.id).length,
+    1,
+    "matching professionals hear about the reopened request once",
+  );
+});
+
+test("matching professionals can see project photos before quoting, and outsiders cannot", async () => {
+  const pro = await approvedPro("photo-viewer");
+  const id = await lifecycleProject("requested", false);
+  const upload = randomUUID();
+  await query(
+    "INSERT INTO uploads(id,project_id,user_id,object_key,name,content_type,size,status) VALUES($1,$2,$3,'k','leak.jpg','image/jpeg',100,'ready')",
+    [upload, id, customer.id],
+  );
+  await query(
+    "INSERT INTO uploads(id,project_id,user_id,object_key,name,content_type,size,status) VALUES($1,$2,$3,'k2','plan.pdf','application/pdf',100,'ready')",
+    [randomUUID(), id, customer.id],
+  );
+  const { isOpenLead } = await import("../src/server/matching.js");
+  const files = (await workspace(pro)).uploads.filter(
+    (f) => f.projectId === id,
+  );
+  assert.deepEqual(
+    files.map((f) => f.name),
+    ["leak.jpg"],
+  );
+  assert.equal(await isOpenLead(pro.id, id), true);
+  await query("UPDATE profiles SET available=false WHERE id=$1", [pro.id]);
+  assert.equal(await isOpenLead(pro.id, id), false);
+  assert.equal(
+    (await workspace(pro)).uploads.some((f) => f.projectId === id),
+    false,
+  );
+});
+
+test("internal review fields never reach other users' workspaces or public listings", async () => {
+  const pro = await approvedPro("private-note");
+  await query("UPDATE profiles SET business='!First listed' WHERE id=$1", [
+    pro.id,
+  ]);
+  const { publicProfiles } = await import("../src/server/repository.js");
+  const listed = (await publicProfiles(pro.id))[0] as any;
+  assert.ok(listed);
+  assert.equal(listed.reviewNote, undefined);
+  assert.equal(listed.submittedAt, undefined);
+  const id = await lifecycleProject("booked", false);
+  await query("UPDATE projects SET pro_id=$2 WHERE id=$1", [id, pro.id]);
+  const seen = (await workspace(customer)).profiles.find(
+    (p) => p.id === pro.id,
+  ) as any;
+  assert.ok(seen);
+  assert.equal(seen.reviewNote, undefined);
+  const own = (await workspace(pro)).profiles.find(
+    (p) => p.id === pro.id,
+  ) as any;
+  assert.equal(own.reviewNote, "Internal reviewer note");
+  const admin = {
+    id: "admin-" + randomUUID(),
+    name: "Admin",
+    email: "admin@example.invalid",
+    role: "admin" as const,
+    settings: {},
+  };
+  await query(
+    "INSERT INTO users(id,name,email,role) VALUES($1,'Admin',$2,'admin')",
+    [admin.id, admin.email],
+  );
+  const reviewed = (await workspace(admin)).profiles.find(
+    (p) => p.id === pro.id,
+  ) as any;
+  assert.equal(reviewed.reviewNote, "Internal reviewer note");
+});
+
+test("losing professionals keep their estimate history and are told it was not selected", async () => {
+  const winner = await approvedPro("winner");
+  const loser = await approvedPro("loser");
+  const id = await lifecycleProject("requested", false);
+  await projectAction(id, winner, estimate);
+  await projectAction(id, loser, estimate);
+  const q = (await query("SELECT * FROM quotes WHERE pro_id=$1", [winner.id]))
+    .rows[0] as any;
+  await projectAction(id, customer, {
+    type: "accept",
+    quoteId: q.id,
+    revision: q.revision,
+  });
+  let history = (await workspace(loser)).quotes.filter(
+    (row) => row.projectId === id,
+  );
+  assert.equal(history[0].status, "pending");
+  assert.equal(
+    (
+      await query(
+        "SELECT 1 FROM notifications WHERE user_id=$1 AND title='Project awarded'",
+        [loser.id],
+      )
+    ).rows.length,
+    0,
+  );
+  await projectAction(id, winner, { type: "accept_award" });
+  history = (await workspace(loser)).quotes.filter(
+    (row) => row.projectId === id,
+  );
+  assert.equal(history.length, 1);
+  assert.equal(history[0].status, "declined");
+  assert.equal(history[0].projectTitle, "Lifecycle project");
+  const notice = (
+    await query(
+      "SELECT body FROM notifications WHERE user_id=$1 AND title='Project awarded'",
+      [loser.id],
+    )
+  ).rows[0] as any;
+  assert.match(notice.body, /not selected/);
+});
+
+test("a declined award restores the open request and a withdrawn award reopens the estimate", async () => {
+  const first = await approvedPro("first");
+  const second = await approvedPro("second");
+  const id = await lifecycleProject("requested", false);
+  await projectAction(id, first, estimate);
+  await projectAction(id, second, estimate);
+  const quoteOf = async (pro: { id: string }) =>
+    (
+      await query("SELECT * FROM quotes WHERE pro_id=$1 AND project_id=$2", [
+        pro.id,
+        id,
+      ])
+    ).rows[0] as any;
+  let q = await quoteOf(first);
+  await projectAction(id, customer, {
+    type: "accept",
+    quoteId: q.id,
+    revision: q.revision,
+  });
+  let row = await projectRow(id);
+  assert.equal(row.status, "booked");
+  assert.equal(row.award_accepted, false);
+  await assert.rejects(projectAction(id, first, { type: "start" }));
+  await assert.rejects(projectAction(id, second, { type: "accept_award" }));
+  await projectAction(id, first, {
+    type: "decline_award",
+    reason: "Schedule conflict",
+  });
+  row = await projectRow(id);
+  assert.equal(row.status, "quoted");
+  assert.equal(row.pro_id, null);
+  assert.equal(row.award_accepted, true);
+  assert.equal((await quoteOf(first)).status, "declined");
+  assert.equal((await quoteOf(second)).status, "pending");
+  q = await quoteOf(second);
+  await projectAction(id, customer, {
+    type: "accept",
+    quoteId: q.id,
+    revision: q.revision,
+  });
+  await projectAction(id, customer, { type: "withdraw_award" });
+  row = await projectRow(id);
+  assert.equal(row.pro_id, null);
+  q = await quoteOf(second);
+  assert.equal(q.status, "pending");
+  assert.equal(row.status, "quoted");
+  await assert.rejects(
+    projectAction(id, customer, { type: "accept", quoteId: q.id, revision: 1 }),
+    /changed/,
+  );
+  await projectAction(id, customer, {
+    type: "accept",
+    quoteId: q.id,
+    revision: q.revision,
+  });
+  await projectAction(id, second, { type: "accept_award" });
+  await projectAction(id, customer, { type: "start" });
+  assert.equal((await projectRow(id)).status, "in_progress");
+});
+
+test("lapsed estimates expire, reopen the project and can be re-sent", async () => {
+  const { expireEstimates } = await import("../src/server/estimates.js");
+  const pro = await approvedPro("lapse");
+  const id = await lifecycleProject("requested", false);
+  await projectAction(id, pro, estimate);
+  await query(
+    "UPDATE quotes SET expires_at=now()-interval '1 hour' WHERE project_id=$1",
+    [id],
+  );
+  const before = (await projectRow(id)).version;
+  assert.ok((await expireEstimates()) >= 1);
+  const row = await projectRow(id);
+  assert.equal(row.status, "requested");
+  assert.ok(row.version > before);
+  const q = (await query("SELECT * FROM quotes WHERE project_id=$1", [id]))
+    .rows[0] as any;
+  assert.equal(q.status, "expired");
+  for (const user of [pro.id, customer.id])
+    assert.ok(
+      (
+        await query(
+          "SELECT 1 FROM notifications WHERE user_id=$1 AND target_id=$2 AND title LIKE '%expired'",
+          [user, id],
+        )
+      ).rows.length,
+    );
+  assert.equal(await expireEstimates(), 0);
+  await projectAction(id, pro, estimate);
+  assert.equal((await projectRow(id)).status, "quoted");
+});
+
+test("email outbox claims batches, marks sent, and backs off failures", async () => {
+  const { deliverOutbox } = await import("../src/server/outbox.js");
+  await query("DELETE FROM email_outbox");
+  const mail = await approvedPro("mail");
+  for (const subject of ["a", "b", "c"])
+    await query(
+      "INSERT INTO email_outbox(id,user_id,subject,body) VALUES($1,$2,$3,'body')",
+      [randomUUID(), mail.id, subject],
+    );
+  const sent: string[] = [];
+  assert.equal(
+    await deliverOutbox(async (_to, subject) => {
+      if (subject === "b") throw new Error("provider down");
+      sent.push(subject);
+    }, 10),
+    3,
+  );
+  assert.deepEqual(sent.sort(), ["a", "c"]);
+  assert.equal(await deliverOutbox(async () => {}, 10), 0);
+  const rows = (
+    await query(
+      "SELECT subject,sent_at,attempts,next_attempt_at>now() AS later FROM email_outbox ORDER BY subject",
+    )
+  ).rows as any[];
+  assert.ok(rows[0].sent_at && !rows[1].sent_at && rows[2].sent_at);
+  assert.equal(rows[1].attempts, 1);
+  assert.ok(rows[1].later);
+});
+
+test("new project alerts are capped and ranked by review volume", async () => {
+  const { notifyMatchingProfessionals, ALERT_LIMIT } =
+    await import("../src/server/project-events.js");
+  const crowd = [];
+  for (let i = 0; i < ALERT_LIMIT + 3; i++)
+    crowd.push(await approvedPro("crowd" + i));
+  const id = await lifecycleProject("requested", false);
+  const alerted = await pool
+    .connect()
+    .then(async (c) =>
+      notifyMatchingProfessionals(c as any, id, "Capped alert"),
+    );
+  assert.equal(alerted.length, ALERT_LIMIT);
+  const ids = new Set(alerted);
+  assert.equal(
+    (
+      (
+        await query(
+          "SELECT count(*)::int AS n FROM notifications WHERE target_id=$1 AND title='Capped alert'",
+          [id],
+        )
+      ).rows[0] as any
+    ).n,
+    ALERT_LIMIT,
+  );
+  assert.equal(ids.size, ALERT_LIMIT);
+});
+
+test("customers cannot hire or review an account sharing their normalized email", async () => {
+  const self = await approvedPro("self");
+  await query("UPDATE users SET email='jane.doe+biz@gmail.com' WHERE id=$1", [
+    self.id,
+  ]);
+  const id = await lifecycleProject("requested", false);
+  await query("UPDATE users SET email='janedoe@gmail.com' WHERE id=$1", [
+    customer.id,
+  ]);
+  await assert.rejects(projectAction(id, self, estimate), /same person/);
+  await query("UPDATE users SET email='customer@example.invalid' WHERE id=$1", [
+    customer.id,
+  ]);
+  await projectAction(id, self, estimate);
+  await query("UPDATE users SET email='janedoe@gmail.com' WHERE id=$1", [
+    customer.id,
+  ]);
+  const q = (await query("SELECT * FROM quotes WHERE pro_id=$1", [self.id]))
+    .rows[0] as any;
+  await assert.rejects(
+    projectAction(id, customer, {
+      type: "accept",
+      quoteId: q.id,
+      revision: q.revision,
+    }),
+    /same person/,
+  );
+  await query("UPDATE users SET email='customer@example.invalid' WHERE id=$1", [
+    customer.id,
+  ]);
+});
+
+test("ranking prefers proven review volume over a single perfect review", async () => {
+  const { rankSql } = await import("../src/server/matching.js");
+  const thin = await approvedPro("thin");
+  const proven = await approvedPro("proven");
+  const addReview = async (pro: { id: string }, rating: number) =>
+    query(
+      "INSERT INTO reviews(id,project_id,pro_id,rating,body) VALUES($1,$2,$3,$4,'Solid work done')",
+      [randomUUID(), await lifecycleProject("completed"), pro.id, rating],
+    );
+  await addReview(thin, 5);
+  for (let i = 0; i < 10; i++) await addReview(proven, 5);
+  const id = await lifecycleProject("requested", false);
+  const order = (
+    await query(
+      `SELECT f.id FROM profiles f JOIN projects p ON p.id=$1 WHERE f.id=ANY($2::text[]) ORDER BY ${rankSql()}`,
+      [id, [thin.id, proven.id]],
+    )
+  ).rows.map((row: any) => row.id);
+  assert.deepEqual(order, [proven.id, thin.id]);
 });

@@ -86,14 +86,41 @@ export function ProjectControls({ project: p }: { project: Project }) {
     [problem, setProblem] = useState("");
   const allowed = (type: ProjectAction["type"]) =>
     allowedTransition(p, data.user, type);
+  const underway =
+    p.status === "in_progress" ||
+    (p.status === "paused" && p.pausedFrom === "in_progress");
+  const outcomes: Partial<Record<ProjectAction["type"], string>> = {
+    start: "Work started.",
+    complete:
+      "Completion requested. The other participant will be asked to confirm.",
+    confirm_completion: "Project completed.",
+    reject_completion: "Sent back for more work.",
+    pause: "Project paused.",
+    resume: "Project resumed.",
+    cancel: underway
+      ? "Cancellation requested. The other participant must agree before the project closes."
+      : "Project cancelled.",
+    delete: underway
+      ? "Cancellation requested. The other participant must agree before the project closes."
+      : "Project removed.",
+    respond_cancellation: "Your response was sent.",
+    withdraw_cancellation: "Cancellation request withdrawn.",
+    archive: "Project archived.",
+    restore: "Project restored.",
+    dispute: "Issue reported. Our team will review it.",
+  };
   const submit = (body: unknown) =>
-    run(async () => {
-      await request("/projects/" + p.id + "/actions", {
-        ...(body as object),
-        expectedVersion: p.version,
-      });
-      setIntent(null);
-    }, "Project updated.");
+    run(
+      async () => {
+        await request("/projects/" + p.id + "/actions", {
+          ...(body as object),
+          expectedVersion: p.version,
+        });
+        setIntent(null);
+      },
+      outcomes[(body as { type: ProjectAction["type"] }).type] ||
+        "Project updated.",
+    );
   useEffect(() => {
     setIntent(null);
   }, [p.id, p.version]);

@@ -54,7 +54,11 @@ type WorkspaceContext = {
   page: string;
   id?: string;
   go: (page: string, id?: string) => void;
-  run: (fn: () => Promise<unknown>, message?: string) => Promise<void>;
+  run: (
+    fn: () => Promise<unknown>,
+    message?: string,
+    after?: () => void,
+  ) => Promise<void>;
   busy: boolean;
 };
 const Context = createContext<WorkspaceContext | null>(null);
@@ -384,7 +388,11 @@ export default function Workspace() {
     );
     return () => clearTimeout(timer);
   }, [resendUntil]);
-  async function run(fn: () => Promise<unknown>, message = "Saved.") {
+  async function run(
+    fn: () => Promise<unknown>,
+    message = "Saved.",
+    after?: () => void,
+  ) {
     if (busy) return;
     setBusy(true);
     setError("");
@@ -392,6 +400,7 @@ export default function Workspace() {
     try {
       await fn();
       if (auth().currentUser?.emailVerified) await load();
+      after?.();
       if (message) setNotice(message);
     } catch (e) {
       setError(authErrorMessage(e));
