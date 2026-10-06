@@ -83,6 +83,8 @@ export function Discussions({
   useEffect(() => setSelected(""), [id]);
   const [draft, setDraft] = useState("");
   useEffect(() => setDraft(""), [thread?.id]);
+  const [suggestion, setSuggestion] = useState("");
+  useEffect(() => setSuggestion(""), [thread?.id]);
   return (
     <Panel title="Private project chat">
       <p>
@@ -203,6 +205,41 @@ export function Discussions({
                     Send
                   </button>
                 </form>
+              )}
+              {!closed && !blocked && (
+                <details className="suggest-time">
+                  <summary>Suggest a time to meet or visit</summary>
+                  <form
+                    className="composer"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      const when = new Date(suggestion);
+                      if (Number.isNaN(when.getTime()) || when < new Date())
+                        return setError("Choose a time in the future.");
+                      void run(async () => {
+                        await request(`/discussions/${thread.id}/messages`, {
+                          body: `Could we meet on ${when.toLocaleString(undefined, { dateStyle: "full", timeStyle: "short" })}? Reply here, or confirm it as the project appointment.`,
+                        });
+                        setSuggestion("");
+                        await load();
+                      }, "");
+                    }}
+                  >
+                    <label className="sr-only" htmlFor="suggest-time-input">
+                      Suggested time
+                    </label>
+                    <input
+                      id="suggest-time-input"
+                      type="datetime-local"
+                      value={suggestion}
+                      onChange={(e) => setSuggestion(e.target.value)}
+                      required
+                    />
+                    <button disabled={busy || !suggestion}>
+                      Send suggestion
+                    </button>
+                  </form>
+                </details>
               )}
               <button
                 className="text-button"

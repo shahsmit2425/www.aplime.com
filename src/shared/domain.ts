@@ -280,6 +280,16 @@ export const actionSchema = z
       .object({ type: z.literal("decline"), quoteId: z.string().uuid() })
       .strict(),
     z.object({ type: z.literal("open_request") }).strict(),
+    z
+      .object({
+        type: z.literal("update_details"),
+        title: text(5, 120),
+        description: text(20, 4000),
+        urgency: z.enum(["urgent", "this_week", "this_month", "flexible"]),
+        budgetMin: z.number().int().min(0).max(10000000).nullable(),
+        budgetMax: z.number().int().min(0).max(10000000).nullable(),
+      })
+      .strict(),
     z.object({ type: z.literal("accept_award") }).strict(),
     z
       .object({ type: z.literal("decline_award"), reason: text(5, 1000) })
@@ -333,6 +343,17 @@ export const actionSchema = z
         message: "Estimate total must be at least $1",
         path: ["laborAmount"],
       });
+    if (
+      action.type === "update_details" &&
+      action.budgetMin !== null &&
+      action.budgetMax !== null &&
+      action.budgetMin > action.budgetMax
+    )
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Maximum budget must be at least the minimum budget",
+        path: ["budgetMax"],
+      });
   });
 export type ProjectAction = z.infer<typeof actionSchema>;
 export function allowedTransition(
@@ -373,6 +394,8 @@ export function allowedTransition(
       !!project.proId &&
       ["requested", "quoted"].includes(project.status)
     );
+  if (action === "update_details")
+    return customer && ["requested", "quoted"].includes(project.status);
   // Until the professional confirms an award, they may only accept/decline it or discuss times.
   const awaitingAward = project.awardAccepted === false;
   if (action === "accept_award" || action === "decline_award")

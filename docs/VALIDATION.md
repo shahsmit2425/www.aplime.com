@@ -151,3 +151,10 @@ Second pass (award handshake, expiry, delivery, ranking):
 - A `charge.refunded` webhook that closes a disputed project now bumps its version and notifies both participants (no activity entry, because the event has no human actor).
 
 Automated tests cover each server rule against the in-memory PostgreSQL fixture. Browser rendering of the new confirm/decline panel, real signed-photo downloads, live notification delivery, and a deployed worker were not exercised. Migration 010 has not been run against a Render database.
+
+Third pass (project action bar):
+
+- Every project page now opens with a role- and state-aware action bar: customers get Find professionals, Compare estimates, Messages, Propose a time and Edit details while a request is open; Message, Audio/Video call, Propose a time, Add to calendar and Save professional once a professional is assigned; and Leave a review, Save professional and Hire again after completion. Professionals get Message customer and Send/Update estimate on open leads, and Message, calls, Propose a time, Add to calendar and Directions once assigned. Get help is always present. Buttons that jump to a section (chat, estimates, estimate form) scroll and focus the first field.
+- Each estimate card gives the customer Chat with this pro, View profile and a Save heart. Saving stays blocked for unverified professionals. The chat composer gains "Suggest a time", which sends a chat message; only the project proposal flow changes the confirmed appointment.
+- New server action `update_details` (customer only, while the request is requested/quoted): title, description, timing and budget. It bumps the project version, records activity, and notifies professionals with a pending estimate or a conversation. Address and category are intentionally not editable.
+- Calendar export is a client-generated `.ics` file; directions open a Google Maps URL. Both are covered by unit tests of the generated text only. Browser rendering, the file download on iOS/Android WebViews, and scroll/focus behaviour were not exercised.

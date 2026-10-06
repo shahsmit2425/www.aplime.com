@@ -11,7 +11,7 @@ import { randomUUID } from "node:crypto";
 import type { User, ProjectAction } from "../shared/domain.js";
 import { allowedTransition, assertFuture } from "../shared/domain.js";
 import { transaction } from "./db/index.js";
-import { getProject, audit } from "./repository.js";
+import { getProject, audit, notifyMany } from "./repository.js";
 import { fail } from "./errors.js";
 export async function projectAction(
   id: string,
@@ -149,6 +149,32 @@ export async function projectAction(
         "UPDATE projects SET pro_id=NULL,status=CASE WHEN EXISTS(SELECT 1 FROM quotes WHERE project_id=$1 AND status='pending') THEN 'quoted' ELSE 'requested' END WHERE id=$1",
         [id],
       );
+    } else if (action.type === "update_details") {
+      await c.query(
+        "UPDATE projects SET title=$2,description=$3,urgency=$4,budget_min=$5,budget_max=$6 WHERE id=$1",
+        [
+          id,
+          action.title,
+          action.description,
+          action.urgency,
+          action.budgetMin,
+          action.budgetMax,
+        ],
+      );
+      const interested = (
+        await c.query(
+          "SELECT pro_id AS id FROM quotes WHERE project_id=$1 AND status='pending' UNION SELECT pro_id FROM project_discussions WHERE project_id=$1",
+          [id],
+        )
+      ).rows.map((row) => row.id as string);
+      await notifyMany(
+        c,
+        interested.filter((uid) => uid !== p.proId),
+        "Project details updated",
+        action.title +
+          ": the customer changed the request. Review before updating your estimate.",
+        { page: "project", id },
+      );
     } else if (action.type === "accept_award") {
       await c.query("UPDATE projects SET award_accepted=true WHERE id=$1", [
         id,
@@ -206,6 +232,7 @@ export async function projectAction(
       withdraw_award: "Customer withdrew the award",
       decline: "Estimate declined",
       open_request: "Request opened to more professionals",
+      update_details: "Customer updated the project details",
       withdraw_quote: "Estimate withdrawn",
       reschedule: "Appointment proposed",
       respond_appointment:

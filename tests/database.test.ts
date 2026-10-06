@@ -2090,3 +2090,41 @@ test("ranking prefers proven review volume over a single perfect review", async 
   ).rows.map((row: any) => row.id);
   assert.deepEqual(order, [proven.id, thin.id]);
 });
+
+test("customers edit an open request, interested pros are told, and locked states reject edits", async () => {
+  const pro = await approvedPro("edit-watcher");
+  const id = await lifecycleProject("requested", false);
+  await projectAction(id, pro, estimate);
+  const edit = {
+    type: "update_details" as const,
+    title: "Updated lifecycle project",
+    description: "A clearer description of the updated project scope.",
+    urgency: "this_week" as const,
+    budgetMin: 10000,
+    budgetMax: 50000,
+  };
+  await assert.rejects(projectAction(id, pro, edit), /not available/);
+  const before = (await projectRow(id)).version;
+  await projectAction(id, customer, edit);
+  const row = await projectRow(id);
+  assert.equal(row.title, "Updated lifecycle project");
+  assert.equal(row.urgency, "this_week");
+  assert.ok(row.version > before);
+  assert.equal(
+    (
+      await query(
+        "SELECT 1 FROM notifications WHERE user_id=$1 AND title='Project details updated'",
+        [pro.id],
+      )
+    ).rows.length,
+    1,
+  );
+  const q = (await query("SELECT * FROM quotes WHERE pro_id=$1", [pro.id]))
+    .rows[0] as any;
+  await projectAction(id, customer, {
+    type: "accept",
+    quoteId: q.id,
+    revision: q.revision,
+  });
+  await assert.rejects(projectAction(id, customer, edit), /not available/);
+});

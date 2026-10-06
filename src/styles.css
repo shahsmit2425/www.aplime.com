@@ -2860,3 +2860,16 @@ blockquote {
 .project-activity p {
   white-space: pre-wrap;
 }
+
+.project-actions {
+  margin: 0 0 22px;
+  gap: 10px;
+}
+.project-actions > span {
+  display: inline-flex;
+}
+.project-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
