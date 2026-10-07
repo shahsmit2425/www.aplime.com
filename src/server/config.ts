@@ -32,12 +32,17 @@ const envSchema = z.object({
   UPSTASH_REDIS_REST_URL: z.string().default(""),
   UPSTASH_REDIS_REST_TOKEN: z.string().default(""),
   STRIPE_PRO_PRICE_ID: z.string().default(""),
+  STRIPE_PRO_MONTHLY_PRICE_ID: z.string().trim().default(""),
+  STRIPE_PRO_SIX_MONTH_PRICE_ID: z.string().trim().default(""),
+  STRIPE_PRO_YEARLY_PRICE_ID: z.string().trim().default(""),
   STRIPE_PUBLISHABLE_KEY: z
     .string()
     .regex(/^$|^pk_(test|live)_[A-Za-z0-9]+$/, "Use a Stripe publishable key")
     .default(""),
   STRIPE_SECRET_KEY: z.string().default(""),
   STRIPE_WEBHOOK_SECRET: z.string().default(""),
+  STRIPE_SUBSCRIPTION_WEBHOOK_SECRET: z.string().default(""),
+  STRIPE_IDENTITY_WEBHOOK_SECRET: z.string().default(""),
   STRIPE_CONNECT_WEBHOOK_SECRET: z.string().default(""),
   DAILY_API_KEY: z.string().default(""),
   R2_ACCOUNT_ID: z.string().default(""),
@@ -87,8 +92,21 @@ export function requiredKeys() {
     "UPSTASH_REDIS_REST_URL",
     "UPSTASH_REDIS_REST_TOKEN",
     "STRIPE_SECRET_KEY",
-    "STRIPE_WEBHOOK_SECRET",
-    "STRIPE_PRO_PRICE_ID",
+    ...(env.STRIPE_WEBHOOK_SECRET
+      ? (["STRIPE_WEBHOOK_SECRET"] as const)
+      : ([
+          "STRIPE_SUBSCRIPTION_WEBHOOK_SECRET",
+          "STRIPE_IDENTITY_WEBHOOK_SECRET",
+        ] as const)),
+    ...(env.STRIPE_PRO_MONTHLY_PRICE_ID ||
+    env.STRIPE_PRO_SIX_MONTH_PRICE_ID ||
+    env.STRIPE_PRO_YEARLY_PRICE_ID
+      ? ([
+          "STRIPE_PRO_MONTHLY_PRICE_ID",
+          "STRIPE_PRO_SIX_MONTH_PRICE_ID",
+          "STRIPE_PRO_YEARLY_PRICE_ID",
+        ] as const)
+      : (["STRIPE_PRO_PRICE_ID"] as const)),
     "DAILY_API_KEY",
     "R2_ACCOUNT_ID",
     "R2_ACCESS_KEY_ID",
@@ -109,6 +127,15 @@ export function validateDeployment() {
   const missing = requiredKeys().filter((k) => !env[k]);
   if (missing.length)
     throw new Error("Missing deployment configuration: " + missing.join(", "));
+  const membershipPrices = [
+    env.STRIPE_PRO_MONTHLY_PRICE_ID,
+    env.STRIPE_PRO_SIX_MONTH_PRICE_ID,
+    env.STRIPE_PRO_YEARLY_PRICE_ID,
+  ].filter(Boolean);
+  if (membershipPrices.length && new Set(membershipPrices).size !== 3)
+    throw new Error(
+      "Configure three distinct professional membership Price IDs.",
+    );
   if (!env.SITE_URL.startsWith("https://"))
     throw new Error("A deployed environment requires an HTTPS SITE_URL.");
   if (new URL(env.SITE_URL).origin !== env.SITE_URL)

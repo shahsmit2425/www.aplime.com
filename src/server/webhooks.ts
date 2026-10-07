@@ -5,15 +5,32 @@ import { env } from "./config.js";
 import { transaction } from "./db/index.js";
 import { notify } from "./repository.js";
 import { requireValue, fail } from "./errors.js";
+import { subscriptionMembership } from "./membership-plans.js";
 export const webhooks = Router();
+const subscriptionEvents = new Set([
+  "customer.subscription.created",
+  "customer.subscription.updated",
+  "customer.subscription.deleted",
+]);
+const identityEvents = new Set([
+  "identity.verification_session.verified",
+  "identity.verification_session.requires_input",
+  "identity.verification_session.processing",
+  "identity.verification_session.canceled",
+]);
 webhooks.post(
-  ["/stripe", "/stripe-connect"],
+  ["/stripe", "/stripe-connect", "/stripe-subscriptions", "/stripe-identity"],
   raw({ type: "application/json", limit: "1mb" }),
   async (req, res) => {
+    // Each dedicated destination must authenticate with its own signing secret.
     const secret =
-      req.path === "/stripe-connect"
-        ? env.STRIPE_CONNECT_WEBHOOK_SECRET
-        : env.STRIPE_WEBHOOK_SECRET;
+      req.path === "/stripe-subscriptions"
+        ? env.STRIPE_SUBSCRIPTION_WEBHOOK_SECRET
+        : req.path === "/stripe-identity"
+          ? env.STRIPE_IDENTITY_WEBHOOK_SECRET
+          : req.path === "/stripe-connect"
+            ? env.STRIPE_CONNECT_WEBHOOK_SECRET
+            : env.STRIPE_WEBHOOK_SECRET;
     requireValue(secret);
     let event;
     try {
@@ -25,6 +42,12 @@ webhooks.post(
     } catch {
       fail(400, "Invalid webhook signature.");
     }
+    if (
+      (req.path === "/stripe-subscriptions" &&
+        !subscriptionEvents.has(event.type)) ||
+      (req.path === "/stripe-identity" && !identityEvents.has(event.type))
+    )
+      fail(400, "Event type is not supported by this webhook destination.");
     await transaction(async (c) => {
       if (
         !(
@@ -36,14 +59,7 @@ webhooks.post(
       )
         return;
       const obj = event.data.object as unknown as Record<string, any>;
-      if (
-        [
-          "identity.verification_session.verified",
-          "identity.verification_session.requires_input",
-          "identity.verification_session.processing",
-          "identity.verification_session.canceled",
-        ].includes(event.type)
-      ) {
+      if (identityEvents.has(event.type)) {
         const owner = (
           await c.query(
             "SELECT id,verified FROM profiles WHERE identity_session_id=$1 FOR UPDATE",
@@ -104,9 +120,7 @@ webhooks.post(
             )
               return;
           }
-          const correctPrice = current.items.data.some(
-            (item) => item.price.id === env.STRIPE_PRO_PRICE_ID,
-          );
+          const correctPrice = !!subscriptionMembership(current);
           const newStatus = correctPrice
             ? current.status
             : "unrecognized_price";

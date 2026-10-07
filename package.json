@@ -17,6 +17,7 @@
     "db:migrate": "tsx src/server/db/migrate.ts",
     "worker": "tsx src/server/worker.ts",
     "config:check": "tsx scripts/check-config.ts",
+    "identity:check": "tsx scripts/check-identity.ts",
     "maps:check": "tsx scripts/check-maps.ts",
     "mobile:prepare": "tsx scripts/prepare-mobile.ts",
     "mobile:sync": "npm run build:web && npm run mobile:prepare && npx cap sync",

@@ -7,6 +7,8 @@ process.env.STRIPE_PRO_PRICE_ID = "price_test_pro";
 process.env.STRIPE_PUBLISHABLE_KEY = "pk_test_fixture";
 process.env.STRIPE_SECRET_KEY = "sk_test_unit_fixture";
 process.env.STRIPE_WEBHOOK_SECRET = "whsec_unit_fixture";
+process.env.STRIPE_SUBSCRIPTION_WEBHOOK_SECRET = "whsec_subscription_fixture";
+process.env.STRIPE_IDENTITY_WEBHOOK_SECRET = "whsec_identity_fixture";
 process.env.MARKETPLACE_DISCOVERY_MODE = "matched";
 process.env.MARKETPLACE_PREVIEW = "false";
 // Workspace responses presign R2 image URLs; signing is offline, so fixture
@@ -345,6 +347,135 @@ test("project preferences enforce category and location for feeds and estimates"
     "",
   );
 });
+test("dedicated Stripe destinations reject wrong secrets and event families before recording events", async () => {
+  const { env, requiredKeys } = await import("../src/server/config.js");
+  const oldCombined = env.STRIPE_WEBHOOK_SECRET;
+  const oldIdentity = env.STRIPE_IDENTITY_WEBHOOK_SECRET;
+  const express = (await import("express")).default;
+  const app = express();
+  app.use("/webhooks", webhooks);
+  app.use((err: any, _q: any, r: any, _n: any) =>
+    r.status(err.status || 500).json({ error: "rejected" }),
+  );
+  const server = app.listen(0, "127.0.0.1");
+  await new Promise<void>((r) => server.once("listening", r));
+  const base =
+    "http://127.0.0.1:" + (server.address() as any).port + "/webhooks";
+  const send = (path: string, event: any, secret?: string) => {
+    const payload = JSON.stringify(event);
+    return fetch(base + path, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        ...(secret
+          ? {
+              "stripe-signature": stripe().webhooks.generateTestHeaderString({
+                payload,
+                secret,
+              }),
+            }
+          : {}),
+      },
+      body: payload,
+    });
+  };
+  try {
+    env.STRIPE_WEBHOOK_SECRET = "";
+    const keys: readonly string[] = requiredKeys();
+    assert.ok(keys.includes("STRIPE_SUBSCRIPTION_WEBHOOK_SECRET"));
+    assert.ok(keys.includes("STRIPE_IDENTITY_WEBHOOK_SECRET"));
+    assert.ok(!keys.includes("STRIPE_WEBHOOK_SECRET"));
+    const identity = {
+      id: "evt_split_" + randomUUID(),
+      type: "identity.verification_session.verified",
+      data: { object: { id: "vs_unowned_split" } },
+    };
+    const subscription = {
+      id: "evt_split_" + randomUUID(),
+      type: "customer.subscription.updated",
+      data: {
+        object: { id: "sub_unowned_split", customer: "cus_unowned_split" },
+      },
+    };
+    assert.equal((await send("/stripe-identity", identity)).status, 400);
+    assert.equal(
+      (await send("/stripe-identity", identity, "whsec_subscription_fixture"))
+        .status,
+      400,
+    );
+    assert.equal(
+      (
+        await send(
+          "/stripe-subscriptions",
+          subscription,
+          "whsec_identity_fixture",
+        )
+      ).status,
+      400,
+    );
+    assert.equal(
+      (await send("/stripe-identity", subscription, "whsec_identity_fixture"))
+        .status,
+      400,
+    );
+    assert.equal(
+      (
+        await send(
+          "/stripe-subscriptions",
+          identity,
+          "whsec_subscription_fixture",
+        )
+      ).status,
+      400,
+    );
+    assert.equal(
+      (
+        await query("SELECT id FROM webhook_events WHERE id=ANY($1)", [
+          [identity.id, subscription.id],
+        ])
+      ).rowCount,
+      0,
+    );
+    env.STRIPE_WEBHOOK_SECRET = oldCombined;
+    env.STRIPE_IDENTITY_WEBHOOK_SECRET = "";
+    // A configured legacy secret must never authorize a dedicated destination.
+    assert.equal(
+      (await send("/stripe-identity", identity, oldCombined)).status,
+      503,
+    );
+    env.STRIPE_IDENTITY_WEBHOOK_SECRET = oldIdentity;
+    for (let i = 0; i < 2; i++) {
+      assert.equal(
+        (await send("/stripe-identity", identity, "whsec_identity_fixture"))
+          .status,
+        200,
+      );
+      assert.equal(
+        (
+          await send(
+            "/stripe-subscriptions",
+            subscription,
+            "whsec_subscription_fixture",
+          )
+        ).status,
+        200,
+      );
+    }
+    assert.equal(
+      (
+        await query("SELECT id FROM webhook_events WHERE id=ANY($1)", [
+          [identity.id, subscription.id],
+        ])
+      ).rowCount,
+      2,
+    );
+  } finally {
+    env.STRIPE_WEBHOOK_SECRET = oldCombined;
+    env.STRIPE_IDENTITY_WEBHOOK_SECRET = oldIdentity;
+    await new Promise<void>((r) => server.close(() => r()));
+  }
+});
+
 test("unsigned webhooks are rejected and duplicate signed events are idempotent", async () => {
   const express = (await import("express")).default;
   const app = express();
@@ -462,7 +593,26 @@ test("subscription webhooks use current Stripe state and match stored customers"
     id: "sub_test_pro",
     status: currentStatus,
     cancel_at_period_end: false,
-    items: { data: [{ price: { id: "price_test_pro" } }] },
+    items: {
+      data: [
+        {
+          quantity: 1,
+          price: {
+            id: "price_test_pro",
+            active: true,
+            type: "recurring",
+            currency: "usd",
+            livemode: false,
+            unit_amount: 4000,
+            recurring: {
+              interval: "month",
+              interval_count: 1,
+              usage_type: "licensed",
+            },
+          },
+        },
+      ],
+    },
   })) as any;
   await query(
     "UPDATE professional_subscriptions SET customer_id='cus_test_pro' WHERE user_id=$1",
@@ -488,12 +638,12 @@ test("subscription webhooks use current Stripe state and match stored customers"
       });
       const signature = stripe().webhooks.generateTestHeaderString({
         payload: body,
-        secret: "whsec_unit_fixture",
+        secret: "whsec_subscription_fixture",
       });
       const response = await fetch(
         "http://127.0.0.1:" +
           (server.address() as any).port +
-          "/webhooks/stripe",
+          "/webhooks/stripe-subscriptions",
         {
           method: "POST",
           headers: {
@@ -2522,9 +2672,9 @@ test("identity workflow resumes the owner's session and trusts only confirmed si
     });
     const signature = stripe().webhooks.generateTestHeaderString({
       payload,
-      secret: "whsec_unit_fixture",
+      secret: "whsec_identity_fixture",
     });
-    const response = await fetch(base + "/webhooks/stripe", {
+    const response = await fetch(base + "/webhooks/stripe-identity", {
       method: "POST",
       headers: {
         "content-type": "application/json",
@@ -2623,6 +2773,370 @@ test("identity workflow resumes the owner's session and trusts only confirmed si
   } finally {
     sessions.retrieve = originalRetrieve;
     sessions.create = originalCreate;
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
+});
+
+test("identity provider failures preserve the profile and version retry keys with return parameters", async () => {
+  const { default: express } = await import("express");
+  const { identityVerification } =
+    await import("../src/server/identity-verification.js");
+  const { errorResponse } = await import("../src/server/error-response.js");
+  const { env } = await import("../src/server/config.js");
+  const owner = {
+    ...professional,
+    id: "identity-error-" + randomUUID(),
+    email: "identity-error-" + randomUUID() + "@example.invalid",
+  };
+  await query("INSERT INTO users(id,name,email,role) VALUES($1,$2,$3,'pro')", [
+    owner.id,
+    owner.name,
+    owner.email,
+  ]);
+  await query(
+    "INSERT INTO profiles(id,business,category,bio,zip,rate) VALUES($1,'Identity error fixture','Handyman','Provider error test','10001',50)",
+    [owner.id],
+  );
+  const sessions = stripe().identity.verificationSessions;
+  const oldCreate = sessions.create,
+    oldRetrieve = sessions.retrieve,
+    oldSite = env.SITE_URL;
+  const keys: string[] = [];
+  sessions.create = (async (_parameters: any, options: any) => {
+    keys.push(options.idempotencyKey);
+    throw Object.assign(new Error("SECRET_STRIPE_RESPONSE"), {
+      type: "StripePermissionError",
+      statusCode: 403,
+      requestId: "req_IdentitySetup123",
+    });
+  }) as any;
+  sessions.retrieve = (async () => {
+    throw Object.assign(new Error("SECRET_SAVED_SESSION"), {
+      type: "StripeInvalidRequestError",
+      code: "resource_missing",
+      statusCode: 404,
+    });
+  }) as any;
+  const app = express();
+  app.use(express.json());
+  app.use((req, _r, next) => {
+    req.account = owner;
+    next();
+  });
+  app.use("/identity", identityVerification);
+  app.use((e: any, _q: any, r: any, _n: any) => {
+    const result = errorResponse(e);
+    r.status(result.status).json(result.body);
+  });
+  const server = app.listen(0, "127.0.0.1");
+  await new Promise<void>((r) => server.once("listening", r));
+  const url =
+    "http://127.0.0.1:" + (server.address() as any).port + "/identity";
+  try {
+    for (let i = 0; i < 3; i++) {
+      if (i === 2) env.SITE_URL = "https://changed-development.example.invalid";
+      const response = await fetch(url, { method: "POST" });
+      assert.equal(response.status, 503);
+      const body = await response.json();
+      assert.equal(body.code, "IDENTITY_CONFIGURATION_ERROR");
+      assert.equal(body.requestId, "req_IdentitySetup123");
+      assert.equal(JSON.stringify(body).includes("SECRET"), false);
+    }
+    assert.equal(
+      keys[0],
+      keys[1],
+      "unchanged retries use identical idempotency keys",
+    );
+    assert.notEqual(
+      keys[1],
+      keys[2],
+      "changed return URL cannot collide with an earlier request",
+    );
+    assert.notEqual(
+      keys[0],
+      "identity:" + owner.id + ":initial",
+      "new parameters cannot collide with the old deployment's key",
+    );
+    const profile = (
+      await query(
+        "SELECT verified,identity_session_id FROM profiles WHERE id=$1",
+        [owner.id],
+      )
+    ).rows[0] as any;
+    assert.equal(profile.verified, false);
+    assert.equal(profile.identity_session_id, null);
+    await query(
+      "UPDATE profiles SET identity_session_id='vs_unavailable_fixture' WHERE id=$1",
+      [owner.id],
+    );
+    for (const method of ["GET", "POST"]) {
+      const response = await fetch(url, { method });
+      assert.equal(response.status, 503);
+      assert.equal(
+        (await response.json()).code,
+        "IDENTITY_SESSION_UNAVAILABLE",
+      );
+    }
+    assert.equal(
+      keys.length,
+      3,
+      "an unavailable saved session never silently creates another",
+    );
+    assert.equal(
+      (
+        (
+          await query("SELECT identity_session_id FROM profiles WHERE id=$1", [
+            owner.id,
+          ])
+        ).rows[0] as any
+      ).identity_session_id,
+      "vs_unavailable_fixture",
+    );
+  } finally {
+    sessions.create = oldCreate;
+    sessions.retrieve = oldRetrieve;
+    env.SITE_URL = oldSite;
+    await new Promise<void>((r) => server.close(() => r()));
+  }
+});
+
+test("three-plan checkout selects server prices, safely switches sessions, and activates only through signed webhooks", async () => {
+  const { env } = await import("../src/server/config.js");
+  const { subscriptions } = await import("../src/server/subscriptions.js");
+  const { default: express } = await import("express");
+  const owner = await approvedPro("membership-plans");
+  const oldEnv = { ...env };
+  const stripeClient = stripe();
+  const oldPrices = stripeClient.prices.retrieve;
+  const oldRetrieve = stripeClient.checkout.sessions.retrieve;
+  const oldCreate = stripeClient.checkout.sessions.create;
+  const oldExpire = stripeClient.checkout.sessions.expire;
+  const oldSubscription = stripeClient.subscriptions.retrieve;
+  const suffix = randomUUID();
+  const customerId = "cus_plans_" + suffix;
+  const prices: Record<string, any> = {};
+  const planIds = {
+    monthly: "price_monthly_" + suffix,
+    six_month: "price_six_" + suffix,
+    yearly: "price_yearly_" + suffix,
+  };
+  for (const [id, amount, months] of [
+    [planIds.monthly, 4000, 1],
+    [planIds.six_month, 21000, 6],
+    [planIds.yearly, 36000, 12],
+  ] as const)
+    prices[id] = {
+      id,
+      active: true,
+      type: "recurring",
+      currency: "usd",
+      livemode: false,
+      unit_amount: amount,
+      recurring: {
+        interval: "month",
+        interval_count: months,
+        usage_type: "licensed",
+      },
+    };
+  Object.assign(env, {
+    APP_ENV: "development",
+    STRIPE_PRO_MONTHLY_PRICE_ID: planIds.monthly,
+    STRIPE_PRO_SIX_MONTH_PRICE_ID: planIds.six_month,
+    STRIPE_PRO_YEARLY_PRICE_ID: planIds.yearly,
+  });
+  await query(
+    "UPDATE professional_subscriptions SET status='none',customer_id=$2 WHERE user_id=$1",
+    [owner.id, customerId],
+  );
+  const sessions = new Map<string, any>();
+  const creations: { parameters: any; key: string }[] = [];
+  const expirations: string[] = [];
+  let failCreation = false;
+  let failExpiration = false;
+  let activePrice = prices[planIds.yearly];
+  stripeClient.prices.retrieve = (async (id: string) => prices[id]) as any;
+  stripeClient.checkout.sessions.retrieve = (async (id: string) =>
+    sessions.get(id)) as any;
+  stripeClient.checkout.sessions.create = (async (
+    parameters: any,
+    options: any,
+  ) => {
+    creations.push({ parameters, key: options.idempotencyKey });
+    if (failCreation) {
+      failCreation = false;
+      throw new Error("test transport failure");
+    }
+    const id = "cs_plans_" + randomUUID();
+    const session = {
+      id,
+      status: "open",
+      customer: customerId,
+      url: "https://checkout.stripe.com/test/" + id,
+      line_items: {
+        data: [{ price: prices[parameters.line_items[0].price], quantity: 1 }],
+      },
+    };
+    sessions.set(id, session);
+    return session;
+  }) as any;
+  stripeClient.checkout.sessions.expire = (async (id: string) => {
+    if (failExpiration)
+      throw new Error("test checkout was completed concurrently");
+    expirations.push(id);
+    const session = sessions.get(id);
+    session.status = "expired";
+    return session;
+  }) as any;
+  stripeClient.subscriptions.retrieve = (async () => ({
+    id: "sub_plans_" + suffix,
+    customer: customerId,
+    status: "active",
+    cancel_at_period_end: false,
+    items: {
+      data: [
+        { quantity: 1, price: activePrice, current_period_end: 1800000000 },
+      ],
+    },
+  })) as any;
+  const app = express();
+  app.use("/webhooks", webhooks);
+  app.use(express.json());
+  app.use((req, _res, next) => {
+    req.account = req.headers["x-test-user"] === customer.id ? customer : owner;
+    next();
+  });
+  app.use("/subscription", subscriptions);
+  app.use((err: any, _req: any, res: any, _next: any) =>
+    res.status(err.status || 500).json({ error: "rejected" }),
+  );
+  const server = app.listen(0, "127.0.0.1");
+  await new Promise<void>((resolve) => server.once("listening", resolve));
+  const base = "http://127.0.0.1:" + (server.address() as any).port;
+  const call = (path = "", body?: any, user = owner.id) =>
+    fetch(base + "/subscription" + path, {
+      method: body === undefined ? "GET" : "POST",
+      headers: { "content-type": "application/json", "x-test-user": user },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    });
+  const sendWebhook = async () => {
+    const payload = JSON.stringify({
+      id: "evt_plans_" + randomUUID(),
+      type: "customer.subscription.updated",
+      data: { object: { id: "sub_plans_" + suffix, customer: customerId } },
+    });
+    return fetch(base + "/webhooks/stripe-subscriptions", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "stripe-signature": stripeClient.webhooks.generateTestHeaderString({
+          payload,
+          secret: "whsec_subscription_fixture",
+        }),
+      },
+      body: payload,
+    });
+  };
+  try {
+    const billing = await (await call()).json();
+    assert.deepEqual(
+      billing.plans.map((p: any) => [p.id, p.amount, p.months]),
+      [
+        ["monthly", 4000, 1],
+        ["six_month", 21000, 6],
+        ["yearly", 36000, 12],
+      ],
+    );
+    assert.ok(!JSON.stringify(billing).includes("price_"));
+    assert.equal((await call("/checkout", { plan: "unknown" })).status, 400);
+    assert.equal(
+      (await call("/checkout", { plan: "monthly" }, customer.id)).status,
+      403,
+    );
+    await query("UPDATE profiles SET verified=false WHERE id=$1", [owner.id]);
+    assert.equal((await call("/checkout", { plan: "monthly" })).status, 409);
+    await query("UPDATE profiles SET verified=true WHERE id=$1", [owner.id]);
+    const first = await (
+      await call("/checkout", {
+        plan: "monthly",
+        priceId: planIds.yearly,
+        amount: 1,
+      })
+    ).json();
+    assert.equal(creations[0].parameters.line_items[0].price, planIds.monthly);
+    assert.equal(
+      creations[0].parameters.success_url,
+      env.SITE_URL + "/app/subscription?checkout=processing",
+    );
+    assert.equal(
+      creations[0].parameters.cancel_url,
+      env.SITE_URL + "/app/subscription?checkout=canceled",
+    );
+    assert.equal(
+      (await (await call("/checkout", { plan: "monthly" })).json()).url,
+      first.url,
+    );
+    assert.equal(creations.length, 1, "same plan resumes its existing session");
+    assert.equal((await call("/checkout", { plan: "six_month" })).status, 200);
+    assert.equal(
+      creations[1].parameters.line_items[0].price,
+      planIds.six_month,
+    );
+    assert.equal(expirations.length, 1);
+    assert.notEqual(creations[0].key, creations[1].key);
+    failExpiration = true;
+    assert.equal((await call("/checkout", { plan: "yearly" })).status, 409);
+    assert.equal(
+      creations.length,
+      2,
+      "concurrent completion never creates another checkout",
+    );
+    failExpiration = false;
+    failCreation = true;
+    assert.equal((await call("/checkout", { plan: "yearly" })).status, 500);
+    assert.equal((await call("/checkout", { plan: "yearly" })).status, 200);
+    assert.equal(
+      creations[2].key,
+      creations[3].key,
+      "failed creation retries the same parameters and idempotency key",
+    );
+    assert.equal(creations[3].parameters.line_items[0].price, planIds.yearly);
+    assert.equal(
+      (await (await call()).json()).status,
+      "none",
+      "checkout does not grant membership",
+    );
+    for (const id of Object.values(planIds)) {
+      activePrice = prices[id];
+      assert.equal((await sendWebhook()).status, 200);
+      const state = await (await call()).json();
+      assert.equal(state.status, "active");
+      assert.equal(state.currentPlan.amount, activePrice.unit_amount);
+      assert.equal(state.periodEnd, new Date(1800000000 * 1000).toISOString());
+    }
+    assert.equal(
+      (await call("/checkout", { plan: "monthly" })).status,
+      409,
+      "existing subscriptions use Manage billing",
+    );
+    activePrice = { ...prices[planIds.yearly], unit_amount: 1 };
+    assert.equal((await sendWebhook()).status, 200);
+    assert.equal((await (await call()).json()).status, "unrecognized_price");
+    env.STRIPE_PRO_MONTHLY_PRICE_ID = "price_missing_catalog_" + suffix;
+    const unavailable = await (await call()).json();
+    assert.deepEqual(unavailable.plans, []);
+    assert.equal(
+      unavailable.canManage,
+      true,
+      "catalog failure must not block existing billing management",
+    );
+    assert.ok(unavailable.pricingProblem);
+  } finally {
+    Object.assign(env, oldEnv);
+    stripeClient.prices.retrieve = oldPrices;
+    stripeClient.checkout.sessions.retrieve = oldRetrieve;
+    stripeClient.checkout.sessions.create = oldCreate;
+    stripeClient.checkout.sessions.expire = oldExpire;
+    stripeClient.subscriptions.retrieve = oldSubscription;
     await new Promise<void>((resolve) => server.close(() => resolve()));
   }
 });

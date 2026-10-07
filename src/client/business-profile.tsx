@@ -1,5 +1,5 @@
 import { AddressAutocomplete } from "./address-autocomplete.js";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Building2,
   ShieldCheck,
@@ -15,10 +15,14 @@ import { Empty, Head, Panel, Field, Form } from "./ui.js";
 import { BusinessMedia } from "./business-media.js";
 import { BusinessDisplay } from "./business-display.js";
 import { PreferencesForm } from "./preferences.js";
+import { ProfessionalSetup } from "./professional-setup.js";
 
 export function BusinessProfile() {
-  const { data, run, busy, go } = useWorkspace();
-  const [tab, setTab] = useState("details");
+  const { data, run, busy, go, id } = useWorkspace();
+  const [tab, setTab] = useState(id === "setup" ? "setup" : "details");
+  useEffect(() => {
+    setTab(id === "setup" ? "setup" : "details");
+  }, [id]);
   if (data.user.role !== "pro")
     return <Empty title="Professional account required" />;
   const p = data.profiles.find((p) => p.id === data.user.id);
@@ -35,6 +39,7 @@ export function BusinessProfile() {
         A few details, two images, and your working hours. Keep it simple and
         let customers get to know your business.
       </Head>
+      <ProfessionalSetup profile={p} current="profile" go={go} />
       {p?.suspended && (
         <p className="business-tip">
           Your listing is suspended. Contact support before accepting new

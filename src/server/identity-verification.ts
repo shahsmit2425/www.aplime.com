@@ -1,9 +1,30 @@
 import { Router } from "express";
 import type Stripe from "stripe";
+import { createHash } from "node:crypto";
 import { pool, transaction } from "./db/index.js";
 import { env } from "./config.js";
 import { fail } from "./errors.js";
 import { stripe } from "./integrations/stripe.js";
+import {
+  IdentityError,
+  identityFailure,
+} from "./integrations/identity-error.js";
+
+async function identityCall<T>(
+  operation: "create" | "retrieve",
+  fn: () => Promise<T>,
+): Promise<T> {
+  if (!env.STRIPE_SECRET_KEY)
+    throw new IdentityError("IDENTITY_CONFIGURATION_ERROR", {
+      operation,
+      reason: "STRIPE_SECRET_KEY_MISSING",
+    });
+  try {
+    return await fn();
+  } catch (error) {
+    throw identityFailure(error, operation);
+  }
+}
 
 export const identityVerification = Router();
 identityVerification.use((req, res, next) => {
@@ -54,8 +75,10 @@ identityVerification.get("/", async (req, res) => {
   if (!p) fail(409, "Save your business profile first.");
   const session =
     !p.verified && p.identity_session_id
-      ? await stripe().identity.verificationSessions.retrieve(
-          p.identity_session_id,
+      ? await identityCall("retrieve", () =>
+          stripe().identity.verificationSessions.retrieve(
+            p.identity_session_id,
+          ),
         )
       : undefined;
   res.json(state(p.verified, session));
@@ -71,28 +94,38 @@ identityVerification.post("/", async (req, res) => {
     if (!p) fail(409, "Save your business profile first.");
     if (p.verified) return state(true);
     let session = p.identity_session_id
-      ? await stripe().identity.verificationSessions.retrieve(
-          p.identity_session_id,
+      ? await identityCall("retrieve", () =>
+          stripe().identity.verificationSessions.retrieve(
+            p.identity_session_id,
+          ),
         )
       : undefined;
     if (session?.status === "processing" || session?.status === "verified")
       return state(false, session);
     if (!session || session.status === "canceled") {
-      session = await stripe().identity.verificationSessions.create(
-        {
-          type: "document",
-          metadata: { userId: req.account.id },
-          options: { document: { require_matching_selfie: true } },
-          return_url:
-            env.SITE_URL.replace(/\/$/, "") + "/app/verification/return",
-        },
-        {
+      const parameters: Stripe.Identity.VerificationSessionCreateParams = {
+        type: "document",
+        metadata: { userId: req.account.id },
+        options: { document: { require_matching_selfie: true } },
+        return_url:
+          env.SITE_URL.replace(/\/$/, "") + "/app/verification/return",
+      };
+      // Stripe requires identical parameters for a repeated idempotency key.
+      // Include a version and parameter fingerprint when deployment URLs/options change.
+      const fingerprint = createHash("sha256")
+        .update(JSON.stringify(parameters))
+        .digest("hex")
+        .slice(0, 24);
+      session = await identityCall("create", () =>
+        stripe().identity.verificationSessions.create(parameters, {
           idempotencyKey:
             "identity:" +
             req.account.id +
             ":" +
-            (p.identity_session_id || "initial"),
-        },
+            (p.identity_session_id || "initial") +
+            ":v2:" +
+            fingerprint,
+        }),
       );
       await c.query("UPDATE profiles SET identity_session_id=$2 WHERE id=$1", [
         req.account.id,

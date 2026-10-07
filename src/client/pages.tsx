@@ -1,3 +1,4 @@
+import { Subscription } from "./subscription.js";
 import { AwardResponse } from "./award-response.js";
 import { ProjectControls } from "./project-controls.js";
 import { businessFields } from "../shared/business.js";
@@ -2002,103 +2003,6 @@ function Messages() {
         professional has a separate private conversation.
       </Head>
       <Discussions />
-    </>
-  );
-}
-function Subscription() {
-  const { data, busy, run } = useWorkspace();
-  const [billing, setBilling] = useState<{
-    status: string;
-    cancelAtPeriodEnd: boolean;
-    configured: boolean;
-    canManage: boolean;
-  } | null>(null);
-  const [problem, setProblem] = useState("");
-  useEffect(() => {
-    if (data.user.role !== "pro") return;
-    let active = true;
-    const refresh = () =>
-      request("/subscription")
-        .then((result) => {
-          if (active) {
-            setBilling(result);
-            setProblem("");
-          }
-        })
-        .catch((error) => {
-          if (active) setProblem(error.message);
-        });
-    void refresh();
-    const timer = setInterval(refresh, 10000);
-    return () => {
-      active = false;
-      clearInterval(timer);
-    };
-  }, [data.user.id]);
-  if (data.user.role !== "pro")
-    return (
-      <Empty title="No customer payments on Aplime">
-        Arrange service payment directly with your professional. Only businesses
-        pay Aplime for a subscription.
-      </Empty>
-    );
-  return (
-    <>
-      <Head title="Your Aplime business subscription">
-        Your subscription pays for access to Aplime. Customer service payments
-        are arranged directly with customers.
-      </Head>
-      <Panel title="Professional membership">
-        {problem && <p role="alert">{problem}</p>}
-        <p>
-          Status: <strong>{billing?.status || "Loading…"}</strong>
-        </p>
-        {billing?.cancelAtPeriodEnd && (
-          <p>
-            Your subscription will end at the close of the current billing
-            period.
-          </p>
-        )}
-        <p>
-          Review the subscription price, billing interval, and recurring charge
-          in Stripe before confirming. After payment, activation may take a
-          moment. This page updates automatically.
-        </p>
-        {!billing?.configured && billing && (
-          <p>Subscription enrollment is not configured yet.</p>
-        )}
-        <div className="actions">
-          <button
-            disabled={
-              busy ||
-              !billing?.configured ||
-              !["none", "canceled", "incomplete_expired"].includes(
-                billing.status,
-              )
-            }
-            onClick={() =>
-              void run(async () => {
-                const result = await request("/subscription/checkout", {});
-                await openExternal(result.url);
-              }, "")
-            }
-          >
-            Start subscription
-          </button>
-          <button
-            className="secondary"
-            disabled={busy || !billing?.canManage}
-            onClick={() =>
-              void run(async () => {
-                const result = await request("/subscription/portal", {});
-                await openExternal(result.url);
-              }, "")
-            }
-          >
-            Manage billing and cancellation
-          </button>
-        </div>
-      </Panel>
     </>
   );
 }

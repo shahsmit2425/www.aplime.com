@@ -27,7 +27,11 @@ export async function request<T = any>(
   const data = await response.json();
   if (!response.ok)
     throw new ApiError(
-      data.error || "Something went wrong. Please try again.",
+      (data.error || "Something went wrong. Please try again.") +
+        (typeof data.requestId === "string" &&
+        /^req_[A-Za-z0-9]{1,80}$/.test(data.requestId)
+          ? " Support reference: " + data.requestId
+          : ""),
       response.status,
     );
   return data;

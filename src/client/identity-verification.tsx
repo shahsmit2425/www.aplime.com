@@ -13,10 +13,11 @@ import {
   CircleAlert,
 } from "lucide-react";
 import { useWorkspace } from "./workspace.js";
-import { request, openExternal } from "./api.js";
+import { request, openExternal, ApiError } from "./api.js";
 import { verifyWithStripe } from "./stripe-identity.js";
 import { Empty, Head } from "./ui.js";
 import { fallbackConfig } from "../shared/config.js";
+import { ProfessionalSetup } from "./professional-setup.js";
 
 type Verification = {
   status:
@@ -48,10 +49,12 @@ export function IdentityVerification() {
         setVerification(result);
         setCheckError("");
       }
-    } catch {
+    } catch (error) {
       if (mounted.current)
         setCheckError(
-          "We could not check verification right now. Refresh the status or contact support if this continues.",
+          error instanceof ApiError
+            ? error.message
+            : "We could not check verification right now. Refresh the status or contact support if this continues.",
         );
     } finally {
       pending.current = false;
@@ -67,11 +70,13 @@ export function IdentityVerification() {
     };
     const timer = setInterval(focus, 15000);
     window.addEventListener("focus", focus);
+    window.addEventListener("aplime:updates", focus);
     document.addEventListener("visibilitychange", focus);
     return () => {
       mounted.current = false;
       clearInterval(timer);
       window.removeEventListener("focus", focus);
+      window.removeEventListener("aplime:updates", focus);
       document.removeEventListener("visibilitychange", focus);
     };
   }, [refresh, profile?.id, profile?.verified, data.user.role]);
@@ -156,6 +161,12 @@ export function IdentityVerification() {
       <Head title="Verify your identity">
         A secure ID check helps customers know who they are working with.
       </Head>
+      <ProfessionalSetup
+        profile={profile}
+        current="verification"
+        identityVerified={confirmed}
+        go={go}
+      />
       <div className="identity-layout">
         <section className="identity-main">
           <div className="identity-status-icon">
@@ -218,8 +229,8 @@ export function IdentityVerification() {
           )}
           <div className="identity-actions">
             {confirmed ? (
-              <button onClick={() => go("profile")}>
-                <CheckCircle2 size={18} /> Continue business setup
+              <button onClick={() => go("subscription")}>
+                <CheckCircle2 size={18} /> Continue to membership
               </button>
             ) : (
               !processing && (

@@ -83,28 +83,47 @@ Use a distinct database per environment. Rate-limit keys are additionally prefix
 
 ## Stripe membership and identity verification
 
-| Variable                      | Required                                                             | Value or source                                                                                                                                                                                                                     |
-| ----------------------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| STRIPE_SECRET_KEY             | Yes, secret                                                          | Stripe Dashboard > Developers > API keys. Use `sk_test_...` in development/stagging and `sk_live_...` in production.                                                                                                                |
-| STRIPE_PUBLISHABLE_KEY        | Optional for hosted flow; required for the in-website Identity modal | Copy the publishable `pk_test_...` or `pk_live_...` key from the same Stripe account and mode as the secret key. Put it in the backend environment group. Only authenticated verification-session responses return this public key. |
-| STRIPE_WEBHOOK_SECRET         | Yes, secret                                                          | Signing secret for this environment's `/api/webhooks/stripe` endpoint.                                                                                                                                                              |
-| STRIPE_PRO_PRICE_ID           | Yes                                                                  | The `price_...` ID of the recurring professional membership price in the matching Stripe mode.                                                                                                                                      |
-| STRIPE_CONNECT_WEBHOOK_SECRET | Historical Connect reconciliation only                               | Signing secret for `/api/webhooks/stripe-connect`, if still receiving historical Connect events.                                                                                                                                    |
+| Variable                           | Required                                                             | Value or source                                                                                                                                                                                                                     |
+| ---------------------------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| STRIPE_SECRET_KEY                  | Yes, secret                                                          | Stripe Dashboard > Developers > API keys. Use `sk_test_...` in development/stagging and `sk_live_...` in production.                                                                                                                |
+| STRIPE_PUBLISHABLE_KEY             | Optional for hosted flow; required for the in-website Identity modal | Copy the publishable `pk_test_...` or `pk_live_...` key from the same Stripe account and mode as the secret key. Put it in the backend environment group. Only authenticated verification-session responses return this public key. |
+| STRIPE_WEBHOOK_SECRET              | Legacy combined destination, secret                                  | Signing secret for this environment's `/api/webhooks/stripe` endpoint.                                                                                                                                                              |
+| STRIPE_PRO_PRICE_ID                | Legacy single-plan fallback                                          | The `price_...` ID of the recurring professional membership price in the matching Stripe mode.                                                                                                                                      |
+| STRIPE_PRO_MONTHLY_PRICE_ID        | All three required for the new selector                              | Stripe recurring USD $40 every month (`price_...`).                                                                                                                                                                                 |
+| STRIPE_PRO_SIX_MONTH_PRICE_ID      | All three required for the new selector                              | Stripe recurring USD $210 every six months (`price_...`).                                                                                                                                                                           |
+| STRIPE_PRO_YEARLY_PRICE_ID         | All three required for the new selector                              | Stripe recurring USD $360 every year (`price_...`).                                                                                                                                                                                 |
+| STRIPE_SUBSCRIPTION_WEBHOOK_SECRET | Required for separate subscription destination, secret               | Signing secret for this environment's `/api/webhooks/stripe-subscriptions` endpoint.                                                                                                                                                |
+| STRIPE_IDENTITY_WEBHOOK_SECRET     | Required for separate Identity destination, secret                   | Signing secret for this environment's `/api/webhooks/stripe-identity` endpoint.                                                                                                                                                     |
+| STRIPE_CONNECT_WEBHOOK_SECRET      | Historical Connect reconciliation only                               | Signing secret for `/api/webhooks/stripe-connect`, if still receiving historical Connect events.                                                                                                                                    |
 
 Enable Stripe Identity in the Stripe account. Aplime verifies the account holder with a document and matching selfie; it does not certify business registration, licensing, insurance or workmanship. Checkout remains Stripe-hosted for professional membership. Aplime does not process customer-to-professional service payments; Stripe Connect is not required for current professional onboarding.
 
-Register these events at the standard webhook destination: `identity.verification_session.verified`, `identity.verification_session.requires_input`, `identity.verification_session.processing`, `identity.verification_session.canceled`, `customer.subscription.created`, `customer.subscription.updated`, and `customer.subscription.deleted`. Keep any historical payment events needed by existing records. The webhook verifies signatures and reads current Stripe state to handle delayed events safely.
+For the existing combined `/api/webhooks/stripe` destination, register these events: `identity.verification_session.verified`, `identity.verification_session.requires_input`, `identity.verification_session.processing`, `identity.verification_session.canceled`, `customer.subscription.created`, `customer.subscription.updated`, and `customer.subscription.deleted`. Keep any historical payment events needed by existing records. The webhook verifies signatures and reads current Stripe state to handle delayed events safely.
 
 ### Identity page and return URLs
 
 - Professional workflow: `${SITE_URL}/app/verification`.
 - Hosted Stripe return: `${SITE_URL}/app/verification/return` (configured by the server; no separate URL variable).
 - Status and start/resume: authenticated `GET` and `POST` `${API_URL}/api/profile/identity`.
-- Signed webhook: `${API_URL}/api/webhooks/stripe`.
+- Dedicated signed Identity webhook: `${API_URL}/api/webhooks/stripe-identity` with `STRIPE_IDENTITY_WEBHOOK_SECRET`. The legacy combined destination remains supported.
 
 The web flow opens Stripe.js's secure Identity modal when `STRIPE_PUBLISHABLE_KEY` is configured. Otherwise it opens Stripe's hosted verification URL, which is also available as a fallback button. Native wrappers use the hosted flow; on browser return, the professional can resume the app and refresh status. Signed native return/deep-link behavior remains unverified. The website CSP permits Stripe's required scripts and frames. Both private routes remain noindex. Documents and selfies are collected directly by Stripe, never uploaded to R2. Session secrets are sent only to the authenticated owner, excluded from status responses, and not stored in browser storage or URLs by Aplime.
 
 After adding the publishable key, redeploy the API and customer web service. Test with Stripe test mode before production; successful submission or a return URL never grants verification. Only a signed webhook updates the profile's verified flag. See [Stripe Identity integration](https://docs.stripe.com/identity/verify-identity-documents?platform=web&type=modal).
+
+### Diagnose Identity setup errors
+
+On the development API service, open Render Shell and run `npm run identity:check`. This read-only check validates key modes and performs a one-item Identity list request without printing session objects, secrets or document data. Successful read access does not prove create permissions, same-account key pairing, or webhook delivery. Restricted keys must have the permissions needed by the operation; do not broaden permissions blindly.
+
+An actual failed start/resume logs `Request failed IDENTITY_CONFIGURATION_ERROR`, `IDENTITY_SESSION_UNAVAILABLE`, `IDENTITY_RATE_LIMITED` or `IDENTITY_UNAVAILABLE` with only operation, allowlisted Stripe type/code/parameter, status and a `req_...` reference. Use that reference in Stripe Dashboard request logs to read the exact rejected request. The browser sees a safe explanation and support reference. Database failures are still reported separately as internal errors.
+
+- Authentication/permission errors: check the API's secret key, Stripe account/mode, key permissions and Identity activation.
+- Missing stored session: verify the API still uses the same Stripe account and mode that created it. The code preserves the session rather than silently replacing it.
+- Invalid parameters: inspect the indicated parameter and configured HTTPS SITE_URL.
+- Idempotency conflicts: retries now include a version and fingerprint of the server-selected creation parameters, including return URL. Identical requests reuse the key; changed configuration uses a different key. Already saved sessions continue to be reused.
+- Rate limits or network/provider failures: retry after the provider recovers.
+
+No new Render variable is required for these diagnostics. Never paste secret keys, session client secrets, document data or full session responses into support messages.
 
 ## Daily calls
 
@@ -230,9 +249,9 @@ References: [Render environment groups](https://render.com/docs/blueprint-spec#e
 
 Aplime bills professional businesses only. Customer project checkout and new Stripe Connect onboarding are disabled. Existing payment history and legacy signed webhook/refund handling are retained for reconciliation, not new transactions.
 
-Add `STRIPE_PRO_PRICE_ID` to the backend Render environment group for each environment. In Stripe Dashboard, create an Aplime Professional product with your chosen recurring USD price, and copy its `price_...` ID. No amount is hardcoded. Use test-mode keys/prices in development and stagging and live-mode keys/prices in production. Existing `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` remain required. `STRIPE_CONNECT_WEBHOOK_SECRET` is only needed if reconciling historical Connect events; it is no longer a required launch variable.
+For the three-plan selector, add `STRIPE_PRO_MONTHLY_PRICE_ID`, `STRIPE_PRO_SIX_MONTH_PRICE_ID`, and `STRIPE_PRO_YEARLY_PRICE_ID` to the backend Render group. Under one Aplime Professional product create three distinct USD recurring Prices: $40/month, $210/every six months, and $360/year. Amounts are charged upfront for each period. The server checks each configured Stripe Price against those amounts and intervals before offering enrollment. If all three new variables are absent, `STRIPE_PRO_PRICE_ID` remains a single-plan fallback using its actual Stripe amount and period. Use test-mode keys/prices in development and stagging and live-mode keys/prices in production. The `STRIPE_SECRET_KEY` remains required. Use either the legacy combined `STRIPE_WEBHOOK_SECRET` or both dedicated `STRIPE_SUBSCRIPTION_WEBHOOK_SECRET` and `STRIPE_IDENTITY_WEBHOOK_SECRET`. `STRIPE_CONNECT_WEBHOOK_SECRET` is only needed if reconciling historical Connect events; it is no longer a required launch variable.
 
-Configure the Stripe Customer Portal to allow invoices, payment-method updates and subscription cancellation. Add `customer.subscription.created`, `customer.subscription.updated`, and `customer.subscription.deleted` to the standard `/api/webhooks/stripe` endpoint alongside existing identity events. Status is read from Stripe by signed webhooks, never from a checkout return URL. Existing subscriptions using another price must be migrated deliberately before changing the configured price.
+Configure the Stripe Customer Portal to allow invoices, payment-method updates and subscription cancellation. Register `customer.subscription.created`, `customer.subscription.updated`, and `customer.subscription.deleted` at `/api/webhooks/stripe-subscriptions` with `STRIPE_SUBSCRIPTION_WEBHOOK_SECRET`, or keep the existing combined endpoint during migration. Status is read from Stripe by signed webhooks, never from a checkout return URL. Keep `STRIPE_PRO_PRICE_ID` if existing subscriptions still use that legacy price; signed webhooks recognize it alongside all three new Prices. Do not change its ID casually or remove it before those memberships have been deliberately migrated. Changing an environment variable never migrates existing subscriptions.
 
 Run `npm run db:migrate` before the updated API starts (the existing Render pre-deploy command does this). Migration 003 adds business details and professional subscription state. An active or trialing subscription is required for public discovery and new estimates; existing work and conversations remain accessible. Existing professionals need to complete their expanded profile and enroll before appearing in search.
 
@@ -241,3 +260,53 @@ Run `npm run db:migrate` before the updated API starts (the existing Render pre-
 If API pre-deploy reports `Missing deployment configuration: STRIPE_PRO_PRICE_ID`, create or select the professional membership's recurring USD Price in the Stripe test environment matching the development API key. Copy the actual `price_...` identifier (not a product `prod_...` identifier or the numeric amount) into the development backend Render group. Save and deploy the API, allowing config validation and database migration to complete. For environment groups with automatic deployment disabled, explicitly trigger a new deploy; a restart reuses the previous deployment configuration.
 
 The mail worker validates only database and Microsoft SMTP settings: `DATABASE_URL`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_FROM`, `MICROSOFT_TENANT_ID`, `MICROSOFT_CLIENT_ID`, and `MICROSOFT_CLIENT_SECRET`. Database TLS configuration still applies. It can keep using the existing backend group, but no longer requires Stripe/Firebase/Daily/R2/Maps configuration to start. The API's complete deployment checks remain unchanged.
+
+## Separate Stripe subscription and Identity destinations
+
+Deploy the API containing these routes before relying on new destinations. In the same development Stripe Test mode/sandbox, create two Workbench webhook destinations, both with **Your account** and **Snapshot** payloads:
+
+| Destination                      | Endpoint                                       | Signing-secret variable              | Events                                                                                                                                                                         |
+| -------------------------------- | ---------------------------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Aplime Development Subscriptions | `${API_URL}/api/webhooks/stripe-subscriptions` | `STRIPE_SUBSCRIPTION_WEBHOOK_SECRET` | `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`                                                                              |
+| Aplime Development Identity      | `${API_URL}/api/webhooks/stripe-identity`      | `STRIPE_IDENTITY_WEBHOOK_SECRET`     | `identity.verification_session.verified`, `identity.verification_session.requires_input`, `identity.verification_session.processing`, `identity.verification_session.canceled` |
+
+Each destination uses its own Dashboard `whsec_...` signing secret in the backend Render group. Dedicated routes do not fall back to another secret and reject events outside their family before recording them. Signature validation, stored ownership, authoritative Stripe state retrieval, transactions, and duplicate-event protection still apply. The shared test API keys and membership price do not change.
+
+Keep the existing combined destination and `STRIPE_WEBHOOK_SECRET` while deploying and testing the new routes. Create the two destinations, add their secrets, redeploy the API, and validate genuine Aplime test Identity and subscription flows including successful deliveries and application state changes. Only then disable combined subscriptions/Identity delivery and remove the combined secret if no historical payment reconciliation requires it. Startup accepts either the combined secret or both dedicated secrets. Synthetic events with unowned IDs may return 200 without changing an account; HTTP success alone does not validate account updates.
+
+Payment-method changes are managed by Stripe Checkout and the Customer Portal. No payment-method or invoice event handlers are added by this split; the selected subscription lifecycle events determine membership. Keep historical payment events on the legacy destination if needed. Do not configure Thin payloads for these handlers. Keep test and live keys, prices, destinations, databases, and signing secrets separate. New routes require deployment; this documentation does not confirm live Render or Stripe setup.
+
+## Three professional membership plans
+
+Backend group values (replace placeholders with actual Stripe IDs):
+
+```dotenv
+STRIPE_PRO_MONTHLY_PRICE_ID=price_actual_monthly
+STRIPE_PRO_SIX_MONTH_PRICE_ID=price_actual_six_month
+STRIPE_PRO_YEARLY_PRICE_ID=price_actual_yearly
+```
+
+Configure all three or none. Partial or duplicate configurations fail API deployment validation. With all three set, `STRIPE_PRO_PRICE_ID` is optional for new enrollment and remains useful only to recognize existing legacy memberships. These values never belong in frontend/common groups or GitHub source. Development/stagging use prices and keys from the same Stripe test environment; production uses live resources. No new database migration is required.
+
+### Professional setup and Stripe return pages
+
+All professional pages require sign-in. The shared website/native interface connects business profile, identity verification, membership and marketplace review without granting approval from a browser URL. Identity verifies the account holder, not company registration or trade licensing. No new environment variables or database migration are needed for this UI update; deploy the API and customer web together so the return messages match.
+
+| Page or return | Website URL relative to `SITE_URL` | Behavior |
+|---|---|---|
+| Business profile | `/app/profile` | Save details, branding and schedule. |
+| Account setup and marketplace review | `/app/profile/setup` | Opens the profile's Account setup tab directly. |
+| Identity | `/app/verification` | Start/resume Stripe Identity, refresh status, retry when more input is needed. |
+| Identity return | `/app/verification/return` | Checks status; verified users can continue directly to membership. |
+| Membership | `/app/subscription` | Select monthly, six-month or annual billing; manage an existing subscription in Stripe's Customer Portal. |
+| Checkout success return | `/app/subscription?checkout=processing` | Explains that activation waits for signed Stripe confirmation; refreshes automatically. |
+| Checkout canceled return | `/app/subscription?checkout=canceled` | Offers resuming checkout or selecting another plan; does not assert a payment outcome. |
+| Customer Portal return | `/app/subscription?checkout=portal` | Refreshes stored membership status after Stripe confirms changes. |
+
+Stripe checkout and portal URLs are created per authenticated professional by `POST /api/subscription/checkout` and `POST /api/subscription/portal`. Do not configure a static Payment Link as their replacement. The existing dedicated webhook URLs and seven Stripe environment variables remain unchanged. Enable the Customer Portal in the matching Stripe sandbox/account. Private return pages remain noindex; web URLs are based on the environment's `SITE_URL`. Native navigation uses the shared hash router, and external Stripe windows refresh the app on focus; signed native deep links and native billing distribution eligibility remain unverified.
+
+The professional Subscription screen offers billing-period selection, full upfront charges, equivalent monthly costs, automatic renewal disclosure, current plan, and period-end date. Customer accounts cannot enroll. A saved, verified, unsuspended business profile is required; administration approval is still a separate discovery requirement. Existing subscriptions are managed through the Stripe portal, not a second checkout.
+
+The API accepts only a known plan key (`monthly`, `six_month`, `yearly`; `legacy` only in fallback mode). Stripe Price IDs and amounts are selected on the server; browser-supplied prices/amounts have no authority. Catalog prices are fetched from Stripe and cached for up to one minute. Wrong currency, amount, interval, mode, or inactive/metered pricing blocks new enrollment. Existing archived prices remain recognized for their memberships. Subscription webhooks require one recognized recurring item with quantity one and verify the stored Stripe customer relationship.
+
+An open checkout for the same price is resumed. Selecting another plan expires the older session before creating a replacement; a completed session waits for webhook confirmation. Session creation keys include the chosen price and URLs so retries cannot conflict with a prior plan. Successful checkout/return never grants membership; only the signed subscription webhook does. Keep the same three subscription lifecycle events; no per-plan webhook is needed. Keep portal plan switching off until its timing/proration policy is deliberately configured and tested. Rebuild the customer web/native bundles and deploy the API together for this release.
