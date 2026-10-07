@@ -128,6 +128,66 @@ article,
   background: #087a46;
   color: white;
 }
+.login .secondary {
+  background: #fff;
+  color: #174b34;
+}
+.login .admin-text-button {
+  background: transparent;
+  border-color: transparent;
+  color: #075b36;
+}
+.admin-eyebrow {
+  color: #087a46;
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+}
+.admin-auth-steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  list-style: none;
+  padding: 20px 0;
+  gap: 8px;
+  border-block: 1px solid #e1eae4;
+  margin: 24px 0;
+}
+.admin-auth-steps li {
+  display: grid;
+  gap: 8px;
+  font-size: 11px;
+  color: #53685d;
+}
+.admin-auth-steps span {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #edf3ef;
+  font-weight: 700;
+}
+.admin-auth-steps [aria-current] {
+  font-weight: 700;
+  color: #075b36;
+}
+.admin-auth-steps [aria-current] span {
+  background: #087a46;
+  color: white;
+}
+.admin-auth-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.admin-auth-note {
+  font-size: 13px;
+  color: #50655a;
+  overflow-wrap: anywhere;
+}
+.login h1 {
+  line-height: 1.2;
+}
 .records,
 .metrics {
   display: grid;

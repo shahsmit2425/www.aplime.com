@@ -2,6 +2,20 @@ import test from "node:test";
 import assert from "node:assert/strict";
 // @ts-expect-error The deployment selector intentionally runs as plain Node ESM.
 import { affected } from "../scripts/affected.mjs";
+test("owner-only admin provisioning scripts are available on API without deploying clients or worker", () => {
+  for (const path of [
+    "scripts/admin-access.ts",
+    "scripts/admin-setup.ts",
+    "scripts/lib/admin-setup.ts",
+  ])
+    assert.deepEqual(affected([path]), {
+      admin: false,
+      web: false,
+      api: true,
+      worker: false,
+      mobile: false,
+    });
+});
 test("admin-only edits never deploy the customer app, API, worker or mobile", () => {
   assert.deepEqual(affected(["apps/admin/main.tsx", "apps/admin/styles.css"]), {
     admin: true,

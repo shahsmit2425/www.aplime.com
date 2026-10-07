@@ -17,6 +17,14 @@ export function affected(paths) {
       result.admin = true;
       continue;
     }
+    if (
+      /^scripts\/(admin-access\.ts|admin-setup\.ts|lib\/admin-setup\.ts)$/.test(
+        file,
+      )
+    ) {
+      result.api = true;
+      continue;
+    }
     if (file.startsWith("apps/web/")) {
       result.web = true;
       continue;

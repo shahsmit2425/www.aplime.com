@@ -31,6 +31,8 @@ Admin builds derive their public settings from common API_URL and APP_ENV; do no
 
 Leave ADMIN_ALLOWED_UIDS empty until provisioning; this disables admin API access. Follow [ADMIN_SECURITY.md](ADMIN_SECURITY.md). ALLOWED_ORIGINS includes customer/admin origins plus capacitor://localhost and https://localhost.
 
+Administrator setup requires no new environment variables and no password in Render. Put only explicitly approved Firebase **UIDs** in backend-only `ADMIN_ALLOWED_UIDS`. After the API is redeployed, its operator-only Shell command `npm run admin:setup -- ADMIN_EMAIL --enable-totp` validates the account and enables project TOTP if necessary, then provisions the server claim/database role. Verify the dedicated account's email on the admin website first. `--check` is read-only; it cannot be combined with `--enable-totp`. Firebase Authentication with Identity Platform and service-account project-config read/update permissions are prerequisites for enabling TOTP. The account and service credentials must belong to the same environment. See the complete guided steps in [ADMIN_SECURITY.md](ADMIN_SECURITY.md).
+
 Keep Auto-Deploy off. Apply configuration changes by redeploying the services that use the changed values; rebuild admin/mobile when their bundled public configuration changes. A full workflow dispatch is available if all services need refreshing. Code-only pushes still use selective deployment. GitHub signing/deployment secrets remain in GitHub Environments.
 
 If migrating from the previous single group: create/populate both new groups first; link common to all application services and backend to API/worker; unlink the old group from every service; remove duplicate service-level variables; then redeploy/rebuild. Renaming an old secret-bearing group to common is not sufficient—remove its credentials first. Rebuild both frontends so their running/build configuration no longer includes the old group. Existing database records are unchanged.
@@ -292,16 +294,16 @@ Configure all three or none. Partial or duplicate configurations fail API deploy
 
 All professional pages require sign-in. The shared website/native interface connects business profile, identity verification, membership and marketplace review without granting approval from a browser URL. Identity verifies the account holder, not company registration or trade licensing. No new environment variables or database migration are needed for this UI update; deploy the API and customer web together so the return messages match.
 
-| Page or return | Website URL relative to `SITE_URL` | Behavior |
-|---|---|---|
-| Business profile | `/app/profile` | Save details, branding and schedule. |
-| Account setup and marketplace review | `/app/profile/setup` | Opens the profile's Account setup tab directly. |
-| Identity | `/app/verification` | Start/resume Stripe Identity, refresh status, retry when more input is needed. |
-| Identity return | `/app/verification/return` | Checks status; verified users can continue directly to membership. |
-| Membership | `/app/subscription` | Select monthly, six-month or annual billing; manage an existing subscription in Stripe's Customer Portal. |
-| Checkout success return | `/app/subscription?checkout=processing` | Explains that activation waits for signed Stripe confirmation; refreshes automatically. |
-| Checkout canceled return | `/app/subscription?checkout=canceled` | Offers resuming checkout or selecting another plan; does not assert a payment outcome. |
-| Customer Portal return | `/app/subscription?checkout=portal` | Refreshes stored membership status after Stripe confirms changes. |
+| Page or return                       | Website URL relative to `SITE_URL`      | Behavior                                                                                                  |
+| ------------------------------------ | --------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Business profile                     | `/app/profile`                          | Save details, branding and schedule.                                                                      |
+| Account setup and marketplace review | `/app/profile/setup`                    | Opens the profile's Account setup tab directly.                                                           |
+| Identity                             | `/app/verification`                     | Start/resume Stripe Identity, refresh status, retry when more input is needed.                            |
+| Identity return                      | `/app/verification/return`              | Checks status; verified users can continue directly to membership.                                        |
+| Membership                           | `/app/subscription`                     | Select monthly, six-month or annual billing; manage an existing subscription in Stripe's Customer Portal. |
+| Checkout success return              | `/app/subscription?checkout=processing` | Explains that activation waits for signed Stripe confirmation; refreshes automatically.                   |
+| Checkout canceled return             | `/app/subscription?checkout=canceled`   | Offers resuming checkout or selecting another plan; does not assert a payment outcome.                    |
+| Customer Portal return               | `/app/subscription?checkout=portal`     | Refreshes stored membership status after Stripe confirms changes.                                         |
 
 Stripe checkout and portal URLs are created per authenticated professional by `POST /api/subscription/checkout` and `POST /api/subscription/portal`. Do not configure a static Payment Link as their replacement. The existing dedicated webhook URLs and seven Stripe environment variables remain unchanged. Enable the Customer Portal in the matching Stripe sandbox/account. Private return pages remain noindex; web URLs are based on the environment's `SITE_URL`. Native navigation uses the shared hash router, and external Stripe windows refresh the app on focus; signed native deep links and native billing distribution eligibility remain unverified.
 

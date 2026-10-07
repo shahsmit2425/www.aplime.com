@@ -30,7 +30,8 @@
     "build:admin": "vite build --config apps/admin/vite.config.ts && node scripts/admin-build-stamp.mjs",
     "start:web": "tsx apps/web/server.ts",
     "start:api": "tsx apps/api/server.ts",
-    "admin:access": "tsx scripts/admin-access.ts"
+    "admin:access": "tsx scripts/admin-access.ts",
+    "admin:setup": "tsx scripts/admin-setup.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.0.0",
