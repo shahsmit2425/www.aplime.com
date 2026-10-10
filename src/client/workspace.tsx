@@ -117,10 +117,7 @@ const navigation = {
     ["quotes", "My estimates"],
     ["schedule", "Schedule"],
     ["messages", "Messages"],
-    ["subscription", "Subscription"],
-    ["profile", "Business profile"],
-    ["verification", "Identity verification"],
-    ["availability", "Calendar & preferences"],
+    ["profile", "My business"],
     ["reviews", "Reviews"],
   ],
   admin: [],
@@ -738,7 +735,21 @@ export default function Workspace() {
           return (
             <button
               key={p}
-              className={route.page === p ? "nav-link active" : "nav-link"}
+              className={
+                route.page === p ||
+                (data.user.role === "pro" &&
+                  p === "profile" &&
+                  [
+                    "verification",
+                    "subscription",
+                    "availability",
+                    "onboarding",
+                    "payments",
+                    "earnings",
+                  ].includes(route.page))
+                  ? "nav-link active"
+                  : "nav-link"
+              }
               onClick={() => go(p)}
             >
               <Icon size={19} />

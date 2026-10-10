@@ -1,4 +1,6 @@
 import { identityVerification } from "./identity-verification.js";
+import { adminConsole } from "./admin-console.js";
+import { supportRouter } from "./support.js";
 import { preferencesSchema } from "../shared/preferences.js";
 import { hasBusinessBranding } from "../shared/business-images.js";
 import {
@@ -153,6 +155,7 @@ api.use((req, _res, next) => {
 });
 api.get("/notifications/stream", notificationStream);
 api.use("/subscription", subscriptions);
+api.use("/support", supportRouter(false));
 api.get("/workspace", async (q, r) =>
   r.json(await workspace((q as AuthRequest).account)),
 );
@@ -499,15 +502,19 @@ api.post("/projects/:id/call", async (req, res) => {
   )
     fail(403, "This conversation is blocked.");
   const room = await meeting(p.id, q.account.id, q.account.name, audioOnly);
-  await transaction((c) =>
-    notify(
+  await transaction(async (c) => {
+    await c.query(
+      "INSERT INTO call_events(id,project_id,actor_id,mode) VALUES($1,$2,$3,$4)",
+      [randomUUID(), p.id, q.account.id, audioOnly ? "audio" : "video"],
+    );
+    await notify(
       c,
       other,
       "Join a project call",
       "Open " + p.title + " and select the call button to join.",
       { page: "messages", id: p.id },
-    ),
-  );
+    );
+  });
   res.json(room);
 });
 api.post("/projects/:id/review", async (req, res) => {
@@ -828,6 +835,8 @@ api.post("/admin/notifications/read", async (req, res) => {
   res.json({ ok: true });
 });
 api.get("/admin/workspace", async (q, r) => r.json(await workspace(q.account)));
+api.use("/admin", adminConsole);
+api.use("/admin/support", supportRouter(true));
 api.post("/admin/profiles/:id", async (req, res) => {
   const q = req as AuthRequest;
   const { suspended } = z
@@ -957,6 +966,7 @@ api.post("/admin/tickets/:id", async (req, res) => {
     await audit(c, q.account.id, refund ? "refund" : "resolve", t.id);
     await notify(c, t.user_id, "Support case resolved", resolution, {
       page: "help",
+      id: t.id,
     });
     if (t.project_id) {
       const p = await getProject(c, t.project_id);

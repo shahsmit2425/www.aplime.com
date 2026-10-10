@@ -3771,3 +3771,123 @@ blockquote {
     grid-template-columns: 1fr;
   }
 }
+/* One destination for professional account management and direct support. */
+.business-account-navigation {
+  padding: 24px;
+  background: #fff;
+  border: 1px solid #dbe8df;
+  border-radius: 16px;
+  margin-bottom: 26px;
+}
+.business-account-navigation h2 {
+  margin: 8px 0;
+  font-size: 23px;
+  letter-spacing: -0.5px;
+  color: #173b2c;
+}
+.business-account-navigation p {
+  color: #5f7569;
+  margin: 6px 0 18px;
+  font-size: 14px;
+}
+.business-account-navigation .eyebrow {
+  color: #087a46;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.12em;
+  margin: 0;
+}
+.business-account-navigation nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+.business-account-navigation button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f5f9f6;
+  border: 1px solid #dce7df;
+  color: #315d45;
+  padding: 11px 14px;
+  font-size: 13px;
+}
+.business-account-navigation button[aria-current] {
+  background: #087a46;
+  color: #fff;
+  border-color: #087a46;
+}
+.support-chat-log {
+  display: grid;
+  gap: 14px;
+  max-height: 540px;
+  overflow: auto;
+  padding: 18px 4px;
+}
+.support-chat-log article {
+  max-width: 85%;
+  padding: 16px;
+  border-radius: 12px;
+  background: #f3f7f4;
+  border: 1px solid #e0e9e3;
+}
+.support-chat-log article.support-team {
+  background: #e7f5ec;
+  margin-left: auto;
+}
+.support-chat-log p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 10px 0;
+}
+.support-chat-log small {
+  font-size: 11px;
+  color: #5b7163;
+}
+.support-thread-list {
+  display: grid;
+  gap: 10px;
+}
+.support-thread-list > button {
+  display: flex;
+  text-align: left;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 18px;
+  background: #f7faf8;
+  color: #183b2a;
+  border: 1px solid #dbe8df;
+}
+.support-thread-list strong,
+.support-thread-list small {
+  display: block;
+}
+.support-thread-list small {
+  font-size: 12px;
+  color: #5f7569;
+  font-weight: 400;
+  margin-top: 7px;
+}
+.support-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 20px 0;
+  font-size: 12px;
+  color: #5b7163;
+}
+@media (max-width: 600px) {
+  .business-account-navigation {
+    padding: 18px;
+  }
+  .business-account-navigation button {
+    font-size: 12px;
+    padding: 10px;
+  }
+  .support-chat-log article {
+    max-width: 95%;
+  }
+}

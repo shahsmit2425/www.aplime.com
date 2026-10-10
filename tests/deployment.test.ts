@@ -37,6 +37,29 @@ test("Render services cannot auto-deploy another environment", () => {
     ]);
   }
 });
+test("admin static headers permit private signed R2 image previews without opening frames or object embeds", () => {
+  const blueprint = parse(readFileSync("render.yaml", "utf8"));
+  const admins = blueprint.services.filter((s: any) =>
+    s.name.endsWith("-admin"),
+  );
+  assert.equal(admins.length, 3);
+  for (const service of admins) {
+    const csp = service.headers.find(
+      (h: any) => h.name === "Content-Security-Policy",
+    ).value;
+    assert.match(
+      csp,
+      /img-src 'self' data: https:\/\/\*\.r2\.cloudflarestorage\.com;/,
+    );
+    assert.match(csp, /frame-ancestors 'none'/);
+    assert.match(csp, /object-src 'none'/);
+    assert.ok(
+      service.headers.some(
+        (h: any) => h.name === "Referrer-Policy" && h.value === "no-referrer",
+      ),
+    );
+  }
+});
 test("promotion guard rejects direct development-to-main changes", () => {
   const r = spawnSync(process.execPath, ["scripts/ci-target.mjs"], {
     env: {
@@ -66,11 +89,18 @@ test("release deployment depends on validation, and mobile depends on matching w
   assert.deepEqual(w.jobs.android.needs, ["validate", "web"]);
   assert.equal(w.permissions.contents, "read");
   for (const platform of ["ios", "android"]) {
-    assert.match(w.jobs[platform].if, /needs\.web\.outputs\.mobile-enabled == 'true'/);
+    assert.match(
+      w.jobs[platform].if,
+      /needs\.web\.outputs\.mobile-enabled == 'true'/,
+    );
   }
-  assert.equal(w.jobs.web.outputs["mobile-enabled"], "${{ steps.mobile.outputs.enabled }}");
+  assert.equal(
+    w.jobs.web.outputs["mobile-enabled"],
+    "${{ steps.mobile.outputs.enabled }}",
+  );
   const deployEnv = w.jobs.web.steps.find(
-    (step: any) => step.name === "Deploy exact validated commit and verify health",
+    (step: any) =>
+      step.name === "Deploy exact validated commit and verify health",
   ).env;
   assert.match(deployEnv.DEPLOY_API, /BACKEND_RELEASES_ENABLED == 'true'/);
   assert.match(deployEnv.DEPLOY_WORKER, /BACKEND_RELEASES_ENABLED == 'true'/);

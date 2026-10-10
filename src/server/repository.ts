@@ -292,8 +292,9 @@ export async function notifyAdministrators(
   c: pg.PoolClient,
   title: string,
   body: string,
+  target: { page: string; id?: string } = { page: "reports" },
 ) {
   const users = (await c.query("SELECT id FROM users WHERE role='admin'")).rows;
   for (const user of users)
-    await notify(c, user.id, title, body, { page: "reports" });
+    await notify(c, user.id, title, body, target);
 }

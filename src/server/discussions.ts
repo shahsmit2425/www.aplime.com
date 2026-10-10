@@ -185,8 +185,18 @@ discussions.post("/discussions/:id/call", async (req, res) => {
     req.account.name,
     audioOnly,
   );
-  await transaction((c) =>
-    notify(
+  await transaction(async (c) => {
+    await c.query(
+      "INSERT INTO call_events(id,project_id,discussion_id,actor_id,mode) VALUES($1,$2,$3,$4,$5)",
+      [
+        randomUUID(),
+        row.project_id,
+        row.id,
+        req.account.id,
+        audioOnly ? "audio" : "video",
+      ],
+    );
+    await notify(
       c,
       other,
       audioOnly
@@ -194,7 +204,7 @@ discussions.post("/discussions/:id/call", async (req, res) => {
         : "Incoming video call invitation",
       "Open the private project chat and select the matching call button to join.",
       { page: "messages", id: row.id },
-    ),
-  );
+    );
+  });
   res.json(room);
 });

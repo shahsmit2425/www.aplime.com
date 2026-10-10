@@ -11,7 +11,23 @@ Every `/api/admin/*` request requires all of the following:
 5. A Firebase token recording TOTP as the sign-in second factor.
 6. Authentication within the last hour. Refreshing an ID token does not extend this period.
 
-Missing configuration denies access. Public registration accepts only customer/pro roles and cannot provision an admin, even when a caller submits extra fields. Admin identities are refused by customer workspace/account endpoints; admin data is available only through the protected admin namespace. Admins do not receive private conversation messages or attachments. Suspension, case resolution/refunds, and access provisioning are audited.
+Missing configuration denies access. Public registration accepts only customer/pro roles and cannot provision an admin, even when a caller submits extra fields. Admin identities are refused by customer workspace/account endpoints; admin data is available only through the protected admin namespace. Approved administrators can review stored account/business details, private project details, customer/pro conversation transcripts and project files for marketplace operations, support and safety. Detailed reads and file-link creation are audited, as are suspension, case resolution/refunds and access provisioning. This is privileged access: grant it only to trusted operators.
+
+## Operations workspace and support
+
+- **Overview:** database-wide totals, the last 30 UTC calendar days of new accounts/projects/discussion messages, lifecycle/category distributions, readiness counts and the ten most active accounts. These counts are descriptive activity, not a quality or fraud score.
+- **People:** searchable, paginated accounts, saved settings, performance counts and related projects/interactions. Passwords, TOTP setup keys and provider credentials are never returned.
+- **Businesses:** one navigation group for profiles/marketplace review, Identity and memberships. Each professional detail view has profile, Identity, membership, review, projects, interactions and account tabs. Branding images retain their full proportions. Stripe responses expose only selected status, plan and renewal fields; identity documents/selfies and verification client secrets remain unavailable. Review and suspension use existing lifecycle checks. Administrators cannot assert successful Stripe verification/payment from this UI.
+- **Projects:** full saved description, intake, location, lifecycle fields, activity, estimates, reviews, conversations, files and call invitations. Lists paginate instead of silently stopping at the old workspace limit. File access is logged before a short-lived 120-second attachment link is issued; JPEG/PNG/WebP also receive a short-lived inline preview. Other formats download as attachments.
+- **Interactions:** paginated customer/pro relationships aggregated from assignments, discussions, messages, estimates and call invitations. The graph displays the current page and has an accompanying table and search. Historical legacy messages already copied into discussions are counted once.
+- **Support inbox:** administrators can open a conversation from a user's detail page, reply, resolve and reopen it. Customers/pros see only their own conversations in **Help & safety**. Messages are project-independent and cannot impersonate the other party. Reply retries use a server-enforced per-sender idempotency key. Existing project disputes remain linked to their project and retain the existing resolution rules.
+- **Audit trail / Notifications:** searchable paginated actions and the signed-in operator's paginated notifications. Support notifications link to their conversation. Notifications use the existing PostgreSQL/SSE pipeline and email preference; private message bodies are not copied into support alert emails. Open support threads additionally refresh every ten seconds.
+
+Detailed admin responses and support responses are `no-store`. A denied admin request clears the protected frontend session. The session poll and SSE reconnect continue to enforce revocation and the existing one-hour sign-in limit. Images/files already downloaded cannot be recalled; signed links remain valid until expiry. This does not change Firebase persistence or grant rules.
+
+Call invitations are recorded only from this release, after Daily creates a room. They do not establish that a call connected or finished. Daily room links/tokens, call recordings, duration, page views, keystrokes and device tracking are not stored or exposed. Older activity cannot be reconstructed when it was never collected.
+
+Professionals now use **My business** for Profile & images, Identity verification, Membership, Marketplace review and Schedule & preferences. Existing routes and Stripe return URLs remain valid; menu changes do not change eligibility or approval rules.
 
 ## Guided first-administrator setup (development)
 

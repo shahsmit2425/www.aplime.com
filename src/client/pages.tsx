@@ -1,4 +1,6 @@
 import { Subscription } from "./subscription.js";
+import { SupportChat } from "./support-chat.js";
+import { BusinessNavigation } from "./business-navigation.js";
 import { AwardResponse } from "./award-response.js";
 import { ProjectControls } from "./project-controls.js";
 import { businessFields } from "../shared/business.js";
@@ -57,6 +59,24 @@ const date = (s: string | null) =>
       })
     : "Not scheduled";
 export function Pages() {
+  const { page, data } = useWorkspace();
+  return (
+    <>
+      {data.user.role === "pro" &&
+        [
+          "profile",
+          "onboarding",
+          "verification",
+          "subscription",
+          "payments",
+          "earnings",
+          "availability",
+        ].includes(page) && <BusinessNavigation />}
+      <PageContent />
+    </>
+  );
+}
+function PageContent() {
   const { page } = useWorkspace();
   switch (page) {
     case "dashboard":
@@ -2271,64 +2291,13 @@ function Settings() {
   );
 }
 function Support() {
-  const { data, run, busy, page } = useWorkspace();
   return (
     <>
-      <Head
-        title={
-          page === "reports"
-            ? "Help people find a way forward."
-            : "A little help when you need it."
-        }
-      >
-        Keep important project communication in your account. For emergencies,
-        contact local emergency services.
+      <Head title="Help & safety">
+        Contact Aplime about your account or a project. For emergencies, contact
+        local emergency services.
       </Head>
-      {page !== "reports" && (
-        <Panel title="Contact support">
-          <Form
-            busy={busy}
-            onSubmit={(f) =>
-              run(
-                () =>
-                  request("/support", {
-                    subject: f.get("subject"),
-                    body: f.get("body"),
-                  }),
-                "Support request created.",
-              )
-            }
-          >
-            <Field label="Subject">
-              <input name="subject" minLength={5} maxLength={120} required />
-            </Field>
-            <Field label="How can we help?">
-              <textarea
-                name="body"
-                minLength={10}
-                maxLength={3000}
-                rows={4}
-                required
-              />
-            </Field>
-            <button>Send support request</button>
-          </Form>
-        </Panel>
-      )}
-      <Panel title="Support cases">
-        {data.tickets.length ? (
-          data.tickets.map((t) => (
-            <article className="ticket" key={t.id}>
-              <Badge>{t.status}</Badge>
-              <h3>{t.subject}</h3>
-              <p>{t.body}</p>
-              {t.resolution && <blockquote>{t.resolution}</blockquote>}
-            </article>
-          ))
-        ) : (
-          <Empty title="No open conversations with support." />
-        )}
-      </Panel>
+      <SupportChat />
     </>
   );
 }

@@ -104,6 +104,22 @@ Use a reviewed revert on `development`, then promote it. For urgent rollback, Re
 
 The workflow and source are configured; external accounts, service URLs, credentials and signing files must be supplied before a deployment can complete. No Render domain, signed IPA/AAB, TestFlight upload or Play release is claimed merely because code was pushed.
 
+## Admin operations and support release (migration 012)
+
+Deploy from `development` first. This release adds `012_admin_support.sql` (support replies, ticket opener attribution, call-invitation events and query indexes). Keep the API pre-deploy command `npm run config:check && npm run db:migrate`; it applies pending migrations once under the existing lock. No database reset or sample-data import is needed. Deploy the updated API successfully before the admin/customer websites; the existing GitHub workflow already orders those deployments. Shared contracts select all affected applications. Mobile asset synchronization does not require enabling store releases while mobile setup is unfinished.
+
+No new environment variables are required. Existing Firebase admin access, PostgreSQL, R2, Stripe, SMTP and origin settings still apply. The admin static site continues to receive only the common public group. Never link backend secrets to the admin build to fix an image error.
+
+The admin static site's `Content-Security-Policy` must now allow signed R2 images. The three admin services in `render.yaml` include:
+
+```text
+img-src 'self' data: https://*.r2.cloudflarestorage.com;
+```
+
+For manually created Render Static Sites, update the existing CSP response header in that site's settings; uploading source does not update manual Render header settings. Preserve the other directives and the `Referrer-Policy: no-referrer` header. If you use a separately configured custom R2 image domain, authorize that exact HTTPS origin too. This change allows image display and does not make the bucket public.
+
+After deployment, sign in with a provisioned administrator and check Overview → Businesses → a real profile → Identity/Membership/Review, then Projects → a real project → conversations/files. Open support from a user account, reply as that user through Help & safety and confirm both sides receive notifications. Confirm a second marketplace account cannot access that thread. Detailed reads should appear in Audit trail. Review the operations data-access boundary in [ADMIN_SECURITY.md](ADMIN_SECURITY.md) before granting additional administrators.
+
 ## Configuration changes
 
 Changing common values can affect all applications. Changing backend credentials only requires applying them to API/worker. Keep auto-deploy off; manually redeploy/rebuild affected services after environment edits, or use full workflow dispatch for all. Frontend build/runtime processes must not receive the backend group. Public output remains explicitly allowlisted.

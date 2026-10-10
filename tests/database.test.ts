@@ -101,6 +101,9 @@ await db.exec(
 await db.exec(
   await readFile("src/server/db/migrations/011_listed_profiles.sql", "utf8"),
 );
+await db.exec(
+  await readFile("src/server/db/migrations/012_admin_support.sql", "utf8"),
+);
 
 test.after(async () => {
   await db.close();

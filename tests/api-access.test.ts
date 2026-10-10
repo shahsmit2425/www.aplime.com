@@ -29,6 +29,15 @@ test.after(async () => {
 test("actual admin routes reject unauthenticated direct requests and forged roles", async () => {
   for (const [path, method] of [
     ["/admin/workspace", "GET"],
+    ["/admin/session", "GET"],
+    ["/admin/overview", "GET"],
+    ["/admin/users", "GET"],
+    ["/admin/interactions", "GET"],
+    ["/admin/notifications", "GET"],
+    ["/admin/conversations/00000000-0000-4000-8000-000000000001", "GET"],
+    ["/admin/files/00000000-0000-4000-8000-000000000001", "GET"],
+    ["/admin/support/conversations", "GET"],
+    ["/support/conversations", "GET"],
     ["/ADMIN/workspace", "GET"],
     ["/admin/profiles/other", "POST"],
     ["/admin/tickets/other", "POST"],

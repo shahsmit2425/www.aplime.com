@@ -348,6 +348,14 @@ export function PublicPage({
               deletion.
             </p>
             <p>
+              Authorized Aplime administrators can review account and business
+              details, project information, project conversations and uploaded
+              files for support, marketplace operations and safety. Access to
+              detailed records is logged. You can communicate directly with
+              Aplime through support conversations in Help &amp; safety.
+              Aplime does not record audio or video calls in this application.
+            </p>
+            <p>
               For questions about your information or a service experience,
               contact Aplime through Help &amp; safety in your account.
             </p>

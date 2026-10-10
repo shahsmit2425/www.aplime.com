@@ -17,7 +17,8 @@ import {
   type TotpSecret,
 } from "firebase/auth";
 import type { PublicConfig } from "../../src/shared/config.js";
-import type { Workspace } from "../../src/shared/domain.js";
+import type { AdminSession } from "../../src/shared/admin.js";
+import { AdminConsole } from "./console.js";
 import "./styles.css";
 import {
   adminAuthError,
@@ -40,7 +41,15 @@ async function request<T>(path: string, body?: unknown): Promise<T> {
     signal: AbortSignal.timeout(15000),
   });
   const result = await r.json();
-  if (!r.ok) throw new Error(result.error || "Request failed");
+  if (!r.ok) {
+    if ([401, 403].includes(r.status))
+      window.dispatchEvent(
+        new CustomEvent("admin-session-ended", {
+          detail: result.error || "Please sign in again.",
+        }),
+      );
+    throw new Error(result.error || "Request failed");
+  }
   return result;
 }
 function Admin() {
@@ -49,12 +58,10 @@ function Admin() {
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
-    [data, setData] = useState<Workspace | null>(null);
+    [data, setData] = useState<AdminSession | null>(null);
   const [resolver, setResolver] = useState<MultiFactorResolver | null>(null),
     [enroll, setEnroll] = useState(false),
-    [secret, setSecret] = useState<TotpSecret | null>(null),
-    [page, setPage] = useState("Overview"),
-    [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
+    [secret, setSecret] = useState<TotpSecret | null>(null);
   const [loginStep, setLoginStep] = useState<AdminLoginStep>("sign_in");
   const [loginEmail, setLoginEmail] = useState("");
   const [resendUntil, setResendUntil] = useState(0);
@@ -100,7 +107,7 @@ function Admin() {
   async function load() {
     const epoch = sessionEpoch.current;
     const owner = auth.currentUser;
-    const result = await request<Workspace>("/workspace");
+    const result = await request<AdminSession>("/session");
     // A response started before sign-out must never restore a protected screen.
     if (epoch === sessionEpoch.current && owner && auth.currentUser === owner)
       setData(result);
@@ -115,6 +122,15 @@ function Admin() {
     setResendUntil(0);
     if (auth) await signOut(auth);
   }
+  useEffect(() => {
+    const expired = (event: Event) => {
+      void exit()
+        .then(() => setError((event as CustomEvent<string>).detail))
+        .catch(() => setError("Please reload and sign in again."));
+    };
+    window.addEventListener("admin-session-ended", expired);
+    return () => window.removeEventListener("admin-session-ended", expired);
+  }, []);
   useEffect(() => {
     if (!data) return;
     const epoch = sessionEpoch.current;
@@ -162,7 +178,7 @@ function Admin() {
             const event = buffer.slice(0, end);
             buffer = buffer.slice(end + 2);
             if (event.includes("data: changed")) {
-              const result = await request<Workspace>("/workspace");
+              const result = await request<AdminSession>("/session");
               if (
                 !stopped &&
                 epoch === sessionEpoch.current &&
@@ -246,7 +262,7 @@ function Admin() {
           </button>
         )}
       </header>
-      <main>
+      <main className={data ? "admin-console-main" : undefined}>
         {error && (
           <p role="alert" className="error">
             {error}
@@ -572,240 +588,13 @@ function Admin() {
             </p>
           </section>
         ) : (
-          <>
-            <nav aria-label="Administration">
-              {[
-                "Overview",
-                "Professionals",
-                "Projects",
-                "Payments",
-                "Support",
-              ].map((p) => (
-                <button
-                  aria-current={page === p ? "page" : undefined}
-                  key={p}
-                  onClick={() => setPage(p)}
-                >
-                  {p}
-                </button>
-              ))}
-              <button disabled={busy} onClick={() => void run(load)}>
-                Refresh
-              </button>
-            </nav>
-            <h1>{page}</h1>
-            {data.unreadCount > 0 && (
-              <section aria-label="New administrator updates">
-                <h2>{data.unreadCount} unread updates</h2>
-                <button onClick={() => setPage("Support")}>
-                  Open support cases
-                </button>
-                {data.notices
-                  .filter((n) => !n.read)
-                  .slice(0, 5)
-                  .map((n) => (
-                    <article key={n.id}>
-                      <strong>{n.title}</strong>
-                      <p>{n.body}</p>
-                    </article>
-                  ))}
-                <button
-                  disabled={busy}
-                  onClick={() =>
-                    void run(async () => {
-                      await request("/notifications/read", {});
-                      await load();
-                    })
-                  }
-                >
-                  Mark updates read
-                </button>
-              </section>
-            )}
-            {page === "Overview" && (
-              <div className="metrics">
-                {[
-                  ["Projects", data.projects.length],
-                  ["Professionals", data.profiles.length],
-                  [
-                    "Open cases",
-                    data.tickets.filter((t) => t.status === "open").length,
-                  ],
-                ].map(([k, v]) => (
-                  <article key={k}>
-                    <h2>{k}</h2>
-                    <strong>{v}</strong>
-                  </article>
-                ))}
-                <p>
-                  These counts reflect the current loaded records. Private
-                  messages and attachments are excluded.
-                </p>
-              </div>
-            )}
-            {page === "Professionals" && (
-              <div className="records">
-                {data.profiles.map((p) => (
-                  <article key={p.id}>
-                    <h2>{p.business}</h2>
-                    <p>
-                      {p.name} · {p.category} ·{" "}
-                      {p.verified
-                        ? "Identity verified"
-                        : "Verification pending"}{" "}
-                      · {p.suspended ? "Suspended" : "Active"}
-                    </p>
-                    <p>
-                      Marketplace review: {p.reviewStatus.replace("_", " ")} ·{" "}
-                      {p.listed
-                        ? "currently listed (edits are live)"
-                        : "not listed"}{" "}
-                      · service radius {p.serviceRadiusMiles} miles ·{" "}
-                      {p.images?.length || 0} images
-                    </p>
-                    <p>{p.bio}</p>
-                    {p.reviewNote && <p>Previous note: {p.reviewNote}</p>}
-                    {p.reviewStatus === "pending" && (
-                      <>
-                        <textarea
-                          aria-label={"Review note for " + p.business}
-                          placeholder="Required when requesting changes or rejecting"
-                          value={reviewNotes[p.id] || ""}
-                          onChange={(event) =>
-                            setReviewNotes({
-                              ...reviewNotes,
-                              [p.id]: event.target.value,
-                            })
-                          }
-                          maxLength={2000}
-                        />
-                        <div className="actions">
-                          {[
-                            ["approved", "Approve listing"],
-                            ["changes_requested", "Request changes"],
-                            ["rejected", "Reject listing"],
-                          ].map(([status, label]) => (
-                            <button
-                              key={status}
-                              disabled={busy}
-                              onClick={() =>
-                                void run(async () => {
-                                  await request(
-                                    "/profiles/" +
-                                      encodeURIComponent(p.id) +
-                                      "/review",
-                                    {
-                                      status,
-                                      note: reviewNotes[p.id] || "",
-                                    },
-                                  );
-                                  await load();
-                                })
-                              }
-                            >
-                              {label}
-                            </button>
-                          ))}
-                        </div>
-                      </>
-                    )}
-                    <button
-                      disabled={busy}
-                      onClick={() =>
-                        void run(async () => {
-                          await request(
-                            "/profiles/" + encodeURIComponent(p.id),
-                            { suspended: !p.suspended },
-                          );
-                          await load();
-                        })
-                      }
-                    >
-                      {p.suspended ? "Restore access" : "Suspend access"}
-                    </button>
-                  </article>
-                ))}
-                {!data.profiles.length && <p>No professional profiles.</p>}
-              </div>
-            )}
-            {page === "Projects" && (
-              <div className="records">
-                {data.projects.map((p) => (
-                  <article key={p.id}>
-                    <h2>{p.title}</h2>
-                    <p>
-                      {p.customerName} · {p.proName || "Unassigned"} ·{" "}
-                      {p.status}
-                    </p>
-                    <p>{p.description}</p>
-                    <small>{p.id}</small>
-                  </article>
-                ))}
-                {!data.projects.length && <p>No projects.</p>}
-              </div>
-            )}
-            {page === "Payments" && (
-              <div className="records">
-                {data.payments.map((p) => (
-                  <article key={p.id}>
-                    <h2>
-                      {new Intl.NumberFormat("en-US", {
-                        style: "currency",
-                        currency: "USD",
-                      }).format(p.amount / 100)}
-                    </h2>
-                    <p>
-                      {p.status} · Project {p.projectId}
-                    </p>
-                  </article>
-                ))}
-                {!data.payments.length && <p>No transactions.</p>}
-              </div>
-            )}
-            {page === "Support" && (
-              <div className="records">
-                {data.tickets.map((t) => (
-                  <article key={t.id}>
-                    <h2>{t.subject}</h2>
-                    <p>{t.body}</p>
-                    <p>Status: {t.status}</p>
-                    {t.resolution && <p>{t.resolution}</p>}
-                    {t.status === "open" && (
-                      <form
-                        onSubmit={(e) => {
-                          e.preventDefault();
-                          const f = new FormData(e.currentTarget);
-                          void run(async () => {
-                            await request("/tickets/" + t.id, {
-                              resolution: String(f.get("resolution")),
-                              refund: f.get("refund") === "on",
-                            });
-                            await load();
-                          });
-                        }}
-                      >
-                        <label>
-                          Resolution
-                          <textarea
-                            name="resolution"
-                            minLength={10}
-                            maxLength={3000}
-                            required
-                          />
-                        </label>
-                        <label className="check">
-                          <input type="checkbox" name="refund" />
-                          Issue a full refund for the associated payment
-                        </label>
-                        <button disabled={busy}>Resolve case</button>
-                      </form>
-                    )}
-                  </article>
-                ))}
-                {!data.tickets.length && <p>No support cases.</p>}
-              </div>
-            )}
-          </>
+          <AdminConsole
+            session={data}
+            request={request}
+            run={run}
+            busy={busy}
+            refresh={load}
+          />
         )}
       </main>
       <footer>

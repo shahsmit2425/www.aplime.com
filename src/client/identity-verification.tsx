@@ -17,7 +17,6 @@ import { request, openExternal, ApiError } from "./api.js";
 import { verifyWithStripe } from "./stripe-identity.js";
 import { Empty, Head } from "./ui.js";
 import { fallbackConfig } from "../shared/config.js";
-import { ProfessionalSetup } from "./professional-setup.js";
 
 type Verification = {
   status:
@@ -161,12 +160,6 @@ export function IdentityVerification() {
       <Head title="Verify your identity">
         A secure ID check helps customers know who they are working with.
       </Head>
-      <ProfessionalSetup
-        profile={profile}
-        current="verification"
-        identityVerified={confirmed}
-        go={go}
-      />
       <div className="identity-layout">
         <section className="identity-main">
           <div className="identity-status-icon">

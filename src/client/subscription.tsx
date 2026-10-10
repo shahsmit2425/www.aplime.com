@@ -16,7 +16,6 @@ import { request, openExternal } from "./api.js";
 import { useWorkspace } from "./workspace.js";
 import { Empty, Head, Panel } from "./ui.js";
 import { MembershipCards, billingPeriod } from "./membership-cards.js";
-import { ProfessionalSetup } from "./professional-setup.js";
 import { checkoutReturnNotice } from "../shared/membership-flow.js";
 import { MembershipSummary } from "./membership-summary.js";
 
@@ -102,12 +101,6 @@ export function Subscription() {
         Choose your billing period for the same professional membership. Service
         payments are arranged directly with customers.
       </Head>
-      <ProfessionalSetup
-        profile={profile}
-        current="subscription"
-        membershipActive={active}
-        go={go}
-      />
       {returnNotice && (
         <p className="membership-return" role="status">
           <CircleAlert size={20} aria-hidden="true" />

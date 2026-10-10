@@ -1,12 +1,6 @@
 import { AddressAutocomplete } from "./address-autocomplete.js";
 import { useEffect, useState } from "react";
-import {
-  Building2,
-  ShieldCheck,
-  ImagePlus,
-  CalendarDays,
-  Eye,
-} from "lucide-react";
+import { Building2, ImagePlus, Eye } from "lucide-react";
 import { categories } from "../shared/domain.js";
 import { hasBusinessBranding } from "../shared/business-images.js";
 import { useWorkspace } from "./workspace.js";
@@ -14,8 +8,6 @@ import { request } from "./api.js";
 import { Empty, Head, Panel, Field, Form } from "./ui.js";
 import { BusinessMedia } from "./business-media.js";
 import { BusinessDisplay } from "./business-display.js";
-import { PreferencesForm } from "./preferences.js";
-import { ProfessionalSetup } from "./professional-setup.js";
 
 export function BusinessProfile() {
   const { data, run, busy, go, id } = useWorkspace();
@@ -29,17 +21,16 @@ export function BusinessProfile() {
   const steps = [
     { id: "details", label: "Business details", Icon: Building2 },
     { id: "photos", label: "Logo & advertising image", Icon: ImagePlus },
-    { id: "schedule", label: "Work schedule", Icon: CalendarDays },
     { id: "preview", label: "View profile", Icon: Eye },
-    { id: "setup", label: "Account setup", Icon: ShieldCheck },
   ];
   return (
     <>
-      <Head title="Your business profile">
+      <Head
+        title={tab === "setup" ? "Marketplace review" : "Your business profile"}
+      >
         A few details, two images, and your working hours. Keep it simple and
         let customers get to know your business.
       </Head>
-      <ProfessionalSetup profile={p} current="profile" go={go} />
       {p?.suspended && (
         <p className="business-tip">
           Your listing is suspended. Contact support before accepting new
@@ -57,71 +48,37 @@ export function BusinessProfile() {
           and schedule.
         </p>
       )}
-      <nav
-        className="business-section-nav"
-        aria-label="Business profile sections"
-      >
-        {steps.map(({ id, label, Icon }) => (
-          <button
-            key={id}
-            type="button"
-            className={tab === id ? "business-step active" : "business-step"}
-            aria-current={tab === id ? "page" : undefined}
-            disabled={id !== "details" && !p}
-            title={
-              !p && id !== "details"
-                ? "Save your business details first"
-                : label
-            }
-            onClick={() => setTab(id)}
-          >
-            <Icon size={18} />
-            <span>{label}</span>
-          </button>
-        ))}
-      </nav>
+      {tab !== "setup" && (
+        <nav
+          className="business-section-nav"
+          aria-label="Business profile sections"
+        >
+          {steps.map(({ id, label, Icon }) => (
+            <button
+              key={id}
+              type="button"
+              className={tab === id ? "business-step active" : "business-step"}
+              aria-current={tab === id ? "page" : undefined}
+              disabled={id !== "details" && !p}
+              title={
+                !p && id !== "details"
+                  ? "Save your business details first"
+                  : label
+              }
+              onClick={() => setTab(id)}
+            >
+              <Icon size={18} />
+              <span>{label}</span>
+            </button>
+          ))}
+        </nav>
+      )}
       {tab === "preview" && p && <BusinessDisplay profile={p} preview />}
       <div hidden={tab !== "photos"}>
         <BusinessMedia profile={p} />
       </div>
-      {p && (
-        <div hidden={tab !== "schedule"}>
-          <PreferencesForm
-            key={p.id}
-            profile={p}
-            run={run}
-            busy={busy}
-            scheduleOnly
-          />
-        </div>
-      )}
       {tab === "setup" && (
         <>
-          <div className="two-columns" id="business-setup">
-            <Panel title="Identity verification">
-              <ShieldCheck />
-              <p>
-                {p?.verified
-                  ? "Your identity is verified. This does not verify business licensing or insurance."
-                  : "Verify the account holder’s ID and selfie securely with Stripe. Track the result and resume verification from one place."}
-              </p>
-              <button disabled={!p} onClick={() => go("verification")}>
-                {p?.verified
-                  ? "View verification status"
-                  : "Open identity verification"}
-              </button>
-            </Panel>
-            <Panel title="Business membership">
-              <p>
-                Activate your Aplime subscription to appear in the marketplace
-                and respond to new opportunities. Customer service payments are
-                arranged directly.
-              </p>
-              <button onClick={() => go("subscription")}>
-                Manage subscription
-              </button>
-            </Panel>
-          </div>
           <Panel title="Marketplace review">
             {!hasBusinessBranding(
               p?.images?.map((image) => image.slot) || [],

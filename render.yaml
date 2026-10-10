@@ -73,10 +73,10 @@ services:
         value: no-store
       - path: /*
         name: Content-Security-Policy
-        value:
+        value: >-
           default-src 'self'; script-src 'self'; style-src 'self'; connect-src
-          'self' https:; img-src 'self' data:; frame-ancestors 'none'; base-uri
-          'none'; object-src 'none'; form-action 'self'
+          'self' https:; img-src 'self' data: https://*.r2.cloudflarestorage.com;
+          frame-ancestors 'none'; base-uri 'none'; object-src 'none'; form-action 'self'
     routes:
       - type: rewrite
         source: /*
@@ -153,10 +153,10 @@ services:
         value: no-store
       - path: /*
         name: Content-Security-Policy
-        value:
+        value: >-
           default-src 'self'; script-src 'self'; style-src 'self'; connect-src
-          'self' https:; img-src 'self' data:; frame-ancestors 'none'; base-uri
-          'none'; object-src 'none'; form-action 'self'
+          'self' https:; img-src 'self' data: https://*.r2.cloudflarestorage.com;
+          frame-ancestors 'none'; base-uri 'none'; object-src 'none'; form-action 'self'
     routes:
       - type: rewrite
         source: /*
@@ -236,10 +236,10 @@ services:
         value: no-store
       - path: /*
         name: Content-Security-Policy
-        value:
+        value: >-
           default-src 'self'; script-src 'self'; style-src 'self'; connect-src
-          'self' https:; img-src 'self' data:; frame-ancestors 'none'; base-uri
-          'none'; object-src 'none'; form-action 'self'
+          'self' https:; img-src 'self' data: https://*.r2.cloudflarestorage.com;
+          frame-ancestors 'none'; base-uri 'none'; object-src 'none'; form-action 'self'
     routes:
       - type: rewrite
         source: /*

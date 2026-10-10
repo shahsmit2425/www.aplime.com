@@ -113,6 +113,20 @@ export async function downloadUrl(key: string) {
     { expiresIn: 120 },
   );
 }
+export async function projectImageUrl(key: string, type: string) {
+  if (!["image/jpeg", "image/png", "image/webp"].includes(type))
+    throw new Error("Unsupported image preview type");
+  return getSignedUrl(
+    client(),
+    new GetObjectCommand({
+      Bucket: env.R2_BUCKET,
+      Key: key,
+      ResponseContentDisposition: "inline",
+      ResponseContentType: type,
+    }),
+    { expiresIn: 120 },
+  );
+}
 export async function inspectObject(key: string) {
   return client().send(
     new HeadObjectCommand({ Bucket: env.R2_BUCKET, Key: key }),
