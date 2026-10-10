@@ -20,6 +20,7 @@ import type { PublicConfig } from "../../src/shared/config.js";
 import type { AdminSession } from "../../src/shared/admin.js";
 import { AdminConsole } from "./console.js";
 import "./styles.css";
+import "./design-system.css";
 import {
   adminAuthError,
   adminLoginDestination,

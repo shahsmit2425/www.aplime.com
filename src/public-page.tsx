@@ -1,3 +1,12 @@
+import {
+  Menu,
+  MessageCircle,
+  CalendarDays,
+  ShieldCheck,
+  FileText,
+  LockKeyhole,
+  BadgeCheck,
+} from "lucide-react";
 import { BusinessDisplay } from "./client/business-display.js";
 import { categories, type Profile } from "./shared/domain.js";
 import { Brand, LinkButton, ServiceIcon } from "./client/ui.js";
@@ -314,9 +323,12 @@ export function PublicPage({
     !servicesIndex;
   return (
     <>
+      <a className="skip-link" href="#main-content">
+        Skip to content
+      </a>
       <header className="public-header">
         <Brand />
-        <nav>
+        <nav aria-label="Main navigation">
           <a href="/#services">Explore services</a>
           <a href="/how-it-works">How it works</a>
           <a href="/for-professionals">For professionals</a>
@@ -324,8 +336,20 @@ export function PublicPage({
             Sign in
           </a>
         </nav>
+        <details className="public-mobile-nav">
+          <summary aria-label="Open navigation">
+            <Menu />
+          </summary>
+          <div>
+            <a href="/services">Explore services</a>
+            <a href="/how-it-works">How it works</a>
+            <a href="/for-professionals">For professionals</a>
+            <a href="/trust-and-safety">Trust &amp; safety</a>
+            <a href="/app/projects/new">Start a project</a>
+          </div>
+        </details>
       </header>
-      <main className="public-main">
+      <main className="public-main" id="main-content">
         {legal ? (
           <article className="panel">
             <p className="eyebrow">APLIME</p>
@@ -352,12 +376,12 @@ export function PublicPage({
               details, project information, project conversations and uploaded
               files for support, marketplace operations and safety. Access to
               detailed records is logged. You can communicate directly with
-              Aplime through support conversations in Help &amp; safety.
-              Aplime does not record audio or video calls in this application.
+              Aplime through support conversations in Messages. Aplime does not
+              record audio or video calls in this application.
             </p>
             <p>
               For questions about your information or a service experience,
-              contact Aplime through Help &amp; safety in your account.
+              contact Aplime through Messages in your account.
             </p>
           </article>
         ) : notFound ? (
@@ -407,19 +431,27 @@ export function PublicPage({
                 </div>
                 <div className="trust-row" aria-label="Why use Aplime">
                   <span>
-                    <b>✓</b>
+                    <b>
+                      <BadgeCheck size={17} />
+                    </b>
                     <strong>Reviewed listings</strong>
                   </span>
                   <span>
-                    <b>◆</b>
+                    <b>
+                      <ShieldCheck size={17} />
+                    </b>
                     <strong>Identity verification</strong>
                   </span>
                   <span>
-                    <b>◷</b>
+                    <b>
+                      <FileText size={17} />
+                    </b>
                     <strong>Written estimates</strong>
                   </span>
                   <span>
-                    <b>⌁</b>
+                    <b>
+                      <LockKeyhole size={17} />
+                    </b>
                     <strong>Private project tools</strong>
                   </span>
                 </div>
@@ -437,6 +469,32 @@ export function PublicPage({
                   <strong>Less on your to-do list.</strong>
                   <span>More room for what matters.</span>
                 </div>
+              </div>
+            </section>
+            <section
+              className="home-value-strip"
+              aria-label="Everything for your project"
+            >
+              <div>
+                <MessageCircle size={23} />
+                <span>
+                  <strong>Talk it through</strong>
+                  <small>Messages, audio and video in one place.</small>
+                </span>
+              </div>
+              <div>
+                <CalendarDays size={23} />
+                <span>
+                  <strong>Make a plan together</strong>
+                  <small>Agree on scope, estimates and visit times.</small>
+                </span>
+              </div>
+              <div>
+                <ShieldCheck size={23} />
+                <span>
+                  <strong>Keep the details close</strong>
+                  <small>Your project updates, saved in your account.</small>
+                </span>
               </div>
             </section>
             <section id="services">

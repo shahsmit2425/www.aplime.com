@@ -67,9 +67,9 @@ export function Empty({
     <div className="empty">
       <Inbox size={30} />
       <h3>{title}</h3>
-      <p>
+      <div className="empty-body">
         {children || "Your activity will appear here when you get started."}
-      </p>
+      </div>
     </div>
   );
 }
@@ -88,7 +88,7 @@ export function Head({
   return (
     <div className="page-head">
       <div>
-        <p className="eyebrow">YOUR HOME, CONNECTED</p>
+        <p className="eyebrow">YOUR APLIME WORKSPACE</p>
         <h1>{title}</h1>
         <p>{children}</p>
       </div>

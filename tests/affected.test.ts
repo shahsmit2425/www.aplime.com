@@ -83,3 +83,16 @@ test("shared chat presentation deploys both clients without restarting API or wo
       worker: false,
     });
 });
+
+test("marketplace design styles deploy only the web and shared mobile clients", () => {
+  assert.deepEqual(
+    affected(["src/design-system.css", "src/client/marketplace-cards.tsx"]),
+    {
+      admin: false,
+      web: true,
+      api: false,
+      worker: false,
+      mobile: true,
+    },
+  );
+});

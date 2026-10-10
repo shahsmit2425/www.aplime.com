@@ -1,3 +1,8 @@
+import {
+  ProjectCard,
+  ProfessionalCard,
+  CollectionHeading,
+} from "./marketplace-cards.js";
 import { Subscription } from "./subscription.js";
 import { MessagesInbox } from "./messages.js";
 import { BusinessNavigation } from "./business-navigation.js";
@@ -125,29 +130,23 @@ function PageContent() {
       );
   }
 }
-function ProjectList({ projects }: { projects: Project[] }) {
+function ProjectList({
+  projects,
+  compact = false,
+}: {
+  projects: Project[];
+  compact?: boolean;
+}) {
   const { go } = useWorkspace();
   return projects.length ? (
-    <div className="project-list">
+    <div className={compact ? "project-card-list" : "project-card-grid"}>
       {projects.map((p) => (
-        <button
-          className="project-row"
+        <ProjectCard
           key={p.id}
-          onClick={() => go("project", p.id)}
-        >
-          <span className="category-icon">
-            <ServiceIcon service={p.category} size={19} />
-          </span>
-          <span>
-            <strong>{p.title}</strong>
-            <small>
-              {p.category} · {p.proName || p.customerName || p.zip}
-            </small>
-          </span>
-          <span className="row-date">{date(p.scheduledAt)}</span>
-          <Badge>{p.status.replace("_", " ")}</Badge>
-          <ArrowUpRight size={17} />
-        </button>
+          project={p}
+          compact={compact}
+          onOpen={() => go("project", p.id)}
+        />
       ))}
     </div>
   ) : (
@@ -192,9 +191,22 @@ function Dashboard() {
             "Completed projects",
             data.projects.filter((p) => p.status === "completed").length,
           ],
-        ].map(([label, value]) => (
+        ].map(([label, value], index) => (
           <div className="stat" key={label}>
-            <span>{label}</span>
+            <span className="stat-label">
+              {label}
+              <span className="stat-icon">
+                {index === 0 ? (
+                  <ServiceIcon service="Handyman" size={18} />
+                ) : index === 1 ? (
+                  <MessageCircle size={18} />
+                ) : index === 2 ? (
+                  <CalendarDays size={18} />
+                ) : (
+                  <CheckCircle2 size={18} />
+                )}
+              </span>
+            </span>
             <strong>{value}</strong>
             <small>From your account activity</small>
           </div>
@@ -225,6 +237,7 @@ function Dashboard() {
       <div className="two-columns">
         <Panel title="Recent projects">
           <ProjectList
+            compact
             projects={data.projects.filter((p) => !p.archived).slice(0, 4)}
           />
         </Panel>
@@ -365,6 +378,18 @@ function Directory() {
           </button>
         </Panel>
       )}
+      {profiles.length > 0 && (
+        <CollectionHeading
+          title={
+            page === "saved"
+              ? "Saved businesses"
+              : "Professionals for your home"
+          }
+          count={profiles.length}
+        >
+          View profiles, compare details and make a connection.
+        </CollectionHeading>
+      )}
       {profiles.length ? (
         <div className="pro-grid">
           {profiles.map((p) => {
@@ -375,74 +400,46 @@ function Directory() {
               : page === "saved"
                 ? p.matchedProjectIds?.[0]
                 : selectedId;
-            const cover = p.images?.find((i) => i.slot === "cover"),
-              logo = p.images?.find((i) => i.slot === "logo");
             return (
-              <Panel key={p.id}>
-                {cover && (
-                  <img
-                    className="business-directory-cover"
-                    src={cover.url}
-                    alt={p.business + " cover"}
-                    loading="lazy"
-                  />
-                )}
-                <div className="pro-heading">
-                  {logo ? (
-                    <img
-                      className="business-directory-logo"
-                      src={logo.url}
-                      alt={p.business + " logo"}
-                    />
-                  ) : (
-                    <span className="category-icon">
-                      <ServiceIcon service={p.category} />
-                    </span>
-                  )}
-                  <div>
-                    <h2>{p.business}</h2>
-                    <span>{p.serviceCategories.join(" · ")}</span>
-                  </div>
-                </div>
-                <p>{p.bio}</p>
-                {data.marketplacePreview && !p.canRespond && (
-                  <Badge>Preview · business setup incomplete</Badge>
-                )}
-                <div className="pro-meta">
-                  <span>
-                    {p.reviewCount
-                      ? p.rating.toFixed(1) +
-                        " ★ · " +
-                        p.reviewCount +
-                        " reviews"
-                      : "No reviews yet"}
-                  </span>
-                  <span>$ {p.rate}/hr starting rate</span>
-                </div>
-                <Availability profile={p} />
-                <div className="actions">
-                  {match && (
+              <ProfessionalCard
+                key={p.id}
+                profile={p}
+                preview={data.marketplacePreview && !p.canRespond}
+                save={<SavePro proId={p.id} />}
+                actions={
+                  <>
+                    {match && (
+                      <button
+                        disabled={busy}
+                        onClick={() =>
+                          void run(async () => {
+                            const thread = await request(
+                              "/projects/" + match + "/discussions/" + p.id,
+                              {},
+                            );
+                            go("messages", thread.id);
+                          }, "Conversation ready.")
+                        }
+                      >
+                        <MessageCircle size={18} />
+                        Chat with pro
+                      </button>
+                    )}
                     <button
-                      disabled={busy}
-                      onClick={() =>
-                        void run(async () => {
-                          const thread = await request(
-                            "/projects/" + match + "/discussions/" + p.id,
-                            {},
-                          );
-                          go("messages", thread.id);
-                        }, "Conversation ready.")
-                      }
+                      className="secondary"
+                      onClick={() => go("pro", p.id)}
                     >
-                      <MessageCircle size={18} />
-                      Chat with pro
+                      Full profile
                     </button>
-                  )}
-                  <button className="secondary" onClick={() => go("pro", p.id)}>
-                    Full profile
-                  </button>
-                  <SavePro proId={p.id} />
-                </div>
+                  </>
+                }
+              >
+                <details className="card-hours">
+                  <summary>
+                    <CalendarDays size={15} /> View visit hours
+                  </summary>
+                  <Availability profile={p} />
+                </details>
                 {data.marketplacePreview && (
                   <details>
                     <summary>Business details</summary>
@@ -473,7 +470,7 @@ function Directory() {
                       ))}
                   </details>
                 )}
-              </Panel>
+              </ProfessionalCard>
             );
           })}
         </div>
@@ -1159,7 +1156,19 @@ function Projects() {
           </div>
         </Panel>
       )}
-      <Panel>
+      <section className="project-collection" aria-label="Projects">
+        <CollectionHeading
+          title={
+            page === "leads"
+              ? "Available projects"
+              : showArchived
+                ? "Archived projects"
+                : "Your projects"
+          }
+          count={source.length}
+        >
+          Open a card to see details and next steps.
+        </CollectionHeading>
         {page === "leads" && !source.length ? (
           <Empty title="No open projects to show">
             {data.marketplacePreview
@@ -1173,7 +1182,7 @@ function Projects() {
         ) : (
           <ProjectList projects={source} />
         )}
-      </Panel>
+      </section>
     </>
   );
 }
@@ -2002,6 +2011,7 @@ function Schedule() {
         )}
       <Panel title="Upcoming appointments">
         <ProjectList
+          compact
           projects={data.projects
             .filter(
               (p) =>

@@ -343,6 +343,40 @@ export default function Workspace() {
       window.removeEventListener("focus", refresh);
     };
   }, [data?.user.id]);
+  useEffect(() => {
+    if (!menu || !data) return;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    const drawer = document.querySelector<HTMLElement>(".drawer");
+    const oldOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const focusable = () =>
+      Array.from(
+        drawer?.querySelectorAll<HTMLElement>(
+          'button:not(:disabled), a[href], input:not(:disabled), [tabindex="0"]',
+        ) || [],
+      ).filter((el) => el.getClientRects().length);
+    focusable()[0]?.focus();
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMenu(false);
+      if (event.key !== "Tab") return;
+      const items = focusable(),
+        first = items[0],
+        last = items.at(-1);
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last?.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first?.focus();
+      }
+    };
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.body.style.overflow = oldOverflow;
+      document.removeEventListener("keydown", handleKey);
+      previousFocus?.focus();
+    };
+  }, [menu, !!data]);
   const verificationPending = useRef(false);
   async function checkVerification() {
     const user = auth().currentUser;
@@ -410,6 +444,7 @@ export default function Workspace() {
     }
   }
   function signOutToLogin() {
+    setMenu(false);
     void run(async () => {
       await logout();
       replaceRoute("login");
@@ -791,6 +826,9 @@ export default function Workspace() {
       value={{ data, page: route.page, id: route.id, go, run, busy }}
     >
       <div className="workspace">
+        <a className="skip-link" href="#workspace-content">
+          Skip to content
+        </a>
         <aside className="sidebar">{nav}</aside>
         <div className="workspace-body">
           {config.environment !== "production" && (
@@ -839,7 +877,11 @@ export default function Workspace() {
               </button>
             </div>
           </header>
-          <main className="workspace-main">
+          <main
+            className="workspace-main"
+            id="workspace-content"
+            data-page={route.page}
+          >
             {route.page === "notifications" && (
               <p className="notification-connection" role="status">
                 {liveConnected
@@ -902,9 +944,64 @@ export default function Workspace() {
             <a href="/terms">Service information</a>
           </footer>
         </div>
+        <nav className="mobile-bottom-nav" aria-label="Quick navigation">
+          <button
+            aria-current={route.page === "dashboard" ? "page" : undefined}
+            onClick={() => go("dashboard")}
+          >
+            <House size={21} />
+            <span>Home</span>
+          </button>
+          <button
+            aria-current={
+              ["discover", "leads", "pro"].includes(route.page)
+                ? "page"
+                : undefined
+            }
+            onClick={() => go(data.user.role === "pro" ? "leads" : "discover")}
+          >
+            <Search size={21} />
+            <span>{data.user.role === "pro" ? "Explore" : "Find pros"}</span>
+          </button>
+          <button
+            aria-current={
+              ["projects", "project"].includes(route.page) ? "page" : undefined
+            }
+            onClick={() => go("projects")}
+          >
+            <BriefcaseBusiness size={21} />
+            <span>Projects</span>
+          </button>
+          <button
+            aria-current={route.page === "messages" ? "page" : undefined}
+            onClick={() => go("messages")}
+          >
+            <MessageCircle size={21} />
+            <span>Messages</span>
+            {!!data.unreadMessageCount && (
+              <span className="notification-count">
+                {data.unreadMessageCount > 99 ? "99+" : data.unreadMessageCount}
+              </span>
+            )}
+          </button>
+          <button
+            aria-label="More navigation options"
+            aria-expanded={menu}
+            onClick={() => setMenu(true)}
+          >
+            <Menu size={21} />
+            <span>More</span>
+          </button>
+        </nav>
         {menu && (
           <div className="drawer-backdrop" onClick={() => setMenu(false)}>
-            <aside className="drawer" onClick={(e) => e.stopPropagation()}>
+            <aside
+              className="drawer"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Workspace navigation"
+              onClick={(e) => e.stopPropagation()}
+            >
               <button
                 className="icon-button"
                 aria-label="Close navigation"
