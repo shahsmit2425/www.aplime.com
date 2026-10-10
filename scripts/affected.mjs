@@ -33,6 +33,10 @@ export function affected(paths) {
       result.web = true;
       continue;
     }
+    if (/^src\/shared\/(chat-ui\.tsx|chat\.css)$/.test(file)) {
+      result.web = result.admin = result.mobile = true;
+      continue;
+    }
     if (file.startsWith("src/shared/")) {
       all();
       continue;

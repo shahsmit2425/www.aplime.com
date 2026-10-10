@@ -14,6 +14,7 @@ process.env.R2_BUCKET = "fixture-bucket";
 process.env.STRIPE_SECRET_KEY = "sk_test_fixture";
 const { pool } = await import("../src/server/db/index.js");
 const { adminConsole } = await import("../src/server/admin-console.js");
+const { discussions } = await import("../src/server/discussions.js");
 const { supportRouter } = await import("../src/server/support.js");
 const { assertAdmin } = await import("../src/server/admin-policy.js");
 const { stripe } = await import("../src/server/integrations/stripe.js");
@@ -129,6 +130,7 @@ app.use("/admin", (req, _res, next) => {
 app.use("/admin", adminConsole);
 app.use("/admin/support", supportRouter(true));
 app.use("/support", supportRouter(false));
+app.use(discussions);
 app.use(
   (
     e: { status?: number; message: string; name?: string },
@@ -444,12 +446,12 @@ test("support ownership, two-way notifications, retry deduplication and reopen a
   );
   const notices = (
     await query(
-      "SELECT * FROM notifications WHERE user_id=$1 AND target_page='help'",
+      "SELECT * FROM notifications WHERE user_id=$1 AND target_page='messages'",
       [accounts.customer.id],
     )
   ).rows as any[];
   assert.equal(notices.length, 1);
-  assert.equal(notices[0].target_id, id);
+  assert.equal(notices[0].target_id, "support:" + id);
   assert.ok(!notices[0].body.includes(message.body));
   const adminNotice = (
     await query(
@@ -515,6 +517,146 @@ test("an administrator can initiate support without impersonating the user", asy
     400,
   );
 });
+test("admin messages reach the user inbox and acknowledgements preserve concurrent replies", async () => {
+  const created = await call("/admin/support/conversations", "admin", {
+    userId: accounts.customer.id,
+    subject: "Account setup assistance",
+    body: "Hello, we are here to help with your account.",
+  });
+  assert.equal(created.status, 201);
+  const { id } = await created.json();
+  const list = await (await call("/support/conversations", "customer")).json();
+  const conversation = list.rows.find((t: any) => t.id === id);
+  assert.equal(
+    conversation.lastMessage,
+    "Hello, we are here to help with your account.",
+  );
+  assert.equal(conversation.unreadCount, 1);
+  assert.equal(conversation.openedBy, accounts.admin.id);
+  assert.equal(
+    (await (await call("/support/conversations", "pro")).json()).rows.some(
+      (t: any) => t.id === id,
+    ),
+    false,
+  );
+  const snapshot = await (
+    await call("/support/conversations/" + id, "customer")
+  ).json();
+  assert.equal(snapshot.ticket.body, conversation.lastMessage);
+  const ack = { noticeIds: snapshot.ticket.unreadNoticeIds };
+  await call(`/admin/support/conversations/${id}/messages`, "admin", {
+    body: "A second message arrived while you read the first.",
+    clientKey: randomUUID(),
+  });
+  assert.equal(
+    (await call(`/support/conversations/${id}/read`, "outsider", ack)).status,
+    404,
+  );
+  assert.equal(
+    (await call(`/support/conversations/${id}/read`, "customer", ack)).status,
+    200,
+  );
+  const latest = await (
+    await call(`/support/conversations/${id}`, "customer")
+  ).json();
+  assert.equal(latest.ticket.unreadCount, 1);
+  assert.equal(
+    latest.messages[0].body,
+    "A second message arrived while you read the first.",
+  );
+  const unrelated = (
+    await query(
+      "SELECT id FROM notifications WHERE user_id=$1 AND NOT read AND target_id!=$2 LIMIT 1",
+      [accounts.customer.id, "support:" + id],
+    )
+  ).rows[0] as { id: string };
+  assert.ok(unrelated);
+  await call(`/support/conversations/${id}/read`, "customer", {
+    noticeIds: [...latest.ticket.unreadNoticeIds, unrelated.id],
+  });
+  assert.equal(
+    (
+      (
+        await query("SELECT read FROM notifications WHERE id=$1", [
+          unrelated.id,
+        ])
+      ).rows[0] as any
+    ).read,
+    false,
+  );
+  assert.equal(
+    (await (await call(`/support/conversations/${id}`, "customer")).json())
+      .ticket.unreadCount,
+    0,
+  );
+  const legacyId = randomUUID();
+  await query(
+    "INSERT INTO notifications(id,user_id,title,body,target_page,target_id) VALUES($1,$2,'Legacy support update','Open support','help',$3)",
+    [legacyId, accounts.customer.id, id],
+  );
+  assert.equal(
+    (await (await call(`/support/conversations/${id}`, "customer")).json())
+      .ticket.unreadCount,
+    1,
+  );
+  await call(`/support/conversations/${id}/read`, "customer", {
+    noticeIds: [legacyId],
+  });
+  await call(`/support/conversations/${id}/messages`, "customer", {
+    body: "I received your messages, thanks.",
+    clientKey: randomUUID(),
+  });
+  const admin = await (await call(`/admin/support/conversations/${id}`)).json();
+  assert.equal(admin.ticket.unreadCount, 1);
+  assert.equal(admin.messages.at(-1).body, "I received your messages, thanks.");
+  await call(`/admin/support/conversations/${id}/read`, "admin", {
+    noticeIds: admin.ticket.unreadNoticeIds,
+  });
+  assert.equal(
+    (await (await call(`/admin/support/conversations/${id}`)).json()).ticket
+      .unreadCount,
+    0,
+  );
+});
+test("project chat unread state is participant-scoped and preserves a concurrent reply", async () => {
+  const notice = randomUUID(),
+    later = randomUUID();
+  await query(
+    "INSERT INTO notifications(id,user_id,title,body,target_page,target_id) VALUES($1,$2,'New project message','Open chat','messages',$3)",
+    [notice, accounts.customer.id, discussion],
+  );
+  const threads = await (await call("/discussions", "customer")).json();
+  const current = threads.find((t: any) => t.id === discussion);
+  assert.ok(current.unread_notice_ids.includes(notice));
+  assert.equal(current.messages[0].body, "Sensitive conversation content");
+  await query(
+    "INSERT INTO notifications(id,user_id,title,body,target_page,target_id) VALUES($1,$2,'New project message','Open chat','messages',$3)",
+    [later, accounts.customer.id, discussion],
+  );
+  assert.equal(
+    (
+      await call(`/discussions/${discussion}/read`, "outsider", {
+        noticeIds: [notice, later],
+      })
+    ).status,
+    404,
+  );
+  assert.equal(
+    (
+      await call(`/discussions/${discussion}/read`, "customer", {
+        noticeIds: current.unread_notice_ids,
+      })
+    ).status,
+    200,
+  );
+  const unread = (await (await call("/discussions", "customer")).json()).find(
+    (t: any) => t.id === discussion,
+  );
+  assert.equal(unread.unread_count, 1);
+  assert.deepEqual(unread.unread_notice_ids, [later]);
+  assert.deepEqual(await (await call("/discussions", "outsider")).json(), []);
+});
+
 test("administrator notification history is paginated and scoped to the signed-in operator", async () => {
   const r = await call("/admin/notifications?page=1");
   assert.equal(r.status, 200);

@@ -180,6 +180,7 @@ export type Workspace = {
   tickets: Ticket[];
   notices: Notice[];
   unreadCount: number;
+  unreadMessageCount?: number;
   uploads: Upload[];
   saved: string[];
   blocked: string[];

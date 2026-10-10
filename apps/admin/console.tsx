@@ -29,6 +29,13 @@ import type {
 } from "../../src/shared/admin.js";
 import type { Project } from "../../src/shared/domain.js";
 import type { SupportThread, SupportTicket } from "../../src/shared/support.js";
+import {
+  ChatInbox,
+  ChatHeader,
+  ChatLog,
+  ChatComposer,
+  useChatRead,
+} from "../../src/shared/chat-ui.js";
 type Requester = <T>(path: string, body?: unknown) => Promise<T>;
 type Runner = (fn: () => Promise<void>) => Promise<void>;
 const money = (cents: number) =>
@@ -1246,43 +1253,104 @@ function SupportInbox({
   go: (p: string, id?: string) => void;
 }) {
   const [page, setPage] = useState(1),
-    [tick, setTick] = useState(0),
-    [body, setBody] = useState(""),
-    [clientKey, setClientKey] = useState(() => crypto.randomUUID());
-  const create = id.startsWith("new:"),
-    [messagePage, setMessagePage] = useState(1);
+    [tick, setTick] = useState(0);
   useEffect(() => {
-    if (!id || create) return;
-    const t = setInterval(() => setTick((t) => t + 1), 10000);
-    return () => clearInterval(t);
-  }, [id]);
-  useEffect(() => {
-    setTick((t) => t + 1);
-  }, [revision]);
+    const refresh = () => setTick((t) => t + 1);
+    const timer = setInterval(refresh, 10000);
+    window.addEventListener("aplime:chat-read", refresh);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("aplime:chat-read", refresh);
+    };
+  }, []);
+  useEffect(() => setTick((t) => t + 1), [revision]);
   const list = useRemote<{
     rows: SupportTicket[];
     total: number;
     page: number;
     pageSize: number;
-  }>("/support/conversations?page=" + page, request, revision, !id);
+  }>("/support/conversations?page=" + page, request, tick);
+  return (
+    <ChatInbox
+      items={(list.value?.rows || []).map((t) => ({
+        id: t.id,
+        name: t.userName,
+        subtitle: t.subject,
+        preview: t.lastMessage,
+        time: t.updatedAt,
+        unread: t.unreadCount,
+      }))}
+      selected={id}
+      onSelect={(key) => go("support", key)}
+      loading={!list.value && list.loading}
+      error={list.error}
+      tools={<button onClick={() => go("users")}>Contact user</button>}
+      footer={list.value && <Pager {...list.value} onChange={setPage} />}
+    >
+      {id ? (
+        <AdminSupportThread
+          key={id}
+          id={id}
+          request={request}
+          revision={tick}
+          run={run}
+          busy={busy}
+          go={go}
+        />
+      ) : undefined}
+    </ChatInbox>
+  );
+}
+function AdminSupportThread({
+  id,
+  request,
+  revision,
+  run,
+  busy,
+  go,
+}: {
+  id: string;
+  request: Requester;
+  revision: unknown;
+  run: Runner;
+  busy: boolean;
+  go: (p: string, id?: string) => void;
+}) {
+  const create = id.startsWith("new:"),
+    [page, setPage] = useState(1),
+    [tick, setTick] = useState(0),
+    [body, setBody] = useState("");
+  const clientKey = useRef(crypto.randomUUID());
+  useEffect(() => setTick((t) => t + 1), [revision]);
   const thread = useRemote<SupportThread>(
     "/support/conversations/" +
-      (id && !create ? id : "00000000-0000-4000-8000-000000000000") +
+      (create ? "00000000-0000-4000-8000-000000000000" : id) +
       "?page=" +
-      messagePage,
+      page,
     request,
     tick,
-    !!id && !create,
+    !create,
+  );
+  const t = thread.value?.page === page ? thread.value.ticket : undefined;
+  useChatRead(page === 1 ? t?.unreadNoticeIds || [] : [], (noticeIds) =>
+    request("/support/conversations/" + id + "/read", { noticeIds }),
   );
   if (create)
     return (
-      <Card title="Start a conversation with this user">
+      <div className="chat-thread">
+        <ChatHeader
+          title="Contact a user"
+          subtitle="Send a message as Aplime support"
+          support
+          back={() => go("support")}
+        />
         <form
+          className="chat-new-form"
           onSubmit={(e) => {
             e.preventDefault();
             const f = new FormData(e.currentTarget);
             void run(async () => {
-              const t = await request<{ id: string }>(
+              const result = await request<{ id: string }>(
                 "/support/conversations",
                 {
                   userId: id.slice(4),
@@ -1290,131 +1358,114 @@ function SupportInbox({
                   body: f.get("body"),
                 },
               );
-              go("support", t.id);
+              go("support", result.id);
             });
           }}
         >
+          <h3>Start a support conversation</h3>
+          <p>
+            This message appears in the user’s Messages inbox and sends an
+            account notification.
+          </p>
           <label>
             Subject
             <input name="subject" required minLength={5} maxLength={120} />
           </label>
           <label>
             Message
-            <textarea name="body" required minLength={10} maxLength={4000} />
+            <textarea
+              name="body"
+              required
+              minLength={10}
+              maxLength={4000}
+              rows={5}
+            />
           </label>
           <button disabled={busy}>Send to user</button>
         </form>
-      </Card>
+      </div>
     );
-  if (!id)
-    return (
-      <Card title="Support conversations">
-        <Loading {...list} />
-        {list.value && (
-          <>
-            <div className="admin-support-list">
-              {list.value.rows.map((t) => (
-                <button
-                  className="admin-thread-row"
-                  key={t.id}
-                  onClick={() => go("support", t.id)}
-                >
-                  <MessageCircle />
-                  <span>
-                    <strong>{t.subject}</strong>
-                    <small>
-                      {t.userName} · {t.userEmail}
-                    </small>
-                    <small>
-                      {t.messageCount} replies · {date(t.updatedAt)}
-                    </small>
-                  </span>
-                  <Status value={t.status} />
-                  <ArrowRight size={16} />
-                </button>
-              ))}
-            </div>
-            {!list.value.rows.length && (
-              <p className="admin-empty">
-                No support conversations. Open a user’s account to contact them.
-              </p>
-            )}
-            <Pager {...list.value} onChange={setPage} />
-          </>
-        )}
-      </Card>
-    );
-  const t = thread.value?.ticket;
   return (
-    <>
+    <div className="chat-thread">
+      <ChatHeader
+        title={t?.userName || "Support conversation"}
+        subtitle={t ? t.subject + " · " + t.status : "Loading…"}
+        back={() => go("support")}
+        actions={
+          t && (
+            <button onClick={() => go("users", t.userId)}>View account</button>
+          )
+        }
+      />
       <Loading error={thread.error} loading={!thread.value && thread.loading} />
-      {t && (
-        <Card title={t.subject} aside={<Status value={t.status} />}>
-          <button onClick={() => go("users", t.userId)}>
-            View {t.userName}’s account
-          </button>
-          <div
-            className="admin-chat"
-            role="log"
-            aria-label="Support conversation"
-          >
-            <article>
-              <strong>{t.openedByName}</strong>
-              <p>{t.body}</p>
-              <small>{date(t.createdAt)}</small>
-            </article>
-            {thread.value!.messages.map((m) => (
-              <article
-                className={m.senderRole === "admin" ? "from-admin" : ""}
-                key={m.id}
-              >
-                <strong>
-                  {m.senderName}
-                  {m.senderRole === "admin" ? " · Aplime support" : ""}
-                </strong>
-                <p>{m.body}</p>
-                <small>{date(m.createdAt)}</small>
-              </article>
-            ))}
-          </div>
-          <Pager
-            page={thread.value!.page}
-            total={thread.value!.total}
-            pageSize={50}
-            onChange={setMessagePage}
+      {t && thread.value && (
+        <>
+          <ChatLog
+            ownLabel="Aplime support"
+            threadKey={id + ":" + page}
+            messages={[
+              ...(page * 50 >= thread.value.total
+                ? [
+                    {
+                      id: t.id,
+                      body: t.body,
+                      name: t.openedByName,
+                      time: t.createdAt,
+                      mine: !!t.openedBy && t.openedBy !== t.userId,
+                    },
+                  ]
+                : []),
+              ...thread.value.messages.map((m) => ({
+                id: m.id,
+                body: m.body,
+                name: m.senderName,
+                time: m.createdAt,
+                mine: m.senderRole === "admin",
+              })),
+            ]}
+            before={
+              thread.value.total > 50 && (
+                <div className="chat-pager">
+                  <button
+                    disabled={page <= 1}
+                    onClick={() => setPage((p) => p - 1)}
+                  >
+                    Newer
+                  </button>
+                  <span>Page {page}</span>
+                  <button
+                    disabled={page * 50 >= thread.value.total}
+                    onClick={() => setPage((p) => p + 1)}
+                  >
+                    Older
+                  </button>
+                </div>
+              )
+            }
           />
           {t.resolution && (
-            <p className="admin-banner">Resolution: {t.resolution}</p>
+            <div className="chat-extra">Resolution: {t.resolution}</div>
           )}
           {t.status === "open" ? (
             <>
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
+              <ChatComposer
+                value={body}
+                onChange={setBody}
+                disabled={busy}
+                send={() =>
                   void run(async () => {
                     await request(
                       "/support/conversations/" + id + "/messages",
-                      { body, clientKey },
+                      { body, clientKey: clientKey.current },
                     );
                     setBody("");
-                    setClientKey(crypto.randomUUID());
-                    setMessagePage(1);
+                    clientKey.current = crypto.randomUUID();
+                    setPage(1);
                     setTick((t) => t + 1);
-                  });
-                }}
-              >
-                <label>
-                  Reply to user
-                  <textarea
-                    value={body}
-                    onChange={(e) => setBody(e.target.value)}
-                    required
-                    maxLength={4000}
-                  />
-                </label>
-                <button disabled={busy || !body.trim()}>Send reply</button>
-              </form>
-              <details>
+                  })
+                }
+              />
+              <details className="chat-extra">
                 <summary>Resolve conversation</summary>
                 <form
                   onSubmit={(e) => {
@@ -1443,21 +1494,26 @@ function SupportInbox({
               </details>
             </>
           ) : (
-            <button
-              disabled={busy}
-              onClick={() =>
-                void run(async () => {
-                  await request("/support/conversations/" + id + "/reopen", {});
-                  setTick((t) => t + 1);
-                })
-              }
-            >
-              Reopen conversation
-            </button>
+            <div className="chat-extra">
+              <button
+                disabled={busy}
+                onClick={() =>
+                  void run(async () => {
+                    await request(
+                      "/support/conversations/" + id + "/reopen",
+                      {},
+                    );
+                    setTick((t) => t + 1);
+                  })
+                }
+              >
+                Reopen conversation
+              </button>
+            </div>
           )}
-        </Card>
+        </>
       )}
-    </>
+    </div>
   );
 }
 function Updates({

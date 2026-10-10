@@ -229,6 +229,12 @@ export async function workspace(user: User): Promise<Workspace> {
         [user.id],
       )
     ).rows[0].n,
+    unreadMessageCount: (
+      await pool.query(
+        "SELECT count(*)::int AS n FROM notifications WHERE user_id=$1 AND NOT read AND (target_page='messages' OR (target_page='help' AND target_id IS NOT NULL))",
+        [user.id],
+      )
+    ).rows[0].n,
     uploads: uploads.rows.map((r) => camel(r)),
     saved: saved.rows.map((r) => r.pro_id),
     blocked: blocked.rows.map((r) => r.other_id),
@@ -295,6 +301,5 @@ export async function notifyAdministrators(
   target: { page: string; id?: string } = { page: "reports" },
 ) {
   const users = (await c.query("SELECT id FROM users WHERE role='admin'")).rows;
-  for (const user of users)
-    await notify(c, user.id, title, body, target);
+  for (const user of users) await notify(c, user.id, title, body, target);
 }

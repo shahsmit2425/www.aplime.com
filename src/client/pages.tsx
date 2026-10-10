@@ -1,5 +1,5 @@
 import { Subscription } from "./subscription.js";
-import { SupportChat } from "./support-chat.js";
+import { MessagesInbox } from "./messages.js";
 import { BusinessNavigation } from "./business-navigation.js";
 import { AwardResponse } from "./award-response.js";
 import { ProjectControls } from "./project-controls.js";
@@ -2019,10 +2019,9 @@ function Messages() {
   return (
     <>
       <Head title="Your conversations">
-        Discuss the work, clarify estimates, and arrange a consultation. Each
-        professional has a separate private conversation.
+        Project chats and Aplime support, together in one inbox.
       </Head>
-      <Discussions />
+      <MessagesInbox />
     </>
   );
 }
@@ -2291,13 +2290,14 @@ function Settings() {
   );
 }
 function Support() {
+  const { id } = useWorkspace();
   return (
     <>
       <Head title="Help & safety">
         Contact Aplime about your account or a project. For emergencies, contact
         local emergency services.
       </Head>
-      <SupportChat />
+      <MessagesInbox legacySupportId={id} />
     </>
   );
 }

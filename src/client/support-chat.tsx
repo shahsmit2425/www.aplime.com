@@ -1,47 +1,41 @@
 import { useEffect, useRef, useState } from "react";
-import { MessageCircle, ArrowLeft, Send } from "lucide-react";
-import type { SupportThread, SupportTicket } from "../shared/support.js";
+import type { SupportThread } from "../shared/support.js";
+import {
+  ChatHeader,
+  ChatLog,
+  ChatComposer,
+  useChatRead,
+} from "../shared/chat-ui.js";
 import { useWorkspace } from "./workspace.js";
 import { request } from "./api.js";
-import { Panel, Field, Form } from "./ui.js";
-const date = (value: string) => new Date(value).toLocaleString();
-export function SupportChat() {
-  const { data, id, go, run, busy } = useWorkspace();
-  const [list, setList] = useState<{
-      rows: SupportTicket[];
-      total: number;
-    } | null>(null),
-    [thread, setThread] = useState<SupportThread | null>(null),
+export function SupportChat({
+  conversationId,
+  create = false,
+}: {
+  conversationId?: string;
+  create?: boolean;
+}) {
+  const { data, go, run, busy } = useWorkspace();
+  const [thread, setThread] = useState<SupportThread | null>(null),
     [error, setError] = useState(""),
+    [body, setBody] = useState(""),
     [page, setPage] = useState(1),
-    [messagePage, setMessagePage] = useState(1),
-    [body, setBody] = useState("");
-  const clientKey = useRef(crypto.randomUUID()),
     [tick, setTick] = useState(0);
+  const clientKey = useRef(crypto.randomUUID());
   useEffect(() => {
-    let stopped = false;
-    let pending = false;
+    if (!conversationId) return;
+    let stopped = false,
+      pending = false;
     const load = async () => {
       if (pending) return;
       pending = true;
       try {
-        if (id) {
-          const result = await request<SupportThread>(
-            `/support/conversations/${encodeURIComponent(id)}?page=${messagePage}`,
-          );
-          if (!stopped) {
-            setThread(result);
-            setError("");
-          }
-        } else {
-          const result = await request<{
-            rows: SupportTicket[];
-            total: number;
-          }>("/support/conversations?page=" + page);
-          if (!stopped) {
-            setList(result);
-            setError("");
-          }
+        const result = await request<SupportThread>(
+          `/support/conversations/${conversationId}?page=${page}`,
+        );
+        if (!stopped) {
+          setThread(result);
+          setError("");
         }
       } catch (e) {
         if (!stopped)
@@ -52,210 +46,186 @@ export function SupportChat() {
     };
     void load();
     const timer = setInterval(() => void load(), 10000);
+    window.addEventListener("aplime:updates", load);
     return () => {
       stopped = true;
       clearInterval(timer);
+      window.removeEventListener("aplime:updates", load);
     };
-  }, [id, page, messagePage, tick, data.notices]);
-  useEffect(() => {
-    setThread(null);
-    setBody("");
-    setMessagePage(1);
-    clientKey.current = crypto.randomUUID();
-  }, [id]);
-  if (id)
+  }, [conversationId, page, tick]);
+  useChatRead(
+    page === 1 && thread?.page === 1 ? thread.ticket.unreadNoticeIds || [] : [],
+    (noticeIds) =>
+      request(`/support/conversations/${conversationId}/read`, { noticeIds }),
+  );
+  if (create)
     return (
-      <Panel title="Your conversation with Aplime">
-        <button className="secondary" onClick={() => go("help")}>
-          <ArrowLeft size={16} /> All support conversations
-        </button>
-        {error && (
-          <p className="form-error" role="alert">
-            {error}
-          </p>
-        )}
-        {thread ? (
-          <>
-            <h3>{thread.ticket.subject}</h3>
-            <p>
-              {thread.ticket.status === "open"
-                ? "Open · Aplime support can reply here"
-                : "Resolved"}
-            </p>
-            <div
-              className="support-chat-log"
-              role="log"
-              aria-label="Messages with Aplime support"
-            >
-              <article>
-                <strong>{thread.ticket.openedByName}</strong>
-                <p>{thread.ticket.body}</p>
-                <small>{date(thread.ticket.createdAt)}</small>
-              </article>
-              {thread.messages.map((m) => (
-                <article
-                  key={m.id}
-                  className={m.senderRole === "admin" ? "support-team" : ""}
-                >
-                  <strong>
-                    {m.senderRole === "admin" ? "Aplime support" : m.senderName}
-                  </strong>
-                  <p>{m.body}</p>
-                  <small>{date(m.createdAt)}</small>
-                </article>
-              ))}
-            </div>
-            <div className="support-pager">
-              <button
-                disabled={messagePage <= 1}
-                onClick={() => setMessagePage((p) => p - 1)}
-              >
-                Newer replies
-              </button>
-              <span>
-                {thread.total} replies · page {messagePage}
-              </span>
-              <button
-                disabled={messagePage * 50 >= thread.total}
-                onClick={() => setMessagePage((p) => p + 1)}
-              >
-                Older replies
-              </button>
-            </div>
-            {thread.ticket.resolution && (
-              <p className="business-tip">
-                Resolution: {thread.ticket.resolution}
-              </p>
-            )}
-            {thread.ticket.status === "open" ? (
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  void run(async () => {
-                    await request(
-                      `/support/conversations/${encodeURIComponent(id)}/messages`,
-                      { body, clientKey: clientKey.current },
-                    );
-                    setBody("");
-                    clientKey.current = crypto.randomUUID();
-                    setMessagePage(1);
-                    setTick((t) => t + 1);
-                  }, "Message sent to Aplime support.");
-                }}
-              >
-                <Field label="Your reply">
-                  <textarea
-                    value={body}
-                    onChange={(e) => setBody(e.target.value)}
-                    maxLength={4000}
-                    required
-                    rows={3}
-                  />
-                </Field>
-                <button disabled={busy || !body.trim()}>
-                  <Send size={16} /> Send reply
-                </button>
-              </form>
-            ) : (
-              <button
-                disabled={busy}
-                onClick={() =>
-                  void run(async () => {
-                    await request(
-                      `/support/conversations/${encodeURIComponent(id)}/reopen`,
-                      {},
-                    );
-                    setTick((t) => t + 1);
-                  }, "Conversation reopened.")
-                }
-              >
-                Reopen conversation
-              </button>
-            )}
-          </>
-        ) : (
-          !error && <p role="status">Loading conversation…</p>
-        )}
-      </Panel>
-    );
-  return (
-    <>
-      <Panel title="Message Aplime support">
-        <p>
-          Ask about your account, business setup or a project. Replies appear
-          here and generate account notifications. Do not send passwords or
-          identity documents.
-        </p>
-        <Form
-          busy={busy}
-          onSubmit={(f) =>
-            run(async () => {
+      <div className="chat-thread">
+        <ChatHeader
+          title="Aplime support"
+          subtitle="A real conversation with our team"
+          support
+          back={() => go("messages")}
+        />
+        <form
+          className="chat-new-form"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const f = new FormData(e.currentTarget);
+            void run(async () => {
               const result = await request<{ id: string }>(
                 "/support/conversations",
                 { subject: f.get("subject"), body: f.get("body") },
               );
-              go("help", result.id);
-            }, "Support conversation created.")
-          }
+              go("messages", "support:" + result.id);
+            }, "");
+          }}
         >
-          <Field label="Subject">
-            <input name="subject" required minLength={5} maxLength={120} />
-          </Field>
-          <Field label="How can we help?">
+          <h3>How can we help?</h3>
+          <p>
+            Ask about your account, your business or a project. Replies appear
+            in Messages. Never send passwords or identity documents.
+          </p>
+          <label>
+            Subject
+            <input
+              name="subject"
+              required
+              minLength={5}
+              maxLength={120}
+              placeholder="What would you like help with?"
+            />
+          </label>
+          <label>
+            Your message
             <textarea
               name="body"
               required
               minLength={10}
               maxLength={4000}
-              rows={4}
+              rows={5}
+              placeholder="Tell us what happened and how we can help."
             />
-          </Field>
-          <button>
-            <MessageCircle size={17} /> Start conversation
-          </button>
-        </Form>
-      </Panel>
-      <Panel title="Your support conversations">
-        {error && (
-          <p className="form-error" role="alert">
-            {error}
-          </p>
-        )}
-        {list ? (
-          list.rows.length ? (
-            <div className="support-thread-list">
-              {list.rows.map((t) => (
-                <button key={t.id} onClick={() => go("help", t.id)}>
-                  <MessageCircle size={20} />
-                  <span>
-                    <strong>{t.subject}</strong>
-                    <small>
-                      {t.status} · {t.messageCount} replies ·{" "}
-                      {date(t.updatedAt)}
-                    </small>
-                  </span>
-                </button>
-              ))}
-            </div>
+          </label>
+          <button disabled={busy}>Send to Aplime support</button>
+        </form>
+      </div>
+    );
+  const t = thread?.page === page ? thread.ticket : undefined;
+  return (
+    <div className="chat-thread">
+      <ChatHeader
+        title="Aplime support"
+        support
+        subtitle={
+          t
+            ? t.subject + " · " + (t.status === "open" ? "Open" : "Resolved")
+            : "Loading conversation…"
+        }
+        back={() => go("messages")}
+      />
+      {error && (
+        <p className="chat-error" role="alert">
+          {error}
+        </p>
+      )}
+      {!t && !error && (
+        <p className="chat-status" role="status">
+          Loading messages…
+        </p>
+      )}
+      {thread && t && (
+        <>
+          <ChatLog
+            threadKey={t.id + ":" + page}
+            messages={[
+              ...(page * 50 >= thread.total
+                ? [
+                    {
+                      id: t.id,
+                      body: t.body,
+                      name:
+                        t.openedBy === data.user.id || !t.openedBy
+                          ? data.user.name
+                          : "Aplime support",
+                      time: t.createdAt,
+                      mine: t.openedBy === data.user.id || !t.openedBy,
+                    },
+                  ]
+                : []),
+              ...thread.messages.map((m) => ({
+                id: m.id,
+                body: m.body,
+                name:
+                  m.senderRole === "admin" ? "Aplime support" : m.senderName,
+                time: m.createdAt,
+                mine: m.senderId === data.user.id,
+              })),
+            ]}
+            before={
+              thread.total > 50 && (
+                <div className="chat-pager">
+                  <button
+                    disabled={page <= 1}
+                    onClick={() => setPage((p) => p - 1)}
+                  >
+                    Newer
+                  </button>
+                  <span>Page {page}</span>
+                  <button
+                    disabled={page * 50 >= thread.total}
+                    onClick={() => setPage((p) => p + 1)}
+                  >
+                    Older
+                  </button>
+                </div>
+              )
+            }
+          />
+          {t.resolution && (
+            <div className="chat-extra">Resolution: {t.resolution}</div>
+          )}
+          {t.status === "open" ? (
+            <ChatComposer
+              value={body}
+              onChange={setBody}
+              disabled={busy}
+              send={() =>
+                void run(async () => {
+                  await request(
+                    `/support/conversations/${conversationId}/messages`,
+                    { body, clientKey: clientKey.current },
+                  );
+                  setBody("");
+                  clientKey.current = crypto.randomUUID();
+                  setPage(1);
+                  setTick((t) => t + 1);
+                }, "")
+              }
+            />
           ) : (
-            <p>No support conversations yet.</p>
-          )
-        ) : (
-          <p role="status">Loading conversations…</p>
-        )}
-        <div className="support-pager">
-          <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-            Previous
-          </button>
-          <span>{list?.total || 0} conversations</span>
-          <button
-            disabled={page * 25 >= (list?.total || 0)}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            Next
-          </button>
-        </div>
-      </Panel>
-    </>
+            <div className="chat-extra">
+              <p>
+                This conversation is resolved. You can reopen it for more help.
+              </p>
+              <button
+                disabled={busy}
+                onClick={() =>
+                  void run(async () => {
+                    await request(
+                      `/support/conversations/${conversationId}/reopen`,
+                      {},
+                    );
+                    setTick((t) => t + 1);
+                  }, "")
+                }
+              >
+                Reopen conversation
+              </button>
+            </div>
+          )}
+        </>
+      )}
+    </div>
   );
 }

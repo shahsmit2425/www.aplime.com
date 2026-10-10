@@ -38,6 +38,15 @@ test("actual admin routes reject unauthenticated direct requests and forged role
     ["/admin/files/00000000-0000-4000-8000-000000000001", "GET"],
     ["/admin/support/conversations", "GET"],
     ["/support/conversations", "GET"],
+    [
+      "/support/conversations/00000000-0000-4000-8000-000000000001/read",
+      "POST",
+    ],
+    [
+      "/admin/support/conversations/00000000-0000-4000-8000-000000000001/read",
+      "POST",
+    ],
+    ["/discussions/00000000-0000-4000-8000-000000000001/read", "POST"],
     ["/ADMIN/workspace", "GET"],
     ["/admin/profiles/other", "POST"],
     ["/admin/tickets/other", "POST"],

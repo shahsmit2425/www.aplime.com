@@ -965,8 +965,8 @@ api.post("/admin/tickets/:id", async (req, res) => {
     );
     await audit(c, q.account.id, refund ? "refund" : "resolve", t.id);
     await notify(c, t.user_id, "Support case resolved", resolution, {
-      page: "help",
-      id: t.id,
+      page: "messages",
+      id: "support:" + t.id,
     });
     if (t.project_id) {
       const p = await getProject(c, t.project_id);

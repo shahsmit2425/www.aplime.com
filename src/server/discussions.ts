@@ -45,11 +45,14 @@ async function maySend(row: any, userId: string, other: string) {
     fail(403, "This conversation is blocked.");
 }
 discussions.get("/discussions", async (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
   const result = await pool.query(
     `SELECT d.*,p.title,p.customer_id,p.status,p.pro_id AS selected_pro,f.business,c.name AS customer_name,
-    COALESCE((SELECT json_agg(m ORDER BY m.created_at) FROM (SELECT id,sender_id,body,created_at FROM discussion_messages WHERE discussion_id=d.id ORDER BY created_at DESC LIMIT 200) m),'[]'::json) AS messages
+    (SELECT count(*)::int FROM notifications n WHERE n.user_id=$1 AND NOT n.read AND n.target_page='messages' AND n.target_id=d.id::text) AS unread_count,
+    COALESCE((SELECT json_agg(n.id) FROM notifications n WHERE n.user_id=$1 AND NOT n.read AND n.target_page='messages' AND n.target_id=d.id::text),'[]'::json) AS unread_notice_ids,
+    COALESCE((SELECT json_agg(m ORDER BY m.created_at,m.id) FROM (SELECT id,sender_id,body,created_at FROM discussion_messages WHERE discussion_id=d.id ORDER BY created_at DESC,id DESC LIMIT 200) m),'[]'::json) AS messages
     FROM project_discussions d JOIN projects p ON p.id=d.project_id JOIN profiles f ON f.id=d.pro_id JOIN users c ON c.id=p.customer_id
-    WHERE p.customer_id=$1 OR d.pro_id=$1 ORDER BY d.created_at DESC LIMIT 100`,
+    WHERE p.customer_id=$1 OR d.pro_id=$1 ORDER BY COALESCE((SELECT max(m.created_at) FROM discussion_messages m WHERE m.discussion_id=d.id),d.created_at) DESC,d.id LIMIT 100`,
     [req.account.id],
   );
   res.json(result.rows);
@@ -144,6 +147,19 @@ discussions.post("/projects/:id/discussions", async (req, res) => {
   });
   res.json(result);
 });
+discussions.post("/discussions/:id/read", async (req, res) => {
+  const { row } = await participant(String(req.params.id), req.account.id);
+  const { noticeIds } = z
+    .object({ noticeIds: z.array(z.string().uuid()).max(1000) })
+    .strict()
+    .parse(req.body);
+  await pool.query(
+    "UPDATE notifications SET read=true WHERE user_id=$1 AND NOT read AND target_page='messages' AND target_id=$2 AND id=ANY($3::uuid[])",
+    [req.account.id, row.id, noticeIds],
+  );
+  res.json({ ok: true });
+});
+
 discussions.post("/discussions/:id/messages", async (req, res) => {
   const { body } = z
     .object({ body: z.string().trim().min(1).max(4000) })

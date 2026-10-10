@@ -72,3 +72,14 @@ test("deployment graph follows actual shared dependencies", () => {
   ])
     assert.ok(Object.values(affected([path])).every(Boolean));
 });
+
+test("shared chat presentation deploys both clients without restarting API or worker", () => {
+  for (const path of ["src/shared/chat-ui.tsx", "src/shared/chat.css"])
+    assert.deepEqual(affected([path]), {
+      admin: true,
+      web: true,
+      mobile: true,
+      api: false,
+      worker: false,
+    });
+});

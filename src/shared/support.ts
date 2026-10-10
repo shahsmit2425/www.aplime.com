@@ -5,6 +5,10 @@ export type SupportTicket = Ticket & {
   openedByName: string;
   messageCount: number;
   updatedAt: string;
+  openedBy: string | null;
+  lastMessage: string;
+  unreadCount: number;
+  unreadNoticeIds: string[];
 };
 export type SupportMessage = {
   id: string;

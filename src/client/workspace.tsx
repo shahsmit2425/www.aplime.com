@@ -754,6 +754,16 @@ export default function Workspace() {
             >
               <Icon size={19} />
               {label}
+              {p === "messages" && !!data.unreadMessageCount && (
+                <span
+                  className="notification-count"
+                  aria-label={`${data.unreadMessageCount} unread conversation updates`}
+                >
+                  {data.unreadMessageCount > 99
+                    ? "99+"
+                    : data.unreadMessageCount}
+                </span>
+              )}
             </button>
           );
         })}

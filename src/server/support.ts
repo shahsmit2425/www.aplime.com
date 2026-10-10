@@ -10,7 +10,12 @@ export const supportPage = z.coerce
   .min(1)
   .max(100000)
   .default(1);
-const ticketSelect = `SELECT t.*,u.name AS user_name,u.email AS user_email,COALESCE(op.name,u.name) AS opened_by_name,
+const ticketSelect = (
+  viewer: string,
+) => `SELECT t.*,u.name AS user_name,u.email AS user_email,COALESCE(op.name,u.name) AS opened_by_name,
+ COALESCE((SELECT m.body FROM support_messages m WHERE m.ticket_id=t.id ORDER BY m.created_at DESC,m.id DESC LIMIT 1),t.body) AS last_message,
+ (SELECT count(*)::int FROM notifications n WHERE n.user_id=${viewer} AND NOT n.read AND ((n.target_page IN ('help','support') AND n.target_id=t.id::text) OR (n.target_page='messages' AND n.target_id='support:'||t.id::text))) AS unread_count,
+ COALESCE((SELECT json_agg(n.id) FROM notifications n WHERE n.user_id=${viewer} AND NOT n.read AND ((n.target_page IN ('help','support') AND n.target_id=t.id::text) OR (n.target_page='messages' AND n.target_id='support:'||t.id::text))),'[]'::json) AS unread_notice_ids,
  (SELECT count(*)::int FROM support_messages m WHERE m.ticket_id=t.id) AS message_count,
  GREATEST(t.created_at,COALESCE((SELECT max(created_at) FROM support_messages m WHERE m.ticket_id=t.id),t.created_at)) AS updated_at
  FROM tickets t JOIN users u ON u.id=t.user_id LEFT JOIN users op ON op.id=t.opened_by`;
@@ -39,10 +44,10 @@ export function supportRouter(admin: boolean) {
     ).rows[0].n;
     const rows = (
       await pool.query(
-        ticketSelect +
+        ticketSelect(`$${params.length + 2}`) +
           where +
           ` ORDER BY updated_at DESC,t.id LIMIT 25 OFFSET $${params.length + 1}`,
-        [...params, (page - 1) * 25],
+        [...params, (page - 1) * 25, req.account.id],
       )
     ).rows.map((r) => camel(r));
     res.json({ rows, total, page, pageSize: 25 });
@@ -77,7 +82,7 @@ export function supportRouter(admin: boolean) {
           userId,
           "Aplime support contacted you",
           "Open your support conversation to read and reply.",
-          { page: "help", id },
+          { page: "messages", id: "support:" + id },
         );
       else
         await notifyAdministrators(
@@ -94,8 +99,10 @@ export function supportRouter(admin: boolean) {
       page = supportPage.parse(req.query.page);
     const ticket = (
       await pool.query(
-        ticketSelect + " WHERE t.id=$1" + (admin ? "" : " AND t.user_id=$2"),
-        admin ? [id] : [id, req.account.id],
+        ticketSelect(admin ? "$2" : "$3") +
+          " WHERE t.id=$1" +
+          (admin ? "" : " AND t.user_id=$2"),
+        admin ? [id, req.account.id] : [id, req.account.id, req.account.id],
       )
     ).rows[0];
     if (!ticket) fail(404, "Support conversation not found.");
@@ -117,6 +124,24 @@ export function supportRouter(admin: boolean) {
       total: ticket.message_count,
       page,
     });
+  });
+  router.post("/conversations/:id/read", async (req, res) => {
+    const id = z.string().uuid().parse(req.params.id);
+    const { noticeIds } = z
+      .object({ noticeIds: z.array(z.string().uuid()).max(1000) })
+      .strict()
+      .parse(req.body);
+    const exists = await pool.query(
+      "SELECT 1 FROM tickets WHERE id=$1" + (admin ? "" : " AND user_id=$2"),
+      admin ? [id] : [id, req.account.id],
+    );
+    if (!exists.rowCount) fail(404, "Support conversation not found.");
+    // Only acknowledge updates present in the rendered snapshot. A concurrent reply stays unread.
+    await pool.query(
+      "UPDATE notifications SET read=true WHERE user_id=$1 AND NOT read AND id=ANY($2::uuid[]) AND ((target_page IN ('help','support') AND target_id=$3) OR (target_page='messages' AND target_id=$4))",
+      [req.account.id, noticeIds, id, "support:" + id],
+    );
+    res.json({ ok: true });
   });
   router.post("/conversations/:id/messages", async (req, res) => {
     const id = z.string().uuid().parse(req.params.id);
@@ -165,7 +190,7 @@ export function supportRouter(admin: boolean) {
           ticket.user_id,
           "New message from Aplime support",
           "Open your support conversation to read and reply.",
-          { page: "help", id },
+          { page: "messages", id: "support:" + id },
         );
       else
         await notifyAdministrators(
@@ -201,7 +226,7 @@ export function supportRouter(admin: boolean) {
           row.user_id,
           "Support conversation reopened",
           "You can reply to Aplime support.",
-          { page: "help", id },
+          { page: "messages", id: "support:" + id },
         );
       else
         await notifyAdministrators(
