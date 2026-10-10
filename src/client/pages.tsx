@@ -1,3 +1,4 @@
+import { SetupNotice } from "./setup-notice.js";
 import {
   ProjectCard,
   ProfessionalCard,
@@ -8,7 +9,6 @@ import { MessagesInbox } from "./messages.js";
 import { BusinessNavigation } from "./business-navigation.js";
 import { AwardResponse } from "./award-response.js";
 import { ProjectControls } from "./project-controls.js";
-import { businessFields } from "../shared/business.js";
 import { AddressAutocomplete } from "./address-autocomplete.js";
 import { Preferences } from "./preferences.js";
 import { Availability } from "./availability.js";
@@ -208,32 +208,9 @@ function Dashboard() {
               </span>
             </span>
             <strong>{value}</strong>
-            <small>From your account activity</small>
           </div>
         ))}
       </div>
-      <section className="dashboard-hero">
-        <div>
-          <p className="eyebrow">
-            {pro ? "GOOD WORK STARTS HERE" : "GOOD PEOPLE. GREAT WORK."}
-          </p>
-          <h2>
-            {pro
-              ? "Build a business people come back to."
-              : "A happier home starts with the right people."}
-          </h2>
-          <p>
-            {pro
-              ? "Keep your profile complete and make the next connection count."
-              : "From quick fixes to fresh starts, find your next go-to professional."}
-          </p>
-          <button onClick={() => go(pro ? "profile" : "discover")}>
-            {pro ? "Your business profile" : "Find professionals"}
-            <ArrowUpRight size={16} />
-          </button>
-        </div>
-        <img src="/home.jpg" alt="Bright living room with a blue sofa" />
-      </section>
       <div className="two-columns">
         <Panel title="Recent projects">
           <ProjectList
@@ -336,22 +313,10 @@ function Directory() {
       >
         {page === "saved"
           ? "Keep trusted professionals close."
-          : data.marketplacePreview
-            ? "Browse all saved business profiles in development, including businesses still setting up."
-            : openDiscovery
-              ? "Browse eligible businesses across all services and locations. Check their service area and discuss your project before booking."
-              : "Up to five professionals for each project, matched by service and location."}
+          : openDiscovery
+            ? "Find a business for your next home project."
+            : "Professionals matched to your project and location."}
       </Head>
-      {data.marketplacePreview && (
-        <Panel title="Development preview">
-          <p>
-            Approval, verification, subscription, and availability do not hide
-            listings in this preview. Suspended and blocked businesses remain
-            excluded. Chat and estimates become available when a business
-            completes its setup.
-          </p>
-        </Panel>
-      )}
       {(page !== "saved" || openDiscovery) && openProjects.length > 0 && (
         <Field label="Choose the project to discuss">
           <select
@@ -367,16 +332,15 @@ function Directory() {
         </Field>
       )}
       {openDiscovery && !openProjects.length && (
-        <Panel>
+        <div className="inline-next-action">
           <p>
-            You can browse businesses now. Post a project to start a private
-            chat about the work.
+            Have a project in mind?{" "}
+            <strong>Start a request to chat with a pro.</strong>
           </p>
           <button onClick={() => go("projects", "new")}>
-            <Plus size={17} />
-            Start a project
+            <Plus size={17} /> Start a project
           </button>
-        </Panel>
+        </div>
       )}
       {profiles.length > 0 && (
         <CollectionHeading
@@ -386,9 +350,7 @@ function Directory() {
               : "Professionals for your home"
           }
           count={profiles.length}
-        >
-          View profiles, compare details and make a connection.
-        </CollectionHeading>
+        />
       )}
       {profiles.length ? (
         <div className="pro-grid">
@@ -440,36 +402,6 @@ function Directory() {
                   </summary>
                   <Availability profile={p} />
                 </details>
-                {data.marketplacePreview && (
-                  <details>
-                    <summary>Business details</summary>
-                    <dl>
-                      {businessFields.map((field) =>
-                        p.details?.[field.key] ? (
-                          <div key={field.key}>
-                            <dt>{field.label}</dt>
-                            <dd>{p.details[field.key]}</dd>
-                          </div>
-                        ) : null,
-                      )}
-                      <dt>Base ZIP code</dt>
-                      <dd>{p.zip}</dd>
-                      <dt>Service radius</dt>
-                      <dd>{p.serviceRadiusMiles} miles</dd>
-                    </dl>
-                    {p.images
-                      ?.filter((i) => i.slot !== "cover" && i.slot !== "logo")
-                      .map((i) => (
-                        <img
-                          key={i.id}
-                          src={i.url}
-                          alt={p.business + " portfolio"}
-                          loading="lazy"
-                          style={{ maxWidth: "100%" }}
-                        />
-                      ))}
-                  </details>
-                )}
               </ProfessionalCard>
             );
           })}
@@ -490,13 +422,11 @@ function Directory() {
         >
           {page === "saved"
             ? "Save a professional to find their profile here."
-            : data.marketplacePreview
-              ? "No business profiles have been saved yet. A professional needs to save their business profile before it can appear here."
-              : openDiscovery
-                ? "Businesses appear once approved, verified, subscribed, and available. Check back as more professionals join. No sample profiles are shown."
-                : openProjects.length
-                  ? "Eligible professionals will appear here as they become available in your area."
-                  : "Describe the work and choose its address. We will match nearby professionals."}
+            : openDiscovery
+              ? "Check back soon as more professionals join."
+              : openProjects.length
+                ? "We'll show professionals here as matches become available."
+                : "Tell us what you need and where. We'll help you find a pro."}
           <button onClick={() => go("projects", "new")}>
             <Plus size={17} />
             Start a project
@@ -550,9 +480,9 @@ function ProProfile() {
         <SavePro proId={p.id} label />
       </div>
       {data.marketplacePreview && !p.canRespond && (
-        <p className="business-tip">
-          Development preview: this business is still completing its setup. Chat
-          and estimates open up once setup is finished.
+        <p className="availability-note">
+          <CalendarDays size={16} /> This business isn't accepting new requests
+          yet.
         </p>
       )}
       <BusinessDisplay
@@ -776,11 +706,9 @@ function Projects() {
         }
       >
         {page === "leads"
-          ? data.marketplacePreview
-            ? "Development preview: browse all open projects across services and locations, even while your business setup is incomplete. Private addresses stay hidden."
-            : data.discoveryMode === "open"
-              ? "Browse the latest 100 open projects across all services and locations. Your project alerts still follow your preferences. Confirm the scope and travel distance before responding."
-              : "New projects match your service preferences. Requests with your pending estimate stay here so you can manage your response."
+          ? data.discoveryMode === "open"
+            ? "Explore open requests and find your next job."
+            : "New requests matched to your services and area."
           : "Requests, estimates, and updates stay together."}
       </Head>
       {page !== "leads" && (
@@ -796,9 +724,7 @@ function Projects() {
       {creating && data.user.role === "customer" && (
         <Panel title="Tell us about your project">
           <p className="project-form-intro">
-            A few specific details help professionals understand the work and
-            send a more accurate estimate. Complete every required question
-            before sending your request.
+            Tell professionals what you need for a more accurate estimate.
             {selectedProfessional && (
               <strong>
                 {" "}
@@ -1142,19 +1068,10 @@ function Projects() {
         </button>
       )}
       {page === "leads" && !!data.discoveryRequirements?.length && (
-        <Panel title="Get ready to respond to projects">
-          <ul>
-            {data.discoveryRequirements.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-          <div className="actions">
-            <button onClick={() => go("profile")}>Business profile</button>
-            <button className="secondary" onClick={() => go("subscription")}>
-              Subscription & verification
-            </button>
-          </div>
-        </Panel>
+        <SetupNotice
+          requirements={data.discoveryRequirements}
+          onContinue={() => go("profile")}
+        />
       )}
       <section className="project-collection" aria-label="Projects">
         <CollectionHeading
@@ -1166,18 +1083,16 @@ function Projects() {
                 : "Your projects"
           }
           count={source.length}
-        >
-          Open a card to see details and next steps.
-        </CollectionHeading>
+        />
         {page === "leads" && !source.length ? (
           <Empty title="No open projects to show">
             {data.marketplacePreview
-              ? "No unassigned open projects are available. Paused, booked, and closed projects are excluded."
+              ? "New customer requests will appear here."
               : data.discoveryRequirements?.length
                 ? "Complete the steps above to receive new opportunities."
                 : data.discoveryMode === "open"
-                  ? "New customer projects will appear here when posted. Booked, paused, and closed projects are excluded."
-                  : "New projects will appear when they match your service categories and area. You can update your preferences above."}
+                  ? "New customer requests will appear here."
+                  : "New matches will appear here. You can adjust your project preferences anytime."}
           </Empty>
         ) : (
           <ProjectList projects={source} />
@@ -1237,20 +1152,10 @@ function ProjectDetail() {
       {data.marketplacePreview &&
         data.user.role === "pro" &&
         !!data.discoveryRequirements?.length && (
-          <Panel title="Project preview">
-            <p>
-              You can view this project now. Complete your business setup to
-              start a conversation or send an estimate.
-            </p>
-            <ul>
-              {data.discoveryRequirements.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
-            <button onClick={() => go("profile")}>
-              Complete business setup
-            </button>
-          </Panel>
+          <SetupNotice
+            requirements={data.discoveryRequirements}
+            onContinue={() => go("profile")}
+          />
         )}
       <section className="project-next-step" aria-label="Your next step">
         <div>
@@ -1290,10 +1195,7 @@ function ProjectDetail() {
                                   ? "Our team is reviewing the reported issue"
                                   : "Check your project status and support updates"}
           </h2>
-          <p>
-            Service payments are arranged directly. Aplime charges professionals
-            only for their subscription.
-          </p>
+
           {customer && p.status === "completed" && (
             <button onClick={() => go("reviews")}>Leave a review</button>
           )}
@@ -1955,9 +1857,7 @@ function Quotes() {
   const { data, go } = useWorkspace();
   return (
     <>
-      <Head title="Clear estimates. Great beginnings.">
-        Review scope and price before booking.
-      </Head>
+      <Head title="Estimates">Review scope and price before booking.</Head>
       <Panel>
         {data.quotes.length ? (
           data.quotes.map((q) => (
@@ -1998,7 +1898,7 @@ function Schedule() {
   const { data } = useWorkspace();
   return (
     <>
-      <Head title="A little structure for a busy week.">
+      <Head title="Schedule">
         Appointment times are shown in your current device timezone.
       </Head>
       {data.user.role === "pro" &&
@@ -2045,7 +1945,7 @@ function Reviews() {
   );
   return (
     <>
-      <Head title="Your experience matters.">
+      <Head title="Reviews">
         Thoughtful feedback helps the community make better choices.
       </Head>
       {ready.map((p) => (
@@ -2225,9 +2125,7 @@ function Settings() {
   const { data, run, busy } = useWorkspace();
   return (
     <>
-      <Head title="Make yourself at home.">
-        Manage your account preferences.
-      </Head>
+      <Head title="Settings">Manage your account preferences.</Head>
       <Panel title="Account details">
         <Form
           busy={busy}

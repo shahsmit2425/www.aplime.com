@@ -22,14 +22,6 @@ export function BusinessNavigation() {
   const { page, id, go } = useWorkspace();
   return (
     <section className="business-account-navigation">
-      <div>
-        <p className="eyebrow">MY BUSINESS</p>
-        <h2>Manage your business account</h2>
-        <p>
-          Your profile, identity, membership and listing review, together in one
-          place.
-        </p>
-      </div>
       <nav aria-label="Business account sections">
         {businessSections.map((section) => {
           const targetId = "id" in section ? section.id : undefined;

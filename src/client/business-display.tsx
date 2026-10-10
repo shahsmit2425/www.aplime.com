@@ -46,8 +46,7 @@ export function BusinessDisplay({
     <article className="business-showcase business-profile-design">
       {preview && (
         <div className="profile-preview-label">
-          <BriefcaseBusiness size={16} /> Saved profile preview · only saved
-          changes appear here
+          <BriefcaseBusiness size={16} /> Your saved profile
         </div>
       )}
       <header className="profile-brand-header">

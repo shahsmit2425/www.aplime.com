@@ -88,9 +88,8 @@ export function Head({
   return (
     <div className="page-head">
       <div>
-        <p className="eyebrow">YOUR APLIME WORKSPACE</p>
         <h1>{title}</h1>
-        <p>{children}</p>
+        {children && <p>{children}</p>}
       </div>
       {action}
     </div>

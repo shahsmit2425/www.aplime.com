@@ -134,7 +134,7 @@ export function ProfessionalCard({
             <ServiceIcon service={p.category} size={64} />
             <span>
               {p.category}
-              <small>Local expertise. Personal care.</small>
+              <small>Home services</small>
             </span>
           </>
         )}
@@ -197,9 +197,7 @@ export function ProfessionalCard({
           </span>
         </div>
         {preview && (
-          <p className="card-preview-note">
-            Preview · Business setup in progress
-          </p>
+          <p className="card-preview-note">Not accepting requests yet</p>
         )}
         {children}
         <div className="professional-card-actions">{actions}</div>

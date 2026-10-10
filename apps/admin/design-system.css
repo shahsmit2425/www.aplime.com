@@ -1,17 +1,17 @@
 /* Admin presentation stays isolated from the customer bundle. */
 :root {
-  color: #18382c;
-  background: #f5f7f3;
+  color: #142e36;
+  background: #f3f6f7;
   font-family: Inter, "Segoe UI", system-ui, sans-serif;
   line-height: 1.6;
 }
 body {
-  background: #f5f7f3;
+  background: #f3f6f7;
 }
 h1,
 h2,
 h3 {
-  color: #193c2c;
+  color: #17323d;
   text-wrap: balance;
 }
 button {
@@ -37,7 +37,7 @@ textarea:focus-visible {
 }
 .admin-shell > header {
   padding: 18px 32px;
-  background: #173e2d;
+  background: #122e36;
   border-bottom: 1px solid #294c38;
   gap: 20px;
   min-height: 76px;
@@ -60,7 +60,7 @@ textarea:focus-visible {
   grid-template-columns: 238px minmax(0, 1fr);
 }
 .admin-sidebar {
-  background: #fcfdfb;
+  background: #fff;
   border-color: #e1e7da;
   padding: 28px 16px;
 }
@@ -85,8 +85,8 @@ textarea:focus-visible {
 }
 .admin-sidebar nav button[aria-current],
 .admin-sidebar nav button:hover {
-  background: #e8f0df;
-  color: #376531;
+  background: #e3f2ee;
+  color: #086e64;
 }
 .admin-sidebar nav b {
   background: #587b42;
@@ -104,7 +104,7 @@ textarea:focus-visible {
   font-weight: 700;
 }
 .admin-page-heading p {
-  color: #627459;
+  color: #526571;
   font-size: 13px;
   max-width: 740px;
 }
@@ -117,7 +117,7 @@ textarea:focus-visible {
 .admin-metrics article {
   background: #fff;
   border-radius: 18px;
-  border-color: #e0e7d9;
+  border-color: #dce5e8;
   padding: 23px;
   box-shadow: 0 4px 20px #21432104;
 }
@@ -141,12 +141,12 @@ textarea:focus-visible {
 .admin-metrics strong {
   font-size: 34px;
   font-weight: 650;
-  color: #2d4e26;
+  color: #17343e;
   letter-spacing: -0.04em;
 }
 .admin-card {
   border-radius: 20px;
-  border-color: #e0e7d9;
+  border-color: #dce5e8;
   padding: 26px;
   box-shadow: 0 4px 20px #21432104;
 }
@@ -157,7 +157,7 @@ textarea:focus-visible {
 }
 .admin-muted,
 .admin-data-note {
-  color: #617454;
+  color: #526571;
   font-size: 12px;
 }
 .admin-table-wrap {
@@ -165,7 +165,7 @@ textarea:focus-visible {
   border-color: #e4eadf;
 }
 .admin-table-wrap th {
-  background: #f4f7f0;
+  background: #f0f5f7;
   color: #586e47;
   font-size: 11px;
   padding: 15px;
@@ -202,7 +202,7 @@ textarea:focus-visible {
   gap: 15px;
 }
 .admin-facts > div {
-  background: #f6f8f2;
+  background: #f3f7f8;
   border-color: #e6ebde;
   border-radius: 12px;
   padding: 16px;
@@ -229,10 +229,10 @@ textarea:focus-visible {
 }
 .admin-empty {
   padding: 35px;
-  background: #f8faf4;
+  background: #f7fafb;
   border: 1px dashed #d6e0ca;
   border-radius: 16px;
-  color: #61784e;
+  color: #526571;
 }
 .admin-detail-heading h2 {
   letter-spacing: -0.035em;
@@ -271,7 +271,7 @@ textarea:focus-visible {
   }
   .admin-sidebar {
     border-right: 0;
-    border-bottom: 1px solid #e0e7d9;
+    border-bottom: 1px solid #dce5e8;
     padding: 18px 20px;
   }
   .admin-sidebar-intro {
@@ -400,5 +400,128 @@ textarea:focus-visible {
   *::after {
     transition: none !important;
     animation: none !important;
+  }
+}
+
+/* Match the customer site's clearer typography and contrasting navigation. */
+.admin-sidebar {
+  background: #122c33;
+  border-color: #122c33;
+}
+.admin-sidebar-intro p {
+  color: #f0f6f7;
+}
+.admin-sidebar .admin-eyebrow {
+  color: #b4c9ce;
+}
+.admin-sidebar nav button {
+  color: #d4e0e4;
+}
+.admin-sidebar nav button:hover {
+  background: #26434b;
+  color: white;
+}
+.admin-sidebar nav button[aria-current] {
+  background: #d1ef9f;
+  color: #193a32;
+}
+.admin-sidebar-person {
+  border-color: #35545b;
+  color: white;
+}
+.admin-sidebar-person small {
+  color: #b8cdd0;
+}
+.admin-sidebar .admin-business-nav {
+  border-color: #3b5d63;
+}
+.admin-page-heading h1 {
+  font-size: clamp(30px, 3vw, 40px);
+  font-weight: 760;
+  line-height: 1.15;
+}
+.admin-page-heading p {
+  font-size: 15px;
+  color: #526571;
+}
+.admin-card-heading h2 {
+  font-size: 22px;
+  color: #183f4b;
+}
+.admin-table-wrap td {
+  font-size: 14px;
+  color: #294956;
+}
+.admin-table-wrap th {
+  font-size: 12px;
+  color: #516975;
+}
+.admin-metrics p {
+  font-size: 14px;
+  color: #526571;
+}
+.admin-metrics article:first-child {
+  background: #183a42;
+  border-color: #183a42;
+}
+.admin-metrics article:first-child strong {
+  color: #d5efa9;
+}
+.admin-metrics article:first-child p {
+  color: #dce8eb;
+}
+.admin-metrics article:first-child > svg {
+  background: #35594f;
+  color: #d5efa9;
+}
+.admin-facts dt {
+  color: #536e7b;
+  font-size: 12px;
+}
+.admin-facts dd {
+  color: #264650;
+  font-size: 15px;
+}
+.admin-content button {
+  font-size: 13px;
+}
+.admin-muted,
+.admin-data-note {
+  font-size: 13px;
+  color: #536b77;
+}
+.admin-filters label {
+  font-size: 13px;
+  color: #3f5d69;
+}
+.admin-status {
+  font-size: 11px;
+}
+@media (max-width: 900px) {
+  .admin-sidebar .admin-business-nav {
+    background: #1d3a42;
+  }
+  .admin-sidebar nav button {
+    font-size: 13px;
+  }
+  .admin-sidebar-intro p {
+    font-size: 18px;
+  }
+}
+@media (max-width: 600px) {
+  .admin-page-heading h1 {
+    font-size: 31px;
+  }
+  .admin-page-heading p {
+    font-size: 14px;
+  }
+  .admin-table-wrap td {
+    font-size: 13px;
+  }
+  .admin-metrics p {
+    font-size: 12px;
+  }
+  .admin-card-heading h2 {
+    font-size: 20px;
   }
 }

@@ -72,6 +72,6 @@ test("professional cards preserve fractional rates and do not imply verification
   assert.match(html, /No reviews yet/);
   assert.match(html, /Identity pending/);
   assert.match(html, /\$42\.5/);
-  assert.match(html, /Business setup in progress/);
+  assert.match(html, /Not accepting requests yet/);
   assert.doesNotMatch(html, /Identity verified|PRIVATE STREET ADDRESS/);
 });

@@ -28,8 +28,7 @@ export function BusinessProfile() {
       <Head
         title={tab === "setup" ? "Marketplace review" : "Your business profile"}
       >
-        A few details, two images, and your working hours. Keep it simple and
-        let customers get to know your business.
+        Show customers what makes your business a great fit.
       </Head>
       {p?.suspended && (
         <p className="business-tip">

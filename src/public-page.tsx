@@ -1,12 +1,4 @@
-import {
-  Menu,
-  MessageCircle,
-  CalendarDays,
-  ShieldCheck,
-  FileText,
-  LockKeyhole,
-  BadgeCheck,
-} from "lucide-react";
+import { Menu, MessageCircle, FileText } from "lucide-react";
 import { BusinessDisplay } from "./client/business-display.js";
 import { categories, type Profile } from "./shared/domain.js";
 import { Brand, LinkButton, ServiceIcon } from "./client/ui.js";
@@ -429,30 +421,14 @@ export function PublicPage({
                   </LinkButton>
                   <a href="/app/register?role=pro">Grow your business →</a>
                 </div>
-                <div className="trust-row" aria-label="Why use Aplime">
+                <div className="trust-row" aria-label="Project tools">
                   <span>
-                    <b>
-                      <BadgeCheck size={17} />
-                    </b>
-                    <strong>Reviewed listings</strong>
+                    <MessageCircle size={17} />
+                    <strong>Direct conversations</strong>
                   </span>
                   <span>
-                    <b>
-                      <ShieldCheck size={17} />
-                    </b>
-                    <strong>Identity verification</strong>
-                  </span>
-                  <span>
-                    <b>
-                      <FileText size={17} />
-                    </b>
-                    <strong>Written estimates</strong>
-                  </span>
-                  <span>
-                    <b>
-                      <LockKeyhole size={17} />
-                    </b>
-                    <strong>Private project tools</strong>
+                    <FileText size={17} />
+                    <strong>Clear estimates</strong>
                   </span>
                 </div>
               </div>
@@ -469,32 +445,6 @@ export function PublicPage({
                   <strong>Less on your to-do list.</strong>
                   <span>More room for what matters.</span>
                 </div>
-              </div>
-            </section>
-            <section
-              className="home-value-strip"
-              aria-label="Everything for your project"
-            >
-              <div>
-                <MessageCircle size={23} />
-                <span>
-                  <strong>Talk it through</strong>
-                  <small>Messages, audio and video in one place.</small>
-                </span>
-              </div>
-              <div>
-                <CalendarDays size={23} />
-                <span>
-                  <strong>Make a plan together</strong>
-                  <small>Agree on scope, estimates and visit times.</small>
-                </span>
-              </div>
-              <div>
-                <ShieldCheck size={23} />
-                <span>
-                  <strong>Keep the details close</strong>
-                  <small>Your project updates, saved in your account.</small>
-                </span>
               </div>
             </section>
             <section id="services">

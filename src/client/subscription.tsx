@@ -260,7 +260,7 @@ export function Subscription() {
           </Panel>
         </div>
         <aside className="membership-guide">
-          <h2>Everything stays in one place</h2>
+          <h2>Billing help</h2>
           <div>
             <LockKeyhole size={23} />
             <span>
