@@ -758,51 +758,48 @@ export default function Workspace() {
     ["settings", "Settings"],
     ["help", "Help & safety"],
   ];
+  const renderLinks = (items: string[][]) =>
+    items.map(([p, label]) => {
+      const Icon = navIcons[p];
+      const active =
+        route.page === p ||
+        (data.user.role === "pro" &&
+          p === "profile" &&
+          [
+            "verification",
+            "subscription",
+            "availability",
+            "onboarding",
+            "payments",
+            "earnings",
+          ].includes(route.page));
+      return (
+        <button
+          key={p}
+          className={active ? "nav-link active" : "nav-link"}
+          aria-current={active ? "page" : undefined}
+          onClick={() => go(p)}
+        >
+          <Icon size={19} />
+          {label}
+          {p === "messages" && !!data.unreadMessageCount && (
+            <span
+              className="notification-count"
+              aria-label={`${data.unreadMessageCount} unread conversation updates`}
+            >
+              {data.unreadMessageCount > 99 ? "99+" : data.unreadMessageCount}
+            </span>
+          )}
+        </button>
+      );
+    });
   const nav = (
     <>
       <Brand />
       <p className="workspace-label">
         {data.user.role === "pro" ? "YOUR BUSINESS" : "YOUR HOME, ORGANIZED"}
       </p>
-      <nav aria-label="Workspace navigation">
-        {links.map(([p, label]) => {
-          const Icon = navIcons[p];
-          return (
-            <button
-              key={p}
-              className={
-                route.page === p ||
-                (data.user.role === "pro" &&
-                  p === "profile" &&
-                  [
-                    "verification",
-                    "subscription",
-                    "availability",
-                    "onboarding",
-                    "payments",
-                    "earnings",
-                  ].includes(route.page))
-                  ? "nav-link active"
-                  : "nav-link"
-              }
-              onClick={() => go(p)}
-            >
-              <Icon size={19} />
-              {label}
-              {p === "messages" && !!data.unreadMessageCount && (
-                <span
-                  className="notification-count"
-                  aria-label={`${data.unreadMessageCount} unread conversation updates`}
-                >
-                  {data.unreadMessageCount > 99
-                    ? "99+"
-                    : data.unreadMessageCount}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </nav>
+      <nav aria-label="Workspace navigation">{renderLinks(links)}</nav>
       <div className="sidebar-person">
         <span className="avatar">{data.user.name.slice(0, 1)}</span>
         <div>
@@ -829,7 +826,6 @@ export default function Workspace() {
         <a className="skip-link" href="#workspace-content">
           Skip to content
         </a>
-        <aside className="sidebar">{nav}</aside>
         <div className="workspace-body">
           {config.environment !== "production" && (
             <div className="environment-bar">
@@ -837,25 +833,22 @@ export default function Workspace() {
               environment
             </div>
           )}
-          <header className="topbar">
-            <button
-              className="icon-button mobile-menu"
-              aria-label="Open navigation"
-              onClick={() => setMenu(true)}
-            >
-              <Menu />
-            </button>
-            <span>
-              {data.user.role === "pro" ? "Provider" : "Customer"} workspace{" "}
-              <b>
-                /{" "}
-                {links.find((l) => l[0] === route.page)?.[1] ||
-                  (route.page === "pro"
-                    ? "Professional profile"
-                    : "Project details")}
-              </b>
-            </span>
+          <header className="topbar workspace-header">
+            <Brand />
+            <nav className="workspace-primary-nav" aria-label="Main navigation">
+              {renderLinks(
+                links.filter(([p]) => !["notifications", "help"].includes(p)),
+              )}
+            </nav>
             <div className="actions">
+              <button
+                className="icon-button workspace-menu"
+                aria-label="Open all navigation and sign out"
+                aria-expanded={menu}
+                onClick={() => setMenu(true)}
+              >
+                <Menu size={21} />
+              </button>
               <button
                 className="icon-button"
                 aria-label={`Notifications, ${data.unreadCount || 0} unread`}

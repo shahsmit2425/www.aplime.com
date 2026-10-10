@@ -149,20 +149,22 @@ export function ProfessionalCard({
               <ServiceIcon service={p.category} size={29} />
             )}
           </div>
-          <span className="professional-rating">
-            <Star size={14} />
-            {p.reviewCount ? (
-              <>
-                <strong>{p.rating.toFixed(1)}</strong>
-                <span>({p.reviewCount})</span>
-              </>
-            ) : (
-              <span>No reviews yet</span>
-            )}
-          </span>
+          <div className="professional-card-heading">
+            <h2>{p.business}</h2>
+            <span className="professional-rating">
+              <Star size={14} />
+              {p.reviewCount ? (
+                <>
+                  <strong>{p.rating.toFixed(1)}</strong>
+                  <span>({p.reviewCount})</span>
+                </>
+              ) : (
+                <span>No reviews yet</span>
+              )}
+            </span>
+          </div>
         </div>
         <div className="professional-card-name">
-          <h2>{p.business}</h2>
           <p>
             <MapPin size={14} />
             {p.zip}

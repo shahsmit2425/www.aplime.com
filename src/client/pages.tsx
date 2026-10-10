@@ -1,3 +1,4 @@
+import { filterDirectory } from "./directory-filters.js";
 import { SetupNotice } from "./setup-notice.js";
 import {
   ProjectCard,
@@ -287,50 +288,124 @@ function Directory() {
   const { data, page, id, run, go, busy } = useWorkspace();
   const openDiscovery = data.discoveryMode === "open";
   const [projectId, setProjectId] = useState(id || "");
+  const [filters, setFilters] = useState({
+    query: "",
+    category: "",
+    verified: false,
+    sort: "default",
+  });
+  const resetFilters = () =>
+    setFilters({ query: "", category: "", verified: false, sort: "default" });
   const openProjects = data.projects.filter(
     (p) => !p.proId && ["requested", "quoted"].includes(p.status),
   );
   const selectedId = openProjects.some((p) => p.id === projectId)
     ? projectId
     : openProjects[0]?.id;
-  const profiles = data.profiles.filter((p) =>
+  const eligibleProfiles = data.profiles.filter((p) =>
     page === "saved"
       ? data.saved.includes(p.id)
       : openDiscovery
         ? p.discoverable
         : p.matchedProjectIds?.includes(selectedId),
   );
+  const profiles = filterDirectory(eligibleProfiles, filters);
   return (
-    <>
-      <Head
-        title={
-          page === "saved"
-            ? "Your saved professionals"
+    <section
+      className="directory-page"
+      aria-label={
+        page === "saved" ? "Saved professionals" : "Professional directory"
+      }
+    >
+      <div className="directory-intro">
+        <Head
+          title={
+            page === "saved"
+              ? "Your saved professionals"
+              : openDiscovery
+                ? "Find professionals for your home"
+                : "Your project matches"
+          }
+        >
+          {page === "saved"
+            ? "Keep trusted professionals close."
             : openDiscovery
-              ? "Find professionals"
-              : "Your project matches"
-        }
-      >
-        {page === "saved"
-          ? "Keep trusted professionals close."
-          : openDiscovery
-            ? "Find a business for your next home project."
-            : "Professionals matched to your project and location."}
-      </Head>
-      {(page !== "saved" || openDiscovery) && openProjects.length > 0 && (
-        <Field label="Choose the project to discuss">
+              ? "Find a business for your next home project."
+              : "Professionals matched to your project and location."}
+        </Head>
+      </div>
+      <div className="directory-searchbar">
+        {(page !== "saved" || openDiscovery) && openProjects.length > 0 && (
+          <Field label="Current project">
+            <select
+              value={selectedId}
+              onChange={(e) => setProjectId(e.target.value)}
+            >
+              {openProjects.map((p) => (
+                <option value={p.id} key={p.id}>
+                  {p.title} · {p.zip}
+                </option>
+              ))}
+            </select>
+          </Field>
+        )}
+        <label className="directory-search">
+          <span>Search professionals</span>
+          <div>
+            <Search size={20} aria-hidden="true" />
+            <input
+              type="search"
+              value={filters.query}
+              placeholder="Business, service or ZIP code"
+              onChange={(e) =>
+                setFilters({ ...filters, query: e.target.value })
+              }
+            />
+          </div>
+        </label>
+      </div>
+      <div className="directory-filters">
+        <label>
+          <span>Service</span>
           <select
-            value={selectedId}
-            onChange={(e) => setProjectId(e.target.value)}
+            value={filters.category}
+            onChange={(e) =>
+              setFilters({ ...filters, category: e.target.value })
+            }
           >
-            {openProjects.map((p) => (
-              <option value={p.id} key={p.id}>
-                {p.title} · {p.zip}
-              </option>
+            <option value="">All services</option>
+            {categories.map((c) => (
+              <option key={c}>{c}</option>
             ))}
           </select>
-        </Field>
-      )}
+        </label>
+        <label className="directory-verified">
+          <input
+            type="checkbox"
+            checked={filters.verified}
+            onChange={(e) =>
+              setFilters({ ...filters, verified: e.target.checked })
+            }
+          />
+          <ShieldCheck size={17} />
+          Identity verified
+        </label>
+        <label>
+          <span>Sort by</span>
+          <select
+            value={filters.sort}
+            onChange={(e) => setFilters({ ...filters, sort: e.target.value })}
+          >
+            <option value="default">Default order</option>
+            <option value="name">Business name</option>
+            <option value="rate">Starting rate: low to high</option>
+            <option value="rating">Highest rated</option>
+          </select>
+        </label>
+        <p role="status">
+          {profiles.length} of {eligibleProfiles.length} profiles
+        </p>
+      </div>
       {openDiscovery && !openProjects.length && (
         <div className="inline-next-action">
           <p>
@@ -341,16 +416,6 @@ function Directory() {
             <Plus size={17} /> Start a project
           </button>
         </div>
-      )}
-      {profiles.length > 0 && (
-        <CollectionHeading
-          title={
-            page === "saved"
-              ? "Saved businesses"
-              : "Professionals for your home"
-          }
-          count={profiles.length}
-        />
       )}
       {profiles.length ? (
         <div className="pro-grid">
@@ -406,6 +471,13 @@ function Directory() {
             );
           })}
         </div>
+      ) : eligibleProfiles.length > 0 ? (
+        <Empty title="No professionals match these filters.">
+          Try a different business, service or ZIP code.
+          <button className="secondary" onClick={resetFilters}>
+            Clear filters
+          </button>
+        </Empty>
       ) : (
         <Empty
           title={
@@ -433,7 +505,7 @@ function Directory() {
           </button>
         </Empty>
       )}
-    </>
+    </section>
   );
 }
 function ProProfile() {

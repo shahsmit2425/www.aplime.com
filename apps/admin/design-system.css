@@ -1,12 +1,12 @@
 /* Admin presentation stays isolated from the customer bundle. */
 :root {
   color: #142e36;
-  background: #f3f6f7;
+  background: #f7f9f7;
   font-family: Inter, "Segoe UI", system-ui, sans-serif;
   line-height: 1.6;
 }
 body {
-  background: #f3f6f7;
+  background: #f7f9f7;
 }
 h1,
 h2,
@@ -37,8 +37,9 @@ textarea:focus-visible {
 }
 .admin-shell > header {
   padding: 18px 32px;
-  background: #122e36;
-  border-bottom: 1px solid #294c38;
+  background: #fff;
+  color: #142a2e;
+  border-bottom: 1px solid #e2e9e5;
   gap: 20px;
   min-height: 76px;
 }
@@ -53,7 +54,7 @@ textarea:focus-visible {
   border-radius: 12px;
 }
 .admin-shell > header small {
-  color: #e0ecd8;
+  color: #526b5c;
   font-size: 12px;
 }
 .admin-workspace {
@@ -403,38 +404,6 @@ textarea:focus-visible {
   }
 }
 
-/* Match the customer site's clearer typography and contrasting navigation. */
-.admin-sidebar {
-  background: #122c33;
-  border-color: #122c33;
-}
-.admin-sidebar-intro p {
-  color: #f0f6f7;
-}
-.admin-sidebar .admin-eyebrow {
-  color: #b4c9ce;
-}
-.admin-sidebar nav button {
-  color: #d4e0e4;
-}
-.admin-sidebar nav button:hover {
-  background: #26434b;
-  color: white;
-}
-.admin-sidebar nav button[aria-current] {
-  background: #d1ef9f;
-  color: #193a32;
-}
-.admin-sidebar-person {
-  border-color: #35545b;
-  color: white;
-}
-.admin-sidebar-person small {
-  color: #b8cdd0;
-}
-.admin-sidebar .admin-business-nav {
-  border-color: #3b5d63;
-}
 .admin-page-heading h1 {
   font-size: clamp(30px, 3vw, 40px);
   font-weight: 760;
@@ -459,20 +428,6 @@ textarea:focus-visible {
 .admin-metrics p {
   font-size: 14px;
   color: #526571;
-}
-.admin-metrics article:first-child {
-  background: #183a42;
-  border-color: #183a42;
-}
-.admin-metrics article:first-child strong {
-  color: #d5efa9;
-}
-.admin-metrics article:first-child p {
-  color: #dce8eb;
-}
-.admin-metrics article:first-child > svg {
-  background: #35594f;
-  color: #d5efa9;
 }
 .admin-facts dt {
   color: #536e7b;
@@ -499,7 +454,7 @@ textarea:focus-visible {
 }
 @media (max-width: 900px) {
   .admin-sidebar .admin-business-nav {
-    background: #1d3a42;
+    background: #f4f8f4;
   }
   .admin-sidebar nav button {
     font-size: 13px;
@@ -524,4 +479,14 @@ textarea:focus-visible {
   .admin-card-heading h2 {
     font-size: 20px;
   }
+}
+
+.admin-card,
+.admin-metrics article {
+  border-radius: 14px;
+  box-shadow: none;
+}
+.admin-sidebar nav button[aria-current] {
+  color: #087647;
+  background: #edf5ee;
 }
