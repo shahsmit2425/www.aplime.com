@@ -320,11 +320,15 @@ function Directory() {
       <div className="directory-intro">
         <Head
           title={
-            page === "saved"
-              ? "Your saved professionals"
-              : openDiscovery
-                ? "Find professionals for your home"
-                : "Your project matches"
+            page === "saved" ? (
+              "Your saved professionals"
+            ) : openDiscovery ? (
+              <>
+                Find professionals <em>for your home.</em>
+              </>
+            ) : (
+              "Your project matches"
+            )
           }
         >
           {page === "saved"
@@ -333,6 +337,14 @@ function Directory() {
               ? "Find a business for your next home project."
               : "Professionals matched to your project and location."}
         </Head>
+        <div className="directory-art" aria-hidden="true">
+          <img src="/aplime-garden.webp" alt="" width="1536" height="1024" />
+          <span>
+            Better homes.
+            <br />
+            Brighter days.
+          </span>
+        </div>
       </div>
       <div className="directory-searchbar">
         {(page !== "saved" || openDiscovery) && openProjects.length > 0 && (

@@ -434,10 +434,10 @@ export function PublicPage({
               </div>
               <div className="hero-image">
                 <img
-                  src="/home.jpg"
-                  alt="A welcoming living room with a blue sofa"
-                  width="1400"
-                  height="933"
+                  src="/aplime-garden.webp"
+                  alt="Illustration of a welcoming home surrounded by a lush, sunlit garden"
+                  width="1536"
+                  height="1024"
                   decoding="async"
                   fetchPriority="high"
                 />

@@ -81,7 +81,7 @@ export function Head({
   children,
   action,
 }: {
-  title: string;
+  title: ReactNode;
   children?: ReactNode;
   action?: ReactNode;
 }) {

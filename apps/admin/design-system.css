@@ -490,3 +490,144 @@ textarea:focus-visible {
   color: #087647;
   background: #edf5ee;
 }
+
+/* Expressive Aplime brand; dense records retain quiet, readable surfaces. */
+:root,
+body {
+  background: #f3f6e9;
+  color: #143e2c;
+}
+.admin-shell > header {
+  background:
+    radial-gradient(ellipse at top right, #277646, transparent 65%), #0a412d;
+  border-bottom: 4px solid #e0b936;
+  color: #fff9df;
+}
+.admin-shell > header small {
+  color: #e1edc9;
+}
+.admin-shell > header strong::before {
+  background: #f0cd49;
+  color: #16452e;
+  border-radius: 13px 5px 13px 5px;
+}
+.admin-shell > header button {
+  background: #fff8df;
+  color: #174d30;
+  border: 1px solid #e5d894;
+}
+.admin-sidebar {
+  background: #ecf2db;
+  border-color: #cbdcb8;
+}
+.admin-sidebar-intro p {
+  color: #164b2e;
+  font-family: Georgia, serif;
+  font-size: 23px;
+}
+.admin-sidebar nav button {
+  color: #355b3d;
+  font-weight: 650;
+}
+.admin-sidebar nav button[aria-current] {
+  color: #fff7d9;
+  background: #155c37;
+  box-shadow: 0 3px 0 #d6b336;
+}
+.admin-sidebar nav button:hover:not([aria-current]) {
+  background: #dce9c8;
+  color: #164e2e;
+}
+.admin-page-heading h1,
+.login h1 {
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 800;
+  color: #123e2c;
+  letter-spacing: -0.04em;
+  font-size: clamp(32px, 3.4vw, 47px);
+}
+.admin-page-heading h1::after {
+  content: "";
+  display: block;
+  width: 70px;
+  height: 5px;
+  margin-top: 12px;
+  border-radius: 50%;
+  background: #dcb332;
+  transform: rotate(-2deg);
+}
+.admin-page-heading p {
+  color: #45634d;
+}
+.admin-card {
+  background: #fffef9;
+  border: 1px solid #d8e1c9;
+  border-radius: 18px;
+  box-shadow: 0 5px 20px #23472a08;
+}
+.admin-card-heading h2 {
+  color: #195234;
+}
+.admin-metrics article {
+  background: #e4f0d3;
+  border: 1px solid #c4d7af;
+  border-top: 4px solid #569454;
+  border-radius: 15px;
+}
+.admin-metrics article:nth-child(3n + 2) {
+  background: #fff0c8;
+  border-color: #e8d397;
+  border-top-color: #cba237;
+}
+.admin-metrics article:nth-child(3n + 3) {
+  background: #ebe4f5;
+  border-color: #d7c9e6;
+  border-top-color: #9879b0;
+}
+.admin-metrics strong {
+  color: #16482f;
+  font-weight: 800;
+}
+.admin-metrics p {
+  color: #46603d;
+}
+.admin-metrics article > svg {
+  background: #ffffff9c;
+  color: #3f7943;
+}
+.admin-table-wrap th {
+  background: #edf3e2;
+  color: #365538;
+}
+.admin-table-wrap td {
+  background: #fffefb;
+  color: #294936;
+}
+.admin-table-wrap tbody tr:hover td {
+  background: #f3f7e9;
+}
+.admin-filters {
+  background: #fffdf2;
+  border-color: #d7debd;
+}
+.admin-content button {
+  border-radius: 9px;
+  font-weight: 650;
+}
+.login {
+  background: #fffef8;
+  border: 2px solid #fff;
+  border-top: 6px solid #d9b237;
+  border-radius: 22px;
+  box-shadow: 0 15px 40px #23462d10;
+}
+.admin-auth-steps [aria-current] span {
+  background: #155c37;
+  color: white;
+}
+@media (max-width: 600px) {
+  .admin-page-heading h1,
+  .login h1 {
+    font-size: 34px;
+  }
+}

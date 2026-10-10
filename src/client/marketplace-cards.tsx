@@ -116,7 +116,7 @@ export function ProfessionalCard({
   const cover = p.images?.find((i) => i.slot === "cover"),
     logo = p.images?.find((i) => i.slot === "logo");
   return (
-    <article className="professional-card">
+    <article className="professional-card" data-service={p.category}>
       <div
         className={
           "professional-card-cover" + (!cover ? " professional-card-art" : "")
@@ -137,6 +137,12 @@ export function ProfessionalCard({
               <small>Home services</small>
             </span>
           </>
+        )}
+        {cover && (
+          <span className="professional-service-ribbon">
+            <ServiceIcon service={p.category} size={14} />
+            {p.category}
+          </span>
         )}
         <div className="professional-card-save">{save}</div>
       </div>

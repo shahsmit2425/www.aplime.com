@@ -566,3 +566,67 @@
   font-size: 14px;
   line-height: 1.7;
 }
+
+/* Garden palette around the conversation; plain bubbles preserve readability. */
+.chat-inbox {
+  border: 2px solid #fff;
+  border-radius: 20px;
+  box-shadow: 0 5px 24px #254a2a12;
+}
+.chat-sidebar-heading {
+  background: #e8f0d5;
+  border-bottom: 3px solid #d9bd49;
+}
+.chat-sidebar-heading h2 {
+  font-family: Georgia, serif;
+  color: #143f2d;
+  font-size: 29px;
+}
+.chat-sidebar-heading small {
+  color: #426638;
+}
+.chat-avatar {
+  background: #e9e1f4;
+  color: #624580;
+  border: 2px solid #fff;
+}
+.chat-avatar.is-support {
+  background: #fff0bc;
+  color: #61501e;
+}
+.chat-choice.selected {
+  background: #e7f1d6 !important;
+  border-left-color: #588c45;
+}
+.chat-main {
+  background:
+    radial-gradient(circle at 90% 10%, #e4eccf, transparent 45%), #f4f6e9;
+}
+.chat-header {
+  background: #fffef5;
+  border-bottom-color: #d5dfc2;
+}
+.chat-bubble {
+  background: white;
+  border: 1px solid #e1e5d5;
+}
+.chat-bubble.mine {
+  background: #deedc8;
+  border-color: #cadbb2;
+}
+.chat-bubble p {
+  color: #193f2c;
+}
+.chat-bubble time {
+  color: #4c674b;
+}
+.chat-composer {
+  background: #fffef7;
+  border-top-color: #d3dfc2;
+}
+.chat-composer button {
+  background: #116b3c !important;
+}
+.chat-search {
+  background: #f0f4e5;
+}
