@@ -1,6 +1,15 @@
 import { ProjectQuickView } from "./project-quick-view.js";
 import { useEffect, useState, useRef } from "react";
-import { FileText, MessageCircle, Phone, Video } from "lucide-react";
+import {
+  Ban,
+  CalendarPlus,
+  FileText,
+  MessageCircle,
+  Phone,
+  ShieldCheck,
+  Video,
+  X,
+} from "lucide-react";
 import { request, openExternal } from "./api.js";
 import { useWorkspace } from "./workspace.js";
 import { Panel, Field, Form } from "./ui.js";
@@ -88,6 +97,8 @@ export function Discussions({
     (focusedId ? undefined : visible[0]);
   const [contextId, setContextId] = useState("");
   const [showProject, setShowProject] = useState(false);
+  const [showSuggestion, setShowSuggestion] = useState(false);
+  const [suggestionError, setSuggestionError] = useState("");
   const contexts =
     thread?.projects ||
     (thread
@@ -106,6 +117,7 @@ export function Discussions({
   useEffect(() => {
     setContextId("");
     setShowProject(false);
+    setShowSuggestion(false);
   }, [thread?.id, id]);
   const other = thread
     ? thread.customer_id === data.user.id
@@ -117,8 +129,6 @@ export function Discussions({
   useEffect(() => setSelected(""), [id]);
   const [draft, setDraft] = useState("");
   useEffect(() => setDraft(""), [thread?.id]);
-  const [suggestion, setSuggestion] = useState("");
-  useEffect(() => setSuggestion(""), [thread?.id]);
   useChatRead(thread?.unread_notice_ids || [], (noticeIds) =>
     request(`/discussions/${thread!.id}/read`, { noticeIds }),
   );
@@ -183,6 +193,19 @@ export function Discussions({
                       <FileText size={17} />
                       <span>Project details</span>
                     </button>
+                    <button
+                      className="chat-suggest-time"
+                      title="Suggest a time"
+                      aria-label="Suggest a time"
+                      disabled={busy || closed || blocked}
+                      onClick={() => {
+                        setSuggestionError("");
+                        setShowSuggestion(true);
+                      }}
+                    >
+                      <CalendarPlus size={17} />
+                      <span>Suggest a time</span>
+                    </button>
                     {[true, false].map((audio) => (
                       <button
                         key={String(audio)}
@@ -203,6 +226,32 @@ export function Discussions({
                         {audio ? <Phone size={17} /> : <Video size={17} />}
                       </button>
                     ))}
+                    <button
+                      className="chat-block-action"
+                      title={
+                        blocked ? "Unblock conversation" : "Block conversation"
+                      }
+                      aria-label={
+                        blocked ? "Unblock conversation" : "Block conversation"
+                      }
+                      disabled={busy}
+                      onClick={() => {
+                        if (
+                          !blocked &&
+                          !window.confirm(
+                            "Block this conversation? You can unblock it from this header. Your message history will remain available.",
+                          )
+                        )
+                          return;
+                        void run(
+                          () =>
+                            request(`/blocked/${other}`, { blocked: !blocked }),
+                          "",
+                        );
+                      }}
+                    >
+                      {blocked ? <ShieldCheck size={17} /> : <Ban size={17} />}
+                    </button>
                   </>
                 }
               />
@@ -270,56 +319,34 @@ export function Discussions({
                   onClose={() => setShowProject(false)}
                 />
               )}
-              <div className="chat-extra">
-                {!closed && !blocked && (
-                  <details className="suggest-time">
-                    <summary>Suggest a time to meet or visit</summary>
-                    <form
-                      className="composer"
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        const when = new Date(suggestion);
-                        if (Number.isNaN(when.getTime()) || when < new Date())
-                          return setError("Choose a time in the future.");
-                        void run(async () => {
-                          await request(`/discussions/${thread.id}/messages`, {
-                            projectId: context?.id,
-                            body: `Could we meet on ${when.toLocaleString(undefined, { dateStyle: "full", timeStyle: "short" })}? Reply here, or confirm it as the project appointment.`,
-                          });
-                          setSuggestion("");
-                          await load();
-                        }, "");
-                      }}
-                    >
-                      <label className="sr-only" htmlFor="suggest-time-input">
-                        Suggested time
-                      </label>
-                      <input
-                        id="suggest-time-input"
-                        type="datetime-local"
-                        value={suggestion}
-                        onChange={(e) => setSuggestion(e.target.value)}
-                        required
-                      />
-                      <button disabled={busy || !suggestion}>
-                        Send suggestion
-                      </button>
-                    </form>
-                  </details>
-                )}
-                <button
-                  className="text-button"
-                  disabled={busy}
-                  onClick={() =>
-                    void run(
-                      () => request(`/blocked/${other}`, { blocked: !blocked }),
-                      "",
-                    )
+              {showSuggestion && !closed && !blocked && (
+                <SuggestTimeDialog
+                  projectTitle={context?.title}
+                  busy={busy}
+                  sendError={suggestionError}
+                  onClose={() => setShowSuggestion(false)}
+                  onSend={(when) =>
+                    void run(async () => {
+                      setSuggestionError("");
+                      try {
+                        await request(`/discussions/${thread.id}/messages`, {
+                          projectId: context?.id,
+                          body: `Could we meet on ${when.toLocaleString(undefined, { dateStyle: "full", timeStyle: "short" })}? Reply here, or confirm it as the project appointment.`,
+                        });
+                      } catch (e) {
+                        setSuggestionError(
+                          e instanceof Error
+                            ? e.message
+                            : "Could not send the suggestion. Please try again.",
+                        );
+                        return;
+                      }
+                      setShowSuggestion(false);
+                      await load();
+                    }, "")
                   }
-                >
-                  {blocked ? "Unblock" : "Block"} conversation
-                </button>
-              </div>
+                />
+              )}
             </section>
           )}
         </div>
@@ -357,5 +384,106 @@ export function Discussions({
     content
   ) : (
     <Panel title="Project conversations">{content}</Panel>
+  );
+}
+
+function SuggestTimeDialog({
+  projectTitle,
+  busy,
+  sendError,
+  onClose,
+  onSend,
+}: {
+  projectTitle?: string;
+  busy: boolean;
+  sendError?: string;
+  onClose: () => void;
+  onSend: (when: Date) => void;
+}) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const [suggestion, setSuggestion] = useState("");
+  const [error, setError] = useState("");
+  useEffect(() => {
+    dialog.current?.showModal();
+  }, []);
+  return (
+    <dialog
+      ref={dialog}
+      className="chat-schedule-dialog"
+      aria-labelledby="suggest-time-title"
+      onCancel={(e) => {
+        if (busy) e.preventDefault();
+        else onClose();
+      }}
+      onClose={onClose}
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !busy) onClose();
+      }}
+    >
+      <header>
+        <span className="chat-schedule-icon">
+          <CalendarPlus size={24} />
+        </span>
+        <button
+          type="button"
+          className="secondary"
+          aria-label="Close time suggestion"
+          disabled={busy}
+          onClick={onClose}
+        >
+          <X size={18} />
+        </button>
+      </header>
+      <h2 id="suggest-time-title">Suggest a time</h2>
+      {projectTitle && <p className="chat-schedule-project">{projectTitle}</p>}
+      <p>
+        Send a time to discuss a visit. Your appointment is confirmed separately
+        in the project.
+      </p>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          const when = new Date(suggestion);
+          if (Number.isNaN(when.getTime()) || when <= new Date())
+            return setError("Choose a time in the future.");
+          setError("");
+          onSend(when);
+        }}
+      >
+        <label htmlFor="suggest-time-input">
+          Date & time (your device time zone)
+        </label>
+        <input
+          id="suggest-time-input"
+          type="datetime-local"
+          value={suggestion}
+          autoFocus
+          required
+          disabled={busy}
+          onChange={(e) => {
+            setSuggestion(e.target.value);
+            setError("");
+          }}
+        />
+        {(error || sendError) && (
+          <p role="alert" className="chat-error">
+            {error || sendError}
+          </p>
+        )}
+        <div className="actions">
+          <button type="submit" disabled={busy || !suggestion}>
+            Send suggestion
+          </button>
+          <button
+            type="button"
+            className="secondary"
+            disabled={busy}
+            onClick={onClose}
+          >
+            Cancel
+          </button>
+        </div>
+      </form>
+    </dialog>
   );
 }

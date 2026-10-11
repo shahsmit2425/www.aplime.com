@@ -4312,7 +4312,7 @@ a:focus-visible {
   min-height: 35px;
 }
 .customer-project .project-detail-columns {
-  grid-template-columns: minmax(290px, 0.72fr) minmax(0, 1.28fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 20px;
 }
 .customer-project .project-detail-columns .panel {
@@ -4451,13 +4451,6 @@ a:focus-visible {
 .customer-project .project-pro-card.selected {
   border-color: #22ab66;
   background: #fcfffd;
-}
-.customer-project
-  .project-detail-columns
-  #project-details
-  > .panel
-  > .project-detail-rows {
-  display: block;
 }
 .project-pro-media {
   position: relative;
@@ -4651,47 +4644,6 @@ a:focus-visible {
   color: #1b3444;
   font-size: 14px;
   margin-bottom: 8px;
-}
-@media (max-width: 1250px) and (min-width: 1001px) {
-  .customer-project .project-detail-columns {
-    grid-template-columns: 300px minmax(0, 1fr);
-  }
-  .customer-project .project-pro-card {
-    grid-template-columns: 130px minmax(0, 1fr);
-    gap: 12px;
-  }
-  .project-pro-offer {
-    grid-column: 1/-1;
-    border-left: 0;
-    border-top: 1px solid #eef1f3;
-    padding: 12px 0 0;
-  }
-  .customer-project .project-pro-actions {
-    flex-direction: row;
-    flex-wrap: wrap;
-  }
-  .customer-project .project-pro-actions button {
-    width: auto;
-  }
-}
-@media (max-width: 1000px) {
-  .customer-project .project-detail-columns {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .customer-project-controls {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 16px;
-  }
-  .customer-project #project-details {
-    display: contents;
-  }
-  .customer-project #project-estimates {
-    order: 1;
-  }
-  .customer-project .customer-project-controls {
-    order: 2;
-  }
 }
 @media (max-width: 600px) {
   .workspace-main.customer-project-main {
@@ -5110,6 +5062,229 @@ a:focus-visible {
     justify-content: flex-end;
   }
   .chat-header-actions .chat-project-details span {
-    display: inline;
+    display: none;
+  }
+}
+
+/* Keep project context available without competing with professional cards. */
+.directory-project-context {
+  max-width: 560px;
+  margin: 0 0 24px;
+}
+.customer-project .project-details-disclosure {
+  background: #fffef9;
+  border: 1px solid #dce6d5;
+  border-radius: 16px;
+  min-width: 0;
+  overflow: hidden;
+}
+.project-details-disclosure > summary {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 22px;
+  cursor: pointer;
+  list-style: none;
+  color: #174e36;
+}
+.project-details-disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+.project-details-disclosure > summary > span {
+  flex: 1;
+  min-width: 0;
+}
+.project-details-disclosure > summary strong {
+  display: block;
+  font-size: 16px;
+}
+.project-details-disclosure > summary small {
+  display: block;
+  color: #58705f;
+  margin-top: 4px;
+  font-size: 12px;
+}
+.project-details-disclosure > summary .disclosure-chevron {
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+.project-details-disclosure[open] > summary {
+  border-bottom: 1px solid #dce6d5;
+}
+.project-details-disclosure[open] > summary .disclosure-chevron {
+  transform: rotate(180deg);
+}
+.project-details-disclosure > summary:focus-visible {
+  outline: 3px solid #087443;
+  outline-offset: -4px;
+  border-radius: 14px;
+}
+.customer-project .project-details-disclosure > .panel {
+  border: 0;
+  box-shadow: none;
+  margin: 0;
+  border-radius: 0;
+}
+.customer-project .project-details-disclosure .project-detail-rows {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 36px;
+}
+.customer-project .customer-project-controls {
+  margin-top: 24px;
+}
+@media (min-width: 901px) {
+  .customer-project .project-pro-card {
+    grid-template-columns: 230px minmax(0, 1fr) 200px;
+    gap: 22px;
+  }
+  .customer-project .project-pro-main h3 {
+    font-size: 22px;
+  }
+  .customer-project .project-pro-bio {
+    font-size: 14px;
+  }
+  .customer-project .project-pro-meta,
+  .customer-project .project-pro-location {
+    font-size: 12px;
+  }
+  .customer-project .project-pro-actions button {
+    font-size: 13px;
+    min-height: 42px;
+  }
+}
+@media (max-width: 700px) {
+  .customer-project .project-details-disclosure .project-detail-rows {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .project-details-disclosure > summary {
+    padding: 16px;
+    gap: 10px;
+  }
+  .customer-project .customer-project-controls {
+    display: block;
+  }
+}
+/* A compact header leaves the conversation and composer room to breathe. */
+.workspace-main .chat-inbox {
+  border: 1px solid #d7e4d3;
+  box-shadow: 0 8px 32px #1d4c2810;
+}
+.workspace-main .chat-sidebar-heading {
+  padding: 20px;
+  background: #f8faef;
+  border-bottom: 1px solid #dce7d6;
+}
+.workspace-main .chat-sidebar-heading small {
+  display: none;
+}
+.workspace-main .chat-sidebar-heading h2 {
+  font-size: 26px;
+}
+.workspace-main .chat-header {
+  background: #fffef9;
+  padding: 16px 20px;
+}
+.workspace-main .chat-log {
+  background-color: #f3f7ed;
+  background-image: radial-gradient(#cbdcc555 0.8px, transparent 0.8px);
+}
+.workspace-main .chat-bubble {
+  border-radius: 16px 16px 16px 4px;
+  box-shadow: 0 2px 5px #24502d06;
+}
+.workspace-main .chat-bubble.mine {
+  background: #e2f0dc;
+  border-color: #d0e4c8;
+  border-radius: 16px 16px 4px 16px;
+}
+.workspace-main .chat-composer textarea {
+  background: white;
+  border-radius: 14px;
+}
+.workspace-main .chat-project-context {
+  padding: 8px 20px;
+}
+.chat-schedule-dialog {
+  box-sizing: border-box;
+  width: min(460px, calc(100% - 32px));
+  max-height: calc(100dvh - 40px);
+  overflow: auto;
+  border: 1px solid #d7e4d3;
+  border-radius: 22px;
+  padding: 24px;
+  background: #fffef9;
+  color: #163c31;
+  box-shadow: 0 24px 80px #082c2933;
+}
+.chat-schedule-dialog::backdrop {
+  background: #092f2766;
+  backdrop-filter: blur(3px);
+}
+.chat-schedule-dialog > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.chat-schedule-icon {
+  display: grid;
+  place-items: center;
+  background: #e5f2df;
+  color: #087443;
+  border-radius: 14px;
+  padding: 12px;
+}
+.chat-schedule-dialog h2 {
+  font-size: 26px;
+  margin: 18px 0 8px;
+}
+.chat-schedule-dialog p {
+  font-size: 14px;
+  line-height: 1.6;
+  color: #58705f;
+}
+.chat-schedule-dialog .chat-schedule-project {
+  color: #087443;
+  font-weight: 700;
+  margin: 0;
+}
+.chat-schedule-dialog form > label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin: 20px 0 8px;
+}
+.chat-schedule-dialog input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #cbdcc6;
+  border-radius: 10px;
+  padding: 12px;
+  background: white;
+}
+.chat-schedule-dialog .actions {
+  margin-top: 20px;
+}
+.chat-header-actions .chat-block-action {
+  color: #9a4242 !important;
+}
+@media (max-width: 600px) {
+  .workspace-main .chat-header {
+    padding: 12px;
+  }
+  .chat-header-actions .chat-suggest-time span {
+    display: none;
+  }
+  .workspace-main .chat-header-actions {
+    gap: 5px;
+  }
+  .workspace-main .chat-header-actions button {
+    min-height: 38px;
+    padding: 8px !important;
+    font-size: 11px;
+  }
+  .workspace-main .chat-project-context {
+    padding: 8px 12px;
   }
 }

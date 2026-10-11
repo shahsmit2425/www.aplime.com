@@ -40,6 +40,7 @@ export function ChatInbox({
   footer,
   loading,
   error,
+  searchable = true,
 }: {
   items: ChatItem[];
   selected?: string;
@@ -49,14 +50,17 @@ export function ChatInbox({
   footer?: ReactNode;
   loading?: boolean;
   error?: string;
+  searchable?: boolean;
 }) {
   const [query, setQuery] = useState("");
-  const visible = items.filter((i) =>
-    [i.name, i.subtitle, i.preview]
-      .join(" ")
-      .toLowerCase()
-      .includes(query.trim().toLowerCase()),
-  );
+  const visible = !searchable
+    ? items
+    : items.filter((i) =>
+        [i.name, i.subtitle, i.preview]
+          .join(" ")
+          .toLowerCase()
+          .includes(query.trim().toLowerCase()),
+      );
   return (
     <div className={"chat-inbox" + (selected ? " chat-has-selection" : "")}>
       <aside className="chat-sidebar" aria-label="Conversations">
@@ -67,15 +71,17 @@ export function ChatInbox({
           </div>
           {tools}
         </div>
-        <label className="chat-search">
-          <Search size={18} />
-          <input
-            aria-label="Search loaded conversations"
-            placeholder="Search conversations"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-        </label>
+        {searchable && (
+          <label className="chat-search">
+            <Search size={18} />
+            <input
+              aria-label="Search loaded conversations"
+              placeholder="Search conversations"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </label>
+        )}
         {loading && (
           <p className="chat-status" role="status">
             Loading conversations…
@@ -126,7 +132,7 @@ export function ChatInbox({
           ))}
           {!loading && !visible.length && (
             <p className="chat-status">
-              {query
+              {searchable && query
                 ? "No conversations match this search."
                 : "Your conversations will appear here."}
             </p>

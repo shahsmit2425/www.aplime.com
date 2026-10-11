@@ -95,6 +95,7 @@ export function MessagesInbox({
   );
   return (
     <ChatInbox
+      searchable={false}
       items={items}
       selected={project?.id || id}
       loading={loading}

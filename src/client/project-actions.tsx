@@ -30,12 +30,20 @@ import { appointmentIcs, directionsUrl, downloadIcs } from "./calendar.js";
 export function jumpTo(id: string) {
   const el = document.getElementById(id);
   if (!el) return;
-  if (el instanceof HTMLDetailsElement) el.open = true;
+  for (
+    let parent: HTMLElement | null = el;
+    parent;
+    parent = parent.parentElement
+  ) {
+    if (parent instanceof HTMLDetailsElement) parent.open = true;
+  }
   el.scrollIntoView({ behavior: "smooth", block: "start" });
-  const focusable = el.querySelector<HTMLElement>(
-    "textarea,input,select,button",
-  );
-  setTimeout(() => focusable?.focus({ preventScroll: true }), 350);
+  setTimeout(() => {
+    const focusable =
+      el.querySelector<HTMLElement>("textarea,input,select") ||
+      el.querySelector<HTMLElement>("button,summary");
+    focusable?.focus({ preventScroll: true });
+  }, 350);
 }
 
 export function SavePro({
@@ -93,7 +101,7 @@ export function ChatWithPro({
             {},
           );
           go("messages", discussionRoute(thread.id, projectId));
-        }, "Conversation ready.")
+        }, "")
       }
     >
       <MessageCircle size={17} /> {label}

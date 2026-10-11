@@ -53,11 +53,11 @@ const descriptions = {
   ],
   archive: [
     "Archive project",
-    "Move this project to your Archived list. The other participant's records are unaffected.",
+    "Mark this project as archived. It remains accessible from your dashboard; the other participant's records are unaffected.",
   ],
   restore: [
     "Restore to my list",
-    "Return this project to your project list without reopening or changing its status.",
+    "Remove the archived label without reopening or changing this project's status.",
   ],
   dispute: [
     "Get help",

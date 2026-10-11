@@ -5,7 +5,6 @@ import {
 } from "./project-presentation.js";
 import { CustomerDashboard } from "./customer-dashboard.js";
 import { ProjectProfessionals } from "./project-professionals.js";
-import { filterDirectory } from "./directory-filters.js";
 import { SetupNotice } from "./setup-notice.js";
 import {
   ProjectCard,
@@ -38,6 +37,8 @@ import {
 import { useEffect, useState } from "react";
 import {
   CalendarDays,
+  ChevronDown,
+  FileText,
   MessageCircle,
   Plus,
   Search,
@@ -294,14 +295,6 @@ function Directory() {
   const { data, page, id, run, go, busy } = useWorkspace();
   const openDiscovery = data.discoveryMode === "open";
   const [projectId, setProjectId] = useState(id || "");
-  const [filters, setFilters] = useState({
-    query: "",
-    category: "",
-    verified: false,
-    sort: "default",
-  });
-  const resetFilters = () =>
-    setFilters({ query: "", category: "", verified: false, sort: "default" });
   const openProjects = data.projects.filter(
     (p) => !p.proId && ["requested", "quoted"].includes(p.status),
   );
@@ -315,7 +308,7 @@ function Directory() {
         ? p.discoverable
         : p.matchedProjectIds?.includes(selectedId),
   );
-  const profiles = filterDirectory(eligibleProfiles, filters);
+  const profiles = eligibleProfiles;
   return (
     <section
       className="directory-page"
@@ -352,9 +345,9 @@ function Directory() {
           </span>
         </div>
       </div>
-      <div className="directory-searchbar">
-        {(page !== "saved" || openDiscovery) && openProjects.length > 0 && (
-          <Field label="Current project">
+      {(page !== "saved" || openDiscovery) && openProjects.length > 0 && (
+        <div className="directory-project-context">
+          <Field label="Project to discuss">
             <select
               value={selectedId}
               onChange={(e) => setProjectId(e.target.value)}
@@ -366,64 +359,8 @@ function Directory() {
               ))}
             </select>
           </Field>
-        )}
-        <label className="directory-search">
-          <span>Search professionals</span>
-          <div>
-            <Search size={20} aria-hidden="true" />
-            <input
-              type="search"
-              value={filters.query}
-              placeholder="Business, service or ZIP code"
-              onChange={(e) =>
-                setFilters({ ...filters, query: e.target.value })
-              }
-            />
-          </div>
-        </label>
-      </div>
-      <div className="directory-filters">
-        <label>
-          <span>Service</span>
-          <select
-            value={filters.category}
-            onChange={(e) =>
-              setFilters({ ...filters, category: e.target.value })
-            }
-          >
-            <option value="">All services</option>
-            {categories.map((c) => (
-              <option key={c}>{c}</option>
-            ))}
-          </select>
-        </label>
-        <label className="directory-verified">
-          <input
-            type="checkbox"
-            checked={filters.verified}
-            onChange={(e) =>
-              setFilters({ ...filters, verified: e.target.checked })
-            }
-          />
-          <ShieldCheck size={17} />
-          Identity verified
-        </label>
-        <label>
-          <span>Sort by</span>
-          <select
-            value={filters.sort}
-            onChange={(e) => setFilters({ ...filters, sort: e.target.value })}
-          >
-            <option value="default">Default order</option>
-            <option value="name">Business name</option>
-            <option value="rate">Starting rate: low to high</option>
-            <option value="rating">Highest rated</option>
-          </select>
-        </label>
-        <p role="status">
-          {profiles.length} of {eligibleProfiles.length} profiles
-        </p>
-      </div>
+        </div>
+      )}
       {openDiscovery && !openProjects.length && (
         <div className="inline-next-action">
           <p>
@@ -463,7 +400,7 @@ function Directory() {
                               {},
                             );
                             go("messages", thread.id);
-                          }, "Conversation ready.")
+                          }, "")
                         }
                       >
                         <MessageCircle size={18} />
@@ -489,13 +426,6 @@ function Directory() {
             );
           })}
         </div>
-      ) : eligibleProfiles.length > 0 ? (
-        <Empty title="No professionals match these filters.">
-          Try a different business, service or ZIP code.
-          <button className="secondary" onClick={resetFilters}>
-            Clear filters
-          </button>
-        </Empty>
       ) : (
         <Empty
           title={
@@ -648,11 +578,7 @@ function Projects() {
     string,
     any
   > | null>(null);
-  const [showArchived, setShowArchived] = useState(false);
-  const source =
-    page === "leads"
-      ? data.leads
-      : data.projects.filter((p) => !!p.archived === showArchived);
+  const source = page === "leads" ? data.leads : data.projects;
   useEffect(() => {
     if (data.user.role !== "customer") return;
     void request<{ payload: Record<string, any> | null }>("/project-draft")
@@ -761,16 +687,6 @@ function Projects() {
               : "New requests matched to your services and area."
             : "Requests, estimates, and updates stay together."}
         </Head>
-      )}
-      {!creating && page !== "leads" && (
-        <label className="checkbox">
-          <input
-            type="checkbox"
-            checked={showArchived}
-            onChange={(e) => setShowArchived(e.target.checked)}
-          />
-          Show archived projects
-        </label>
       )}
       {creating && data.user.role === "customer" && (
         <Panel title="Tell us about your project">
@@ -1129,13 +1045,7 @@ function Projects() {
       {!creating && (
         <section className="project-collection" aria-label="Projects">
           <CollectionHeading
-            title={
-              page === "leads"
-                ? "Available projects"
-                : showArchived
-                  ? "Archived projects"
-                  : "Your projects"
-            }
+            title={page === "leads" ? "Available projects" : "Your projects"}
             count={source.length}
           />
           {page === "leads" && !source.length ? (
@@ -1176,6 +1086,7 @@ function ProjectDetail() {
   const customer = p.customerId === data.user.id,
     pro = p.proId === data.user.id;
   const own = customer || pro;
+  const DetailsContainer = customer ? "details" : "div";
   const quotes = data.quotes.filter((q) => q.projectId === p.id);
   const open = ["requested", "quoted"].includes(p.status);
   const ownProfile = data.profiles.find((x) => x.id === data.user.id);
@@ -1418,7 +1329,24 @@ function ProjectDetail() {
           </Panel>
         )}
       <div className="two-columns project-detail-columns">
-        <div id="project-details">
+        <DetailsContainer
+          id="project-details"
+          key={p.id}
+          className={customer ? "project-details-disclosure" : undefined}
+        >
+          {customer && (
+            <summary>
+              <FileText size={20} />
+              <span>
+                <strong>Project details & photos</strong>
+                <small>
+                  {p.category} · {projectPhotos.length}{" "}
+                  {projectPhotos.length === 1 ? "photo" : "photos"}
+                </small>
+              </span>
+              <ChevronDown size={20} className="disclosure-chevron" />
+            </summary>
+          )}
           <Panel title={customer ? undefined : "Project details"}>
             {customer ? (
               <CustomerProjectDetails
@@ -1548,12 +1476,7 @@ function ProjectDetail() {
             )}
           </Panel>
           <ProjectPhotoGallery key={p.id} files={projectPhotos} />
-          {customer && (
-            <div className="customer-project-controls">
-              <ProjectControls key={p.id} project={p} />
-            </div>
-          )}
-        </div>
+        </DetailsContainer>
         <div id="project-estimates">
           {customer ? (
             <ProjectProfessionals project={p} submit={submit} />
@@ -1851,8 +1774,13 @@ function ProjectDetail() {
           )}
         </div>
       </div>
-      {own && !customer && (
-        <div className="project-operation-grid">
+      {own && (
+        <div
+          className={
+            "project-operation-grid" +
+            (customer ? " customer-project-controls" : "")
+          }
+        >
           <ProjectControls key={p.id} project={p} />
         </div>
       )}
@@ -2036,8 +1964,7 @@ function CreditIcon() {
 }
 function Notifications() {
   const { data, run, busy, go } = useWorkspace();
-  const [unreadOnly, setUnreadOnly] = useState(false);
-  const notices = data.notices.filter((n) => !unreadOnly || !n.read);
+  const notices = data.notices;
   return (
     <>
       <Head
@@ -2057,14 +1984,6 @@ function Notifications() {
         Your project, conversation, and account updates. {data.unreadCount || 0}{" "}
         unread.
       </Head>
-      <label className="notification-filter">
-        <input
-          type="checkbox"
-          checked={unreadOnly}
-          onChange={(e) => setUnreadOnly(e.target.checked)}
-        />{" "}
-        Show unread only
-      </label>
       <Panel>
         {notices.length ? (
           notices.map((n) => (
@@ -2111,11 +2030,7 @@ function Notifications() {
             </article>
           ))
         ) : (
-          <Empty
-            title={
-              unreadOnly ? "No unread notifications" : "No notifications yet"
-            }
-          />
+          <Empty title="No notifications yet" />
         )}
         <p>
           Showing your latest 100 notifications. Older unread updates are

@@ -1,4 +1,3 @@
-import { useState } from "react";
 import {
   CalendarDays,
   Users,
@@ -24,7 +23,6 @@ export function ProjectProfessionals({
   submit: (body: unknown) => Promise<unknown>;
 }) {
   const { data, go, run, busy } = useWorkspace();
-  const [sort, setSort] = useState("match");
   const quotes = data.quotes.filter((q) => q.projectId === p.id);
   const profiles = projectProfessionals(
     p,
@@ -40,20 +38,9 @@ export function ProjectProfessionals({
       ...(p.proId ? [p.proId] : []),
     ]),
   ];
-  const ordered = [...ids].sort((a, b) => {
-    if (sort === "name")
-      return (profiles.find((f) => f.id === a)?.business || "").localeCompare(
-        profiles.find((f) => f.id === b)?.business || "",
-      );
-    if (sort === "rating") {
-      const pa = profiles.find((f) => f.id === a),
-        pb = profiles.find((f) => f.id === b);
-      return (
-        (pb?.reviewCount ? pb.rating : -1) - (pa?.reviewCount ? pa.rating : -1)
-      );
-    }
-    return Number(b === p.proId) - Number(a === p.proId);
-  });
+  const ordered = [...ids].sort(
+    (a, b) => Number(b === p.proId) - Number(a === p.proId),
+  );
   const open = ["requested", "quoted"].includes(p.status);
   const accept = (q: Quote, business: string) => {
     if (
@@ -88,16 +75,6 @@ export function ProjectProfessionals({
           </h2>
           <p>Compare profiles and estimates to choose the best fit.</p>
         </div>
-        {ids.length > 1 && (
-          <label>
-            <span className="sr-only">Sort professionals</span>
-            <select value={sort} onChange={(e) => setSort(e.target.value)}>
-              <option value="match">Project order</option>
-              <option value="rating">Highest rated</option>
-              <option value="name">Business name</option>
-            </select>
-          </label>
-        )}
       </div>
       <div id="project-professionals" className="project-pro-list">
         {!ids.length && (
