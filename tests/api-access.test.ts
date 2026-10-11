@@ -58,6 +58,8 @@ test("actual admin routes reject unauthenticated direct requests and forged role
     ["/projects/00000000-0000-4000-8000-000000000001/activity", "GET"],
     ["/notifications/stream", "GET"],
     ["/call-meetings", "GET"],
+    ["/projects/00000000-0000-4000-8000-000000000001/call", "POST"],
+    ["/discussions/00000000-0000-4000-8000-000000000001/call", "POST"],
     ["/call-meetings", "POST"],
     ["/call-meetings/00000000-0000-4000-8000-000000000001/actions", "POST"],
     ["/call-meetings/00000000-0000-4000-8000-000000000001/join", "POST"],

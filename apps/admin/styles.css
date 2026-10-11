@@ -1,3 +1,5 @@
+@import "../../src/shared/typography.css";
+
 :root {
   font-family: Inter, system-ui, sans-serif;
   color: #11251d;
@@ -139,7 +141,7 @@ article,
 }
 .admin-eyebrow {
   color: #087a46;
-  font-size: 12px;
+  font-size: var(--text-small);
   font-weight: 750;
   letter-spacing: 0.1em;
 }
@@ -155,7 +157,7 @@ article,
 .admin-auth-steps li {
   display: grid;
   gap: 8px;
-  font-size: 11px;
+  font-size: var(--text-caption);
   color: #53685d;
 }
 .admin-auth-steps span {
@@ -181,7 +183,7 @@ article,
   gap: 10px;
 }
 .admin-auth-note {
-  font-size: 13px;
+  font-size: var(--text-small);
   color: #50655a;
   overflow-wrap: anywhere;
 }
@@ -280,7 +282,7 @@ small {
   border: 0;
   background: transparent;
   color: #425e50;
-  font-size: 14px;
+  font-size: var(--text-body);
   font-weight: 550;
 }
 .admin-sidebar .admin-business-nav {
@@ -289,7 +291,7 @@ small {
   padding-left: 8px;
 }
 .admin-sidebar .admin-business-nav button {
-  font-size: 12px;
+  font-size: var(--text-small);
   padding: 9px;
 }
 .admin-sidebar nav button[aria-current],
@@ -303,7 +305,7 @@ small {
   color: white;
   padding: 2px 6px;
   border-radius: 6px;
-  font-size: 11px;
+  font-size: var(--text-caption);
 }
 .admin-sidebar-person {
   display: flex;
@@ -326,7 +328,7 @@ small {
 .admin-sidebar-person small {
   display: block;
   color: #62766b;
-  font-size: 11px;
+  font-size: var(--text-caption);
   margin-top: 5px;
 }
 .admin-content {
@@ -350,14 +352,14 @@ small {
 .admin-page-heading p {
   color: #62766b;
   margin: 0;
-  font-size: 14px;
+  font-size: var(--text-body);
 }
 .admin-content button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 7px;
-  font-size: 13px;
+  font-size: var(--text-small);
   font-weight: 600;
 }
 .admin-metrics {
@@ -381,7 +383,7 @@ small {
 }
 .admin-metrics p {
   color: #5e7567;
-  font-size: 13px;
+  font-size: var(--text-small);
   margin: 10px 0 7px;
 }
 .admin-metrics strong {
@@ -427,13 +429,13 @@ small {
 }
 .admin-card-heading h2 {
   margin: 0;
-  font-size: 17px;
+  font-size: var(--text-lead);
   letter-spacing: -0.3px;
 }
 .admin-muted,
 .admin-data-note {
   color: #62766b;
-  font-size: 12px;
+  font-size: var(--text-small);
   line-height: 1.7;
 }
 .admin-chart svg {
@@ -445,7 +447,7 @@ small {
   display: flex;
   gap: 18px;
   flex-wrap: wrap;
-  font-size: 12px;
+  font-size: var(--text-small);
   color: #5b6e62;
   margin: 16px 0;
 }
@@ -469,7 +471,7 @@ small {
   grid-template-columns: minmax(95px, 1fr) 2fr 35px;
   align-items: center;
   gap: 12px;
-  font-size: 12px;
+  font-size: var(--text-small);
 }
 .admin-bars > div > div {
   background: #eef5f0;
@@ -496,7 +498,7 @@ small {
   width: 100%;
   border-collapse: collapse;
   text-align: left;
-  font-size: 12px;
+  font-size: var(--text-small);
 }
 .admin-table-wrap th {
   background: #f5f9f6;
@@ -530,7 +532,7 @@ small {
   border-radius: 6px;
   background: #f5efe2;
   color: #79580f;
-  font-size: 11px;
+  font-size: var(--text-caption);
   font-weight: 650;
   line-height: 1.35;
   white-space: nowrap;
@@ -546,7 +548,7 @@ small {
 .admin-empty {
   padding: 24px 0;
   color: #62766b;
-  font-size: 14px;
+  font-size: var(--text-body);
 }
 .admin-pager {
   display: flex;
@@ -554,7 +556,7 @@ small {
   align-items: center;
   gap: 14px;
   margin-top: 18px;
-  font-size: 12px;
+  font-size: var(--text-small);
   color: #62766b;
   flex-wrap: wrap;
 }
@@ -587,7 +589,7 @@ small {
 .admin-filters input {
   border: 0;
   background: transparent;
-  font-size: 13px;
+  font-size: var(--text-small);
 }
 .admin-filters select {
   padding: 12px;
@@ -596,7 +598,7 @@ small {
   background: white;
   color: #274d39;
   font: inherit;
-  font-size: 13px;
+  font-size: var(--text-small);
 }
 .admin-content .admin-back {
   background: transparent;
@@ -618,7 +620,7 @@ small {
   letter-spacing: -0.6px;
 }
 .admin-detail-heading p {
-  font-size: 14px;
+  font-size: var(--text-body);
   color: #62766b;
 }
 .admin-eyebrow {
@@ -646,19 +648,19 @@ small {
 }
 .admin-facts dt {
   color: #62766b;
-  font-size: 12px;
+  font-size: var(--text-small);
   margin-bottom: 7px;
 }
 .admin-facts dd {
   margin: 0;
-  font-size: 14px;
+  font-size: var(--text-body);
   line-height: 1.65;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
 }
 .admin-facts pre {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--text-small);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -683,7 +685,7 @@ small {
 }
 .admin-business-media figcaption {
   color: #62766b;
-  font-size: 12px;
+  font-size: var(--text-small);
   margin-top: 10px;
 }
 .admin-prose {
@@ -705,7 +707,7 @@ small {
   background: #eaf5ee;
   border-left: 3px solid #1f8a51;
   border-radius: 6px;
-  font-size: 14px;
+  font-size: var(--text-body);
 }
 .admin-banner a {
   color: #075d36;
@@ -717,7 +719,7 @@ small {
 .admin-content summary {
   color: #087a46;
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--text-small);
   padding: 12px 0;
 }
 .admin-thread-row {
@@ -767,23 +769,23 @@ small {
   background: #eaf6ee;
 }
 .admin-chat strong {
-  font-size: 13px;
+  font-size: var(--text-small);
 }
 .admin-chat p {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   margin: 8px 0;
-  font-size: 14px;
+  font-size: var(--text-body);
 }
 .admin-chat small {
   color: #62766b;
-  font-size: 11px;
+  font-size: var(--text-caption);
 }
 .admin-notice {
   margin: 16px 0;
 }
 .admin-notice h3 {
-  font-size: 15px;
+  font-size: var(--text-body);
 }
 .admin-data-note {
   display: flex;
@@ -837,7 +839,7 @@ small {
   }
   .admin-sidebar nav button {
     padding: 10px;
-    font-size: 12px;
+    font-size: var(--text-small);
     gap: 6px;
   }
   .admin-content {
@@ -850,7 +852,7 @@ small {
     font-size: 29px;
   }
   .admin-page-heading p {
-    font-size: 12px;
+    font-size: var(--text-small);
   }
   .admin-page-heading > button {
     padding: 9px;
@@ -898,12 +900,12 @@ small {
 }
 .admin-network text {
   font:
-    13px Inter,
+    var(--text-small) Inter,
     sans-serif;
   fill: #163f30;
 }
 .admin-network .network-heading {
-  font-size: 11px;
+  font-size: var(--text-caption);
   font-weight: 800;
   letter-spacing: 1.5px;
 }
@@ -923,6 +925,34 @@ small {
 }
 .admin-file-preview figcaption {
   color: #526b61;
-  font-size: 13px;
+  font-size: var(--text-small);
   margin-top: 8px;
+}
+
+/* Administration uses the same readable text scale as customer/pro workspaces. */
+body {
+  font-size: var(--text-body);
+}
+:is(
+  .panel,
+  .card,
+  .stat,
+  .auth-card,
+  .admin-card,
+  .admin-section,
+  .admin-chart,
+  .admin-table-wrap,
+  .admin-detail,
+  .chat-inbox
+) {
+  border: 2px solid var(--section-border);
+}
+input,
+select,
+textarea {
+  font-size: var(--text-body);
+  border-color: #99b39f;
+}
+button {
+  font-size: var(--text-small);
 }

@@ -107,6 +107,12 @@ await db.exec(
 await db.exec(
   await readFile("src/server/db/migrations/013_scheduled_calls.sql", "utf8"),
 );
+await db.exec(
+  await readFile(
+    "src/server/db/migrations/014_one_active_call_per_pair.sql",
+    "utf8",
+  ),
+);
 
 test.after(async () => {
   await db.close();
@@ -936,7 +942,7 @@ test("private discussions hide messages from outsiders and enforce blocking", as
           audioOnly: true,
         })
       ).status,
-      403,
+      410,
     );
     await query(
       "DELETE FROM blocked WHERE (user_id=$1 AND other_id=$2) OR (user_id=$2 AND other_id=$1)",
@@ -959,7 +965,7 @@ test("private discussions hide messages from outsiders and enforce blocking", as
           audioOnly: true,
         })
       ).status,
-      403,
+      410,
     );
     const suspendedPairs = (await (
       await call("/discussions", customer.id)

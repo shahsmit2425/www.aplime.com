@@ -27,17 +27,20 @@ test("Daily calls use one private two-person room and participant-scoped tokens"
     return new Response(null, { status: 500 });
   }) as typeof fetch;
   try {
+    const endsAt = Date.now() + 30 * 60000;
     const audio = await meeting(
-      "discussion-123",
+      "meeting-123",
       "professional-1",
       "Alex Professional",
       true,
+      endsAt,
     );
     const video = await meeting(
-      "discussion-123",
+      "meeting-123",
       "customer-1",
       "Casey Customer",
       false,
+      endsAt,
     );
     assert.equal(
       audio.url,
@@ -51,6 +54,7 @@ test("Daily calls use one private two-person room and participant-scoped tokens"
     assert.equal(roomRequest?.body.properties.max_participants, 2);
     assert.equal(roomRequest?.body.properties.enable_recording, false);
     assert.equal(roomRequest?.body.properties.enable_chat, false);
+    assert.equal(roomRequest?.body.properties.eject_at_room_exp, true);
     const tokens = requests.filter((request) =>
       request.url.endsWith("/meeting-tokens"),
     );
@@ -67,7 +71,42 @@ test("Daily calls use one private two-person room and participant-scoped tokens"
     assert.equal(tokens[0].body.properties.eject_at_token_exp, true);
     const secondsRemaining =
       tokens[0].body.properties.exp - Math.floor(Date.now() / 1000);
-    assert.ok(secondsRemaining >= 3595 && secondsRemaining <= 3600);
+    assert.ok(secondsRemaining >= 1795 && secondsRemaining <= 1800);
+    const before = requests.length;
+    await assert.rejects(
+      meeting("closed", "customer-1", "Casey", false, Date.now() - 1),
+      /ended/,
+    );
+    assert.equal(
+      requests.length,
+      before,
+      "an ended meeting never creates a room or token",
+    );
+    await meeting(
+      "meeting-456",
+      "customer-1",
+      "Casey",
+      false,
+      Date.now() + 30 * 60000,
+    );
+    const later = requests.at(-1)!;
+    assert.notEqual(
+      later.body.properties.room_name,
+      tokens[0].body.properties.room_name,
+      "new meetings cannot reuse old join links",
+    );
+    await meeting(
+      "meeting-123",
+      "customer-1",
+      "Casey",
+      false,
+      endsAt + 30 * 60000,
+    );
+    assert.notEqual(
+      requests.at(-1)!.body.properties.room_name,
+      tokens[0].body.properties.room_name,
+      "a rescheduled time cannot reuse a room with the old expiry",
+    );
   } finally {
     global.fetch = originalFetch;
   }

@@ -1,3 +1,4 @@
+import { ProfessionalActions } from "./professional-actions.js";
 import { CallMeetings } from "./call-meetings.js";
 import { ProjectPhotoGallery } from "./project-photo-gallery.js";
 import {
@@ -138,21 +139,15 @@ function PageContent() {
       );
   }
 }
-function ProjectList({
-  projects,
-  compact = false,
-}: {
-  projects: Project[];
-  compact?: boolean;
-}) {
-  const { go } = useWorkspace();
+function ProjectList({ projects }: { projects: Project[] }) {
+  const { data, go } = useWorkspace();
   return projects.length ? (
-    <div className={compact ? "project-card-list" : "project-card-grid"}>
+    <div className="project-card-grid">
       {projects.map((p) => (
         <ProjectCard
           key={p.id}
           project={p}
-          compact={compact}
+          quotes={data.quotes}
           onOpen={() => go("project", p.id)}
         />
       ))}
@@ -223,7 +218,6 @@ function Dashboard() {
       <div className="two-columns">
         <Panel title="Recent projects">
           <ProjectList
-            compact
             projects={data.projects.filter((p) => !p.archived).slice(0, 4)}
           />
         </Panel>
@@ -389,41 +383,8 @@ function Directory() {
                 profile={p}
                 preview={data.marketplacePreview && !p.canRespond}
                 save={<SavePro proId={p.id} />}
-                actions={
-                  <>
-                    {match && (
-                      <button
-                        disabled={busy}
-                        onClick={() =>
-                          void run(async () => {
-                            const thread = await request(
-                              "/projects/" + match + "/discussions/" + p.id,
-                              {},
-                            );
-                            go("messages", thread.id);
-                          }, "")
-                        }
-                      >
-                        <MessageCircle size={18} />
-                        Chat with pro
-                      </button>
-                    )}
-                    <button
-                      className="secondary"
-                      onClick={() => go("pro", p.id)}
-                    >
-                      Full profile
-                    </button>
-                  </>
-                }
-              >
-                <details className="card-hours">
-                  <summary>
-                    <CalendarDays size={15} /> View visit hours
-                  </summary>
-                  <Availability profile={p} />
-                </details>
-              </ProfessionalCard>
+                actions={<ProfessionalActions proId={p.id} projectId={match} />}
+              />
             );
           })}
         </div>
@@ -543,7 +504,7 @@ function ProProfile() {
                 </>
               )}
               <small className="muted">
-                Chat, audio and video calls are available in your project
+                Chat and scheduled calls are available in your project
                 conversation.
               </small>
             </>
@@ -1876,7 +1837,6 @@ function Schedule() {
       <CallMeetings />
       <Panel title="Upcoming site visits">
         <ProjectList
-          compact
           projects={data.projects
             .filter(
               (p) =>

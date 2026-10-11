@@ -63,6 +63,14 @@ export function callCanJoin(
   return (
     m.status === "confirmed" &&
     now >= start - 15 * 60000 &&
-    now < start + (CALL_MINUTES + 30) * 60000
+    now < start + CALL_MINUTES * 60000
   );
+}
+export function callIsActive(
+  m: Pick<CallMeeting, "startsAt" | "status" | "proposedAt">,
+  now = Date.now(),
+) {
+  return m.status === "confirmed"
+    ? now < Date.parse(m.startsAt) + CALL_MINUTES * 60000
+    : m.status === "requested" && now < Date.parse(m.proposedAt || m.startsAt);
 }

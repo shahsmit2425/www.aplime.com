@@ -74,7 +74,11 @@ test("deployment graph follows actual shared dependencies", () => {
 });
 
 test("shared chat presentation deploys both clients without restarting API or worker", () => {
-  for (const path of ["src/shared/chat-ui.tsx", "src/shared/chat.css"])
+  for (const path of [
+    "src/shared/chat-ui.tsx",
+    "src/shared/chat.css",
+    "src/shared/typography.css",
+  ])
     assert.deepEqual(affected([path]), {
       admin: true,
       web: true,
@@ -118,4 +122,14 @@ test("call meeting contract is shared by marketplace clients and API, while its 
       mobile: true,
     },
   );
+});
+
+test("meeting expiry is a shared API and worker responsibility", () => {
+  assert.deepEqual(affected(["src/server/meeting-lifecycle.ts"]), {
+    web: false,
+    admin: false,
+    api: true,
+    worker: true,
+    mobile: false,
+  });
 });

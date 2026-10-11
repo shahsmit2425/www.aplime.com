@@ -33,7 +33,7 @@ export function affected(paths) {
       result.web = true;
       continue;
     }
-    if (/^src\/shared\/(chat-ui\.tsx|chat\.css)$/.test(file)) {
+    if (/^src\/shared\/(chat-ui\.tsx|chat\.css|typography\.css)$/.test(file)) {
       result.web = result.admin = result.mobile = true;
       continue;
     }
@@ -60,7 +60,7 @@ export function affected(paths) {
     if (/^(src\/server\/|apps\/api\/)/.test(file)) {
       result.api = true;
       if (
-        /(\/db\/|\/config\.|\/repository\.|\/worker\.|\/integrations\/email\.|\/errors\.)/.test(
+        /(\/db\/|\/config\.|\/repository\.|\/worker\.|\/meeting-lifecycle\.|\/integrations\/email\.|\/errors\.)/.test(
           file,
         )
       )

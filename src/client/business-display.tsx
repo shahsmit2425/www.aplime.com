@@ -251,13 +251,13 @@ export function BusinessDisplay({
             <h2>Contact & service area</h2>
             <div className="profile-contact-list">
               {profile.details?.phone && (
-                <a href={"tel:" + profile.details.phone.replace(/[^+\d]/g, "")}>
+                <div>
                   <Phone size={18} />
                   <span>
                     <small>Business phone</small>
                     {profile.details.phone}
                   </span>
-                </a>
+                </div>
               )}
               {profile.details?.email && (
                 <a href={"mailto:" + profile.details.email}>

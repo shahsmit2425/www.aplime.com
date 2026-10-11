@@ -13,12 +13,10 @@ import {
   MapPin,
   MessageCircle,
   Pencil,
-  Phone,
   RotateCcw,
   Send,
   Star,
   Users,
-  Video,
 } from "lucide-react";
 import type { Project } from "../shared/domain.js";
 import { money } from "../shared/domain.js";
@@ -60,7 +58,7 @@ export function SavePro({
   return (
     <button
       type="button"
-      className={label ? "secondary" : "icon-button"}
+      className={"favorite-button " + (label ? "secondary" : "icon-button")}
       aria-label={name}
       aria-pressed={saved}
       disabled={busy}
@@ -131,12 +129,6 @@ export function ProjectActionBar({
   const open = ["requested", "quoted"].includes(p.status);
   const live = ["booked", "in_progress", "paused"].includes(p.status);
   const reviewed = data.reviews.some((r) => r.projectId === p.id);
-  const calling = !!p.proId && (customer || assigned) && live;
-  const call = (audioOnly: boolean) =>
-    run(async () => {
-      const r = await request("/projects/" + p.id + "/call", { audioOnly });
-      await openExternal(r.url);
-    }, "");
   const buttons: React.ReactNode[] = [];
   const add = (key: string, node: React.ReactNode) =>
     buttons.push(<span key={key}>{node}</span>);
@@ -217,27 +209,7 @@ export function ProjectActionBar({
       </button>,
     );
   }
-  if (calling) {
-    add(
-      "audio",
-      <button
-        className="secondary"
-        disabled={busy}
-        onClick={() => void call(true)}
-      >
-        <Phone size={17} /> Audio call
-      </button>,
-    );
-    add(
-      "video",
-      <button
-        className="secondary"
-        disabled={busy}
-        onClick={() => void call(false)}
-      >
-        <Video size={17} /> Video call
-      </button>,
-    );
+  if (p.proId && (customer || assigned) && live) {
     if (p.status === "booked" && !p.cancellationRequestedBy)
       add(
         "propose",

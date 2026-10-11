@@ -7,7 +7,12 @@ import {
   ShieldCheck,
   Clock3,
 } from "lucide-react";
-import { money, type Project, type Profile } from "../shared/domain.js";
+import {
+  money,
+  type Project,
+  type Profile,
+  type Quote,
+} from "../shared/domain.js";
 import { ServiceIcon } from "./ui.js";
 const statusLabels: Record<Project["status"], string> = {
   requested: "Open request",
@@ -28,12 +33,18 @@ const urgencyLabels = {
 export function ProjectCard({
   project: p,
   onOpen,
-  compact = false,
+  quotes = [],
 }: {
   project: Project;
   onOpen: () => void;
-  compact?: boolean;
+  quotes?: Quote[];
 }) {
+  const pendingEstimates = quotes.filter(
+    (q) =>
+      q.projectId === p.id &&
+      q.status === "pending" &&
+      (!q.expiresAt || Date.parse(q.expiresAt) > Date.now()),
+  ).length;
   const appointment = p.scheduledAt
     ? new Date(p.scheduledAt).toLocaleString(undefined, {
         month: "short",
@@ -53,7 +64,7 @@ export function ProjectCard({
   return (
     <button
       type="button"
-      className={"project-card" + (compact ? " compact" : "")}
+      className="project-card"
       onClick={onOpen}
       aria-label={"View project: " + p.title}
     >
@@ -69,9 +80,7 @@ export function ProjectCard({
       <span className="project-card-copy">
         <span className="card-kicker">{p.category}</span>
         <strong className="project-card-title">{p.title}</strong>
-        {!compact && (
-          <span className="project-card-description">{p.description}</span>
-        )}
+        <span className="project-card-description">{p.description}</span>
       </span>
       <span className="project-card-details">
         <span>
@@ -85,17 +94,20 @@ export function ProjectCard({
       </span>
       <span className="project-card-footer">
         <span>
-          <small>{compact ? "Your connection" : "Project budget"}</small>
-          <strong>
-            {compact
-              ? p.proName || p.customerName || "Choose your professional"
-              : budget}
-          </strong>
+          <small>Project budget</small>
+          <strong>{budget}</strong>
         </span>
         <span className="card-open">
-          {!compact && "View project"}
+          View project
           <ArrowUpRight size={18} />
         </span>
+      </span>
+      <span className="project-card-updates">
+        <span>{pendingEstimates} pending estimates</span>
+        {p.archived && <strong>Archived</strong>}
+        {p.completionRequested && <strong>Completion requested</strong>}
+        {p.cancellationRequestedBy && <strong>Cancellation requested</strong>}
+        {p.proposedAt && <strong>Appointment proposed</strong>}
       </span>
     </button>
   );

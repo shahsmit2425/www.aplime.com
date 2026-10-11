@@ -5,7 +5,6 @@ import { z } from "zod";
 import { pool, transaction, camel } from "./db/index.js";
 import { getProject, notify } from "./repository.js";
 import { fail } from "./errors.js";
-import { meeting } from "./integrations/daily.js";
 import type pg from "pg";
 export const discussions = Router();
 export function canReadDiscussion(
@@ -265,43 +264,9 @@ discussions.post("/discussions/:id/messages", async (req, res) => {
   });
   res.json({ ok: true });
 });
-discussions.post("/discussions/:id/call", async (req, res) => {
-  const { audioOnly, projectId } = z
-    .object({ audioOnly: z.boolean(), projectId: z.string().uuid().optional() })
-    .strict()
-    .parse(req.body);
-  const { row, other, canonicalId } = await participant(
-    String(req.params.id),
-    req.account.id,
-    projectId,
+discussions.post("/discussions/:id/call", (_req, _res) => {
+  fail(
+    410,
+    "Direct calls are no longer available. Schedule and confirm a meeting to call.",
   );
-  await maySend(row, req.account.id, other);
-  const room = await meeting(
-    canonicalId,
-    req.account.id,
-    req.account.name,
-    audioOnly,
-  );
-  await transaction(async (c) => {
-    await c.query(
-      "INSERT INTO call_events(id,project_id,discussion_id,actor_id,mode) VALUES($1,$2,$3,$4,$5)",
-      [
-        randomUUID(),
-        row.project_id,
-        row.id,
-        req.account.id,
-        audioOnly ? "audio" : "video",
-      ],
-    );
-    await notify(
-      c,
-      other,
-      audioOnly
-        ? "Incoming audio call invitation"
-        : "Incoming video call invitation",
-      "Open your conversation and select the matching call button to join.",
-      { page: "messages", id: canonicalId },
-    );
-  });
-  res.json(room);
 });

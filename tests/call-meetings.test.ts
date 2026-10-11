@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import { once } from "node:events";
 import express from "express";
 import { PGlite } from "@electric-sql/pglite";
-import { callCanJoin } from "../src/shared/meetings.js";
+import { callCanJoin, callIsActive } from "../src/shared/meetings.js";
 process.env.MARKETPLACE_DISCOVERY_MODE = "matched";
 process.env.MARKETPLACE_PREVIEW = "false";
 const { pool, transaction } = await import("../src/server/db/index.js");
@@ -134,6 +134,11 @@ const act = (user: string, id: string, body: object, version: number) =>
     ...body,
     expectedVersion: version,
   });
+test.beforeEach(async () => {
+  await query(
+    "UPDATE scheduled_calls SET status='cancelled',proposed_at=NULL,proposed_by=NULL WHERE status IN ('requested','confirmed')",
+  );
+});
 test.after(async () => {
   await new Promise<void>((r) => server.close(() => r()));
   await db.close();
@@ -366,7 +371,7 @@ test("project closure or another pro selection cancels meetings and alerts both 
   }
 });
 
-test("Daily join is participant-only, time-limited and uses the same private conversation room", async () => {
+test("Daily join is participant-only, time-limited and uses a private scheduled-meeting room", async () => {
   const p = await project(),
     a = await create(p, slot(22));
   await act("pro", a.id, { type: "respond", accept: true }, 1);
@@ -415,6 +420,11 @@ test("Daily join is participant-only, time-limited and uses the same private con
       ["customer", "pro"],
     );
     assert.equal(tokens[0].body.properties.is_owner, false);
+    assert.equal(
+      tokens[0].body.properties.exp,
+      Math.floor((start + 30 * 60000) / 1000),
+    );
+    assert.equal(tokens[0].body.properties.eject_at_token_exp, true);
   } finally {
     globalThis.fetch = original;
   }
@@ -437,7 +447,16 @@ test("join window boundaries require a confirmed meeting", () => {
     };
   assert.equal(callCanJoin(m, start - 15 * 60000), true);
   assert.equal(callCanJoin(m, start - 15 * 60000 - 1), false);
-  assert.equal(callCanJoin(m, start + 60 * 60000), false);
+  assert.equal(callCanJoin(m, start + 30 * 60000 - 1), true);
+  assert.equal(callCanJoin(m, start + 30 * 60000), false);
+  assert.equal(
+    callIsActive({ ...m, proposedAt: null }, start + 30 * 60000),
+    false,
+  );
+  assert.equal(
+    callIsActive({ ...m, status: "requested", proposedAt: m.startsAt }, start),
+    false,
+  );
   assert.equal(callCanJoin({ ...m, status: "requested" }, start), false);
 });
 
@@ -499,4 +518,201 @@ test("a competing confirmation makes a proposed new time unavailable without los
   );
   assert.equal((await row(a.id)).status, "confirmed");
   await act("pro", a.id, { type: "respond", accept: false }, 3);
+});
+
+test("only one active meeting per pair across projects, times and initiators; closure permits the next", async () => {
+  const p = await project(),
+    p2 = await project(),
+    a = await create(p);
+  const body = {
+    id: randomUUID(),
+    projectId: p2,
+    proId: "pro",
+    startsAt: slot(2),
+    mode: "audio",
+  };
+  for (const user of ["customer", "pro"]) {
+    const r = await call(user, "/call-meetings", body);
+    assert.equal(r.status, 409);
+    assert.match(r.body.error, /already have an active meeting/);
+  }
+  await assert.rejects(
+    query(
+      "INSERT INTO scheduled_calls(id,project_id,customer_id,pro_id,starts_at,mode) VALUES($1,$2,'customer','pro',$3,'video')",
+      [randomUUID(), p2, slot(2)],
+    ),
+    /scheduled_calls_one_active_pair/,
+  );
+  await act("pro", a.id, { type: "cancel" }, 1);
+  const b = await create(p2, slot(2), "pro");
+  await act("customer", b.id, { type: "respond", accept: false }, 1);
+  const c = await create(p);
+  await act("pro", c.id, { type: "respond", accept: true }, 1);
+  assert.equal(
+    (await call("customer", "/call-meetings", { ...body, id: randomUUID() }))
+      .status,
+    409,
+  );
+});
+
+test("elapsed confirmed meetings close automatically, notify both once and free the pair", async () => {
+  const p = await project(),
+    a = await create(p);
+  await act("pro", a.id, { type: "respond", accept: true }, 1);
+  await query(
+    "UPDATE scheduled_calls SET starts_at=now()-interval '31 minutes' WHERE id=$1",
+    [a.id],
+  );
+  assert.equal(
+    (await call("pro", `/call-meetings/${a.id}/join`, {})).status,
+    409,
+  );
+  await call("customer", "/call-meetings");
+  assert.equal((await row(a.id)).status, "completed");
+  await call("pro", "/call-meetings");
+  const notices = (
+    await query(
+      "SELECT user_id FROM notifications WHERE target_id=$1 AND title='Call meeting completed' ORDER BY user_id",
+      [a.id],
+    )
+  ).rows;
+  assert.deepEqual(
+    notices.map((n) => n.user_id),
+    ["customer", "pro"],
+  );
+  await create(p, slot(2));
+});
+
+test("unconfirmed requests expire using the latest proposed time and creation also clears old meetings", async () => {
+  const p = await project(),
+    a = await create(p);
+  await query(
+    "UPDATE scheduled_calls SET starts_at=now()-interval '1 hour' WHERE id=$1",
+    [a.id],
+  );
+  await call("customer", "/call-meetings");
+  assert.equal(
+    (await row(a.id)).status,
+    "requested",
+    "a future proposed time still awaits a response",
+  );
+  await query(
+    "UPDATE scheduled_calls SET proposed_at=now()-interval '1 minute' WHERE id=$1",
+    [a.id],
+  );
+  await create(p, slot(2));
+  assert.equal((await row(a.id)).status, "cancelled");
+  const notices = (
+    await query(
+      "SELECT user_id FROM notifications WHERE target_id=$1 AND title='Call request expired' ORDER BY user_id",
+      [a.id],
+    )
+  ).rows;
+  assert.deepEqual(
+    notices.map((n) => n.user_id),
+    ["customer", "pro"],
+  );
+});
+
+test("migration retains one confirmed meeting and safely closes historical duplicates", async () => {
+  const old = new PGlite();
+  try {
+    for (const file of (await readdir("src/server/db/migrations"))
+      .filter((f) => f.endsWith(".sql") && f < "014")
+      .sort())
+      await old.exec(
+        await readFile("src/server/db/migrations/" + file, "utf8"),
+      );
+    await old.exec(
+      "INSERT INTO users(id,email,name,role) VALUES('c','c@fixture.invalid','C','customer'),('p','p@fixture.invalid','P','pro'); INSERT INTO profiles(id,business,category,bio,zip,rate) VALUES('p','Business','Cleaning','Business details','10001',40)",
+    );
+    const p = randomUUID(),
+      ids = [randomUUID(), randomUUID(), randomUUID()];
+    await old.query(
+      "INSERT INTO projects(id,customer_id,title,description,category,zip) VALUES($1,'c','Test project','Details for migration','Cleaning','10001')",
+      [p],
+    );
+    for (let i = 0; i < ids.length; i++)
+      await old.query(
+        "INSERT INTO scheduled_calls(id,project_id,customer_id,pro_id,starts_at,mode,status) VALUES($1,$2,'c','p',$3,'video',$4)",
+        [ids[i], p, slot(i), i === 1 ? "confirmed" : "requested"],
+      );
+    await old.exec(
+      await readFile(
+        "src/server/db/migrations/014_one_active_call_per_pair.sql",
+        "utf8",
+      ),
+    );
+    assert.deepEqual(
+      (
+        await old.query<any>(
+          "SELECT id FROM scheduled_calls WHERE status='confirmed'",
+        )
+      ).rows.map((r) => r.id),
+      [ids[1]],
+    );
+    assert.equal(
+      (
+        await old.query(
+          "SELECT id FROM scheduled_calls WHERE status='cancelled'",
+        )
+      ).rows.length,
+      2,
+    );
+    assert.equal(
+      (
+        await old.query(
+          "SELECT id FROM notifications WHERE title='Duplicate call request closed'",
+        )
+      ).rows.length,
+      4,
+    );
+  } finally {
+    await old.close();
+  }
+});
+
+test("a cancellation while Daily creates a token does not release a join link", async () => {
+  const p = await project(),
+    a = await create(p);
+  await act("pro", a.id, { type: "respond", accept: true }, 1);
+  await query(
+    "UPDATE scheduled_calls SET starts_at=now()-interval '5 minutes' WHERE id=$1",
+    [a.id],
+  );
+  env.DAILY_API_KEY = "test-only-not-a-real-key";
+  const original = globalThis.fetch;
+  globalThis.fetch = (async (input: any, init: any) => {
+    if (!String(input).startsWith("https://api.daily.co/"))
+      return original(input, init);
+    if (String(input).endsWith("meeting-tokens")) {
+      await query(
+        "UPDATE scheduled_calls SET status='cancelled',version=version+1 WHERE id=$1",
+        [a.id],
+      );
+      return Response.json({ token: "must-not-be-returned" });
+    }
+    return Response.json({ url: "https://fixture.daily.co/private-room" });
+  }) as typeof fetch;
+  try {
+    const r = await call("customer", `/call-meetings/${a.id}/join`, {});
+    assert.equal(r.status, 409);
+    assert.equal(r.body.url, undefined);
+    assert.equal(
+      (await query("SELECT id FROM call_events WHERE project_id=$1", [p])).rows
+        .length,
+      0,
+    );
+    assert.equal(
+      (
+        await query(
+          "SELECT id FROM notifications WHERE target_id=$1 AND title='Your call partner is joining'",
+          [a.id],
+        )
+      ).rows.length,
+      0,
+    );
+  } finally {
+    globalThis.fetch = original;
+  }
 });

@@ -19,25 +19,12 @@ export function CustomerDashboard() {
       {projects.length ? (
         <div className="project-card-grid">
           {projects.map((p) => (
-            <div className="dashboard-project" key={p.id}>
-              <ProjectCard project={p} onOpen={() => go("project", p.id)} />
-              <div className="dashboard-project-updates">
-                <span>
-                  {
-                    data.quotes.filter(
-                      (q) => q.projectId === p.id && q.status === "pending",
-                    ).length
-                  }{" "}
-                  pending estimates
-                </span>
-                {p.archived && <strong>Archived</strong>}
-                {p.completionRequested && <strong>Completion requested</strong>}
-                {p.cancellationRequestedBy && (
-                  <strong>Cancellation requested</strong>
-                )}
-                {p.proposedAt && <strong>Appointment proposed</strong>}
-              </div>
-            </div>
+            <ProjectCard
+              key={p.id}
+              project={p}
+              quotes={data.quotes}
+              onOpen={() => go("project", p.id)}
+            />
           ))}
         </div>
       ) : (

@@ -1,4 +1,4 @@
-import { CallScheduler } from "./call-meetings.js";
+import { ScheduleCallButton } from "./call-meetings.js";
 import { ProjectQuickView } from "./project-quick-view.js";
 import { useEffect, useState, useRef } from "react";
 import {
@@ -6,12 +6,10 @@ import {
   CalendarPlus,
   FileText,
   MessageCircle,
-  Phone,
   ShieldCheck,
-  Video,
   X,
 } from "lucide-react";
-import { request, openExternal } from "./api.js";
+import { request } from "./api.js";
 import { useWorkspace } from "./workspace.js";
 import { Panel, Field, Form } from "./ui.js";
 import {
@@ -99,7 +97,6 @@ export function Discussions({
   const [contextId, setContextId] = useState("");
   const [showProject, setShowProject] = useState(false);
   const [showSuggestion, setShowSuggestion] = useState(false);
-  const [showScheduler, setShowScheduler] = useState(false);
   const [suggestionError, setSuggestionError] = useState("");
   const contexts =
     thread?.projects ||
@@ -120,7 +117,6 @@ export function Discussions({
     setContextId("");
     setShowProject(false);
     setShowSuggestion(false);
-    setShowScheduler(false);
   }, [thread?.id, id]);
   const other = thread
     ? thread.customer_id === data.user.id
@@ -196,16 +192,14 @@ export function Discussions({
                       <FileText size={17} />
                       <span>Project details</span>
                     </button>
-                    <button
-                      className="chat-schedule-call"
-                      title="Schedule call"
-                      aria-label="Schedule call"
-                      disabled={busy || closed || blocked || !context}
-                      onClick={() => setShowScheduler(true)}
-                    >
-                      <CalendarPlus size={17} />
-                      <span>Schedule call</span>
-                    </button>
+                    {context && (
+                      <ScheduleCallButton
+                        projectId={context.id}
+                        proId={thread.pro_id}
+                        customerId={thread.customer_id}
+                        disabled={busy || closed || blocked}
+                      />
+                    )}
                     <button
                       className="chat-suggest-time"
                       title="Suggest a time"
@@ -219,26 +213,6 @@ export function Discussions({
                       <CalendarPlus size={17} />
                       <span>Suggest a time</span>
                     </button>
-                    {[true, false].map((audio) => (
-                      <button
-                        key={String(audio)}
-                        disabled={busy || closed || blocked}
-                        aria-label={
-                          audio ? "Start audio call" : "Start video call"
-                        }
-                        onClick={() =>
-                          void run(async () => {
-                            const r = await request(
-                              `/discussions/${thread.id}/call`,
-                              { audioOnly: audio, projectId: context?.id },
-                            );
-                            await openExternal(r.url);
-                          }, "")
-                        }
-                      >
-                        {audio ? <Phone size={17} /> : <Video size={17} />}
-                      </button>
-                    ))}
                     <button
                       className="chat-block-action"
                       title={
@@ -323,17 +297,6 @@ export function Discussions({
                       await load();
                     }, "")
                   }
-                />
-              )}
-              {showScheduler && context && (
-                <CallScheduler
-                  projectId={context.id}
-                  proId={thread.pro_id}
-                  onClose={() => setShowScheduler(false)}
-                  onDone={() => {
-                    setShowScheduler(false);
-                    go("schedule");
-                  }}
                 />
               )}
               {showProject && context && (

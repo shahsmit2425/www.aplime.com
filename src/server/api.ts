@@ -53,7 +53,6 @@ import {
 } from "./repository.js";
 import { projectAction } from "./projects.js";
 import { stripe } from "./integrations/stripe.js";
-import { meeting } from "./integrations/daily.js";
 import {
   uploadUrl,
   downloadUrl,
@@ -506,63 +505,11 @@ api.post("/projects/:id/messages", async (req, res) => {
   });
   res.json({ ok: true });
 });
-api.post("/projects/:id/call", async (req, res) => {
-  const q = req as AuthRequest;
-  const { audioOnly } = z
-    .object({ audioOnly: z.boolean() })
-    .strict()
-    .parse(q.body);
-  const p = await memberProject(String(q.params.id), q.account);
-  if (!p.proId) fail(409, "A professional has not been assigned.");
-  if (["cancelled", "disputed"].includes(p.status))
-    fail(409, "Calls are unavailable for this project.");
-  const other = q.account.id === p.customerId ? p.proId : p.customerId;
-  if (
-    (
-      await pool.query(
-        "SELECT 1 FROM blocked WHERE (user_id=$1 AND other_id=$2) OR (user_id=$2 AND other_id=$1)",
-        [q.account.id, other],
-      )
-    ).rowCount
-  )
-    fail(403, "This conversation is blocked.");
-  if (
-    (
-      await pool.query("SELECT 1 FROM profiles WHERE id=$1 AND suspended", [
-        p.proId,
-      ])
-    ).rowCount
-  )
-    fail(403, "This business cannot receive or send calls right now.");
-  const conversation = await transaction((c) =>
-    ensurePairConversation(c, p.id, p.customerId, p.proId!),
+api.post("/projects/:id/call", (_req, _res) => {
+  fail(
+    410,
+    "Direct calls are no longer available. Schedule and confirm a meeting to call.",
   );
-  const room = await meeting(
-    conversation.id,
-    q.account.id,
-    q.account.name,
-    audioOnly,
-  );
-  await transaction(async (c) => {
-    await c.query(
-      "INSERT INTO call_events(id,project_id,discussion_id,actor_id,mode) VALUES($1,$2,$3,$4,$5)",
-      [
-        randomUUID(),
-        p.id,
-        conversation.contextId,
-        q.account.id,
-        audioOnly ? "audio" : "video",
-      ],
-    );
-    await notify(
-      c,
-      other,
-      "Join a project call",
-      "Open your conversation and select the matching call button to join.",
-      { page: "messages", id: conversation.id },
-    );
-  });
-  res.json(room);
 });
 api.post("/projects/:id/review", async (req, res) => {
   const q = req as AuthRequest;

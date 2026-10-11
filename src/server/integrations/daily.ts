@@ -16,18 +16,20 @@ async function daily(path: string, body?: unknown) {
   return response.json();
 }
 export async function meeting(
-  projectId: string,
+  meetingId: string,
   userId: string,
   name: string,
   audioOnly: boolean,
+  endsAt: number,
 ) {
   requireValue(env.DAILY_API_KEY, "Calling is not configured yet.");
-  // Callers provide the canonical account-conversation ID for a stable private room.
-  // Each participant receives only their own short-lived token.
+  if (endsAt <= Date.now()) fail(409, "This meeting has ended.");
+  // Each scheduled meeting has a separate room. Old links cannot enter a later
+  // meeting, and participant tokens expire at the scheduled end.
   const roomName =
     "st-" +
     createHash("sha256")
-      .update(env.APP_ENV + projectId)
+      .update(env.APP_ENV + ":" + meetingId + ":" + endsAt)
       .digest("hex")
       .slice(0, 32);
   const response = await fetch("https://api.daily.co/v1/rooms/" + roomName, {
@@ -45,6 +47,8 @@ export async function meeting(
           enable_chat: false,
           enable_recording: false,
           max_participants: 2,
+          exp: Math.floor(endsAt / 1000),
+          eject_at_room_exp: true,
         },
       });
     } catch {
@@ -52,12 +56,13 @@ export async function meeting(
     }
   } else if (response.ok) room = await response.json();
   else fail(502, "The calling service is temporarily unavailable.");
+  if (endsAt <= Date.now()) fail(409, "This meeting has ended.");
   const { token } = await daily("meeting-tokens", {
     properties: {
       room_name: roomName,
       user_id: userId,
       user_name: name,
-      exp: Math.floor(Date.now() / 1000) + 3600,
+      exp: Math.floor(endsAt / 1000),
       eject_at_token_exp: true,
       is_owner: false,
       start_video_off: audioOnly,

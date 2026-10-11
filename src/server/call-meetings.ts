@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type pg from "pg";
 import { pool, transaction, camel } from "./db/index.js";
@@ -8,6 +9,7 @@ import { ensurePairConversation } from "./discussions.js";
 import { recordProjectActivity } from "./project-events.js";
 import { fail } from "./errors.js";
 import { meeting } from "./integrations/daily.js";
+import { closeDueMeetings } from "./meeting-lifecycle.js";
 import { withinWeeklyHours } from "../shared/preferences.js";
 import {
   CALL_MINUTES,
@@ -135,12 +137,13 @@ async function assertSlot(
     fail(409, "That time is no longer available. Choose another slot.");
 }
 callMeetings.get("/call-meetings", async (req, res) => {
+  await closeDueMeetings(req.account.id);
   res.setHeader("Cache-Control", "no-store");
   res.json(
     (
       await pool.query(
         select +
-          " WHERE m.customer_id=$1 OR m.pro_id=$1 ORDER BY m.starts_at DESC LIMIT 200",
+          " WHERE m.customer_id=$1 OR m.pro_id=$1 ORDER BY (m.status IN ('requested','confirmed')) DESC,m.starts_at DESC LIMIT 200",
         [req.account.id],
       )
     ).rows.map((r) => camel<CallMeeting>(r)),
@@ -185,6 +188,7 @@ callMeetings.get(
 );
 callMeetings.post("/call-meetings", async (req, res) => {
   const b = callRequestSchema.parse(req.body);
+  await closeDueMeetings(req.account.id);
   const result = await transaction(async (c) => {
     const p = await getProject(c, b.projectId);
     await maySchedule(c, p, b.proId, req.account);
@@ -207,24 +211,15 @@ callMeetings.post("/call-meetings", async (req, res) => {
     if (
       (
         await c.query(
-          "SELECT 1 FROM scheduled_calls WHERE project_id=$1 AND pro_id=$2 AND starts_at=$3 AND status IN ('requested','confirmed')",
-          [p.id, b.proId, b.startsAt],
+          "SELECT 1 FROM scheduled_calls WHERE customer_id=$1 AND pro_id=$2 AND status IN ('requested','confirmed')",
+          [p.customerId, b.proId],
         )
       ).rowCount
     )
       fail(
         409,
-        "A meeting already exists at this time. Manage it in Schedule.",
+        "You already have an active meeting with this person. Manage it in Schedule before creating another.",
       );
-    if (
-      (
-        await c.query(
-          "SELECT count(*)::int AS n FROM scheduled_calls WHERE customer_id=$1 AND pro_id=$2 AND status='requested' AND starts_at>now()",
-          [p.customerId, b.proId],
-        )
-      ).rows[0].n >= 10
-    )
-      fail(409, "Manage your existing call requests before adding more.");
     const thread = await ensurePairConversation(c, p.id, p.customerId, b.proId);
     const m = (
       await c.query(
@@ -366,19 +361,43 @@ callMeetings.post("/call-meetings/:id/join", async (req, res) => {
     if (!callCanJoin(m))
       fail(
         409,
-        "Join opens 15 minutes before a confirmed meeting and closes 30 minutes after it ends.",
+        "Join opens 15 minutes before a confirmed meeting and closes when the meeting ends.",
       );
     const thread = await ensurePairConversation(c, p.id, p.customerId, m.proId);
     return { m, thread };
   });
   const room = await meeting(
-    result.thread.id,
+    result.m.id,
     req.account.id,
     req.account.name,
     result.m.mode === "audio",
+    Date.parse(result.m.startsAt) + CALL_MINUTES * 60000,
   );
-  await transaction((c) =>
-    notify(
+  await transaction(async (c) => {
+    // Daily is an external request. Recheck after it returns so a cancellation,
+    // reschedule or project closure during that request cannot release a link.
+    const p = await getProject(c, result.m.projectId);
+    const current = camel<CallMeeting>(
+      (
+        await c.query("SELECT * FROM scheduled_calls WHERE id=$1 FOR UPDATE", [
+          id,
+        ])
+      ).rows[0],
+    );
+    await maySchedule(c, p, current.proId, req.account);
+    if (current.version !== result.m.version || !callCanJoin(current))
+      fail(409, "This meeting changed. Open Schedule for the latest details.");
+    await c.query(
+      "INSERT INTO call_events(id,project_id,discussion_id,actor_id,mode) VALUES($1,$2,$3,$4,$5)",
+      [
+        randomUUID(),
+        result.m.projectId,
+        result.thread.contextId,
+        req.account.id,
+        result.m.mode,
+      ],
+    );
+    await notify(
       c,
       req.account.id === result.m.customerId
         ? result.m.proId
@@ -386,7 +405,7 @@ callMeetings.post("/call-meetings/:id/join", async (req, res) => {
       "Your call partner is joining",
       "Open Schedule to join your confirmed call.",
       { page: "schedule", id },
-    ),
-  );
+    );
+  });
   res.json(room);
 });

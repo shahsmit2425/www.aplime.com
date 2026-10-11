@@ -1,4 +1,5 @@
 import { NotificationDropdown } from "./notification-dropdown.js";
+import { MeetingProvider } from "./meeting-state.js";
 import { watchNotifications } from "./live-notifications.js";
 import type { Notice } from "../shared/domain.js";
 import {
@@ -871,235 +872,244 @@ export default function Workspace() {
     <Context.Provider
       value={{ data, page: route.page, id: route.id, go, run, busy }}
     >
-      <div
-        className="workspace"
-        style={
-          { "--workspace-header-height": `${headerHeight}px` } as CSSProperties
-        }
-      >
-        <a className="skip-link" href="#workspace-content">
-          Skip to content
-        </a>
-        <div className="workspace-body">
-          {config.environment !== "production" && (
-            <div className="environment-bar">
-              {config.environment === "stagging" ? "Staging" : "Development"}{" "}
-              environment
-            </div>
-          )}
-          <header
-            className={
-              "topbar workspace-header" +
-              (data.user.role === "pro" ? " professional-header" : "")
-            }
-            ref={headerRef}
-          >
-            <Brand />
-            <nav className="workspace-primary-nav" aria-label="Main navigation">
-              {renderLinks(
-                links.filter(([p]) => !["notifications", "help"].includes(p)),
-              )}
-            </nav>
-            <div className="actions">
-              <button
-                className="icon-button workspace-menu"
-                aria-label="Open navigation"
-                aria-expanded={menu}
-                onClick={() => setMenu(true)}
+      <MeetingProvider key={data.user.id} userId={data.user.id}>
+        <div
+          className="workspace"
+          style={
+            {
+              "--workspace-header-height": `${headerHeight}px`,
+            } as CSSProperties
+          }
+        >
+          <a className="skip-link" href="#workspace-content">
+            Skip to content
+          </a>
+          <div className="workspace-body">
+            {config.environment !== "production" && (
+              <div className="environment-bar">
+                {config.environment === "stagging" ? "Staging" : "Development"}{" "}
+                environment
+              </div>
+            )}
+            <header
+              className={
+                "topbar workspace-header" +
+                (data.user.role === "pro" ? " professional-header" : "")
+              }
+              ref={headerRef}
+            >
+              <Brand />
+              <nav
+                className="workspace-primary-nav"
+                aria-label="Main navigation"
               >
-                <Menu size={21} />
-              </button>
-              <NotificationDropdown
-                open={notificationsOpen}
-                setOpen={setNotificationsOpen}
-                notices={data.notices}
-                unread={data.unreadCount || 0}
-                connected={liveConnected}
-                busy={busy}
-                run={run}
-                go={go}
-              />
-              <button
-                type="button"
-                className="workspace-signout secondary"
-                onClick={signOutToLogin}
-                aria-label="Sign out"
-              >
-                <LogOut size={17} />
-                <span>Sign out</span>
-              </button>
-              <button
-                className="avatar"
-                aria-label="Account settings"
-                onClick={() => go("settings")}
-              >
-                {data.user.name.slice(0, 1)}
-              </button>
-            </div>
-          </header>
-          <main
-            className={
-              "workspace-main" +
-              (route.page === "project" && data.user.role === "customer"
-                ? " customer-project-main"
-                : "")
-            }
-            id="workspace-content"
-            data-page={route.page}
-          >
-            {liveNotice && (
-              <aside className="live-notice" role="status" aria-live="polite">
-                <Bell size={20} />
-                <div>
-                  <strong>{liveNotice.title}</strong>
-                  <p>{liveNotice.body}</p>
+                {renderLinks(
+                  links.filter(([p]) => !["notifications", "help"].includes(p)),
+                )}
+              </nav>
+              <div className="actions">
+                <button
+                  className="icon-button workspace-menu"
+                  aria-label="Open navigation"
+                  aria-expanded={menu}
+                  onClick={() => setMenu(true)}
+                >
+                  <Menu size={21} />
+                </button>
+                <NotificationDropdown
+                  open={notificationsOpen}
+                  setOpen={setNotificationsOpen}
+                  notices={data.notices}
+                  unread={data.unreadCount || 0}
+                  connected={liveConnected}
+                  busy={busy}
+                  run={run}
+                  go={go}
+                />
+                <button
+                  type="button"
+                  className="workspace-signout secondary"
+                  onClick={signOutToLogin}
+                  aria-label="Sign out"
+                >
+                  <LogOut size={17} />
+                  <span>Sign out</span>
+                </button>
+                <button
+                  className="avatar"
+                  aria-label="Account settings"
+                  onClick={() => go("settings")}
+                >
+                  {data.user.name.slice(0, 1)}
+                </button>
+              </div>
+            </header>
+            <main
+              className={
+                "workspace-main" +
+                (route.page === "project" && data.user.role === "customer"
+                  ? " customer-project-main"
+                  : "")
+              }
+              id="workspace-content"
+              data-page={route.page}
+            >
+              {liveNotice && (
+                <aside className="live-notice" role="status" aria-live="polite">
+                  <Bell size={20} />
+                  <div>
+                    <strong>{liveNotice.title}</strong>
+                    <p>{liveNotice.body}</p>
+                    <button
+                      className="text-button"
+                      onClick={() => {
+                        const item = liveNotice;
+                        setLiveNotice(null);
+                        void run(
+                          () => request(`/notifications/${item.id}/read`, {}),
+                          "",
+                        );
+                        go(
+                          item.targetPage || "notifications",
+                          item.targetId || undefined,
+                        );
+                      }}
+                    >
+                      View update
+                    </button>
+                  </div>
                   <button
-                    className="text-button"
-                    onClick={() => {
-                      const item = liveNotice;
-                      setLiveNotice(null);
-                      void run(
-                        () => request(`/notifications/${item.id}/read`, {}),
-                        "",
-                      );
-                      go(
-                        item.targetPage || "notifications",
-                        item.targetId || undefined,
-                      );
-                    }}
+                    className="icon-button"
+                    aria-label="Dismiss notification"
+                    onClick={() => setLiveNotice(null)}
                   >
-                    View update
+                    <X size={18} />
                   </button>
-                </div>
+                </aside>
+              )}
+              {error && (
+                <p role="alert" className="alert error">
+                  {error}
+                </p>
+              )}
+              {notice && (
+                <p role="status" className="alert">
+                  {notice}
+                </p>
+              )}
+              {busy && (
+                <p className="busy" role="status">
+                  Saving changes…
+                </p>
+              )}
+              <Pages />
+            </main>
+            <footer className="workspace-footer">
+              © {new Date().getFullYear()} Aplime <a href="/privacy">Privacy</a>
+              <a href="/terms">Service information</a>
+            </footer>
+          </div>
+          <nav className="mobile-bottom-nav" aria-label="Quick navigation">
+            <button
+              aria-current={
+                route.page === "dashboard" ||
+                (data.user.role === "customer" &&
+                  (route.page === "project" ||
+                    (route.page === "projects" && !route.id)))
+                  ? "page"
+                  : undefined
+              }
+              onClick={() => go("dashboard")}
+            >
+              <House size={21} />
+              <span>Dashboard</span>
+            </button>
+            {data.user.role === "customer" ? (
+              <>
+                <button
+                  onClick={() => go("projects", "new")}
+                  aria-current={
+                    route.page === "projects" && !!route.id ? "page" : undefined
+                  }
+                >
+                  <BriefcaseBusiness size={21} />
+                  <span>Post project</span>
+                </button>
+                <button
+                  onClick={() => go("schedule")}
+                  aria-current={route.page === "schedule" ? "page" : undefined}
+                >
+                  <CalendarDays size={21} />
+                  <span>Schedule</span>
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => go("leads")}
+                  aria-current={route.page === "leads" ? "page" : undefined}
+                >
+                  <Search size={21} />
+                  <span>Explore</span>
+                </button>
+                <button
+                  onClick={() => go("projects")}
+                  aria-current={
+                    ["projects", "project"].includes(route.page)
+                      ? "page"
+                      : undefined
+                  }
+                >
+                  <BriefcaseBusiness size={21} />
+                  <span>Projects</span>
+                </button>
+              </>
+            )}
+            <button
+              aria-current={route.page === "messages" ? "page" : undefined}
+              onClick={() => go("messages")}
+            >
+              <MessageCircle size={21} />
+              <span>Messages</span>
+              {!!data.unreadMessageCount && (
+                <span className="notification-count">
+                  {data.unreadMessageCount > 99
+                    ? "99+"
+                    : data.unreadMessageCount}
+                </span>
+              )}
+            </button>
+            <button
+              aria-label="More navigation options"
+              aria-expanded={menu}
+              onClick={() => setMenu(true)}
+            >
+              <Menu size={21} />
+              <span>More</span>
+            </button>
+          </nav>
+          {menu && (
+            <div className="drawer-backdrop" onClick={() => setMenu(false)}>
+              <aside
+                className="drawer"
+                role="dialog"
+                aria-modal="true"
+                aria-label="Workspace navigation"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <button
                   className="icon-button"
-                  aria-label="Dismiss notification"
-                  onClick={() => setLiveNotice(null)}
+                  aria-label="Close navigation"
+                  onClick={() => setMenu(false)}
                 >
-                  <X size={18} />
+                  <X />
                 </button>
+                {nav}
               </aside>
-            )}
-            {error && (
-              <p role="alert" className="alert error">
-                {error}
-              </p>
-            )}
-            {notice && (
-              <p role="status" className="alert">
-                {notice}
-              </p>
-            )}
-            {busy && (
-              <p className="busy" role="status">
-                Saving changes…
-              </p>
-            )}
-            <Pages />
-          </main>
-          <footer className="workspace-footer">
-            © {new Date().getFullYear()} Aplime <a href="/privacy">Privacy</a>
-            <a href="/terms">Service information</a>
-          </footer>
-        </div>
-        <nav className="mobile-bottom-nav" aria-label="Quick navigation">
-          <button
-            aria-current={
-              route.page === "dashboard" ||
-              (data.user.role === "customer" &&
-                (route.page === "project" ||
-                  (route.page === "projects" && !route.id)))
-                ? "page"
-                : undefined
-            }
-            onClick={() => go("dashboard")}
-          >
-            <House size={21} />
-            <span>Dashboard</span>
-          </button>
-          {data.user.role === "customer" ? (
-            <>
-              <button
-                onClick={() => go("projects", "new")}
-                aria-current={
-                  route.page === "projects" && !!route.id ? "page" : undefined
-                }
-              >
-                <BriefcaseBusiness size={21} />
-                <span>Post project</span>
-              </button>
-              <button
-                onClick={() => go("schedule")}
-                aria-current={route.page === "schedule" ? "page" : undefined}
-              >
-                <CalendarDays size={21} />
-                <span>Schedule</span>
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                onClick={() => go("leads")}
-                aria-current={route.page === "leads" ? "page" : undefined}
-              >
-                <Search size={21} />
-                <span>Explore</span>
-              </button>
-              <button
-                onClick={() => go("projects")}
-                aria-current={
-                  ["projects", "project"].includes(route.page)
-                    ? "page"
-                    : undefined
-                }
-              >
-                <BriefcaseBusiness size={21} />
-                <span>Projects</span>
-              </button>
-            </>
+            </div>
           )}
-          <button
-            aria-current={route.page === "messages" ? "page" : undefined}
-            onClick={() => go("messages")}
-          >
-            <MessageCircle size={21} />
-            <span>Messages</span>
-            {!!data.unreadMessageCount && (
-              <span className="notification-count">
-                {data.unreadMessageCount > 99 ? "99+" : data.unreadMessageCount}
-              </span>
-            )}
-          </button>
-          <button
-            aria-label="More navigation options"
-            aria-expanded={menu}
-            onClick={() => setMenu(true)}
-          >
-            <Menu size={21} />
-            <span>More</span>
-          </button>
-        </nav>
-        {menu && (
-          <div className="drawer-backdrop" onClick={() => setMenu(false)}>
-            <aside
-              className="drawer"
-              role="dialog"
-              aria-modal="true"
-              aria-label="Workspace navigation"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button
-                className="icon-button"
-                aria-label="Close navigation"
-                onClick={() => setMenu(false)}
-              >
-                <X />
-              </button>
-              {nav}
-            </aside>
-          </div>
-        )}
-      </div>
+        </div>
+      </MeetingProvider>
     </Context.Provider>
   );
 }

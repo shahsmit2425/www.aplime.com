@@ -11,12 +11,14 @@ import {
 } from "lucide-react";
 import {
   callCanJoin,
+  callIsActive,
   CALL_MINUTES,
   type CallMeeting,
   type CallSlots,
 } from "../shared/meetings.js";
 import { request, openExternal } from "./api.js";
 import { useWorkspace } from "./workspace.js";
+import { useMeetings } from "./meeting-state.js";
 import { Badge } from "./ui.js";
 const changed = () => window.dispatchEvent(new Event("aplime:meetings"));
 const when = (s: string) =>
@@ -29,18 +31,50 @@ export function ScheduleCallButton({
   projectId,
   proId,
   label = "Schedule call",
+  customerId,
+  disabled = false,
 }: {
   projectId: string;
   proId: string;
   label?: string;
+  customerId?: string;
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const { go } = useWorkspace();
+  const { data, go } = useWorkspace();
+  const { rows, loading, error, now, refresh } = useMeetings();
+  const customer =
+    customerId ||
+    (data.user.role === "customer"
+      ? data.user.id
+      : [...data.projects, ...data.leads].find((p) => p.id === projectId)
+          ?.customerId);
+  const existing = rows.find(
+    (m) =>
+      m.proId === proId &&
+      (customer ? m.customerId === customer : m.projectId === projectId) &&
+      callIsActive(m, now),
+  );
   return (
     <>
-      <button type="button" className="secondary" onClick={() => setOpen(true)}>
+      <button
+        type="button"
+        className="secondary"
+        disabled={disabled || loading}
+        onClick={() => {
+          if (error) void refresh();
+          else if (existing) go("schedule", existing.id);
+          else setOpen(true);
+        }}
+      >
         <CalendarPlus size={16} />
-        {label}
+        {loading
+          ? "Loading meeting…"
+          : error
+            ? "Retry meetings"
+            : existing
+              ? "Manage meeting"
+              : label}
       </button>
       {open && (
         <CallScheduler
@@ -158,6 +192,17 @@ export function CallScheduler({
           {error}
         </p>
       )}
+      {stale && (
+        <button
+          type="button"
+          onClick={() => {
+            onClose();
+            onDone();
+          }}
+        >
+          Review meetings
+        </button>
+      )}
       {!slots ? (
         <div>
           {!error ? (
@@ -221,7 +266,11 @@ export function CallScheduler({
                 onDone();
               })
               .catch((e) => {
-                if (
+                if (/already have an active meeting/.test(e.message)) {
+                  setStale(true);
+                  setError(e.message);
+                  changed();
+                } else if (
                   meeting &&
                   /This meeting (changed|is closed)/.test(e.message)
                 ) {
@@ -332,13 +381,11 @@ export function CallMeetings({
   compact?: boolean;
 }) {
   const { data, go, id } = useWorkspace();
-  const [rows, setRows] = useState<CallMeeting[]>([]),
-    [error, setError] = useState(""),
-    [loading, setLoading] = useState(true),
+  const { rows, loading, error: loadError, refresh, now } = useMeetings();
+  const [error, setError] = useState(""),
     [busy, setBusy] = useState(""),
     [editing, setEditing] = useState<CallMeeting | null>(null);
-  const mounted = useRef(true),
-    targeted = useRef("");
+  const targeted = useRef("");
   useEffect(() => {
     if (!id || targeted.current === id) return;
     const card = document.getElementById("meeting-" + id);
@@ -348,51 +395,16 @@ export function CallMeetings({
       card.scrollIntoView({ block: "nearest" });
     }
   }, [id, rows]);
-  const refresh = async () => {
-    try {
-      const r = await request<CallMeeting[]>("/call-meetings");
-      if (mounted.current) {
-        setRows(r);
-        setError("");
-      }
-    } catch (e) {
-      if (mounted.current)
-        setError(e instanceof Error ? e.message : "Could not load meetings.");
-    } finally {
-      if (mounted.current) setLoading(false);
-    }
-  };
-  useEffect(() => {
-    mounted.current = true;
-    let pending = false;
-    const load = async () => {
-      if (pending) return;
-      pending = true;
-      await refresh();
-      pending = false;
-    };
-    void load();
-    const timer = setInterval(() => void load(), 10000);
-    window.addEventListener("aplime:updates", load);
-    window.addEventListener("aplime:meetings", load);
-    return () => {
-      mounted.current = false;
-      clearInterval(timer);
-      window.removeEventListener("aplime:updates", load);
-      window.removeEventListener("aplime:meetings", load);
-    };
-  }, [data.user.id]);
   const shown = rows
     .filter(
       (m) =>
         (!projectId || m.projectId === projectId) &&
         (!conversationProId || m.proId === conversationProId) &&
-        (!compact || ["requested", "confirmed"].includes(m.status)),
+        (!compact || callIsActive(m, now)),
     )
     .sort(
       (a, b) =>
-        Number(["requested", "confirmed"].includes(b.status)) -
-          Number(["requested", "confirmed"].includes(a.status)) ||
+        Number(callIsActive(b, now)) - Number(callIsActive(a, now)) ||
         Date.parse(a.startsAt) - Date.parse(b.startsAt),
     );
   const act = async (m: CallMeeting, body: object) => {
@@ -412,7 +424,7 @@ export function CallMeetings({
       setBusy("");
     }
   };
-  if (compact && !shown.length && !error && !loading) return null;
+  if (compact && !shown.length && !error && !loadError && !loading) return null;
   return (
     <section
       className={"call-meetings" + (compact ? " compact" : "")}
@@ -433,13 +445,13 @@ export function CallMeetings({
           <RefreshCw size={16} />
         </button>
       </div>
-      {error && (
+      {(error || loadError) && (
         <p role="alert" className="alert error">
-          {error}
+          {error || loadError}
         </p>
       )}
       {loading && <p role="status">Loading call meetings…</p>}
-      {!loading && !shown.length && !error && (
+      {!loading && !shown.length && !error && !loadError && (
         <p className="meeting-empty">
           No calls scheduled. Choose Schedule call on a professional’s project
           card to get started.
@@ -447,11 +459,16 @@ export function CallMeetings({
       )}
       <div className="meeting-list">
         {shown.map((m) => {
-          const active = ["requested", "confirmed"].includes(m.status),
+          const active = callIsActive(m, now),
             awaiting = !!m.proposedAt && m.proposedBy !== data.user.id,
-            proposalExpired =
-              !!m.proposedAt && Date.parse(m.proposedAt) <= Date.now(),
-            ended = Date.parse(m.startsAt) + CALL_MINUTES * 60000 <= Date.now();
+            proposalExpired = !!m.proposedAt && Date.parse(m.proposedAt) <= now,
+            ended = Date.parse(m.startsAt) + CALL_MINUTES * 60000 <= now,
+            status =
+              !active && m.status === "confirmed"
+                ? "completed"
+                : !active && m.status === "requested"
+                  ? "cancelled"
+                  : m.status;
           return (
             <article
               key={m.id}
@@ -481,13 +498,13 @@ export function CallMeetings({
                     {m.title}
                   </button>
                 </div>
-                <Badge>{m.status}</Badge>
+                <Badge>{status}</Badge>
               </div>
               <p className="meeting-date">
                 <CalendarDays size={16} />
                 {when(m.startsAt)} · {CALL_MINUTES} min · {m.mode} call
               </p>
-              {m.proposedAt && (
+              {active && m.proposedAt && (
                 <p className="meeting-proposal">
                   {m.status === "confirmed"
                     ? "Proposed new time: "
@@ -498,7 +515,7 @@ export function CallMeetings({
                     : " · Your response needed"}
                 </p>
               )}
-              {proposalExpired && (
+              {active && proposalExpired && (
                 <p className="meeting-proposal">
                   This proposed time has passed. Choose a new time or decline
                   the proposal.
@@ -530,7 +547,7 @@ export function CallMeetings({
                     </button>
                   </>
                 )}
-                {callCanJoin(m) && (
+                {callCanJoin(m, now) && (
                   <button
                     disabled={!!busy}
                     onClick={() => {
@@ -549,25 +566,18 @@ export function CallMeetings({
                     Join call
                   </button>
                 )}
-                {active && (!ended || m.status === "requested") && (
-                  <button
-                    className="secondary"
-                    disabled={!!busy}
-                    onClick={() => setEditing(m)}
-                  >
-                    <CalendarPlus size={16} />
-                    Change time
-                  </button>
-                )}
-                {m.status === "confirmed" && ended && (
-                  <button
-                    className="secondary"
-                    disabled={!!busy}
-                    onClick={() => void act(m, { type: "complete" })}
-                  >
-                    Mark complete
-                  </button>
-                )}
+                {active &&
+                  (m.status === "requested" ||
+                    now < Date.parse(m.startsAt)) && (
+                    <button
+                      className="secondary"
+                      disabled={!!busy}
+                      onClick={() => setEditing(m)}
+                    >
+                      <CalendarPlus size={16} />
+                      Change time
+                    </button>
+                  )}
                 {active && (
                   <button
                     className="text-button meeting-cancel"
@@ -586,7 +596,20 @@ export function CallMeetings({
                   </button>
                 )}
               </div>
-              {m.status === "confirmed" && !ended && !callCanJoin(m) && (
+              {!active &&
+                !["completed", "cancelled", "disputed"].includes(
+                  [...data.projects, ...data.leads].find(
+                    (p) => p.id === m.projectId,
+                  )?.status || "completed",
+                ) && (
+                  <ScheduleCallButton
+                    projectId={m.projectId}
+                    proId={m.proId}
+                    customerId={m.customerId}
+                    label="Schedule another call"
+                  />
+                )}
+              {m.status === "confirmed" && !ended && !callCanJoin(m, now) && (
                 <small>Join opens 15 minutes before the meeting.</small>
               )}
             </article>
