@@ -4883,3 +4883,217 @@ a:focus-visible {
     display: flex;
   }
 }
+
+/* Project photos share the business profile's image-card controls. */
+.project-photo-dropzone {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  text-align: left;
+  gap: 18px;
+  padding: 22px;
+}
+.project-photo-dropzone > svg {
+  color: #187948;
+}
+.project-photo-dropzone > div > strong {
+  display: block;
+  color: #1e4736;
+  font-size: 15px;
+  margin-bottom: 5px;
+}
+.project-photo-dropzone p {
+  font-size: 12px;
+  line-height: 1.6;
+  color: #567061;
+}
+.project-photo-dropzone .project-photo-picker {
+  background: #087b47;
+  color: #fff;
+  border-color: #087b47;
+  margin: 0;
+}
+.project-photo-publish-note {
+  margin: 10px 0 20px;
+  font-size: 12px;
+  color: #587062;
+}
+.project-photo-selection-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: 18px;
+}
+.project-photo-selection-grid:has(> .project-photo-selection:only-child) {
+  max-width: 450px;
+}
+.project-photo-selection-grid .project-photo-selection {
+  min-width: 0;
+  padding: 14px;
+  border-radius: 15px;
+  gap: 12px;
+}
+.project-photo-thumbnail {
+  display: block;
+  padding: 0;
+  width: 100%;
+  min-width: 0;
+  height: 190px;
+  overflow: hidden;
+  border: 1px solid #dce6df;
+  border-radius: 10px;
+  background: #f2f7f4;
+  color: #43745c;
+  cursor: zoom-in;
+  box-shadow: none;
+}
+.project-photo-thumbnail:hover {
+  background: #edf5ef;
+}
+.project-photo-thumbnail img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.project-photo-thumbnail > span {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 13px;
+  padding: 15px;
+}
+.project-photo-selection .business-image-heading {
+  gap: 8px;
+}
+.project-photo-selection .business-image-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+}
+.project-photo-selection .business-file-name {
+  display: block;
+  font-size: 12px;
+  color: #617266;
+}
+.project-photo-selection .actions {
+  gap: 7px;
+  flex-wrap: wrap;
+  margin: 0;
+}
+.project-photo-selection .actions button,
+.project-photo-selection .business-image-picker {
+  padding: 9px 11px;
+  min-height: 38px;
+  font-size: 12px;
+}
+.project-photo-selection .project-photo-remove {
+  color: #a53632;
+}
+.project-photo-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 145px), 1fr));
+  gap: 12px;
+}
+.project-saved-photo {
+  margin: 0;
+  min-width: 0;
+  border: 1px solid #e1e9e4;
+  border-radius: 12px;
+  padding: 9px;
+  background: #fff;
+}
+.project-saved-photo .project-photo-thumbnail {
+  height: 140px;
+  border: 0;
+}
+.project-saved-photo figcaption {
+  margin: 10px 0;
+}
+.project-saved-photo figcaption strong {
+  display: block;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.project-saved-photo figcaption small {
+  display: block;
+  font-size: 11px;
+  color: #62746b;
+  margin-top: 3px;
+}
+.project-saved-photo > button.secondary {
+  width: 100%;
+  font-size: 11px;
+  min-height: 34px;
+  padding: 7px;
+}
+.project-saved-photo > p {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #8d4b40;
+}
+.project-photo-panel .project-section-heading {
+  margin-bottom: 16px;
+}
+.project-photo-panel .project-section-heading > span {
+  font-size: 12px;
+  color: #637369;
+}
+.project-image-dialog .business-image-heading {
+  flex-wrap: nowrap;
+  align-items: start;
+  margin-bottom: 16px;
+}
+.project-image-dialog .business-image-heading h2 {
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 18px;
+  margin: 5px 0;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.project-image-dialog .business-image-heading button {
+  flex-shrink: 0;
+  font-size: 13px;
+  min-height: 40px;
+}
+.project-image-dialog > img {
+  background: #f2f5f3;
+  border-radius: 10px;
+}
+@media (max-width: 600px) {
+  .project-photo-dropzone {
+    grid-template-columns: auto minmax(0, 1fr);
+    padding: 18px;
+    gap: 13px;
+  }
+  .project-photo-dropzone .project-photo-picker {
+    grid-column: 1/-1;
+    justify-content: center;
+    width: 100%;
+  }
+  .project-photo-selection-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .project-photo-thumbnail {
+    height: 200px;
+  }
+  .project-photo-gallery {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .project-saved-photo .project-photo-thumbnail {
+    height: 115px;
+  }
+  .project-image-dialog {
+    padding: 15px;
+  }
+  .project-image-dialog .business-image-heading {
+    gap: 10px;
+  }
+  .project-image-dialog .business-image-heading h2 {
+    font-size: 15px;
+  }
+}

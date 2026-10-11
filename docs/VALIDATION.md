@@ -352,3 +352,16 @@ Restyled the customer project detail page around the supplied visual reference: 
 No deployment configuration, environment variables, migrations or admin UI changes. Live Firebase sessions, two-account delivery, actual Stripe/Daily/R2 operations and a Render deployment were not exercised. Browser checks use a representative shell and do not verify live authenticated navigation.
 
 `npx cap sync` completed for web, Android and iOS with development selected. CocoaPods/Xcode are unavailable on this Windows host; signed builds and device testing were not performed.
+
+
+## 2026-10-10 — Project photo cards and detail gallery
+
+The post-project form now uses business-style image cards: multi-file selection/drop, a five-photo count, full-size preview, per-photo replace/remove controls, filenames/sizes and readiness status. Invalid replacements preserve the existing selection, and replacing a photo at the five-image limit keeps the same slot count. Controls lock during publishing; previews remain available. Photos still upload through the existing project publishing/reservation/complete workflow rather than being persisted before a project exists. JPG/PNG/WebP and the 10 MB/image limit remain unchanged.
+
+Moved object-URL ownership into the project form's photo-state hook so switching to review and back does not invalidate selected previews. Removed/replaced URLs and URLs remaining at form teardown are revoked. Project detail pages now show ready image attachments in a gallery directly beside the project information for the customer and authorized professional viewers. Full-size viewing stays inside the website in a native dialog. Thumbnail loading failures offer Retry; opening a saved image requests a fresh signed URL through the existing authorized upload endpoint. Pending files and PDF controls stay in the attachment section, and duplicate bottom-of-page image galleries were removed. No backend, authorization, environment or database changes.
+
+`npm run check` passed: **127 tests**, TypeScript, customer client/SSR and separate admin builds. Headless Chrome checks exercised multi-select, full-size preview/Escape, invalid replacement preservation, successful replacement and old-URL revocation, review/back preview lifetime, remove, five-image limit/replacement at capacity, publishing control locks, detail-gallery placement, loading-failure recovery and a fresh URL request when opening an image. The real project detail Pages component was used with isolated test-only workspace/API responses. Screenshots were inspected and form/gallery layouts measured at 1440, 390 and 320 pixels with no horizontal document overflow. Fixture source was removed; no production account or database records were created.
+
+Live R2 uploads, signed URL expiry, Firebase sessions, real notifications and Render deployment were not exercised. The existing signed-upload transport and storage configuration remain required. Browser checks use local file selections and mocked API responses; they do not verify a live end-to-end storage integration.
+
+`npx cap sync` completed for web, Android and iOS with development selected. CocoaPods/Xcode are unavailable on this Windows host; no signed native build or device validation was performed.

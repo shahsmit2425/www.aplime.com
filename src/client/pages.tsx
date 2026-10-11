@@ -1,3 +1,4 @@
+import { ProjectPhotoGallery } from "./project-photo-gallery.js";
 import {
   CustomerProjectHeader,
   CustomerProjectDetails,
@@ -33,7 +34,7 @@ import {
 import {
   ProjectPhotos,
   sendProjectPhoto,
-  type ProjectPhoto,
+  useProjectPhotos,
 } from "./project-photos.js";
 import { useEffect, useState } from "react";
 import {
@@ -53,7 +54,6 @@ import {
   money,
   type Project,
   type Profile,
-  type Upload as UploadFile,
 } from "../shared/domain.js";
 import {
   questionsFor,
@@ -623,48 +623,6 @@ function ProProfile() {
     </>
   );
 }
-function UploadPreview({ file }: { file: UploadFile }) {
-  const [url, setUrl] = useState("");
-  const [failed, setFailed] = useState(false);
-  useEffect(() => {
-    let active = true;
-    setUrl("");
-    setFailed(false);
-    request<{ url: string }>("/uploads/" + file.id)
-      .then((r) => {
-        if (active) setUrl(r.url);
-      })
-      .catch(() => {
-        if (active) setFailed(true);
-      });
-    return () => {
-      active = false;
-    };
-  }, [file.id]);
-  if (failed)
-    return (
-      <span className="upload-preview">
-        {file.name} could not be loaded right now.
-      </span>
-    );
-  if (!url) return <span className="upload-preview">Loading {file.name}…</span>;
-  return (
-    <a
-      className="upload-preview"
-      href={url}
-      target="_blank"
-      rel="noreferrer"
-      onClick={(e) => {
-        e.preventDefault();
-        void request<{ url: string }>("/uploads/" + file.id)
-          .then((r) => openExternal(r.url))
-          .catch(() => {});
-      }}
-    >
-      <img src={url} alt={file.name} loading="lazy" />
-    </a>
-  );
-}
 function Projects() {
   const { data, page, id, run, busy, go } = useWorkspace();
   const selectedProfessional = data.profiles.find((p) => p.id === id);
@@ -679,7 +637,7 @@ function Projects() {
   const [creating, setCreating] = useState(!!id),
     [projectCategory, setProjectCategory] =
       useState<ServiceCategory>(initialCategory);
-  const [photos, setPhotos] = useState<ProjectPhoto[]>([]);
+  const [photos, setPhotos] = useProjectPhotos();
   const [savedProjectId, setSavedProjectId] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState("");
   const [draft, setDraft] = useState<Record<string, any> | null>(null);
@@ -1231,9 +1189,12 @@ function ProjectDetail() {
   const previewBlocked =
     !!data.marketplacePreview && !!data.discoveryRequirements?.length;
   const ownQuote = quotes.find((q) => q.proId === data.user.id);
-  const sharedPhotos = own
-    ? []
-    : data.uploads.filter((f) => f.projectId === p.id && f.status === "ready");
+  const projectPhotos = data.uploads.filter(
+    (f) =>
+      f.projectId === p.id &&
+      f.status === "ready" &&
+      f.contentType.startsWith("image/"),
+  );
   const submit = (body: unknown) =>
     request("/projects/" + p.id + "/actions", {
       ...(body as object),
@@ -1587,6 +1548,7 @@ function ProjectDetail() {
               </Form>
             )}
           </Panel>
+          <ProjectPhotoGallery key={p.id} files={projectPhotos} />
           {customer && (
             <div className="customer-project-controls">
               <ProjectControls key={p.id} project={p} />
@@ -1911,19 +1873,6 @@ function ProjectDetail() {
           }
         />
       </details>
-      {sharedPhotos.length > 0 && (
-        <Panel title="Customer photos">
-          <p>
-            The customer shared these photos to help you prepare an accurate
-            estimate.
-          </p>
-          <div className="upload-gallery">
-            {sharedPhotos.map((f) => (
-              <UploadPreview key={f.id} file={f} />
-            ))}
-          </div>
-        </Panel>
-      )}
       {own && (
         <Panel title="Project attachments">
           <p>
@@ -1958,18 +1907,6 @@ function ProjectDetail() {
               }}
             />
           </Field>
-          <div className="upload-gallery">
-            {data.uploads
-              .filter(
-                (f) =>
-                  f.projectId === p.id &&
-                  f.status === "ready" &&
-                  f.contentType.startsWith("image/"),
-              )
-              .map((f) => (
-                <UploadPreview key={f.id} file={f} />
-              ))}
-          </div>
           {data.uploads
             .filter(
               (f) =>
