@@ -312,9 +312,6 @@ export function ProjectControls({ project: p }: { project: Project }) {
         )}
       </Panel>
       <Panel title="Project activity">
-        <p>
-          Important project decisions, with the person who made each update.
-        </p>
         {problem ? (
           <p role="status">{problem}</p>
         ) : activity.length ? (

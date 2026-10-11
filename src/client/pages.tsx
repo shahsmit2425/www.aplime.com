@@ -1,3 +1,5 @@
+import { CustomerDashboard } from "./customer-dashboard.js";
+import { ProjectProfessionals } from "./project-professionals.js";
 import { filterDirectory } from "./directory-filters.js";
 import { SetupNotice } from "./setup-notice.js";
 import {
@@ -83,7 +85,7 @@ export function Pages() {
   );
 }
 function PageContent() {
-  const { page } = useWorkspace();
+  const { page, id } = useWorkspace();
   switch (page) {
     case "dashboard":
       return <Dashboard />;
@@ -94,7 +96,7 @@ function PageContent() {
       return <ProProfile />;
     case "projects":
     case "leads":
-      return <Projects />;
+      return <Projects key={page + ":" + (id || "list")} />;
     case "project":
       return <ProjectDetail />;
     case "quotes":
@@ -159,6 +161,7 @@ function ProjectList({
 function Dashboard() {
   const { data, go } = useWorkspace();
   const pro = data.user.role === "pro";
+  if (!pro) return <CustomerDashboard />;
   const active = data.projects.filter(
     (p) => !["completed", "cancelled"].includes(p.status),
   );
@@ -762,40 +765,43 @@ function Projects() {
       () => go("project", createdId),
     );
   };
+  if (data.user.role === "customer" && !creating) return <CustomerDashboard />;
   return (
     <>
-      <Head
-        title={
-          page === "leads"
+      {!creating && (
+        <Head
+          title={
+            page === "leads"
+              ? data.discoveryMode === "open"
+                ? "Open projects"
+                : "Projects matched for you"
+              : data.user.role === "pro"
+                ? "Manage your projects"
+                : "Your home projects"
+          }
+          action={
+            data.user.role === "customer" ? (
+              <button
+                disabled={busy || !!savedProjectId}
+                onClick={() => {
+                  setPhotos([]);
+                  setCreating(!creating);
+                }}
+              >
+                <Plus size={17} />
+                New project
+              </button>
+            ) : undefined
+          }
+        >
+          {page === "leads"
             ? data.discoveryMode === "open"
-              ? "Open projects"
-              : "Projects matched for you"
-            : data.user.role === "pro"
-              ? "Manage your projects"
-              : "Your home projects"
-        }
-        action={
-          data.user.role === "customer" ? (
-            <button
-              disabled={busy || !!savedProjectId}
-              onClick={() => {
-                setPhotos([]);
-                setCreating(!creating);
-              }}
-            >
-              <Plus size={17} />
-              New project
-            </button>
-          ) : undefined
-        }
-      >
-        {page === "leads"
-          ? data.discoveryMode === "open"
-            ? "Explore open requests and find your next job."
-            : "New requests matched to your services and area."
-          : "Requests, estimates, and updates stay together."}
-      </Head>
-      {page !== "leads" && (
+              ? "Explore open requests and find your next job."
+              : "New requests matched to your services and area."
+            : "Requests, estimates, and updates stay together."}
+        </Head>
+      )}
+      {!creating && page !== "leads" && (
         <label className="checkbox">
           <input
             type="checkbox"
@@ -807,6 +813,7 @@ function Projects() {
       )}
       {creating && data.user.role === "customer" && (
         <Panel title="Tell us about your project">
+          <h1 className="sr-only">Post a project</h1>
           <p className="project-form-intro">
             Tell professionals what you need for a more accurate estimate.
             {selectedProfessional && (
@@ -1135,6 +1142,7 @@ function Projects() {
                         setPhotos([]);
                         setFormValues(null);
                         setCreating(false);
+                        go("dashboard");
                       }}
                     >
                       Cancel
@@ -1157,31 +1165,33 @@ function Projects() {
           onContinue={() => go("profile")}
         />
       )}
-      <section className="project-collection" aria-label="Projects">
-        <CollectionHeading
-          title={
-            page === "leads"
-              ? "Available projects"
-              : showArchived
-                ? "Archived projects"
-                : "Your projects"
-          }
-          count={source.length}
-        />
-        {page === "leads" && !source.length ? (
-          <Empty title="No open projects to show">
-            {data.marketplacePreview
-              ? "New customer requests will appear here."
-              : data.discoveryRequirements?.length
-                ? "Complete the steps above to receive new opportunities."
-                : data.discoveryMode === "open"
-                  ? "New customer requests will appear here."
-                  : "New matches will appear here. You can adjust your project preferences anytime."}
-          </Empty>
-        ) : (
-          <ProjectList projects={source} />
-        )}
-      </section>
+      {!creating && (
+        <section className="project-collection" aria-label="Projects">
+          <CollectionHeading
+            title={
+              page === "leads"
+                ? "Available projects"
+                : showArchived
+                  ? "Archived projects"
+                  : "Your projects"
+            }
+            count={source.length}
+          />
+          {page === "leads" && !source.length ? (
+            <Empty title="No open projects to show">
+              {data.marketplacePreview
+                ? "New customer requests will appear here."
+                : data.discoveryRequirements?.length
+                  ? "Complete the steps above to receive new opportunities."
+                  : data.discoveryMode === "open"
+                    ? "New customer requests will appear here."
+                    : "New matches will appear here. You can adjust your project preferences anytime."}
+            </Empty>
+          ) : (
+            <ProjectList projects={source} />
+          )}
+        </section>
+      )}
     </>
   );
 }
@@ -1226,7 +1236,15 @@ function ProjectDetail() {
       expectedVersion: p.version,
     });
   return (
-    <>
+    <div className="project-detail-page">
+      {customer && (
+        <button
+          className="text-button project-back"
+          onClick={() => go("dashboard")}
+        >
+          ← Dashboard
+        </button>
+      )}
       <Head
         title={p.title}
         action={<Badge>{p.status.replace("_", " ")}</Badge>}
@@ -1428,7 +1446,7 @@ function ProjectDetail() {
             )}
           </Panel>
         )}
-      <div className="two-columns">
+      <div className="two-columns project-detail-columns">
         <div id="project-details">
           <Panel title="Project details">
             <p className="project-description">{p.description}</p>
@@ -1551,292 +1569,312 @@ function ProjectDetail() {
           </Panel>
         </div>
         <div id="project-estimates">
-          <Panel title="Estimates">
-            {quotes.length ? (
-              quotes.map((q) => (
-                <article className="quote-item" key={q.id}>
-                  <div>
-                    <h3>{money(q.amount)}</h3>
-                    <Badge>
-                      {q.status === "pending" && !open
-                        ? "on hold"
-                        : q.status === "pending" &&
-                            q.expiresAt &&
-                            new Date(q.expiresAt).getTime() <= Date.now()
-                          ? "expired"
-                          : q.status}{" "}
-                      · version {q.revision}
-                    </Badge>
-                  </div>
-                  <p>
-                    {data.profiles.find((p) => p.id === q.proId)?.business ||
-                      "Professional"}
-                  </p>
-                  <p>{q.description}</p>
-                  <dl>
-                    <dt>Labor</dt>
-                    <dd>{money(q.laborAmount)}</dd>
-                    <dt>Materials</dt>
-                    <dd>{money(q.materialsAmount)}</dd>
-                    <dt>Expected timeline</dt>
-                    <dd>{q.timeline}</dd>
-                    <dt>Exclusions</dt>
-                    <dd>{q.exclusions || "None listed"}</dd>
-                    <dt>Valid until</dt>
-                    <dd>{q.expiresAt ? date(q.expiresAt) : "No expiration"}</dd>
-                  </dl>
-                  {customer && (
-                    <div className="actions">
-                      {["pending", "accepted"].includes(q.status) && (
-                        <ChatWithPro projectId={p.id} proId={q.proId} />
-                      )}
-                      <button
-                        className="secondary"
-                        onClick={() => go("pro", q.proId)}
-                      >
-                        View profile
-                      </button>
-                      <SavePro proId={q.proId} label />
+          {customer ? (
+            <ProjectProfessionals project={p} submit={submit} />
+          ) : (
+            <Panel title="Estimates">
+              {quotes.length ? (
+                quotes.map((q) => (
+                  <article className="quote-item" key={q.id}>
+                    <div>
+                      <h3>{money(q.amount)}</h3>
+                      <Badge>
+                        {q.status === "pending" && !open
+                          ? "on hold"
+                          : q.status === "pending" &&
+                              q.expiresAt &&
+                              new Date(q.expiresAt).getTime() <= Date.now()
+                            ? "expired"
+                            : q.status}{" "}
+                        · version {q.revision}
+                      </Badge>
                     </div>
-                  )}
-                  {customer && q.status === "pending" && open && (
-                    <div className="actions">
-                      {!(
-                        q.expiresAt &&
-                        new Date(q.expiresAt).getTime() <= Date.now()
-                      ) && (
+                    <p>
+                      {data.profiles.find((p) => p.id === q.proId)?.business ||
+                        "Professional"}
+                    </p>
+                    <p>{q.description}</p>
+                    <dl>
+                      <dt>Labor</dt>
+                      <dd>{money(q.laborAmount)}</dd>
+                      <dt>Materials</dt>
+                      <dd>{money(q.materialsAmount)}</dd>
+                      <dt>Expected timeline</dt>
+                      <dd>{q.timeline}</dd>
+                      <dt>Exclusions</dt>
+                      <dd>{q.exclusions || "None listed"}</dd>
+                      <dt>Valid until</dt>
+                      <dd>
+                        {q.expiresAt ? date(q.expiresAt) : "No expiration"}
+                      </dd>
+                    </dl>
+                    {customer && (
+                      <div className="actions">
+                        {["pending", "accepted"].includes(q.status) && (
+                          <ChatWithPro projectId={p.id} proId={q.proId} />
+                        )}
+                        <button
+                          className="secondary"
+                          onClick={() => go("pro", q.proId)}
+                        >
+                          View profile
+                        </button>
+                        <SavePro proId={q.proId} label />
+                      </div>
+                    )}
+                    {customer && q.status === "pending" && open && (
+                      <div className="actions">
+                        {!(
+                          q.expiresAt &&
+                          new Date(q.expiresAt).getTime() <= Date.now()
+                        ) && (
+                          <button
+                            disabled={busy}
+                            onClick={() => {
+                              const business =
+                                data.profiles.find((x) => x.id === q.proId)
+                                  ?.business || "this professional";
+                              if (
+                                !window.confirm(
+                                  `Accept ${money(q.amount)} from ${business}? This professional must confirm the job. Your other estimates stay on hold until they do.`,
+                                )
+                              )
+                                return;
+                              void run(
+                                () =>
+                                  submit({
+                                    type: "accept",
+                                    quoteId: q.id,
+                                    revision: q.revision,
+                                  }),
+                                "Estimate selected. The professional must confirm the job before work starts.",
+                              );
+                            }}
+                          >
+                            Accept estimate
+                          </button>
+                        )}
                         <button
                           disabled={busy}
-                          onClick={() => {
-                            const business =
-                              data.profiles.find((x) => x.id === q.proId)
-                                ?.business || "this professional";
-                            if (
-                              !window.confirm(
-                                `Accept ${money(q.amount)} from ${business}? This professional must confirm the job. Your other estimates stay on hold until they do.`,
-                              )
-                            )
-                              return;
+                          className="secondary"
+                          onClick={() =>
                             void run(
-                              () =>
-                                submit({
-                                  type: "accept",
-                                  quoteId: q.id,
-                                  revision: q.revision,
-                                }),
-                              "Estimate selected. The professional must confirm the job before work starts.",
-                            );
-                          }}
-                        >
-                          Accept estimate
-                        </button>
-                      )}
-                      <button
-                        disabled={busy}
-                        className="secondary"
-                        onClick={() =>
-                          void run(
-                            () => submit({ type: "decline", quoteId: q.id }),
-                            "Estimate declined.",
-                          )
-                        }
-                      >
-                        Decline
-                      </button>
-                    </div>
-                  )}
-                  {data.user.role === "pro" &&
-                    q.proId === data.user.id &&
-                    q.status === "pending" &&
-                    ["requested", "quoted"].includes(p.status) && (
-                      <details>
-                        <summary>Withdraw this estimate</summary>
-                        <Form
-                          busy={busy}
-                          onSubmit={(f) =>
-                            run(
-                              () =>
-                                submit({
-                                  type: "withdraw_quote",
-                                  reason: f.get("reason"),
-                                }),
-                              "Estimate withdrawn.",
+                              () => submit({ type: "decline", quoteId: q.id }),
+                              "Estimate declined.",
                             )
                           }
                         >
-                          <p>
-                            The customer will be notified and cannot accept this
-                            estimate. You can submit a new version while the
-                            request remains open.
-                          </p>
-                          <Field label="Reason for withdrawing">
-                            <textarea
-                              name="reason"
-                              required
-                              minLength={5}
-                              maxLength={1000}
-                            />
-                          </Field>
-                          <button>Confirm withdrawal</button>
-                        </Form>
-                      </details>
+                          Decline
+                        </button>
+                      </div>
                     )}
-                </article>
-              ))
-            ) : (
-              <Empty title="No estimates yet.">
-                Your estimates will appear here.
-              </Empty>
-            )}
-            {data.user.role === "pro" &&
-              !previewBlocked &&
-              open &&
-              (!p.proId || pro) &&
-              !canQuote && (
-                <p className="project-state-note" role="note">
-                  Your business profile must be approved, verified and set to
-                  available before you can send estimates.{" "}
-                  <button className="text-button" onClick={() => go("profile")}>
-                    Review your profile
-                  </button>
-                </p>
+                    {data.user.role === "pro" &&
+                      q.proId === data.user.id &&
+                      q.status === "pending" &&
+                      ["requested", "quoted"].includes(p.status) && (
+                        <details>
+                          <summary>Withdraw this estimate</summary>
+                          <Form
+                            busy={busy}
+                            onSubmit={(f) =>
+                              run(
+                                () =>
+                                  submit({
+                                    type: "withdraw_quote",
+                                    reason: f.get("reason"),
+                                  }),
+                                "Estimate withdrawn.",
+                              )
+                            }
+                          >
+                            <p>
+                              The customer will be notified and cannot accept
+                              this estimate. You can submit a new version while
+                              the request remains open.
+                            </p>
+                            <Field label="Reason for withdrawing">
+                              <textarea
+                                name="reason"
+                                required
+                                minLength={5}
+                                maxLength={1000}
+                              />
+                            </Field>
+                            <button>Confirm withdrawal</button>
+                          </Form>
+                        </details>
+                      )}
+                  </article>
+                ))
+              ) : (
+                <Empty title="No estimates yet.">
+                  Your estimates will appear here.
+                </Empty>
               )}
-            {data.user.role === "pro" &&
-              !previewBlocked &&
-              canQuote &&
-              open &&
-              (!p.proId || pro) &&
-              !quotes.some(
-                (q) =>
-                  q.proId === data.user.id &&
-                  !["pending", "withdrawn", "expired"].includes(q.status),
-              ) && (
-                <div id="estimate-form">
-                  <Form
-                    busy={busy}
-                    onSubmit={(f) =>
-                      run(
-                        () =>
-                          submit({
-                            type: "quote",
-                            laborAmount: Math.round(
-                              Number(f.get("laborAmount")) * 100,
-                            ),
-                            materialsAmount: Math.round(
-                              Number(f.get("materialsAmount")) * 100,
-                            ),
-                            description: f.get("description"),
-                            exclusions: f.get("exclusions"),
-                            timeline: f.get("timeline"),
-                            expiresAt: f.get("expiresAt")
-                              ? new Date(
-                                  String(f.get("expiresAt")),
-                                ).toISOString()
-                              : null,
-                          }),
-                        ownQuote ? "Estimate updated." : "Estimate sent.",
-                      )
-                    }
-                  >
-                    <h3>
-                      {quotes.some((q) => q.proId === data.user.id)
-                        ? "Revise your estimate"
-                        : "Send a priced estimate"}
-                    </h3>
-                    <p>
-                      Explain the scope, exclusions, and expected timing.
-                      Pending estimates can be updated before acceptance.
-                    </p>
-                    <Field label="Labor (USD)">
-                      <input
-                        key={
-                          "labor-" +
-                          quotes.find((q) => q.proId === data.user.id)?.revision
-                        }
-                        defaultValue={
-                          quotes.find((q) => q.proId === data.user.id)
-                            ? quotes.find((q) => q.proId === data.user.id)!
-                                .laborAmount / 100
-                            : undefined
-                        }
-                        type="number"
-                        name="laborAmount"
-                        min="0"
-                        max="100000"
-                        step=".01"
-                        required
-                      />
-                    </Field>
-                    <Field label="Materials and other costs (USD)">
-                      <input
-                        name="materialsAmount"
-                        type="number"
-                        min="0"
-                        max="100000"
-                        step=".01"
-                        required
-                        defaultValue={
-                          quotes.find((q) => q.proId === data.user.id)
-                            ?.materialsAmount
-                            ? quotes.find((q) => q.proId === data.user.id)!
-                                .materialsAmount / 100
-                            : 0
-                        }
-                      />
-                    </Field>
-                    <Field label="Scope and inclusions">
-                      <textarea
-                        key={
-                          "scope-" +
-                          quotes.find((q) => q.proId === data.user.id)?.revision
-                        }
-                        defaultValue={
-                          quotes.find((q) => q.proId === data.user.id)
-                            ?.description
-                        }
-                        name="description"
-                        minLength={10}
-                        maxLength={2000}
-                        required
-                      />
-                    </Field>
-                    <Field label="Expected timeline">
-                      <input
-                        name="timeline"
-                        minLength={3}
-                        maxLength={300}
-                        required
-                        placeholder="For example, one workday after materials arrive"
-                        defaultValue={
-                          quotes.find((q) => q.proId === data.user.id)?.timeline
-                        }
-                      />
-                    </Field>
-                    <Field label="Exclusions (optional)">
-                      <textarea
-                        name="exclusions"
-                        maxLength={2000}
-                        placeholder="Anything the estimate does not include"
-                        defaultValue={
-                          quotes.find((q) => q.proId === data.user.id)
-                            ?.exclusions
-                        }
-                      />
-                    </Field>
-                    <Field label="Estimate expiration (optional)">
-                      <input name="expiresAt" type="datetime-local" />
-                    </Field>
-                    <button>
-                      {ownQuote ? "Update estimate" : "Send estimate"}
+              {data.user.role === "pro" &&
+                !previewBlocked &&
+                open &&
+                (!p.proId || pro) &&
+                !canQuote && (
+                  <p className="project-state-note" role="note">
+                    Your business profile must be approved, verified and set to
+                    available before you can send estimates.{" "}
+                    <button
+                      className="text-button"
+                      onClick={() => go("profile")}
+                    >
+                      Review your profile
                     </button>
-                  </Form>
-                </div>
-              )}
-          </Panel>
+                  </p>
+                )}
+              {data.user.role === "pro" &&
+                !previewBlocked &&
+                canQuote &&
+                open &&
+                (!p.proId || pro) &&
+                !quotes.some(
+                  (q) =>
+                    q.proId === data.user.id &&
+                    !["pending", "withdrawn", "expired"].includes(q.status),
+                ) && (
+                  <div id="estimate-form">
+                    <Form
+                      busy={busy}
+                      onSubmit={(f) =>
+                        run(
+                          () =>
+                            submit({
+                              type: "quote",
+                              laborAmount: Math.round(
+                                Number(f.get("laborAmount")) * 100,
+                              ),
+                              materialsAmount: Math.round(
+                                Number(f.get("materialsAmount")) * 100,
+                              ),
+                              description: f.get("description"),
+                              exclusions: f.get("exclusions"),
+                              timeline: f.get("timeline"),
+                              expiresAt: f.get("expiresAt")
+                                ? new Date(
+                                    String(f.get("expiresAt")),
+                                  ).toISOString()
+                                : null,
+                            }),
+                          ownQuote ? "Estimate updated." : "Estimate sent.",
+                        )
+                      }
+                    >
+                      <h3>
+                        {quotes.some((q) => q.proId === data.user.id)
+                          ? "Revise your estimate"
+                          : "Send a priced estimate"}
+                      </h3>
+                      <p>
+                        Explain the scope, exclusions, and expected timing.
+                        Pending estimates can be updated before acceptance.
+                      </p>
+                      <Field label="Labor (USD)">
+                        <input
+                          key={
+                            "labor-" +
+                            quotes.find((q) => q.proId === data.user.id)
+                              ?.revision
+                          }
+                          defaultValue={
+                            quotes.find((q) => q.proId === data.user.id)
+                              ? quotes.find((q) => q.proId === data.user.id)!
+                                  .laborAmount / 100
+                              : undefined
+                          }
+                          type="number"
+                          name="laborAmount"
+                          min="0"
+                          max="100000"
+                          step=".01"
+                          required
+                        />
+                      </Field>
+                      <Field label="Materials and other costs (USD)">
+                        <input
+                          name="materialsAmount"
+                          type="number"
+                          min="0"
+                          max="100000"
+                          step=".01"
+                          required
+                          defaultValue={
+                            quotes.find((q) => q.proId === data.user.id)
+                              ?.materialsAmount
+                              ? quotes.find((q) => q.proId === data.user.id)!
+                                  .materialsAmount / 100
+                              : 0
+                          }
+                        />
+                      </Field>
+                      <Field label="Scope and inclusions">
+                        <textarea
+                          key={
+                            "scope-" +
+                            quotes.find((q) => q.proId === data.user.id)
+                              ?.revision
+                          }
+                          defaultValue={
+                            quotes.find((q) => q.proId === data.user.id)
+                              ?.description
+                          }
+                          name="description"
+                          minLength={10}
+                          maxLength={2000}
+                          required
+                        />
+                      </Field>
+                      <Field label="Expected timeline">
+                        <input
+                          name="timeline"
+                          minLength={3}
+                          maxLength={300}
+                          required
+                          placeholder="For example, one workday after materials arrive"
+                          defaultValue={
+                            quotes.find((q) => q.proId === data.user.id)
+                              ?.timeline
+                          }
+                        />
+                      </Field>
+                      <Field label="Exclusions (optional)">
+                        <textarea
+                          name="exclusions"
+                          maxLength={2000}
+                          placeholder="Anything the estimate does not include"
+                          defaultValue={
+                            quotes.find((q) => q.proId === data.user.id)
+                              ?.exclusions
+                          }
+                        />
+                      </Field>
+                      <Field label="Estimate expiration (optional)">
+                        <input name="expiresAt" type="datetime-local" />
+                      </Field>
+                      <button>
+                        {ownQuote ? "Update estimate" : "Send estimate"}
+                      </button>
+                    </Form>
+                  </div>
+                )}
+            </Panel>
+          )}
         </div>
       </div>
-      {own && <ProjectControls key={p.id} project={p} />}
-      <div id="project-chat">
+      {own && (
+        <div className="project-operation-grid">
+          <ProjectControls key={p.id} project={p} />
+        </div>
+      )}
+      <details id="project-chat" className="project-conversations">
+        <summary>
+          <MessageCircle size={18} />
+          Project conversations
+        </summary>
         <Discussions
           projectId={p.id}
           canStart={
@@ -1847,7 +1885,7 @@ function ProjectDetail() {
             (!p.proId || pro)
           }
         />
-      </div>
+      </details>
       {sharedPhotos.length > 0 && (
         <Panel title="Customer photos">
           <p>
@@ -1934,7 +1972,7 @@ function ProjectDetail() {
             ))}
         </Panel>
       )}
-    </>
+    </div>
   );
 }
 function Quotes() {
@@ -2012,9 +2050,7 @@ function Schedule() {
 function Messages() {
   return (
     <>
-      <Head title="Your conversations">
-        Project chats and Aplime support, together in one inbox.
-      </Head>
+      <h1 className="sr-only">Messages</h1>
       <MessagesInbox />
     </>
   );

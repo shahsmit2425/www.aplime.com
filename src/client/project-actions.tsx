@@ -24,6 +24,7 @@ import { appointmentIcs, directionsUrl, downloadIcs } from "./calendar.js";
 export function jumpTo(id: string) {
   const el = document.getElementById(id);
   if (!el) return;
+  if (el instanceof HTMLDetailsElement) el.open = true;
   el.scrollIntoView({ behavior: "smooth", block: "start" });
   const focusable = el.querySelector<HTMLElement>(
     "textarea,input,select,button",
@@ -129,8 +130,8 @@ export function ProjectActionBar({
     if (!p.proId)
       add(
         "find",
-        <button onClick={() => go("discover", p.id)}>
-          <Users size={17} /> Find professionals
+        <button onClick={() => jumpTo("project-professionals")}>
+          <Users size={17} /> Professionals
         </button>,
       );
     if (hasEstimates)

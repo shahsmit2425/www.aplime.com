@@ -101,17 +101,15 @@ const navIcons: Record<string, typeof House> = {
 };
 const navigation = {
   customer: [
-    ["dashboard", "Overview"],
-    ["discover", "Find professionals"],
-    ["projects", "My projects"],
-    ["quotes", "Estimates"],
+    ["dashboard", "Dashboard"],
+    ["projects", "Post project"],
     ["schedule", "Schedule"],
     ["messages", "Messages"],
     ["saved", "Saved pros"],
     ["reviews", "My reviews"],
   ],
   pro: [
-    ["dashboard", "Overview"],
+    ["dashboard", "Dashboard"],
     ["leads", "Find projects"],
     ["projects", "My jobs"],
     ["quotes", "My estimates"],
@@ -762,7 +760,13 @@ export default function Workspace() {
     items.map(([p, label]) => {
       const Icon = navIcons[p];
       const active =
-        route.page === p ||
+        (data.user.role === "customer" && p === "dashboard"
+          ? route.page === "dashboard" ||
+            route.page === "project" ||
+            (route.page === "projects" && !route.id)
+          : data.user.role === "customer" && p === "projects"
+            ? route.page === "projects" && !!route.id
+            : route.page === p) ||
         (data.user.role === "pro" &&
           p === "profile" &&
           [
@@ -778,7 +782,14 @@ export default function Workspace() {
           key={p}
           className={active ? "nav-link active" : "nav-link"}
           aria-current={active ? "page" : undefined}
-          onClick={() => go(p)}
+          onClick={() =>
+            go(
+              p,
+              data.user.role === "customer" && p === "projects"
+                ? "new"
+                : undefined,
+            )
+          }
         >
           <Icon size={19} />
           {label}
@@ -939,32 +950,60 @@ export default function Workspace() {
         </div>
         <nav className="mobile-bottom-nav" aria-label="Quick navigation">
           <button
-            aria-current={route.page === "dashboard" ? "page" : undefined}
-            onClick={() => go("dashboard")}
-          >
-            <House size={21} />
-            <span>Home</span>
-          </button>
-          <button
             aria-current={
-              ["discover", "leads", "pro"].includes(route.page)
+              route.page === "dashboard" ||
+              (data.user.role === "customer" &&
+                (route.page === "project" ||
+                  (route.page === "projects" && !route.id)))
                 ? "page"
                 : undefined
             }
-            onClick={() => go(data.user.role === "pro" ? "leads" : "discover")}
+            onClick={() => go("dashboard")}
           >
-            <Search size={21} />
-            <span>{data.user.role === "pro" ? "Explore" : "Find pros"}</span>
+            <House size={21} />
+            <span>Dashboard</span>
           </button>
-          <button
-            aria-current={
-              ["projects", "project"].includes(route.page) ? "page" : undefined
-            }
-            onClick={() => go("projects")}
-          >
-            <BriefcaseBusiness size={21} />
-            <span>Projects</span>
-          </button>
+          {data.user.role === "customer" ? (
+            <>
+              <button
+                onClick={() => go("projects", "new")}
+                aria-current={
+                  route.page === "projects" && !!route.id ? "page" : undefined
+                }
+              >
+                <BriefcaseBusiness size={21} />
+                <span>Post project</span>
+              </button>
+              <button
+                onClick={() => go("schedule")}
+                aria-current={route.page === "schedule" ? "page" : undefined}
+              >
+                <CalendarDays size={21} />
+                <span>Schedule</span>
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => go("leads")}
+                aria-current={route.page === "leads" ? "page" : undefined}
+              >
+                <Search size={21} />
+                <span>Explore</span>
+              </button>
+              <button
+                onClick={() => go("projects")}
+                aria-current={
+                  ["projects", "project"].includes(route.page)
+                    ? "page"
+                    : undefined
+                }
+              >
+                <BriefcaseBusiness size={21} />
+                <span>Projects</span>
+              </button>
+            </>
+          )}
           <button
             aria-current={route.page === "messages" ? "page" : undefined}
             onClick={() => go("messages")}
