@@ -1,3 +1,7 @@
+import {
+  CustomerProjectHeader,
+  CustomerProjectDetails,
+} from "./project-presentation.js";
 import { CustomerDashboard } from "./customer-dashboard.js";
 import { ProjectProfessionals } from "./project-professionals.js";
 import { filterDirectory } from "./directory-filters.js";
@@ -1236,21 +1240,19 @@ function ProjectDetail() {
       expectedVersion: p.version,
     });
   return (
-    <div className="project-detail-page">
-      {customer && (
-        <button
-          className="text-button project-back"
-          onClick={() => go("dashboard")}
+    <div
+      className={"project-detail-page" + (customer ? " customer-project" : "")}
+    >
+      {customer ? (
+        <CustomerProjectHeader project={p} onBack={() => go("dashboard")} />
+      ) : (
+        <Head
+          title={p.title}
+          action={<Badge>{p.status.replace("_", " ")}</Badge>}
         >
-          ← Dashboard
-        </button>
+          {p.category} · {p.zip}
+        </Head>
       )}
-      <Head
-        title={p.title}
-        action={<Badge>{p.status.replace("_", " ")}</Badge>}
-      >
-        {p.category} · {p.zip}
-      </Head>
       {data.marketplacePreview &&
         data.user.role === "pro" &&
         !!data.discoveryRequirements?.length && (
@@ -1259,79 +1261,88 @@ function ProjectDetail() {
             onContinue={() => go("profile")}
           />
         )}
-      <section className="project-next-step" aria-label="Your next step">
-        <div>
-          <small>YOUR NEXT STEP</small>
-          <h2>
-            {p.status === "paused"
-              ? "Agree on the next step before resuming"
-              : p.cancellationRequestedBy
-                ? "Respond to the cancellation request"
-                : p.completionRequested
-                  ? (p.completionRequestedBy || p.proId) !== data.user.id
-                    ? "Review the completed work"
-                    : "Waiting for the other participant to confirm"
-                  : p.status === "requested"
-                    ? customer
-                      ? "Discuss your request with professionals"
-                      : "Ask a question or prepare an estimate"
-                    : p.status === "quoted"
+      {(!customer ||
+        p.status === "paused" ||
+        p.cancellationRequestedBy ||
+        p.completionRequested ||
+        p.status === "cancelled" ||
+        p.status === "disputed" ||
+        p.status === "completed" ||
+        (p.status === "booked" && p.awardAccepted === false)) && (
+        <section className="project-next-step" aria-label="Your next step">
+          <div>
+            <small>YOUR NEXT STEP</small>
+            <h2>
+              {p.status === "paused"
+                ? "Agree on the next step before resuming"
+                : p.cancellationRequestedBy
+                  ? "Respond to the cancellation request"
+                  : p.completionRequested
+                    ? (p.completionRequestedBy || p.proId) !== data.user.id
+                      ? "Review the completed work"
+                      : "Waiting for the other participant to confirm"
+                    : p.status === "requested"
                       ? customer
-                        ? "Compare estimates and choose your professional"
-                        : "Answer questions and keep your estimate up to date"
-                      : p.status === "booked" && p.awardAccepted === false
-                        ? pro
-                          ? "Confirm you can take this job"
-                          : "Waiting for the professional to confirm the job"
-                        : p.status === "booked"
-                          ? "Agree on the appointment and prepare for work"
-                          : p.status === "in_progress"
-                            ? "Keep each other updated as work progresses"
-                            : p.status === "completed"
-                              ? customer
-                                ? "Work completed — share your experience"
-                                : "Work completed"
-                              : p.status === "cancelled"
-                                ? "This project was cancelled"
-                                : p.status === "disputed"
-                                  ? "Our team is reviewing the reported issue"
-                                  : "Check your project status and support updates"}
-          </h2>
+                        ? "Discuss your request with professionals"
+                        : "Ask a question or prepare an estimate"
+                      : p.status === "quoted"
+                        ? customer
+                          ? "Compare estimates and choose your professional"
+                          : "Answer questions and keep your estimate up to date"
+                        : p.status === "booked" && p.awardAccepted === false
+                          ? pro
+                            ? "Confirm you can take this job"
+                            : "Waiting for the professional to confirm the job"
+                          : p.status === "booked"
+                            ? "Agree on the appointment and prepare for work"
+                            : p.status === "in_progress"
+                              ? "Keep each other updated as work progresses"
+                              : p.status === "completed"
+                                ? customer
+                                  ? "Work completed — share your experience"
+                                  : "Work completed"
+                                : p.status === "cancelled"
+                                  ? "This project was cancelled"
+                                  : p.status === "disputed"
+                                    ? "Our team is reviewing the reported issue"
+                                    : "Check your project status and support updates"}
+            </h2>
 
-          {customer && p.status === "completed" && (
-            <button onClick={() => go("reviews")}>Leave a review</button>
-          )}
-        </div>
-        {!["cancelled", "disputed"].includes(p.status) && (
-          <ol className="project-journey">
-            {["Request", "Discuss & compare", "Booked", "Work", "Review"].map(
-              (label, index) => (
-                <li
-                  key={label}
-                  className={
-                    index <=
-                    [
-                      "requested",
-                      "quoted",
-                      "booked",
-                      "in_progress",
-                      "completed",
-                    ].indexOf(
-                      p.status === "paused"
-                        ? p.pausedFrom || "requested"
-                        : p.status,
-                    )
-                      ? "reached"
-                      : ""
-                  }
-                >
-                  {label}
-                </li>
-              ),
+            {customer && p.status === "completed" && (
+              <button onClick={() => go("reviews")}>Leave a review</button>
             )}
-          </ol>
-        )}
-      </section>
+          </div>
+          {!["cancelled", "disputed"].includes(p.status) && (
+            <ol className="project-journey">
+              {["Request", "Discuss & compare", "Booked", "Work", "Review"].map(
+                (label, index) => (
+                  <li
+                    key={label}
+                    className={
+                      index <=
+                      [
+                        "requested",
+                        "quoted",
+                        "booked",
+                        "in_progress",
+                        "completed",
+                      ].indexOf(
+                        p.status === "paused"
+                          ? p.pausedFrom || "requested"
+                          : p.status,
+                      )
+                        ? "reached"
+                        : ""
+                    }
+                  >
+                    {label}
+                  </li>
+                ),
+              )}
+            </ol>
+          )}
+        </section>
+      )}
       <ProjectActionBar
         project={p}
         canRespond={canQuote && !previewBlocked}
@@ -1448,66 +1459,75 @@ function ProjectDetail() {
         )}
       <div className="two-columns project-detail-columns">
         <div id="project-details">
-          <Panel title="Project details">
-            <p className="project-description">{p.description}</p>
-            {p.intake && Object.keys(p.intake).length > 0 && (
-              <section
-                className="intake-summary"
-                aria-labelledby="intake-title"
-              >
-                <h3 id="intake-title">Service questionnaire</h3>
+          <Panel title={customer ? undefined : "Project details"}>
+            {customer ? (
+              <CustomerProjectDetails
+                project={p}
+                onEdit={() => setEditing(true)}
+              />
+            ) : (
+              <>
+                <p className="project-description">{p.description}</p>
+                {p.intake && Object.keys(p.intake).length > 0 && (
+                  <section
+                    className="intake-summary"
+                    aria-labelledby="intake-title"
+                  >
+                    <h3 id="intake-title">Service questionnaire</h3>
+                    <dl>
+                      {Object.entries(p.intake).map(([key, value]) => (
+                        <div key={key}>
+                          <dt>
+                            {questionLabel(p.category as ServiceCategory, key)}
+                          </dt>
+                          <dd>{value}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </section>
+                )}
                 <dl>
-                  {Object.entries(p.intake).map(([key, value]) => (
-                    <div key={key}>
-                      <dt>
-                        {questionLabel(p.category as ServiceCategory, key)}
-                      </dt>
-                      <dd>{value}</dd>
-                    </div>
-                  ))}
-                </dl>
-              </section>
-            )}
-            <dl>
-              <dt>Customer</dt>
-              <dd>{p.customerName || "Private until booked"}</dd>
-              <dt>Professional</dt>
-              <dd>{p.proName || "Choosing the right fit"}</dd>
-              {own && p.address && (
-                <>
-                  <dt>Service address</dt>
+                  <dt>Customer</dt>
+                  <dd>{p.customerName || "Private until booked"}</dd>
+                  <dt>Professional</dt>
+                  <dd>{p.proName || "Choosing the right fit"}</dd>
+                  {own && p.address && (
+                    <>
+                      <dt>Service address</dt>
+                      <dd>
+                        {p.address} {p.addressUnit}
+                      </dd>
+                    </>
+                  )}
+                  <dt>Appointment</dt>
+                  <dd>{date(p.scheduledAt)}</dd>
+                  <dt>Timing</dt>
+                  <dd>{p.urgency.replace("_", " ")}</dd>
+                  <dt>Property type</dt>
+                  <dd>{p.propertyType}</dd>
+                  <dt>Customer budget</dt>
                   <dd>
-                    {p.address} {p.addressUnit}
+                    {p.budgetMin === null && p.budgetMax === null
+                      ? "Not specified"
+                      : `${p.budgetMin === null ? "Any" : money(p.budgetMin)} – ${p.budgetMax === null ? "Any" : money(p.budgetMax)}`}
                   </dd>
-                </>
-              )}
-              <dt>Appointment</dt>
-              <dd>{date(p.scheduledAt)}</dd>
-              <dt>Timing</dt>
-              <dd>{p.urgency.replace("_", " ")}</dd>
-              <dt>Property type</dt>
-              <dd>{p.propertyType}</dd>
-              <dt>Customer budget</dt>
-              <dd>
-                {p.budgetMin === null && p.budgetMax === null
-                  ? "Not specified"
-                  : `${p.budgetMin === null ? "Any" : money(p.budgetMin)} – ${p.budgetMax === null ? "Any" : money(p.budgetMax)}`}
-              </dd>
-              <dt>
-                {p.amount
-                  ? "Agreed total"
-                  : ownQuote
-                    ? "Your estimate"
-                    : "Agreed total"}
-              </dt>
-              <dd>
-                {p.amount
-                  ? money(p.amount)
-                  : ownQuote && ownQuote.status === "pending"
-                    ? money(ownQuote.amount)
-                    : "Awaiting an estimate"}
-              </dd>
-            </dl>
+                  <dt>
+                    {p.amount
+                      ? "Agreed total"
+                      : ownQuote
+                        ? "Your estimate"
+                        : "Agreed total"}
+                  </dt>
+                  <dd>
+                    {p.amount
+                      ? money(p.amount)
+                      : ownQuote && ownQuote.status === "pending"
+                        ? money(ownQuote.amount)
+                        : "Awaiting an estimate"}
+                  </dd>
+                </dl>
+              </>
+            )}
             {action && (
               <Form
                 busy={busy}
@@ -1567,6 +1587,11 @@ function ProjectDetail() {
               </Form>
             )}
           </Panel>
+          {customer && (
+            <div className="customer-project-controls">
+              <ProjectControls key={p.id} project={p} />
+            </div>
+          )}
         </div>
         <div id="project-estimates">
           {customer ? (
@@ -1865,7 +1890,7 @@ function ProjectDetail() {
           )}
         </div>
       </div>
-      {own && (
+      {own && !customer && (
         <div className="project-operation-grid">
           <ProjectControls key={p.id} project={p} />
         </div>

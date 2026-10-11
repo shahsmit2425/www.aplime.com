@@ -4206,3 +4206,680 @@ a:focus-visible {
 .photo-dropzone input[type="file"] {
   width: 100%;
 }
+
+/* Customer project reference layout: photo-led comparisons and compact details. */
+.workspace-main.customer-project-main {
+  background: #f8fbfc;
+  padding: 0 32px 40px;
+}
+.customer-project {
+  color: #142638;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+}
+.customer-project h1,
+.customer-project h2,
+.customer-project h3 {
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  color: #102131;
+  letter-spacing: -0.035em;
+}
+.customer-project .panel h2,
+.customer-project .project-pro-main h3,
+.customer-project button,
+.customer-project input,
+.customer-project select,
+.customer-project textarea {
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+}
+.customer-project h2::after {
+  display: none;
+}
+.customer-project .panel,
+.customer-project .project-conversations {
+  background: #fff;
+  border: 1px solid #e7edf0;
+  box-shadow: 0 3px 18px #1c354506;
+  border-radius: 16px;
+}
+.customer-project-hero {
+  padding: 26px 16px 0;
+  margin: 0 -32px 24px;
+  background:
+    linear-gradient(90deg, #f0f8ff 0%, #f0f8ffed 50%, #f0f8ff44 78%),
+    url("/home.jpg") right center/58% auto no-repeat;
+}
+.project-hero-copy {
+  padding: 0 32px 22px;
+}
+.project-hero-copy .project-back {
+  padding: 0;
+  margin-bottom: 20px;
+  color: #087847;
+}
+.project-hero-title {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.customer-project .project-hero-title h1 {
+  font-size: clamp(26px, 2.6vw, 40px);
+  line-height: 1.15;
+  margin: 0;
+  text-transform: none;
+}
+.project-hero-title .badge {
+  background: #e0f4e9;
+  color: #08683e;
+}
+.project-hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 20px;
+  margin: 18px 0;
+  font-size: 13px;
+  color: #43546a;
+}
+.project-hero-meta > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.project-hero-copy > p {
+  max-width: 720px;
+  font-size: 14px;
+  line-height: 1.7;
+  margin: 0;
+  color: #213548;
+}
+.project-progress {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  list-style: none;
+  padding: 18px 28px;
+  margin: 0 16px;
+  gap: 18px;
+  background: #ffffffed;
+  border: 1px solid #eef2f5;
+  border-radius: 15px;
+  box-shadow: 0 5px 20px #28405306;
+}
+.project-progress li {
+  display: flex;
+  align-items: start;
+  gap: 10px;
+  position: relative;
+  min-width: 0;
+}
+.project-progress li:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  height: 2px;
+  background: #e9eef1;
+  left: 44px;
+  right: -8px;
+  top: 15px;
+  z-index: 0;
+}
+.project-progress li.complete::after {
+  background: #8cd4b2;
+}
+.progress-number {
+  display: grid;
+  place-items: center;
+  width: 31px;
+  height: 31px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #9da7af;
+  color: white;
+  font-weight: 700;
+  position: relative;
+  z-index: 1;
+}
+.project-progress .current .progress-number,
+.project-progress .complete .progress-number {
+  background: #078849;
+}
+.project-progress li > div {
+  background: #fff;
+  padding-right: 8px;
+  position: relative;
+  z-index: 1;
+}
+.project-progress strong {
+  display: block;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.project-progress small {
+  display: block;
+  font-size: 11px;
+  color: #667689;
+  margin-top: 3px;
+}
+.project-progress .current strong {
+  color: #067647;
+}
+.customer-project .project-next-step .project-journey {
+  display: none;
+}
+.customer-project .project-next-step {
+  background: #edf7f1;
+  border-color: #d8eade;
+}
+.customer-project .project-next-step h2 {
+  font-size: 18px;
+}
+.customer-project .project-actions {
+  gap: 7px;
+  margin: 0 0 20px;
+}
+.customer-project .project-actions button {
+  font-size: 12px;
+  padding: 8px 12px;
+  min-height: 35px;
+}
+.customer-project .project-detail-columns {
+  grid-template-columns: minmax(290px, 0.72fr) minmax(0, 1.28fr);
+  gap: 20px;
+}
+.customer-project .project-detail-columns .panel {
+  padding: 20px;
+  margin-bottom: 16px;
+}
+.project-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.customer-project .project-section-heading h2 {
+  margin: 0;
+  font-size: 20px;
+}
+.project-section-heading button {
+  padding: 8px 12px;
+  min-height: 36px;
+  font-size: 12px;
+}
+.project-detail-rows {
+  margin: 0;
+}
+.project-detail-rows > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  align-items: start;
+  gap: 12px;
+  padding: 10px 0;
+  font-size: 12px;
+}
+.project-detail-rows dt {
+  color: #607085;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  line-height: 1.6;
+  min-width: 0;
+}
+.project-detail-rows dt > span {
+  display: grid;
+  place-items: center;
+  color: #344c62;
+  width: 29px;
+  height: 29px;
+  background: #f5f8fa;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.project-detail-rows dd {
+  margin: 4px 0 0;
+  font-weight: 600;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.project-detail-rows .badge {
+  font-size: 11px;
+  font-weight: 500;
+  background: #e8f6ee;
+  color: #0b7446;
+}
+.customer-project-controls .actions {
+  gap: 7px;
+}
+.customer-project-controls .actions button {
+  font-size: 11px;
+  padding: 9px 10px;
+  min-height: 38px;
+}
+.customer-project-controls .panel > h2 {
+  font-size: 18px;
+}
+.customer-project-controls .project-activity {
+  margin: 0;
+}
+.customer-project-controls .project-activity li {
+  font-size: 12px;
+}
+.project-pro-results-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #eff6f8;
+  padding: 16px;
+  border-radius: 15px;
+  margin-bottom: 14px;
+}
+.project-pro-results-heading > svg {
+  flex-shrink: 0;
+  color: #087f4b;
+  background: #d9efe4;
+  width: 43px;
+  height: 43px;
+  padding: 10px;
+  border-radius: 50%;
+}
+.project-pro-results-heading > div {
+  flex: 1;
+  min-width: 0;
+}
+.customer-project .project-pro-results-heading h2 {
+  font-size: 18px;
+  margin: 0 0 4px;
+}
+.project-pro-results-heading p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #52677a;
+}
+.project-pro-results-heading select {
+  padding: 9px;
+  font-size: 12px;
+  max-width: 135px;
+  background: #fff;
+}
+.customer-project .project-pro-list {
+  gap: 14px;
+}
+.customer-project .project-pro-card {
+  display: grid;
+  grid-template-columns: minmax(130px, 0.8fr) minmax(0, 1.25fr) minmax(
+      116px,
+      0.58fr
+    );
+  align-items: start;
+  gap: 18px;
+  padding: 12px;
+  background: #fff;
+  border: 1px solid #e5ecef;
+  border-radius: 16px;
+  box-shadow: 0 3px 15px #20394904;
+}
+.customer-project .project-pro-card.selected {
+  border-color: #22ab66;
+  background: #fcfffd;
+}
+.customer-project
+  .project-detail-columns
+  #project-details
+  > .panel
+  > .project-detail-rows {
+  display: block;
+}
+.project-pro-media {
+  position: relative;
+  align-self: start;
+  height: 210px;
+  min-height: 210px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #edf6f0;
+}
+.project-pro-media > img {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  inset: 0;
+  object-fit: cover;
+}
+.project-pro-media.logo-only > img {
+  object-fit: contain;
+  background: #f6faf7;
+}
+.project-pro-placeholder {
+  min-height: 210px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: #23835a;
+  background: linear-gradient(145deg, #edf7f1, #dcece5);
+  font-size: 13px;
+}
+.project-pro-media > button {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  border-radius: 50%;
+  padding: 7px;
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
+  background: white;
+  box-shadow: 0 2px 8px #0001;
+  z-index: 1;
+}
+.project-pro-match {
+  position: absolute;
+  left: 7px;
+  top: 9px;
+  right: 46px;
+  padding: 5px 7px;
+  border-radius: 5px;
+  font-size: 10px;
+  line-height: 1.4;
+  background: #087f4b;
+  color: #fff;
+  font-weight: 600;
+}
+.project-pro-photo-count {
+  position: absolute;
+  left: 9px;
+  bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  background: #112f28cf;
+  color: #fff;
+  border-radius: 5px;
+  padding: 6px 8px;
+}
+.project-pro-main {
+  padding: 6px 0;
+  min-width: 0;
+}
+.customer-project .project-pro-main h3 {
+  font-size: 19px;
+  line-height: 1.3;
+  margin: 0 0 7px;
+  overflow-wrap: anywhere;
+}
+.project-pro-main h3 > svg {
+  display: inline-block;
+  margin-left: 7px;
+  vertical-align: middle;
+  color: #05834d;
+}
+.customer-project .project-pro-meta {
+  margin: 9px 0 13px;
+  font-size: 11px;
+  gap: 7px 12px;
+}
+.project-pro-rating > svg {
+  color: #eea316;
+  fill: #eea316;
+}
+.customer-project .project-pro-bio {
+  font-size: 12px;
+  margin: 12px 0;
+  -webkit-line-clamp: 3;
+  color: #4d6274;
+}
+.customer-project .project-pro-location {
+  font-size: 11px;
+  line-height: 1.6;
+  align-items: start;
+}
+.project-pro-location > svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.customer-project .professional-card-services span {
+  font-size: 10px;
+  padding: 4px 6px;
+}
+.project-pro-offer {
+  min-width: 0;
+  border-left: 1px solid #eef1f3;
+  padding: 5px 0 5px 13px;
+  display: flex;
+  flex-direction: column;
+}
+.customer-project .project-pro-actions {
+  order: 2;
+  display: flex;
+  flex-direction: column;
+  margin: 12px 0 0;
+  gap: 8px;
+}
+.customer-project .project-pro-actions button {
+  width: 100%;
+  font-size: 11px;
+  padding: 8px;
+  min-height: 37px;
+}
+.customer-project .project-pro-estimate {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+.customer-project .project-pro-price {
+  display: block;
+}
+.customer-project .project-pro-price > strong {
+  display: block;
+  font-size: 23px;
+  color: #172d3d;
+  margin-bottom: 7px;
+}
+.customer-project .project-pro-price .badge {
+  font-size: 10px;
+}
+.customer-project .project-pro-timeline {
+  font-size: 11px;
+  line-height: 1.5;
+  margin: 10px 0;
+  align-items: start;
+}
+.customer-project .project-pro-estimate summary {
+  font-size: 11px;
+  line-height: 1.5;
+}
+.customer-project .project-pro-estimate dl {
+  display: block;
+  font-size: 11px;
+}
+.customer-project .project-pro-estimate dt {
+  margin-top: 7px;
+}
+.customer-project .project-pro-estimate dd {
+  font-weight: 600;
+}
+.customer-project .project-pro-estimate .actions {
+  flex-direction: column;
+  gap: 7px;
+}
+.customer-project .project-pro-estimate .actions button {
+  width: 100%;
+  font-size: 11px;
+  padding: 8px;
+  min-height: 36px;
+}
+.customer-project .project-pro-waiting {
+  font-size: 11px;
+  line-height: 1.65;
+  margin: 0;
+}
+.customer-project .project-pro-waiting strong {
+  display: block;
+  color: #1b3444;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+@media (max-width: 1250px) and (min-width: 1001px) {
+  .customer-project .project-detail-columns {
+    grid-template-columns: 300px minmax(0, 1fr);
+  }
+  .customer-project .project-pro-card {
+    grid-template-columns: 130px minmax(0, 1fr);
+    gap: 12px;
+  }
+  .project-pro-offer {
+    grid-column: 1/-1;
+    border-left: 0;
+    border-top: 1px solid #eef1f3;
+    padding: 12px 0 0;
+  }
+  .customer-project .project-pro-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .customer-project .project-pro-actions button {
+    width: auto;
+  }
+}
+@media (max-width: 1000px) {
+  .customer-project .project-detail-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .customer-project-controls {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+  }
+  .customer-project #project-details {
+    display: contents;
+  }
+  .customer-project #project-estimates {
+    order: 1;
+  }
+  .customer-project .customer-project-controls {
+    order: 2;
+  }
+}
+@media (max-width: 600px) {
+  .workspace-main.customer-project-main {
+    padding: 0 12px 28px;
+  }
+  .customer-project-hero {
+    margin: 0 -12px 20px;
+    padding: 18px 12px 0;
+    background: linear-gradient(130deg, #eef7ff, #f7fcf9);
+  }
+  .project-hero-copy {
+    padding: 0 5px 20px;
+  }
+  .project-hero-meta {
+    font-size: 12px;
+    gap: 9px 14px;
+    margin: 14px 0;
+  }
+  .project-hero-title {
+    gap: 10px;
+  }
+  .project-hero-copy > p {
+    font-size: 13px;
+  }
+  .project-progress {
+    margin: 0;
+    padding: 15px 12px;
+    gap: 9px;
+    overflow-x: auto;
+    grid-template-columns: repeat(5, minmax(91px, 1fr));
+  }
+  .project-progress li {
+    gap: 7px;
+  }
+  .progress-number {
+    width: 25px;
+    height: 25px;
+    font-size: 12px;
+  }
+  .project-progress strong {
+    font-size: 11px;
+  }
+  .project-progress small {
+    font-size: 10px;
+  }
+  .project-progress li:not(:last-child)::after {
+    left: 30px;
+    top: 12px;
+  }
+  .customer-project .project-actions {
+    gap: 6px;
+  }
+  .customer-project .project-actions button {
+    font-size: 11px;
+    padding: 8px 9px;
+  }
+  .customer-project .project-detail-columns .panel {
+    padding: 17px;
+  }
+  .customer-project-controls {
+    display: block;
+  }
+  .project-detail-rows > div {
+    gap: 10px;
+    font-size: 12px;
+  }
+  .project-detail-rows dt {
+    gap: 7px;
+  }
+  .project-pro-results-heading {
+    flex-wrap: wrap;
+    padding: 13px;
+  }
+  .project-pro-results-heading > label {
+    margin-left: 55px;
+  }
+  .project-pro-results-heading > div {
+    flex: 1 1 calc(100% - 60px);
+  }
+  .customer-project .project-pro-card {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    padding: 12px;
+  }
+  .project-pro-media {
+    height: 200px;
+    min-height: 200px;
+  }
+  .project-pro-placeholder {
+    min-height: 200px;
+  }
+  .project-pro-match {
+    right: auto;
+  }
+  .project-pro-main {
+    padding: 0 3px;
+  }
+  .project-pro-offer {
+    border-left: 0;
+    border-top: 1px solid #edf1f3;
+    padding: 12px 3px 0;
+  }
+  .customer-project .project-pro-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .customer-project .project-pro-actions button {
+    width: auto;
+    font-size: 12px;
+  }
+  .customer-project .project-pro-estimate .actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .customer-project .project-pro-estimate .actions button {
+    width: auto;
+    font-size: 12px;
+  }
+  .customer-project .project-pro-price {
+    display: flex;
+  }
+}

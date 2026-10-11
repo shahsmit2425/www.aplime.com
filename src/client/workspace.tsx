@@ -882,7 +882,12 @@ export default function Workspace() {
             </div>
           </header>
           <main
-            className="workspace-main"
+            className={
+              "workspace-main" +
+              (route.page === "project" && data.user.role === "customer"
+                ? " customer-project-main"
+                : "")
+            }
             id="workspace-content"
             data-page={route.page}
           >

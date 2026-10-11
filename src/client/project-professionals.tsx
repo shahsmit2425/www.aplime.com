@@ -1,5 +1,9 @@
+import { useState } from "react";
 import {
   CalendarDays,
+  Users,
+  Image,
+  BriefcaseBusiness,
   MapPin,
   Phone,
   Video,
@@ -8,7 +12,7 @@ import {
 } from "lucide-react";
 import { money, type Project, type Quote } from "../shared/domain.js";
 import { useWorkspace } from "./workspace.js";
-import { Panel, ServiceIcon, Badge } from "./ui.js";
+import { ServiceIcon, Badge } from "./ui.js";
 import { ChatWithPro, SavePro } from "./project-actions.js";
 import { request, openExternal } from "./api.js";
 import { projectProfessionals, estimateCanBeAccepted } from "./project-hub.js";
@@ -20,6 +24,7 @@ export function ProjectProfessionals({
   submit: (body: unknown) => Promise<unknown>;
 }) {
   const { data, go, run, busy } = useWorkspace();
+  const [sort, setSort] = useState("match");
   const quotes = data.quotes.filter((q) => q.projectId === p.id);
   const profiles = projectProfessionals(
     p,
@@ -35,6 +40,20 @@ export function ProjectProfessionals({
       ...(p.proId ? [p.proId] : []),
     ]),
   ];
+  const ordered = [...ids].sort((a, b) => {
+    if (sort === "name")
+      return (profiles.find((f) => f.id === a)?.business || "").localeCompare(
+        profiles.find((f) => f.id === b)?.business || "",
+      );
+    if (sort === "rating") {
+      const pa = profiles.find((f) => f.id === a),
+        pb = profiles.find((f) => f.id === b);
+      return (
+        (pb?.reviewCount ? pb.rating : -1) - (pa?.reviewCount ? pa.rating : -1)
+      );
+    }
+    return Number(b === p.proId) - Number(a === p.proId);
+  });
   const open = ["requested", "quoted"].includes(p.status);
   const accept = (q: Quote, business: string) => {
     if (
@@ -56,14 +75,37 @@ export function ProjectProfessionals({
       await openExternal(result.url);
     }, "");
   return (
-    <Panel title="Professionals for this project">
+    <section
+      className="project-pro-results"
+      aria-labelledby="project-pro-title"
+    >
+      <div className="project-pro-results-heading">
+        <Users size={25} />
+        <div>
+          <h2 id="project-pro-title">
+            {ids.length} {ids.length === 1 ? "professional" : "professionals"}{" "}
+            for this project
+          </h2>
+          <p>Compare profiles and estimates to choose the best fit.</p>
+        </div>
+        {ids.length > 1 && (
+          <label>
+            <span className="sr-only">Sort professionals</span>
+            <select value={sort} onChange={(e) => setSort(e.target.value)}>
+              <option value="match">Project order</option>
+              <option value="rating">Highest rated</option>
+              <option value="name">Business name</option>
+            </select>
+          </label>
+        )}
+      </div>
       <div id="project-professionals" className="project-pro-list">
         {!ids.length && (
           <p>
             No professionals yet. New matches and estimates will appear here.
           </p>
         )}
-        {ids.map((proId) => {
+        {ordered.map((proId) => {
           const profile = profiles.find((f) => f.id === proId);
           const estimates = quotes.filter((q) => q.proId === proId);
           const assigned = p.proId === proId;
@@ -72,8 +114,8 @@ export function ProjectProfessionals({
             (assigned ? p.proName : null) ||
             "Professional";
           const image =
-            profile?.images?.find((i) => i.slot === "logo") ||
-            profile?.images?.find((i) => i.slot === "cover");
+            profile?.images?.find((i) => i.slot === "cover") ||
+            profile?.images?.find((i) => i.slot === "logo");
           const matched = profile?.matchedProjectIds?.includes(p.id);
           const canContact =
             assigned ||
@@ -91,187 +133,218 @@ export function ProjectProfessionals({
               className={"project-pro-card" + (assigned ? " selected" : "")}
               key={proId}
             >
-              <div className="project-pro-heading">
-                <div className="project-pro-image">
-                  {image ? (
-                    <img
-                      src={image.url}
-                      alt={business + " business image"}
-                      loading="lazy"
-                    />
-                  ) : (
+              <div
+                className={
+                  "project-pro-media" +
+                  (image?.slot === "logo" ? " logo-only" : "")
+                }
+              >
+                {image ? (
+                  <img
+                    src={image.url}
+                    alt={business + " business image"}
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className="project-pro-placeholder">
                     <ServiceIcon
                       service={profile?.category || p.category}
-                      size={30}
+                      size={52}
                     />
-                  )}
-                </div>
-                <div>
-                  <h3>{business}</h3>
-                  <span className="project-pro-relationship">
-                    {assigned
-                      ? "Selected professional"
-                      : estimates.length
-                        ? "Estimate received"
-                        : matched
-                          ? "Matched to your request"
-                          : "Available to contact"}
+                    <span>{profile?.category || p.category}</span>
+                  </div>
+                )}
+                {profile && <SavePro proId={proId} />}
+                {(assigned || matched) && (
+                  <span className="project-pro-match">
+                    {assigned ? "Selected professional" : "Project match"}
                   </span>
-                  {profile && (
+                )}
+                {!!profile?.images?.length && (
+                  <span className="project-pro-photo-count">
+                    <Image size={13} />
+                    {profile.images.length}{" "}
+                    {profile.images.length === 1 ? "photo" : "photos"}
+                  </span>
+                )}
+              </div>
+              <div className="project-pro-main">
+                <h3>
+                  {business}
+                  {profile?.verified && (
+                    <ShieldCheck size={17} aria-label="Identity verified" />
+                  )}
+                </h3>
+                <span className="project-pro-relationship">
+                  {assigned
+                    ? "Selected professional"
+                    : estimates.length
+                      ? "Estimate received"
+                      : matched
+                        ? "Matched to your request"
+                        : "Available to contact"}
+                </span>
+                {profile && (
+                  <>
                     <div className="project-pro-meta">
+                      {profile.reviewCount > 0 ? (
+                        <span className="project-pro-rating">
+                          <Star size={16} />
+                          <strong>{profile.rating.toFixed(1)}</strong> (
+                          {profile.reviewCount} reviews)
+                        </span>
+                      ) : (
+                        <span>No reviews yet</span>
+                      )}
                       {profile.verified && (
                         <span>
                           <ShieldCheck size={14} />
                           Identity verified
                         </span>
                       )}
-                      {profile.reviewCount > 0 ? (
+                      {profile.details?.yearsExperience !== undefined && (
                         <span>
-                          <Star size={14} />
-                          {profile.rating.toFixed(1)} ({profile.reviewCount}{" "}
-                          reviews)
+                          <BriefcaseBusiness size={14} />
+                          {profile.details.yearsExperience} years experience
                         </span>
-                      ) : (
-                        <span>No reviews yet</span>
                       )}
                     </div>
-                  )}
-                </div>
-                {profile && <SavePro proId={proId} />}
-              </div>
-              {profile && (
-                <>
-                  <div className="professional-card-services">
-                    {profile.serviceCategories.map((c) => (
-                      <span key={c}>{c}</span>
-                    ))}
-                  </div>
-                  <p className="project-pro-bio">{profile.bio}</p>
-                  <p className="project-pro-location">
-                    <MapPin size={14} />
-                    {profile.zip} · Serves within {profile.serviceRadiusMiles}{" "}
-                    miles
-                  </p>
-                </>
-              )}
-              <div className="actions project-pro-actions">
-                {canContact && (
-                  <ChatWithPro projectId={p.id} proId={proId} label="Chat" />
-                )}
-                {profile && (
-                  <button
-                    className="secondary"
-                    onClick={() => go("pro", proId)}
-                  >
-                    View profile
-                  </button>
-                )}
-                {calling && (
-                  <>
-                    <button
-                      className="secondary"
-                      disabled={busy}
-                      onClick={() => call(true)}
-                    >
-                      <Phone size={16} />
-                      Audio
-                    </button>
-                    <button
-                      className="secondary"
-                      disabled={busy}
-                      onClick={() => call(false)}
-                    >
-                      <Video size={16} />
-                      Video
-                    </button>
+                    <div className="professional-card-services">
+                      {profile.serviceCategories.map((c) => (
+                        <span key={c}>{c}</span>
+                      ))}
+                    </div>
+                    <p className="project-pro-bio">{profile.bio}</p>
+                    <p className="project-pro-location">
+                      <MapPin size={14} />
+                      {[profile.details?.city, profile.details?.state]
+                        .filter(Boolean)
+                        .join(", ") || profile.zip}{" "}
+                      · Serves within {profile.serviceRadiusMiles} miles
+                    </p>
                   </>
                 )}
               </div>
-              {estimates.map((q) => (
-                <section
-                  className="project-pro-estimate"
-                  key={q.id}
-                  aria-label={business + " estimate"}
-                >
-                  <div className="project-pro-price">
-                    <strong>{money(q.amount)}</strong>
-                    <Badge>
-                      {q.status === "pending" &&
-                      q.expiresAt &&
-                      Date.parse(q.expiresAt) <= Date.now()
-                        ? "expired"
-                        : q.status === "pending" && !open
-                          ? "on hold"
-                          : q.status}
-                    </Badge>
-                  </div>
-                  <p className="project-pro-timeline">
-                    <CalendarDays size={15} />
-                    {q.timeline}
-                  </p>
-                  <details>
-                    <summary>Estimate details · version {q.revision}</summary>
-                    <p>{q.description}</p>
-                    <dl>
-                      <dt>Labor</dt>
-                      <dd>{money(q.laborAmount)}</dd>
-                      <dt>Materials</dt>
-                      <dd>{money(q.materialsAmount)}</dd>
-                      <dt>Exclusions</dt>
-                      <dd>{q.exclusions || "None listed"}</dd>
-                      <dt>Valid until</dt>
-                      <dd>
-                        {q.expiresAt
-                          ? new Date(q.expiresAt).toLocaleString()
-                          : "No expiration"}
-                      </dd>
-                    </dl>
-                  </details>
-                  {open && q.status === "pending" && (
-                    <div className="actions">
-                      {estimateCanBeAccepted(p, q) && (
-                        <button
-                          disabled={busy}
-                          onClick={() => accept(q, business)}
-                        >
-                          Accept estimate
-                        </button>
-                      )}
+              <aside
+                className="project-pro-offer"
+                aria-label={business + " actions and estimates"}
+              >
+                <div className="actions project-pro-actions">
+                  {canContact && (
+                    <ChatWithPro projectId={p.id} proId={proId} label="Chat" />
+                  )}
+                  {profile && (
+                    <button onClick={() => go("pro", proId)}>
+                      View profile
+                    </button>
+                  )}
+                  {calling && (
+                    <>
                       <button
                         className="secondary"
                         disabled={busy}
-                        onClick={() =>
-                          void run(
-                            () => submit({ type: "decline", quoteId: q.id }),
-                            "Estimate declined.",
-                          )
-                        }
+                        onClick={() => call(true)}
                       >
-                        Decline
+                        <Phone size={16} />
+                        Audio
                       </button>
+                      <button
+                        className="secondary"
+                        disabled={busy}
+                        onClick={() => call(false)}
+                      >
+                        <Video size={16} />
+                        Video
+                      </button>
+                    </>
+                  )}
+                </div>
+                {estimates.map((q) => (
+                  <section
+                    className="project-pro-estimate"
+                    key={q.id}
+                    aria-label={business + " estimate"}
+                  >
+                    <div className="project-pro-price">
+                      <strong>{money(q.amount)}</strong>
+                      <Badge>
+                        {q.status === "pending" &&
+                        q.expiresAt &&
+                        Date.parse(q.expiresAt) <= Date.now()
+                          ? "expired"
+                          : q.status === "pending" && !open
+                            ? "on hold"
+                            : q.status}
+                      </Badge>
                     </div>
-                  )}
-                </section>
-              ))}
-              {!estimates.length && (
-                <p className="project-pro-waiting">
-                  {profile && profile.rate > 0 && (
-                    <strong>
-                      {money(Math.round(profile.rate * 100))}/hr starting
-                      rate.{" "}
-                    </strong>
-                  )}
-                  {assigned
-                    ? "No estimate recorded."
-                    : canContact
-                      ? "No estimate yet. Chat to discuss this request."
-                      : "Not accepting new requests yet."}
-                </p>
-              )}
+                    <p className="project-pro-timeline">
+                      <CalendarDays size={15} />
+                      {q.timeline}
+                    </p>
+                    <details>
+                      <summary>Estimate details · version {q.revision}</summary>
+                      <p>{q.description}</p>
+                      <dl>
+                        <dt>Labor</dt>
+                        <dd>{money(q.laborAmount)}</dd>
+                        <dt>Materials</dt>
+                        <dd>{money(q.materialsAmount)}</dd>
+                        <dt>Exclusions</dt>
+                        <dd>{q.exclusions || "None listed"}</dd>
+                        <dt>Valid until</dt>
+                        <dd>
+                          {q.expiresAt
+                            ? new Date(q.expiresAt).toLocaleString()
+                            : "No expiration"}
+                        </dd>
+                      </dl>
+                    </details>
+                    {open && q.status === "pending" && (
+                      <div className="actions">
+                        {estimateCanBeAccepted(p, q) && (
+                          <button
+                            disabled={busy}
+                            onClick={() => accept(q, business)}
+                          >
+                            Accept estimate
+                          </button>
+                        )}
+                        <button
+                          className="secondary"
+                          disabled={busy}
+                          onClick={() =>
+                            void run(
+                              () => submit({ type: "decline", quoteId: q.id }),
+                              "Estimate declined.",
+                            )
+                          }
+                        >
+                          Decline
+                        </button>
+                      </div>
+                    )}
+                  </section>
+                ))}
+                {!estimates.length && (
+                  <p className="project-pro-waiting">
+                    {profile && profile.rate > 0 && (
+                      <strong>
+                        {money(Math.round(profile.rate * 100))}/hr starting
+                        rate.{" "}
+                      </strong>
+                    )}
+                    {assigned
+                      ? "No estimate recorded."
+                      : canContact
+                        ? "No estimate yet. Chat to discuss this request."
+                        : "Not accepting new requests yet."}
+                  </p>
+                )}
+              </aside>
             </article>
           );
         })}
       </div>
-    </Panel>
+    </section>
   );
 }
