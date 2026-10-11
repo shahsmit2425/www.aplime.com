@@ -1,7 +1,6 @@
 import {
   ArrowLeft,
   CalendarDays,
-  Check,
   CircleDollarSign,
   Clock3,
   FileText,
@@ -17,14 +16,6 @@ import {
   type ServiceCategory,
 } from "../shared/service-questionnaires.js";
 import { Badge, ServiceIcon } from "./ui.js";
-const stages = ["requested", "quoted", "booked", "in_progress", "completed"];
-const steps = [
-  ["Request", "Project posted"],
-  ["Compare pros", "Review and choose"],
-  ["Book", "Confirm details"],
-  ["Work", "Service in progress"],
-  ["Review", "Share feedback"],
-];
 const property = {
   home: "Single-family home",
   apartment: "Apartment",
@@ -45,9 +36,6 @@ export function CustomerProjectHeader({
   project: Project;
   onBack: () => void;
 }) {
-  const stage = stages.indexOf(
-    p.status === "paused" ? p.pausedFrom || "requested" : p.status,
-  );
   return (
     <header className="customer-project-hero">
       <div className="project-hero-copy">
@@ -84,25 +72,6 @@ export function CustomerProjectHeader({
         </div>
         <p>{p.description}</p>
       </div>
-      {stage >= 0 && (
-        <ol className="project-progress" aria-label="Project progress">
-          {steps.map(([label, caption], i) => (
-            <li
-              key={label}
-              className={i < stage ? "complete" : i === stage ? "current" : ""}
-              aria-current={i === stage ? "step" : undefined}
-            >
-              <span className="progress-number">
-                {i < stage ? <Check size={17} /> : i + 1}
-              </span>
-              <div>
-                <strong>{label}</strong>
-                <small>{caption}</small>
-              </div>
-            </li>
-          ))}
-        </ol>
-      )}
     </header>
   );
 }

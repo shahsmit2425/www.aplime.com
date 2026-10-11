@@ -1,3 +1,9 @@
+import { discussionRoute } from "../shared/chat.js";
+import {
+  useProjectPhotos,
+  ProjectPhotos,
+  stageProjectPhoto,
+} from "./project-photos.js";
 import { useState } from "react";
 import {
   CalendarDays,
@@ -86,7 +92,7 @@ export function ChatWithPro({
             "/projects/" + projectId + "/discussions/" + proId,
             {},
           );
-          go("messages", thread.id);
+          go("messages", discussionRoute(thread.id, projectId));
         }, "Conversation ready.")
       }
     >
@@ -146,7 +152,7 @@ export function ProjectActionBar({
       );
     add(
       "chat",
-      <button className="secondary" onClick={() => jumpTo("project-chat")}>
+      <button className="secondary" onClick={() => go("messages", p.id)}>
         <MessageCircle size={17} /> Messages
       </button>,
     );
@@ -169,8 +175,13 @@ export function ProjectActionBar({
       "message",
       <button
         className="secondary"
-        onClick={() => jumpTo("project-chat")}
-        disabled={!canRespond}
+        onClick={() =>
+          void run(async () => {
+            const thread = await request(`/projects/${p.id}/discussions`, {});
+            go("messages", discussionRoute(thread.id, p.id));
+          }, "")
+        }
+        disabled={busy || !canRespond}
       >
         <MessageCircle size={17} /> Message customer
       </button>,
@@ -303,7 +314,18 @@ export function EditDetails({
   submit: (body: unknown) => Promise<unknown>;
   onDone: () => void;
 }) {
-  const { run, busy } = useWorkspace();
+  const { run, busy, data } = useWorkspace();
+  const [original] = useState(() =>
+    data.uploads.filter(
+      (f) =>
+        f.projectId === p.id &&
+        f.status === "ready" &&
+        f.contentType.startsWith("image/"),
+    ),
+  );
+  const [existing, setExisting] = useState(original);
+  const [photos, setPhotos] = useProjectPhotos(true);
+  const [uploading, setUploading] = useState("");
   const dollars = (n: number | null) => (n === null ? "" : String(n / 100));
   const cents = (v: FormDataEntryValue | null) =>
     String(v ?? "").trim() === "" ? null : Math.round(Number(v) * 100);
@@ -318,16 +340,35 @@ export function EditDetails({
         busy={busy}
         onSubmit={(f) =>
           run(async () => {
-            await submit({
-              type: "update_details",
-              title: f.get("title"),
-              description: f.get("description"),
-              urgency: f.get("urgency"),
-              budgetMin: cents(f.get("budgetMin")),
-              budgetMax: cents(f.get("budgetMax")),
-            });
-            onDone();
-          }, "Project details updated.")
+            try {
+              for (let i = 0; i < photos.length; i++) {
+                setUploading(`Uploading photo ${i + 1} of ${photos.length}…`);
+                await stageProjectPhoto(p.id, photos[i]);
+              }
+              await submit({
+                type: "update_details",
+                photos: {
+                  expectedIds: original
+                    .filter((f) => f.userId === data.user.id)
+                    .map((f) => f.id),
+                  photoIds: [
+                    ...existing
+                      .filter((f) => f.userId === data.user.id)
+                      .map((f) => f.id),
+                    ...photos.map((photo) => photo.uploadId!),
+                  ],
+                },
+                title: f.get("title"),
+                description: f.get("description"),
+                urgency: f.get("urgency"),
+                budgetMin: cents(f.get("budgetMin")),
+                budgetMax: cents(f.get("budgetMax")),
+              });
+              onDone();
+            } finally {
+              setUploading("");
+            }
+          }, "Project details and photos updated.")
         }
       >
         <Field label="Project title">
@@ -374,8 +415,58 @@ export function EditDetails({
             defaultValue={dollars(p.budgetMax)}
           />
         </Field>
+        <ProjectPhotos
+          photos={photos}
+          onChange={setPhotos}
+          existing={existing}
+          readOnlyIds={existing
+            .filter((f) => f.userId !== data.user.id)
+            .map((f) => f.id)}
+          onExistingChange={setExisting}
+          editing
+          disabled={busy}
+        />
+        {data.uploads.some(
+          (f) =>
+            f.projectId === p.id &&
+            f.userId === data.user.id &&
+            f.status === "pending" &&
+            !photos.some((photo) => photo.uploadId === f.id),
+        ) && (
+          <button
+            type="button"
+            className="text-button"
+            disabled={busy}
+            onClick={() => {
+              const unfinished = data.uploads.filter(
+                (f) =>
+                  f.projectId === p.id &&
+                  f.userId === data.user.id &&
+                  f.status === "pending" &&
+                  !photos.some((photo) => photo.uploadId === f.id),
+              );
+              if (
+                window.confirm(
+                  "Discard unfinished uploads? Saved project photos will stay unchanged.",
+                )
+              )
+                void run(async () => {
+                  for (const f of unfinished)
+                    await request(`/uploads/${f.id}`, undefined, "DELETE");
+                }, "Unfinished uploads removed.");
+            }}
+          >
+            Discard unfinished uploads
+          </button>
+        )}
+        {uploading && <p role="status">{uploading}</p>}
         <button>Save changes</button>
-        <button type="button" className="text-button" onClick={onDone}>
+        <button
+          type="button"
+          className="text-button"
+          disabled={busy}
+          onClick={onDone}
+        >
           Cancel
         </button>
       </Form>

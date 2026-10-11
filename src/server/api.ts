@@ -1,3 +1,4 @@
+import { projectImages } from "./project-images.js";
 import { identityVerification } from "./identity-verification.js";
 import { adminConsole } from "./admin-console.js";
 import { supportRouter } from "./support.js";
@@ -18,9 +19,10 @@ import {
 import { assertAppointment } from "./scheduling.js";
 import { businessImages, publicBusinessImages } from "./business-images.js";
 import { notificationStream } from "./notification-stream.js";
-import { discussions } from "./discussions.js";
+import { discussions, ensurePairConversation } from "./discussions.js";
 import { reserveUpload } from "./uploads.js";
-import { uploadSchema } from "../shared/uploads.js";
+import { uploadSchema, MAX_PROJECT_IMAGES } from "../shared/uploads.js";
+import { matchesImageSignature } from "../shared/business-images.js";
 import { subscriptions } from "./subscriptions.js";
 import { Router, json, type Request } from "express";
 import { randomUUID } from "node:crypto";
@@ -56,6 +58,7 @@ import {
   downloadUrl,
   imageUrl,
   inspectObject,
+  imageHeader,
   removeObject,
 } from "./integrations/storage.js";
 import { locate } from "./integrations/maps.js";
@@ -325,6 +328,7 @@ api.post("/profile/submit-review", async (req, res) => {
 });
 api.use("/profile/images", businessImages);
 api.use(discussions);
+api.use(projectImages);
 const projectDraftSchema = z.record(z.string().max(64), z.unknown());
 api.get("/project-draft", async (req, res) => {
   if (req.account.role !== "customer") fail(403, "Customer account required.");
@@ -457,6 +461,14 @@ api.post("/projects/:id/messages", async (req, res) => {
   if (!p.proId)
     fail(409, "Choose an estimate before messaging a professional.");
   const other = q.account.id === p.customerId ? p.proId : p.customerId;
+  if (
+    (
+      await pool.query("SELECT 1 FROM profiles WHERE id=$1 AND suspended", [
+        p.proId,
+      ])
+    ).rowCount
+  )
+    fail(403, "This business cannot receive or send messages right now.");
   await transaction(async (c) => {
     if (
       (
@@ -467,16 +479,27 @@ api.post("/projects/:id/messages", async (req, res) => {
       ).rowCount
     )
       fail(403, "This conversation is blocked.");
+    const conversation = await ensurePairConversation(
+      c,
+      p.id,
+      p.customerId,
+      p.proId!,
+    );
+    const messageId = randomUUID();
     await c.query(
       "INSERT INTO messages(id,project_id,sender_id,body) VALUES($1,$2,$3,$4)",
-      [randomUUID(), p.id, q.account.id, body.body],
+      [messageId, p.id, q.account.id, body.body],
+    );
+    await c.query(
+      "INSERT INTO discussion_messages(id,discussion_id,sender_id,body) VALUES($1,$2,$3,$4)",
+      [messageId, conversation.contextId, q.account.id, body.body],
     );
     await notify(
       c,
       other,
-      "New project message",
+      "New message",
       "You have a new message about " + p.title + ".",
-      { page: "messages", id: p.id },
+      { page: "messages", id: conversation.id },
     );
   });
   res.json({ ok: true });
@@ -501,18 +524,40 @@ api.post("/projects/:id/call", async (req, res) => {
     ).rowCount
   )
     fail(403, "This conversation is blocked.");
-  const room = await meeting(p.id, q.account.id, q.account.name, audioOnly);
+  if (
+    (
+      await pool.query("SELECT 1 FROM profiles WHERE id=$1 AND suspended", [
+        p.proId,
+      ])
+    ).rowCount
+  )
+    fail(403, "This business cannot receive or send calls right now.");
+  const conversation = await transaction((c) =>
+    ensurePairConversation(c, p.id, p.customerId, p.proId!),
+  );
+  const room = await meeting(
+    conversation.id,
+    q.account.id,
+    q.account.name,
+    audioOnly,
+  );
   await transaction(async (c) => {
     await c.query(
-      "INSERT INTO call_events(id,project_id,actor_id,mode) VALUES($1,$2,$3,$4)",
-      [randomUUID(), p.id, q.account.id, audioOnly ? "audio" : "video"],
+      "INSERT INTO call_events(id,project_id,discussion_id,actor_id,mode) VALUES($1,$2,$3,$4,$5)",
+      [
+        randomUUID(),
+        p.id,
+        conversation.contextId,
+        q.account.id,
+        audioOnly ? "audio" : "video",
+      ],
     );
     await notify(
       c,
       other,
       "Join a project call",
-      "Open " + p.title + " and select the call button to join.",
-      { page: "messages", id: p.id },
+      "Open your conversation and select the matching call button to join.",
+      { page: "messages", id: conversation.id },
     );
   });
   res.json(room);
@@ -772,6 +817,16 @@ api.post("/uploads/:id/retry", async (req, res) => {
 api.post("/uploads/:id/complete", async (req, res) => {
   const q = req as AuthRequest;
   await transaction(async (c) => {
+    const candidate = (
+      await c.query(
+        "SELECT project_id FROM uploads WHERE id=$1 AND user_id=$2",
+        [z.string().uuid().parse(q.params.id), q.account.id],
+      )
+    ).rows[0];
+    if (!candidate) fail(404, "Upload not found.");
+    await c.query("SELECT id FROM projects WHERE id=$1 FOR UPDATE", [
+      candidate.project_id,
+    ]);
     const f = (
       await c.query(
         "SELECT * FROM uploads WHERE id=$1 AND user_id=$2 FOR UPDATE",
@@ -781,11 +836,29 @@ api.post("/uploads/:id/complete", async (req, res) => {
     if (!f) fail(404, "Upload not found.");
     await memberProject(f.project_id, q.account);
     if (f.status === "ready") return;
+    if (f.content_type.startsWith("image/")) {
+      const count = (
+        await c.query(
+          "SELECT count(*)::int AS n FROM uploads WHERE project_id=$1 AND status='ready' AND content_type LIKE 'image/%'",
+          [f.project_id],
+        )
+      ).rows[0];
+      if (count.n >= MAX_PROJECT_IMAGES)
+        fail(
+          409,
+          "A project can have up to 5 images. Replace photos through Edit details.",
+        );
+    }
     const head = await inspectObject(f.object_key);
     if (head.ContentLength !== f.size || head.ContentType !== f.content_type) {
       await removeObject(f.object_key);
       fail(400, "Uploaded file does not match its declared type or size.");
     }
+    if (
+      f.content_type.startsWith("image/") &&
+      !matchesImageSignature(f.content_type, await imageHeader(f.object_key))
+    )
+      fail(400, "Choose a supported JPG, PNG or WebP photo.");
     await c.query("UPDATE uploads SET status='ready' WHERE id=$1", [f.id]);
     const p = await memberProject(f.project_id, q.account);
     await notify(
@@ -810,7 +883,17 @@ api.get("/uploads/:id", async (req, res) => {
     q.account.role === "pro" &&
     String(f.content_type).startsWith("image/") &&
     (await isOpenLead(q.account.id, f.project_id));
-  if (!openLead) await memberProject(f.project_id, q.account);
+  const conversationPhoto =
+    q.account.role === "pro" &&
+    String(f.content_type).startsWith("image/") &&
+    (
+      await pool.query(
+        "SELECT 1 FROM project_discussions WHERE project_id=$1 AND pro_id=$2",
+        [f.project_id, q.account.id],
+      )
+    ).rowCount;
+  if (!openLead && !conversationPhoto)
+    await memberProject(f.project_id, q.account);
   // Images open inline so participants can view photos in the browser;
   // documents keep the attachment disposition.
   const inline = String(f.content_type).startsWith("image/");

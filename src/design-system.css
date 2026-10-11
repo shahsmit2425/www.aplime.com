@@ -4209,18 +4209,18 @@ a:focus-visible {
 
 /* Customer project reference layout: photo-led comparisons and compact details. */
 .workspace-main.customer-project-main {
-  background: #f8fbfc;
+  background: transparent;
   padding: 0 32px 40px;
 }
 .customer-project {
-  color: #142638;
+  color: #163c31;
   font-family: Inter, ui-sans-serif, system-ui, sans-serif;
 }
 .customer-project h1,
 .customer-project h2,
 .customer-project h3 {
   font-family: Inter, ui-sans-serif, system-ui, sans-serif;
-  color: #102131;
+  color: #10392e;
   letter-spacing: -0.035em;
 }
 .customer-project .panel h2,
@@ -4236,16 +4236,16 @@ a:focus-visible {
 }
 .customer-project .panel,
 .customer-project .project-conversations {
-  background: #fff;
-  border: 1px solid #e7edf0;
-  box-shadow: 0 3px 18px #1c354506;
+  background: #fffef9;
+  border: 1px solid #dce6d5;
+  box-shadow: 0 3px 18px #234a2408;
   border-radius: 16px;
 }
 .customer-project-hero {
   padding: 26px 16px 0;
   margin: 0 -32px 24px;
   background:
-    linear-gradient(90deg, #f0f8ff 0%, #f0f8ffed 50%, #f0f8ff44 78%),
+    linear-gradient(90deg, #f1f7e7 0%, #f1f7e7ed 50%, #f1f7e744 78%),
     url("/home.jpg") right center/58% auto no-repeat;
 }
 .project-hero-copy {
@@ -4278,7 +4278,7 @@ a:focus-visible {
   gap: 10px 20px;
   margin: 18px 0;
   font-size: 13px;
-  color: #43546a;
+  color: #52675c;
 }
 .project-hero-meta > span {
   display: inline-flex;
@@ -4290,76 +4290,7 @@ a:focus-visible {
   font-size: 14px;
   line-height: 1.7;
   margin: 0;
-  color: #213548;
-}
-.project-progress {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  list-style: none;
-  padding: 18px 28px;
-  margin: 0 16px;
-  gap: 18px;
-  background: #ffffffed;
-  border: 1px solid #eef2f5;
-  border-radius: 15px;
-  box-shadow: 0 5px 20px #28405306;
-}
-.project-progress li {
-  display: flex;
-  align-items: start;
-  gap: 10px;
-  position: relative;
-  min-width: 0;
-}
-.project-progress li:not(:last-child)::after {
-  content: "";
-  position: absolute;
-  height: 2px;
-  background: #e9eef1;
-  left: 44px;
-  right: -8px;
-  top: 15px;
-  z-index: 0;
-}
-.project-progress li.complete::after {
-  background: #8cd4b2;
-}
-.progress-number {
-  display: grid;
-  place-items: center;
-  width: 31px;
-  height: 31px;
-  flex-shrink: 0;
-  border-radius: 50%;
-  background: #9da7af;
-  color: white;
-  font-weight: 700;
-  position: relative;
-  z-index: 1;
-}
-.project-progress .current .progress-number,
-.project-progress .complete .progress-number {
-  background: #078849;
-}
-.project-progress li > div {
-  background: #fff;
-  padding-right: 8px;
-  position: relative;
-  z-index: 1;
-}
-.project-progress strong {
-  display: block;
-  font-size: 13px;
-  line-height: 1.5;
-}
-.project-progress small {
-  display: block;
-  font-size: 11px;
-  color: #667689;
-  margin-top: 3px;
-}
-.project-progress .current strong {
-  color: #067647;
+  color: #294c3c;
 }
 .customer-project .project-next-step .project-journey {
   display: none;
@@ -4416,7 +4347,7 @@ a:focus-visible {
   font-size: 12px;
 }
 .project-detail-rows dt {
-  color: #607085;
+  color: #58705f;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -4426,10 +4357,10 @@ a:focus-visible {
 .project-detail-rows dt > span {
   display: grid;
   place-items: center;
-  color: #344c62;
+  color: #326347;
   width: 29px;
   height: 29px;
-  background: #f5f8fa;
+  background: #edf4e7;
   border-radius: 50%;
   flex-shrink: 0;
 }
@@ -4466,7 +4397,7 @@ a:focus-visible {
   display: flex;
   align-items: center;
   gap: 12px;
-  background: #eff6f8;
+  background: #e7f1df;
   padding: 16px;
   border-radius: 15px;
   margin-bottom: 14px;
@@ -4492,13 +4423,13 @@ a:focus-visible {
   margin: 0;
   font-size: 12px;
   line-height: 1.5;
-  color: #52677a;
+  color: #526b59;
 }
 .project-pro-results-heading select {
   padding: 9px;
   font-size: 12px;
   max-width: 135px;
-  background: #fff;
+  background: #fffef9;
 }
 .customer-project .project-pro-list {
   gap: 14px;
@@ -4512,10 +4443,10 @@ a:focus-visible {
   align-items: start;
   gap: 18px;
   padding: 12px;
-  background: #fff;
-  border: 1px solid #e5ecef;
+  background: #fffef9;
+  border: 1px solid #d7e5ce;
   border-radius: 16px;
-  box-shadow: 0 3px 15px #20394904;
+  box-shadow: 0 3px 15px #234a2406;
 }
 .customer-project .project-pro-card.selected {
   border-color: #22ab66;
@@ -4769,7 +4700,7 @@ a:focus-visible {
   .customer-project-hero {
     margin: 0 -12px 20px;
     padding: 18px 12px 0;
-    background: linear-gradient(130deg, #eef7ff, #f7fcf9);
+    background: linear-gradient(130deg, #eef5df, #f5f8ec);
   }
   .project-hero-copy {
     padding: 0 5px 20px;
@@ -4784,31 +4715,6 @@ a:focus-visible {
   }
   .project-hero-copy > p {
     font-size: 13px;
-  }
-  .project-progress {
-    margin: 0;
-    padding: 15px 12px;
-    gap: 9px;
-    overflow-x: auto;
-    grid-template-columns: repeat(5, minmax(91px, 1fr));
-  }
-  .project-progress li {
-    gap: 7px;
-  }
-  .progress-number {
-    width: 25px;
-    height: 25px;
-    font-size: 12px;
-  }
-  .project-progress strong {
-    font-size: 11px;
-  }
-  .project-progress small {
-    font-size: 10px;
-  }
-  .project-progress li:not(:last-child)::after {
-    left: 30px;
-    top: 12px;
   }
   .customer-project .project-actions {
     gap: 6px;
@@ -5095,5 +5001,115 @@ a:focus-visible {
   }
   .project-image-dialog .business-image-heading h2 {
     font-size: 15px;
+  }
+}
+
+/* Project context stays inside a people-based conversation. */
+.chat-project-context {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 18px;
+  border-bottom: 1px solid #dce6d5;
+  background: #f3f7ec;
+  color: #315c43;
+  font-size: 12px;
+}
+.chat-project-context select {
+  min-width: 0;
+  flex: 1;
+  max-width: 100%;
+  font-size: 13px;
+  padding: 8px;
+  background: #fffef9;
+}
+.project-quick-view {
+  width: min(720px, calc(100vw - 28px));
+  max-height: 85dvh;
+  border: 1px solid #d3e1c9;
+  border-radius: 20px;
+  padding: 24px;
+  background: #fffef9;
+  color: #173f30;
+  overflow: auto;
+  box-shadow: 0 24px 80px #123c3033;
+}
+.project-quick-view::backdrop {
+  background: #0c291e77;
+}
+.project-quick-view > header,
+.project-quick-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+.project-quick-view h2,
+.project-quick-view h3 {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.project-quick-title {
+  margin-top: 22px;
+  flex-wrap: wrap;
+}
+.project-quick-facts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  padding: 18px;
+  background: #eff5e8;
+  border-radius: 12px;
+}
+.project-quick-facts dt {
+  color: #58705f;
+  font-size: 12px;
+  margin-bottom: 5px;
+}
+.project-quick-facts dd {
+  margin: 0;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.project-photo-editor {
+  grid-column: 1 / -1;
+}
+.project-photo-editor .project-saved-photo {
+  padding: 12px;
+  background: #fffef9;
+  border: 1px solid #dce6d5;
+  border-radius: 14px;
+  margin: 0;
+}
+.project-photo-editor .project-saved-photo > button.secondary {
+  margin-bottom: 8px;
+}
+@media (max-width: 560px) {
+  .project-quick-view {
+    padding: 16px;
+  }
+  .project-quick-facts {
+    grid-template-columns: 1fr;
+  }
+  .chat-project-context {
+    gap: 8px;
+    padding: 8px;
+  }
+}
+
+@media (max-width: 600px) {
+  .chat-header:has(.chat-project-details) {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+  .chat-header:has(.chat-project-details) .chat-header-copy {
+    flex-basis: calc(100% - 100px);
+  }
+  .chat-header:has(.chat-project-details) .chat-header-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+  .chat-header-actions .chat-project-details span {
+    display: inline;
   }
 }

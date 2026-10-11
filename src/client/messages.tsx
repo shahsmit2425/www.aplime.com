@@ -72,8 +72,11 @@ export function MessagesInbox({
     ...projects.map((t) => ({
       id: t.id,
       name: data.user.role === "customer" ? t.business : t.customer_name,
-      subtitle: t.title,
-      preview: t.messages.at(-1)?.body || "Project conversation",
+      subtitle:
+        (t.projects?.length || 0) > 1
+          ? `${t.projects!.length} shared projects`
+          : t.title,
+      preview: t.messages.at(-1)?.body || "Start a conversation",
       time: t.messages.at(-1)?.created_at,
       unread: t.unread_count || 0,
     })),
@@ -93,7 +96,7 @@ export function MessagesInbox({
   return (
     <ChatInbox
       items={items}
-      selected={id}
+      selected={project?.id || id}
       loading={loading}
       error={error}
       onSelect={(key) => go("messages", key)}
@@ -108,7 +111,7 @@ export function MessagesInbox({
       footer={
         <>
           <span>
-            {projects.length} project chats · {total} support conversations
+            {projects.length} conversations · {total} support conversations
           </span>
           {total > 25 && (
             <div className="chat-pager">

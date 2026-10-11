@@ -1,14 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Eye, ImageOff, RefreshCw } from "lucide-react";
 import type { Upload } from "../shared/domain.js";
 import { request } from "./api.js";
 import { ImagePreview } from "./image-preview.js";
-function SavedPhoto({
+export function SavedPhoto({
   file,
   onView,
+  tools,
 }: {
   file: Upload;
   onView: (image: { url: string; name: string }) => void;
+  tools?: ReactNode;
 }) {
   const [url, setUrl] = useState(""),
     [error, setError] = useState(""),
@@ -92,6 +94,7 @@ function SavedPhoto({
           {opening ? "Opening…" : "View photo"}
         </button>
       )}
+      {tools}
     </figure>
   );
 }

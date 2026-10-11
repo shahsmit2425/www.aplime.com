@@ -23,7 +23,6 @@ import { Availability } from "./availability.js";
 import { BusinessProfile } from "./business-profile.js";
 import { IdentityVerification } from "./identity-verification.js";
 import { BusinessDisplay } from "./business-display.js";
-import { Discussions } from "./discussions.js";
 import {
   ProjectActionBar,
   EditDetails,
@@ -1856,83 +1855,6 @@ function ProjectDetail() {
         <div className="project-operation-grid">
           <ProjectControls key={p.id} project={p} />
         </div>
-      )}
-      <details id="project-chat" className="project-conversations">
-        <summary>
-          <MessageCircle size={18} />
-          Project conversations
-        </summary>
-        <Discussions
-          projectId={p.id}
-          canStart={
-            data.user.role === "pro" &&
-            !previewBlocked &&
-            canQuote &&
-            ["requested", "quoted"].includes(p.status) &&
-            (!p.proId || pro)
-          }
-        />
-      </details>
-      {own && (
-        <Panel title="Project attachments">
-          <p>
-            Share up to 5 photos, or project documents. Do not upload identity
-            documents here; use your business verification flow.
-          </p>
-          <Field label="Upload a photo or PDF (up to 10 MB)">
-            <input
-              type="file"
-              accept="image/jpeg,image/png,image/webp,application/pdf"
-              disabled={busy}
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file)
-                  void run(async () => {
-                    const r = await request("/projects/" + p.id + "/uploads", {
-                      name: file.name,
-                      contentType: file.type,
-                      size: file.size,
-                    });
-                    const uploaded = await fetch(r.url, {
-                      method: "PUT",
-                      headers: { "Content-Type": file.type },
-                      body: file,
-                    });
-                    if (!uploaded.ok)
-                      throw new Error(
-                        `The file could not be uploaded (storage responded ${uploaded.status}). Please retry.`,
-                      );
-                    await request("/uploads/" + r.id + "/complete", {});
-                  }, "File uploaded.");
-              }}
-            />
-          </Field>
-          {data.uploads
-            .filter(
-              (f) =>
-                f.projectId === p.id &&
-                (f.status === "pending" || !f.contentType.startsWith("image/")),
-            )
-            .map((f) => (
-              <button
-                key={f.id}
-                className="secondary"
-                onClick={() =>
-                  void run(async () => {
-                    if (f.status === "pending") {
-                      await request("/uploads/" + f.id, undefined, "DELETE");
-                    } else {
-                      const r = await request("/uploads/" + f.id);
-                      await openExternal(r.url);
-                    }
-                  }, "")
-                }
-              >
-                {f.status === "pending" ? "Remove unfinished upload: " : ""}
-                {f.name}
-              </button>
-            ))}
-        </Panel>
       )}
     </div>
   );

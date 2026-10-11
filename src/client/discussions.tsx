@@ -1,9 +1,14 @@
+import { ProjectQuickView } from "./project-quick-view.js";
 import { useEffect, useState, useRef } from "react";
-import { MessageCircle, Phone, Video } from "lucide-react";
+import { FileText, MessageCircle, Phone, Video } from "lucide-react";
 import { request, openExternal } from "./api.js";
 import { useWorkspace } from "./workspace.js";
 import { Panel, Field, Form } from "./ui.js";
-import type { Discussion } from "../shared/chat.js";
+import {
+  selectedDiscussion,
+  discussionContext,
+  type Discussion,
+} from "../shared/chat.js";
 import {
   ChatHeader,
   ChatLog,
@@ -73,29 +78,41 @@ export function Discussions({
     };
   }, [data.user.id]);
   const visible = threads.filter(
-    (t) => !projectId || t.project_id === projectId,
+    (t) =>
+      !projectId ||
+      t.project_id === projectId ||
+      !!t.projects?.some((p) => p.id === projectId),
   );
-  const thread = focusedId
-    ? visible.find((t) => t.id === focusedId)
-    : visible.find((t) => t.id === selected) ||
-      visible.find((t) => t.id === id) ||
-      visible.find(
-        (t) =>
-          t.project_id === id &&
-          !!t.selected_pro &&
-          t.selected_pro === t.pro_id,
-      ) ||
-      visible.find((t) => t.project_id === id) ||
-      visible[0];
+  const thread =
+    selectedDiscussion(visible, focusedId || selected || id) ||
+    (focusedId ? undefined : visible[0]);
+  const [contextId, setContextId] = useState("");
+  const [showProject, setShowProject] = useState(false);
+  const contexts =
+    thread?.projects ||
+    (thread
+      ? [
+          {
+            id: thread.project_id,
+            title: thread.title,
+            status: thread.status,
+            selected_pro: thread.selected_pro,
+          },
+        ]
+      : []);
+  const context =
+    contexts.find((p) => p.id === contextId) ||
+    (thread ? discussionContext(thread, id) : undefined);
+  useEffect(() => {
+    setContextId("");
+    setShowProject(false);
+  }, [thread?.id, id]);
   const other = thread
     ? thread.customer_id === data.user.id
       ? thread.pro_id
       : thread.customer_id
     : "";
-  const closed =
-    !!thread &&
-    (["cancelled", "disputed"].includes(thread.status) ||
-      (!!thread.selected_pro && thread.selected_pro !== thread.pro_id));
+  const closed = !!thread?.read_only;
   const blocked = data.blocked.includes(other);
   useEffect(() => setSelected(""), [id]);
   const [draft, setDraft] = useState("");
@@ -148,15 +165,24 @@ export function Discussions({
                     ? thread.business
                     : thread.customer_name
                 }
-                subtitle={thread.title}
+                subtitle={
+                  contexts.length > 1
+                    ? `${contexts.length} shared projects`
+                    : context?.title || "Private conversation"
+                }
                 back={embedded ? () => go("messages") : undefined}
                 actions={
                   <>
-                    {!projectId && (
-                      <button onClick={() => go("project", thread.project_id)}>
-                        Project
-                      </button>
-                    )}
+                    <button
+                      className="chat-project-details"
+                      aria-label="Project details"
+                      title="Project details"
+                      onClick={() => setShowProject(true)}
+                      disabled={!context}
+                    >
+                      <FileText size={17} />
+                      <span>Project details</span>
+                    </button>
                     {[true, false].map((audio) => (
                       <button
                         key={String(audio)}
@@ -168,7 +194,7 @@ export function Discussions({
                           void run(async () => {
                             const r = await request(
                               `/discussions/${thread.id}/call`,
-                              { audioOnly: audio },
+                              { audioOnly: audio, projectId: context?.id },
                             );
                             await openExternal(r.url);
                           }, "")
@@ -180,15 +206,36 @@ export function Discussions({
                   </>
                 }
               />
+              {contexts.length > 1 && (
+                <label className="chat-project-context">
+                  <span>Discussing</span>
+                  <select
+                    aria-label="Project being discussed"
+                    value={context?.id || ""}
+                    onChange={(e) => setContextId(e.target.value)}
+                  >
+                    {contexts.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.title} · {p.status.replaceAll("_", " ")}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
               <ChatLog
                 threadKey={thread.id}
                 messages={thread.messages.map((m) => ({
                   id: m.id,
                   body: m.body,
                   name:
-                    data.user.role === "customer"
+                    (data.user.role === "customer"
                       ? thread.business
-                      : thread.customer_name,
+                      : thread.customer_name) +
+                    (contexts.length > 1 && m.project_id
+                      ? " · " +
+                        (contexts.find((p) => p.id === m.project_id)?.title ||
+                          "Project")
+                      : ""),
                   time: m.created_at,
                   mine: m.sender_id === data.user.id,
                 }))}
@@ -197,7 +244,7 @@ export function Discussions({
                 <div className="chat-extra">
                   {blocked
                     ? "This conversation is blocked. Unblock it to reply."
-                    : "This discussion is closed. Your messages remain available."}
+                    : "Messaging is unavailable for this conversation. Your history remains available."}
                 </div>
               ) : (
                 <ChatComposer
@@ -208,11 +255,19 @@ export function Discussions({
                     void run(async () => {
                       await request(`/discussions/${thread.id}/messages`, {
                         body: draft,
+                        projectId: context?.id,
                       });
                       setDraft("");
                       await load();
                     }, "")
                   }
+                />
+              )}
+              {showProject && context && (
+                <ProjectQuickView
+                  conversationId={thread.id}
+                  projectId={context.id}
+                  onClose={() => setShowProject(false)}
                 />
               )}
               <div className="chat-extra">
@@ -228,6 +283,7 @@ export function Discussions({
                           return setError("Choose a time in the future.");
                         void run(async () => {
                           await request(`/discussions/${thread.id}/messages`, {
+                            projectId: context?.id,
                             body: `Could we meet on ${when.toLocaleString(undefined, { dateStyle: "full", timeStyle: "short" })}? Reply here, or confirm it as the project appointment.`,
                           });
                           setSuggestion("");

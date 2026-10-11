@@ -158,6 +158,7 @@ export type Notice = {
   createdAt: string;
 };
 export type Upload = {
+  userId?: string | null;
   id: string;
   projectId: string;
   name: string;
@@ -285,6 +286,13 @@ export const actionSchema = z
     z
       .object({
         type: z.literal("update_details"),
+        photos: z
+          .object({
+            expectedIds: z.array(z.string().uuid()).max(5),
+            photoIds: z.array(z.string().uuid()).max(5),
+          })
+          .strict()
+          .optional(),
         title: text(5, 120),
         description: text(20, 4000),
         urgency: z.enum(["urgent", "this_week", "this_month", "flexible"]),

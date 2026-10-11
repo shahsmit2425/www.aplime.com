@@ -203,7 +203,7 @@ export async function workspace(user: User): Promise<Workspace> {
       [user.id],
     ),
     pool.query(
-      "SELECT id,project_id,name,content_type,size,status FROM uploads WHERE (project_id=ANY($1::uuid[]) AND (status='ready' OR user_id=$2)) OR (project_id=ANY($3::uuid[]) AND status='ready' AND content_type LIKE 'image/%') ORDER BY created_at",
+      "SELECT id,project_id,CASE WHEN user_id=$2 THEN user_id ELSE NULL END AS user_id,name,content_type,size,status FROM uploads WHERE (project_id=ANY($1::uuid[]) AND (status='ready' OR user_id=$2)) OR (project_id=ANY($3::uuid[]) AND status='ready' AND content_type LIKE 'image/%') ORDER BY created_at",
       [admin ? [] : ids, user.id, leads.map((lead) => lead.id)],
     ),
     pool.query("SELECT pro_id FROM saved WHERE user_id=$1", [user.id]),

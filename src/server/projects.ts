@@ -1,3 +1,5 @@
+import { commitProjectPhotos } from "./project-images.js";
+import { removeObject } from "./integrations/storage.js";
 import { changeLifecycle, lifecycleActions } from "./project-lifecycle.js";
 import {
   recordProjectActivity,
@@ -19,7 +21,8 @@ export async function projectAction(
   action: ProjectAction,
   expectedVersion?: number,
 ) {
-  return transaction(async (c) => {
+  const removedKeys: string[] = [];
+  const result = await transaction(async (c) => {
     const p = await getProject(c, id);
     if (!allowedTransition(p, user, action.type))
       fail(403, "This action is not available for this project.");
@@ -150,6 +153,10 @@ export async function projectAction(
         [id],
       );
     } else if (action.type === "update_details") {
+      if (action.photos)
+        removedKeys.push(
+          ...(await commitProjectPhotos(c, id, user.id, action.photos)),
+        );
       await c.query(
         "UPDATE projects SET title=$2,description=$3,urgency=$4,budget_min=$5,budget_max=$6 WHERE id=$1",
         [
@@ -275,4 +282,10 @@ export async function projectAction(
       await notifyMatchingProfessionals(c, id, "Project open for estimates");
     return { ok: true };
   });
+  // Cleanup must not turn a committed edit into a failed HTTP response.
+  for (const key of removedKeys)
+    void removeObject(key).catch(() => {
+      console.error("Removed project photo object cleanup failed");
+    });
+  return result;
 }

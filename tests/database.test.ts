@@ -24,7 +24,7 @@ const { stripe } = await import("../src/server/integrations/stripe.js");
 const { webhooks } = await import("../src/server/webhooks.js");
 const db = new PGlite();
 const query = async (text: string, values?: unknown[]) => {
-  const result = await db.query(text, values);
+  const result = await db.query<Record<string, any>>(text, values);
   return { ...result, rowCount: result.affectedRows || result.rows.length };
 };
 pool.query = query as typeof pool.query;
@@ -768,19 +768,19 @@ test("private discussions hide messages from outsiders and enforce blocking", as
       ).status,
       404,
     );
-    // The existing fixture project is disputed; closed threads are read-only.
+    // Pair conversations stay available when an individual project closes.
     assert.equal(
       (
         await call(`/discussions/${thread.id}/messages`, customer.id, {
           body: "Follow up",
         })
       ).status,
-      409,
+      200,
     );
     const rows = (await (
       await call("/discussions", customer.id)
     ).json()) as any[];
-    assert.ok(rows.some((row) => row.id === thread.id));
+    assert.ok(rows.some((row) => row.aliases.includes(thread.id)));
     const openProjectId = randomUUID();
     await query(
       "INSERT INTO projects(id,customer_id,title,description,category,zip) VALUES($1,$2,$3,$4,$5,$6)",
@@ -812,10 +812,96 @@ test("private discussions hide messages from outsiders and enforce blocking", as
     const professionalThreads = (await (
       await call("/discussions", professional.id)
     ).json()) as any[];
+    const pair = professionalThreads.find(
+      (row) =>
+        row.customer_id === customer.id && row.pro_id === professional.id,
+    );
+    assert.ok(pair.projects.some((p: any) => p.id === openProjectId));
+    assert.ok(pair.messages.some((m: any) => m.body === "Follow up"));
+    assert.ok(pair.messages.some((m: any) => m.project_id === openProjectId));
+    assert.equal(
+      professionalThreads.filter(
+        (row) =>
+          row.customer_id === customer.id && row.pro_id === professional.id,
+      ).length,
+      1,
+    );
+    const quick = await call(
+      `/discussions/${pair.id}/projects/${openProjectId}`,
+      professional.id,
+    );
+    assert.equal(quick.status, 200);
+    assert.equal((await quick.json()).project.address, null);
+    assert.equal(
+      (
+        await call(
+          `/discussions/${pair.id}/projects/${openProjectId}`,
+          outsider.id,
+        )
+      ).status,
+      404,
+    );
+    const unrelatedId = await lifecycleProject();
+    assert.equal(
+      (
+        await call(`/discussions/${pair.id}/messages`, professional.id, {
+          body: "Wrong project",
+          projectId: unrelatedId,
+        })
+      ).status,
+      404,
+    );
+    assert.equal(
+      (
+        await call(
+          `/discussions/${pair.id}/projects/${unrelatedId}`,
+          professional.id,
+        )
+      ).status,
+      404,
+    );
+    assert.equal(
+      (
+        await call(`/discussions/${thread.id}/messages`, customer.id, {
+          body: "About the new project",
+          projectId: openProjectId,
+        })
+      ).status,
+      200,
+    );
+    const updatedPairs = (await (
+      await call("/discussions", customer.id)
+    ).json()) as any[];
+    const updatedPair = updatedPairs.find((row) => row.id === pair.id);
     assert.ok(
-      professionalThreads.some(
-        (row) => row.project_id === openProjectId && row.messages.length === 1,
+      updatedPair.messages.some(
+        (m: any) =>
+          m.body === "About the new project" && m.project_id === openProjectId,
       ),
+    );
+    const noticeIds = (
+      await query(
+        "SELECT id FROM notifications WHERE user_id=$1 AND target_page='messages' AND target_id=ANY($2::text[]) AND NOT read",
+        [professional.id, pair.aliases],
+      )
+    ).rows.map((r: any) => r.id);
+    assert.ok(noticeIds.length);
+    assert.equal(
+      (
+        await call(`/discussions/${thread.id}/read`, professional.id, {
+          noticeIds,
+        })
+      ).status,
+      200,
+    );
+    assert.equal(
+      (
+        await query(
+          "SELECT count(*)::int AS n FROM notifications WHERE id=ANY($1::uuid[]) AND NOT read",
+          [noticeIds],
+        )
+      ).rows[0].n,
+      0,
     );
     await db.query(
       "UPDATE projects SET status='booked' WHERE id=(SELECT project_id FROM project_discussions WHERE id=$1)",
@@ -849,6 +935,43 @@ test("private discussions hide messages from outsiders and enforce blocking", as
       ).status,
       403,
     );
+    await query(
+      "DELETE FROM blocked WHERE (user_id=$1 AND other_id=$2) OR (user_id=$2 AND other_id=$1)",
+      [customer.id, professional.id],
+    );
+    await query("UPDATE profiles SET suspended=true WHERE id=$1", [
+      professional.id,
+    ]);
+    assert.equal(
+      (
+        await call(`/discussions/${thread.id}/messages`, customer.id, {
+          body: "Suspended business reply",
+        })
+      ).status,
+      403,
+    );
+    assert.equal(
+      (
+        await call(`/discussions/${thread.id}/call`, professional.id, {
+          audioOnly: true,
+        })
+      ).status,
+      403,
+    );
+    const suspendedPairs = (await (
+      await call("/discussions", customer.id)
+    ).json()) as any[];
+    assert.equal(
+      suspendedPairs.find((row) => row.id === pair.id).read_only,
+      true,
+    );
+    await query("UPDATE profiles SET suspended=false WHERE id=$1", [
+      professional.id,
+    ]);
+    await query("INSERT INTO blocked(user_id,other_id) VALUES($1,$2)", [
+      customer.id,
+      professional.id,
+    ]);
   } finally {
     await new Promise<void>((resolve, reject) =>
       server.close((error) => (error ? reject(error) : resolve())),
@@ -3142,4 +3265,194 @@ test("three-plan checkout selects server prices, safely switches sessions, and a
     stripeClient.subscriptions.retrieve = oldSubscription;
     await new Promise<void>((resolve) => server.close(() => resolve()));
   }
+});
+
+test("project photo edits preserve old images on failure, enforce ownership and five-image limits, and detect stale sessions", async () => {
+  const { commitProjectPhotos } =
+    await import("../src/server/project-images.js");
+  const { transaction } = await import("../src/server/db/index.js");
+  const projectId = await lifecycleProject("requested", false);
+  const otherProject = await lifecycleProject("requested", false);
+  const saved = Array.from({ length: 5 }, () => randomUUID());
+  const replacement = randomUUID(),
+    foreign = randomUUID();
+  for (const id of saved)
+    await query(
+      "INSERT INTO uploads(id,project_id,user_id,object_key,name,content_type,size,status) VALUES($1::uuid,$2,$3,$1::text,'saved.png','image/png',100,'ready')",
+      [id, projectId, customer.id],
+    );
+  await query(
+    "INSERT INTO uploads(id,project_id,user_id,object_key,name,content_type,size) VALUES($1::uuid,$2,$3,$1::text,'replacement.png','image/png',100)",
+    [replacement, projectId, customer.id],
+  );
+  await query(
+    "INSERT INTO uploads(id,project_id,user_id,object_key,name,content_type,size,status) VALUES($1::uuid,$2,$3,$1::text,'private.png','image/png',100,'ready')",
+    [foreign, otherProject, outsider.id],
+  );
+  const edit = (
+    expectedIds: string[],
+    photoIds: string[],
+    verify = async (_f: any) => {},
+  ) =>
+    transaction(async (c) => {
+      await c.query("SELECT id FROM projects WHERE id=$1 FOR UPDATE", [
+        projectId,
+      ]);
+      return commitProjectPhotos(
+        c,
+        projectId,
+        customer.id,
+        { expectedIds, photoIds },
+        verify,
+      );
+    });
+  await assert.rejects(edit(saved, [...saved, replacement]), /up to 5/);
+  await assert.rejects(edit(saved, [foreign]), /unavailable/);
+  await assert.rejects(edit(saved, [replacement, replacement]), /twice/);
+  await assert.rejects(edit(saved.slice(1), [replacement]), /another session/);
+  await assert.rejects(
+    edit(saved, [...saved.slice(1), replacement], async () => {
+      throw new Error("storage failed");
+    }),
+    /storage failed/,
+  );
+  assert.equal(
+    (
+      await query(
+        "SELECT count(*)::int AS n FROM uploads WHERE project_id=$1 AND status='ready'",
+        [projectId],
+      )
+    ).rows[0].n,
+    5,
+  );
+  assert.equal(
+    (await query("SELECT status FROM uploads WHERE id=$1", [replacement]))
+      .rows[0].status,
+    "pending",
+  );
+  await assert.rejects(
+    projectAction(projectId, outsider, {
+      type: "update_details",
+      title: "Unauthorized change",
+      description: "This must never modify another person's photos.",
+      urgency: "flexible",
+      budgetMin: null,
+      budgetMax: null,
+      photos: { expectedIds: saved, photoIds: [] },
+    }),
+    /not available/,
+  );
+  const next = [...saved.slice(1), replacement];
+  const keys = await edit(saved, next);
+  assert.deepEqual(keys, [saved[0]]);
+  assert.equal(
+    (await query("SELECT status FROM uploads WHERE id=$1", [replacement]))
+      .rows[0].status,
+    "ready",
+  );
+  assert.equal(
+    (await query("SELECT 1 FROM uploads WHERE id=$1", [saved[0]])).rowCount,
+    0,
+  );
+  await assert.rejects(edit(saved, []), /another session/);
+  await edit(next, []);
+  assert.equal(
+    (
+      await query(
+        "SELECT count(*)::int AS n FROM uploads WHERE project_id=$1 AND status='ready'",
+        [projectId],
+      )
+    ).rows[0].n,
+    0,
+  );
+  assert.equal(
+    (await query("SELECT 1 FROM uploads WHERE id=$1", [foreign])).rowCount,
+    1,
+  );
+});
+
+test("project photo reservation requires the owner, editable status and supported files, with bounded pending uploads", async () => {
+  const { projectImages } = await import("../src/server/project-images.js");
+  const { default: express } = await import("express");
+  const projectId = await lifecycleProject("requested", false);
+  const app = express();
+  app.use(express.json());
+  app.use((req, _res, next) => {
+    req.account = req.headers["x-user"] === customer.id ? customer : outsider;
+    next();
+  });
+  app.use(projectImages);
+  app.use((e: any, _q: any, r: any, _next: any) =>
+    r.status(e.status || 400).json({ error: e.message }),
+  );
+  const server = app.listen(0, "127.0.0.1");
+  await new Promise<void>((resolve) => server.once("listening", resolve));
+  const base = `http://127.0.0.1:${(server.address() as any).port}`;
+  const call = (userId: string, body: any, id = projectId) =>
+    fetch(`${base}/projects/${id}/photos/reservations`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-user": userId },
+      body: JSON.stringify(body),
+    });
+  const image = { name: "photo.png", contentType: "image/png", size: 100 };
+  try {
+    assert.equal((await call(outsider.id, image)).status, 404);
+    assert.equal(
+      (await call(customer.id, { ...image, contentType: "application/pdf" }))
+        .status,
+      400,
+    );
+    assert.equal(
+      (await call(customer.id, { ...image, size: 11 * 1024 * 1024 })).status,
+      400,
+    );
+    for (let i = 0; i < 5; i++) {
+      const result = await call(customer.id, image);
+      assert.equal(result.status, 200);
+      const reservation = await result.json();
+      assert.equal(
+        reservation.uploadPath,
+        `/project-photos/${reservation.id}/content`,
+      );
+      const wrongUser = await fetch(base + reservation.uploadPath, {
+        method: "PUT",
+        headers: { "Content-Type": "image/png", "x-user": outsider.id },
+        body: new Uint8Array(100),
+      });
+      assert.equal(wrongUser.status, 404);
+      const wrongImage = await fetch(base + reservation.uploadPath, {
+        method: "PUT",
+        headers: { "Content-Type": "image/png", "x-user": customer.id },
+        body: new Uint8Array(100),
+      });
+      assert.equal(wrongImage.status, 400);
+    }
+    assert.equal((await call(customer.id, image)).status, 409);
+    const booked = await lifecycleProject("booked");
+    assert.equal((await call(customer.id, image, booked)).status, 409);
+  } finally {
+    await new Promise<void>((resolve, reject) =>
+      server.close((e) => (e ? reject(e) : resolve())),
+    );
+  }
+});
+
+test("project and inbox call entry points resolve one stable room identity across shared projects", async () => {
+  const { ensurePairConversation } =
+    await import("../src/server/discussions.js");
+  const { transaction } = await import("../src/server/db/index.js");
+  const firstId = await lifecycleProject("booked");
+  const secondId = await lifecycleProject("booked");
+  const first = await transaction((c) =>
+    ensurePairConversation(c, firstId, customer.id, professional.id),
+  );
+  const second = await transaction((c) =>
+    ensurePairConversation(c, secondId, customer.id, professional.id),
+  );
+  assert.equal(first.id, second.id);
+  assert.notEqual(first.contextId, second.contextId);
+  const repeat = await transaction((c) =>
+    ensurePairConversation(c, firstId, customer.id, professional.id),
+  );
+  assert.deepEqual(first, repeat);
 });
