@@ -18,6 +18,24 @@ export async function assertAppointment(
       [proId],
     )
   ).rows[0];
+  const project = (
+    await c.query("SELECT customer_id FROM projects WHERE id=$1", [projectId])
+  ).rows[0];
+  if (project) {
+    await c.query(
+      "SELECT id FROM users WHERE id=ANY($1::text[]) ORDER BY id FOR UPDATE",
+      [[proId, project.customer_id]],
+    );
+    const calls = await c.query(
+      "SELECT 1 FROM scheduled_calls WHERE status='confirmed' AND (pro_id=$1 OR customer_id=$2) AND starts_at < $3::timestamptz + interval '1 hour' AND starts_at + interval '30 minutes' > $3::timestamptz",
+      [proId, project.customer_id, value],
+    );
+    if (calls.rowCount)
+      fail(
+        409,
+        "That visit overlaps a confirmed call meeting. Choose another time.",
+      );
+  }
   const end = new Date(Date.parse(value) + 60 * 60000 - 1).toISOString();
   if (
     !profile ||

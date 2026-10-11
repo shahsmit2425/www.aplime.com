@@ -96,3 +96,26 @@ test("marketplace design styles deploy only the web and shared mobile clients", 
     },
   );
 });
+
+test("call meeting contract is shared by marketplace clients and API, while its migration also updates the worker", () => {
+  assert.deepEqual(affected(["src/shared/meetings.ts"]), {
+    admin: false,
+    web: true,
+    api: true,
+    worker: false,
+    mobile: true,
+  });
+  assert.deepEqual(
+    affected([
+      "src/shared/meetings.ts",
+      "src/server/db/migrations/013_scheduled_calls.sql",
+    ]),
+    {
+      admin: false,
+      web: true,
+      api: true,
+      worker: true,
+      mobile: true,
+    },
+  );
+});

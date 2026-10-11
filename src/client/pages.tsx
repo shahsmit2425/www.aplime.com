@@ -1,3 +1,4 @@
+import { CallMeetings } from "./call-meetings.js";
 import { ProjectPhotoGallery } from "./project-photo-gallery.js";
 import {
   CustomerProjectHeader,
@@ -123,7 +124,7 @@ function PageContent() {
     case "onboarding":
       return <Business />;
     case "notifications":
-      return <Notifications />;
+      return <Dashboard />;
     case "settings":
       return <Settings />;
     case "help":
@@ -1338,11 +1339,21 @@ function ProjectDetail() {
             <summary>
               <FileText size={20} />
               <span>
-                <strong>Project details & photos</strong>
+                <strong>Project details</strong>
                 <small>
-                  {p.category} · {projectPhotos.length}{" "}
-                  {projectPhotos.length === 1 ? "photo" : "photos"}
+                  {p.category} · {p.zip} · {p.propertyType.replaceAll("_", " ")}
                 </small>
+              </span>
+              <span className="project-details-chips" aria-hidden="true">
+                {Object.values(p.intake || {})
+                  .slice(0, 3)
+                  .map((v, i) => (
+                    <span key={i}>{v}</span>
+                  ))}
+              </span>
+              <span className="project-expand-label">
+                <span className="expand-copy">Expand details</span>
+                <span className="collapse-copy">Collapse details</span>
               </span>
               <ChevronDown size={20} className="disclosure-chevron" />
             </summary>
@@ -1475,11 +1486,35 @@ function ProjectDetail() {
               </Form>
             )}
           </Panel>
-          <ProjectPhotoGallery key={p.id} files={projectPhotos} />
+          {!customer && (
+            <ProjectPhotoGallery key={p.id} files={projectPhotos} />
+          )}
         </DetailsContainer>
-        <div id="project-estimates">
+        {customer && (
+          <aside className="customer-project-sidebar">
+            <ProjectPhotoGallery key={p.id} files={projectPhotos} />
+            {open && (
+              <button
+                className="secondary project-add-photos"
+                onClick={() => setEditing(true)}
+              >
+                <Upload size={16} />
+                {projectPhotos.length
+                  ? "Manage project photos"
+                  : "Add project photos"}
+              </button>
+            )}
+            <div className="customer-project-controls">
+              <ProjectControls key={p.id} project={p} />
+            </div>
+          </aside>
+        )}
+        <div id="project-estimates" className="project-estimates">
           {customer ? (
-            <ProjectProfessionals project={p} submit={submit} />
+            <>
+              <ProjectProfessionals project={p} submit={submit} />
+              <CallMeetings projectId={p.id} compact />
+            </>
           ) : (
             <Panel title="Estimates">
               {quotes.length ? (
@@ -1774,13 +1809,8 @@ function ProjectDetail() {
           )}
         </div>
       </div>
-      {own && (
-        <div
-          className={
-            "project-operation-grid" +
-            (customer ? " customer-project-controls" : "")
-          }
-        >
+      {own && !customer && (
+        <div className="project-operation-grid">
           <ProjectControls key={p.id} project={p} />
         </div>
       )}
@@ -1843,7 +1873,8 @@ function Schedule() {
             />
           </Panel>
         )}
-      <Panel title="Upcoming appointments">
+      <CallMeetings />
+      <Panel title="Upcoming site visits">
         <ProjectList
           compact
           projects={data.projects
@@ -1961,84 +1992,6 @@ function Business() {
 }
 function CreditIcon() {
   return <CheckCircle2 />;
-}
-function Notifications() {
-  const { data, run, busy, go } = useWorkspace();
-  const notices = data.notices;
-  return (
-    <>
-      <Head
-        title="Notifications"
-        action={
-          <button
-            className="secondary"
-            disabled={busy || !data.unreadCount}
-            onClick={() =>
-              void run(() => request("/notifications/read", {}), "")
-            }
-          >
-            Mark all read
-          </button>
-        }
-      >
-        Your project, conversation, and account updates. {data.unreadCount || 0}{" "}
-        unread.
-      </Head>
-      <Panel>
-        {notices.length ? (
-          notices.map((n) => (
-            <article
-              className={n.read ? "notice-item" : "notice-item unread"}
-              key={n.id}
-            >
-              <Badge>{n.read ? "Read" : "New"}</Badge>
-              <h3>{n.title}</h3>
-              <p>{n.body}</p>
-              <small>{date(n.createdAt)}</small>
-              <div className="actions">
-                <button
-                  className="secondary"
-                  disabled={busy}
-                  onClick={() => {
-                    void run(
-                      () => request(`/notifications/${n.id}/read`, {}),
-                      "",
-                    );
-                    go(
-                      n.targetPage || "notifications",
-                      n.targetId || undefined,
-                    );
-                  }}
-                >
-                  View update
-                </button>
-                {!n.read && (
-                  <button
-                    className="text-button"
-                    disabled={busy}
-                    onClick={() =>
-                      void run(
-                        () => request(`/notifications/${n.id}/read`, {}),
-                        "",
-                      )
-                    }
-                  >
-                    Mark read
-                  </button>
-                )}
-              </div>
-            </article>
-          ))
-        ) : (
-          <Empty title="No notifications yet" />
-        )}
-        <p>
-          Showing your latest 100 notifications. Older unread updates are
-          included in the badge count.
-        </p>
-      </Panel>
-    </>
-  );
 }
 function Settings() {
   const { data, run, busy } = useWorkspace();

@@ -1,3 +1,4 @@
+import { callMeetings } from "./call-meetings.js";
 import { projectImages } from "./project-images.js";
 import { identityVerification } from "./identity-verification.js";
 import { adminConsole } from "./admin-console.js";
@@ -328,6 +329,7 @@ api.post("/profile/submit-review", async (req, res) => {
 });
 api.use("/profile/images", businessImages);
 api.use(discussions);
+api.use(callMeetings);
 api.use(projectImages);
 const projectDraftSchema = z.record(z.string().max(64), z.unknown());
 api.get("/project-draft", async (req, res) => {

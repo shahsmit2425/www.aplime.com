@@ -1,3 +1,4 @@
+import { CallScheduler } from "./call-meetings.js";
 import { ProjectQuickView } from "./project-quick-view.js";
 import { useEffect, useState, useRef } from "react";
 import {
@@ -98,6 +99,7 @@ export function Discussions({
   const [contextId, setContextId] = useState("");
   const [showProject, setShowProject] = useState(false);
   const [showSuggestion, setShowSuggestion] = useState(false);
+  const [showScheduler, setShowScheduler] = useState(false);
   const [suggestionError, setSuggestionError] = useState("");
   const contexts =
     thread?.projects ||
@@ -118,6 +120,7 @@ export function Discussions({
     setContextId("");
     setShowProject(false);
     setShowSuggestion(false);
+    setShowScheduler(false);
   }, [thread?.id, id]);
   const other = thread
     ? thread.customer_id === data.user.id
@@ -192,6 +195,16 @@ export function Discussions({
                     >
                       <FileText size={17} />
                       <span>Project details</span>
+                    </button>
+                    <button
+                      className="chat-schedule-call"
+                      title="Schedule call"
+                      aria-label="Schedule call"
+                      disabled={busy || closed || blocked || !context}
+                      onClick={() => setShowScheduler(true)}
+                    >
+                      <CalendarPlus size={17} />
+                      <span>Schedule call</span>
                     </button>
                     <button
                       className="chat-suggest-time"
@@ -310,6 +323,17 @@ export function Discussions({
                       await load();
                     }, "")
                   }
+                />
+              )}
+              {showScheduler && context && (
+                <CallScheduler
+                  projectId={context.id}
+                  proId={thread.pro_id}
+                  onClose={() => setShowScheduler(false)}
+                  onDone={() => {
+                    setShowScheduler(false);
+                    go("schedule");
+                  }}
                 />
               )}
               {showProject && context && (

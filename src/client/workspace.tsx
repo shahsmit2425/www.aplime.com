@@ -1,3 +1,4 @@
+import { NotificationDropdown } from "./notification-dropdown.js";
 import { watchNotifications } from "./live-notifications.js";
 import type { Notice } from "../shared/domain.js";
 import {
@@ -7,6 +8,7 @@ import {
   useState,
   useRef,
   type ReactNode,
+  type CSSProperties,
 } from "react";
 import { onAuthStateChanged, type User as FirebaseUser } from "firebase/auth";
 import { Capacitor } from "@capacitor/core";
@@ -177,7 +179,38 @@ export default function Workspace() {
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
     [needsAccount, setNeedsAccount] = useState(false),
-    [menu, setMenu] = useState(false);
+    [menu, setMenu] = useState(false),
+    [notificationsOpen, setNotificationsOpen] = useState(false),
+    [headerHeight, setHeaderHeight] = useState(110);
+  const headerRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const header = headerRef.current;
+    if (!header) return;
+    const measure = () =>
+      setHeaderHeight(
+        header.offsetHeight +
+          (document.querySelector<HTMLElement>(".environment-bar")
+            ?.offsetHeight || 0),
+      );
+    const observer = new ResizeObserver(measure);
+    observer.observe(header);
+    measure();
+    const wide = window.matchMedia("(min-width: 851px)");
+    const closeMobileNavigation = () => {
+      if (wide.matches) setMenu(false);
+    };
+    wide.addEventListener("change", closeMobileNavigation);
+    return () => {
+      observer.disconnect();
+      wide.removeEventListener("change", closeMobileNavigation);
+    };
+  }, [!!data]);
+  useEffect(() => {
+    if (data && route.page === "notifications") {
+      replaceRoute("dashboard");
+      setNotificationsOpen(true);
+    }
+  }, [route.page, !!data]);
   const [liveConnected, setLiveConnected] = useState(false);
   const loadSequence = useRef(0);
   const [liveNotice, setLiveNotice] = useState<Notice | null>(null);
@@ -257,6 +290,12 @@ export default function Workspace() {
     }
   }
   function go(page: string, id?: string) {
+    if (page === "notifications") {
+      setNotificationsOpen(true);
+      setMenu(false);
+      return;
+    }
+    setNotificationsOpen(false);
     const path = page + (id ? "/" + encodeURIComponent(id) : "");
     if (Capacitor.isNativePlatform()) location.hash = "/" + path;
     else {
@@ -752,7 +791,6 @@ export default function Workspace() {
     );
   const links = [
     ...navigation[data.user.role],
-    ["notifications", "Notifications"],
     ["settings", "Settings"],
     ["help", "Help & safety"],
   ];
@@ -833,7 +871,12 @@ export default function Workspace() {
     <Context.Provider
       value={{ data, page: route.page, id: route.id, go, run, busy }}
     >
-      <div className="workspace">
+      <div
+        className="workspace"
+        style={
+          { "--workspace-header-height": `${headerHeight}px` } as CSSProperties
+        }
+      >
         <a className="skip-link" href="#workspace-content">
           Skip to content
         </a>
@@ -844,7 +887,13 @@ export default function Workspace() {
               environment
             </div>
           )}
-          <header className="topbar workspace-header">
+          <header
+            className={
+              "topbar workspace-header" +
+              (data.user.role === "pro" ? " professional-header" : "")
+            }
+            ref={headerRef}
+          >
             <Brand />
             <nav className="workspace-primary-nav" aria-label="Main navigation">
               {renderLinks(
@@ -854,23 +903,30 @@ export default function Workspace() {
             <div className="actions">
               <button
                 className="icon-button workspace-menu"
-                aria-label="Open all navigation and sign out"
+                aria-label="Open navigation"
                 aria-expanded={menu}
                 onClick={() => setMenu(true)}
               >
                 <Menu size={21} />
               </button>
+              <NotificationDropdown
+                open={notificationsOpen}
+                setOpen={setNotificationsOpen}
+                notices={data.notices}
+                unread={data.unreadCount || 0}
+                connected={liveConnected}
+                busy={busy}
+                run={run}
+                go={go}
+              />
               <button
-                className="icon-button"
-                aria-label={`Notifications, ${data.unreadCount || 0} unread`}
-                onClick={() => go("notifications")}
+                type="button"
+                className="workspace-signout secondary"
+                onClick={signOutToLogin}
+                aria-label="Sign out"
               >
-                <Bell size={20} />
-                {data.unreadCount > 0 && (
-                  <span className="notification-count">
-                    {data.unreadCount > 99 ? "99+" : data.unreadCount}
-                  </span>
-                )}
+                <LogOut size={17} />
+                <span>Sign out</span>
               </button>
               <button
                 className="avatar"
@@ -891,13 +947,6 @@ export default function Workspace() {
             id="workspace-content"
             data-page={route.page}
           >
-            {route.page === "notifications" && (
-              <p className="notification-connection" role="status">
-                {liveConnected
-                  ? "Live updates connected"
-                  : "Reconnecting live updates — checking periodically"}
-              </p>
-            )}
             {liveNotice && (
               <aside className="live-notice" role="status" aria-live="polite">
                 <Bell size={20} />

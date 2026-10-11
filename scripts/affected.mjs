@@ -37,6 +37,10 @@ export function affected(paths) {
       result.web = result.admin = result.mobile = true;
       continue;
     }
+    if (file === "src/shared/meetings.ts") {
+      result.web = result.api = result.mobile = true;
+      continue;
+    }
     if (file.startsWith("src/shared/")) {
       all();
       continue;

@@ -22,7 +22,8 @@ export async function meeting(
   audioOnly: boolean,
 ) {
   requireValue(env.DAILY_API_KEY, "Calling is not configured yet.");
-  // Stable per-project private room; each participant receives only their own short-lived token.
+  // Callers provide the canonical account-conversation ID for a stable private room.
+  // Each participant receives only their own short-lived token.
   const roomName =
     "st-" +
     createHash("sha256")

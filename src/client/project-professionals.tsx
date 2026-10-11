@@ -1,3 +1,4 @@
+import { ScheduleCallButton } from "./call-meetings.js";
 import {
   CalendarDays,
   Users,
@@ -208,7 +209,19 @@ export function ProjectProfessionals({
               >
                 <div className="actions project-pro-actions">
                   {canContact && (
-                    <ChatWithPro projectId={p.id} proId={proId} label="Chat" />
+                    <>
+                      <ChatWithPro
+                        projectId={p.id}
+                        proId={proId}
+                        label="Chat"
+                      />
+                      {!["completed", "cancelled", "disputed"].includes(
+                        p.status,
+                      ) &&
+                        (!p.proId || p.proId === proId) && (
+                          <ScheduleCallButton projectId={p.id} proId={proId} />
+                        )}
+                    </>
                   )}
                   {profile && (
                     <button onClick={() => go("pro", proId)}>

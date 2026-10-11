@@ -126,18 +126,34 @@ export function ProjectControls({ project: p }: { project: Project }) {
   }, [p.id, p.version]);
   useEffect(() => {
     let active = true;
-    void request<Activity[]>("/projects/" + p.id + "/activity")
-      .then((rows) => {
+    let pending = false;
+    const load = async () => {
+      if (pending) return;
+      pending = true;
+      try {
+        const rows = await request<Activity[]>(
+          "/projects/" + p.id + "/activity",
+        );
         if (active) {
           setActivity(rows);
           setProblem("");
         }
-      })
-      .catch((error) => {
-        if (active) setProblem(error.message);
-      });
+      } catch (error) {
+        if (active)
+          setProblem(
+            error instanceof Error ? error.message : "Could not load activity.",
+          );
+      } finally {
+        pending = false;
+      }
+    };
+    void load();
+    window.addEventListener("aplime:updates", load);
+    window.addEventListener("aplime:meetings", load);
     return () => {
       active = false;
+      window.removeEventListener("aplime:updates", load);
+      window.removeEventListener("aplime:meetings", load);
     };
   }, [p.id, p.version, data.user.id]);
   const icons = {
