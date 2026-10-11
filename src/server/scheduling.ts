@@ -1,5 +1,6 @@
 import type pg from "pg";
 import { withinWeeklyHours } from "../shared/preferences.js";
+import { CALL_MINUTES } from "../shared/meetings.js";
 import { fail } from "./errors.js";
 
 // Appointments reserve a one-hour visit. Lock the professional so simultaneous
@@ -27,8 +28,8 @@ export async function assertAppointment(
       [[proId, project.customer_id]],
     );
     const calls = await c.query(
-      "SELECT 1 FROM scheduled_calls WHERE status='confirmed' AND (pro_id=$1 OR customer_id=$2) AND starts_at < $3::timestamptz + interval '1 hour' AND starts_at + interval '30 minutes' > $3::timestamptz",
-      [proId, project.customer_id, value],
+      "SELECT 1 FROM scheduled_calls WHERE status='confirmed' AND (pro_id=$1 OR customer_id=$2) AND starts_at < $3::timestamptz + interval '1 hour' AND starts_at + make_interval(mins => $4::int) > $3::timestamptz",
+      [proId, project.customer_id, value, CALL_MINUTES],
     );
     if (calls.rowCount)
       fail(

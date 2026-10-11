@@ -5,7 +5,11 @@ import { randomUUID } from "node:crypto";
 import { once } from "node:events";
 import express from "express";
 import { PGlite } from "@electric-sql/pglite";
-import { callCanJoin, callIsActive } from "../src/shared/meetings.js";
+import {
+  CALL_MINUTES,
+  callCanJoin,
+  callIsActive,
+} from "../src/shared/meetings.js";
 process.env.MARKETPLACE_DISCOVERY_MODE = "matched";
 process.env.MARKETPLACE_PREVIEW = "false";
 const { pool, transaction } = await import("../src/server/db/index.js");
@@ -422,7 +426,7 @@ test("Daily join is participant-only, time-limited and uses a private scheduled-
     assert.equal(tokens[0].body.properties.is_owner, false);
     assert.equal(
       tokens[0].body.properties.exp,
-      Math.floor((start + 30 * 60000) / 1000),
+      Math.floor((start + 10 * 60000) / 1000),
     );
     assert.equal(tokens[0].body.properties.eject_at_token_exp, true);
   } finally {
@@ -445,17 +449,21 @@ test("join window boundaries require a confirmed meeting", () => {
       status: "confirmed" as const,
       startsAt: new Date(start).toISOString(),
     };
-  assert.equal(callCanJoin(m, start - 15 * 60000), true);
-  assert.equal(callCanJoin(m, start - 15 * 60000 - 1), false);
-  assert.equal(callCanJoin(m, start + 30 * 60000 - 1), true);
-  assert.equal(callCanJoin(m, start + 30 * 60000), false);
+  assert.equal(CALL_MINUTES, 10);
+  assert.equal(callCanJoin(m, start), true);
+  assert.equal(callCanJoin(m, start - 1), false);
+  assert.equal(callCanJoin(m, start + 10 * 60000 - 1), true);
+  assert.equal(callCanJoin(m, start + 10 * 60000), false);
   assert.equal(
-    callIsActive({ ...m, proposedAt: null }, start + 30 * 60000),
+    callIsActive({ ...m, proposedAt: null }, start + 10 * 60000),
     false,
   );
   assert.equal(
-    callIsActive({ ...m, status: "requested", proposedAt: m.startsAt }, start),
-    false,
+    callIsActive(
+      { ...m, status: "requested", proposedAt: m.startsAt },
+      start + 86400000,
+    ),
+    true,
   );
   assert.equal(callCanJoin({ ...m, status: "requested" }, start), false);
 });
@@ -560,7 +568,7 @@ test("elapsed confirmed meetings close automatically, notify both once and free 
     a = await create(p);
   await act("pro", a.id, { type: "respond", accept: true }, 1);
   await query(
-    "UPDATE scheduled_calls SET starts_at=now()-interval '31 minutes' WHERE id=$1",
+    "UPDATE scheduled_calls SET starts_at=now()-interval '11 minutes' WHERE id=$1",
     [a.id],
   );
   assert.equal(
@@ -583,34 +591,80 @@ test("elapsed confirmed meetings close automatically, notify both once and free 
   await create(p, slot(2));
 });
 
-test("unconfirmed requests expire using the latest proposed time and creation also clears old meetings", async () => {
+test("unconfirmed requests stay active after their proposed time, can be rescheduled and still prevent duplicates", async () => {
   const p = await project(),
     a = await create(p);
   await query(
-    "UPDATE scheduled_calls SET starts_at=now()-interval '1 hour' WHERE id=$1",
+    "UPDATE scheduled_calls SET starts_at=now()-interval '1 hour',proposed_at=now()-interval '1 minute' WHERE id=$1",
     [a.id],
   );
-  await call("customer", "/call-meetings");
+  for (const user of ["customer", "pro"]) await call(user, "/call-meetings");
+  await query("SELECT close_due_call_meetings(NULL)");
+  assert.equal((await row(a.id)).status, "requested");
+  assert.equal((await row(a.id)).version, 1);
   assert.equal(
-    (await row(a.id)).status,
-    "requested",
-    "a future proposed time still awaits a response",
+    (await act("pro", a.id, { type: "respond", accept: true }, 1)).status,
+    409,
+    "past times require rescheduling, not confirmation",
   );
-  await query(
-    "UPDATE scheduled_calls SET proposed_at=now()-interval '1 minute' WHERE id=$1",
-    [a.id],
+  const duplicate = await call("customer", "/call-meetings", {
+    ...a.b,
+    id: randomUUID(),
+    projectId: await project(),
+    startsAt: slot(2),
+  });
+  assert.equal(duplicate.status, 409);
+  assert.match(duplicate.body.error, /already have an active meeting/);
+  assert.equal(
+    (
+      await query(
+        "SELECT user_id FROM notifications WHERE target_id=$1 AND title='Call request expired'",
+        [a.id],
+      )
+    ).rows.length,
+    0,
   );
-  await create(p, slot(2));
-  assert.equal((await row(a.id)).status, "cancelled");
-  const notices = (
-    await query(
-      "SELECT user_id FROM notifications WHERE target_id=$1 AND title='Call request expired' ORDER BY user_id",
-      [a.id],
-    )
-  ).rows;
-  assert.deepEqual(
-    notices.map((n) => n.user_id),
-    ["customer", "pro"],
+  assert.equal(
+    (await act("pro", a.id, { type: "reschedule", startsAt: slot(2) }, 1))
+      .status,
+    200,
+  );
+  assert.equal(
+    (await act("customer", a.id, { type: "respond", accept: true }, 2)).status,
+    200,
+  );
+  assert.equal((await row(a.id)).status, "confirmed");
+  assert.equal(
+    (await act("customer", a.id, { type: "cancel" }, 3)).status,
+    200,
+  );
+  await create(p, slot(4));
+});
+
+test("ten-minute calls release visit availability at the exact end", async () => {
+  const p = await project(),
+    a = await create(p, slot(2));
+  await act("pro", a.id, { type: "respond", accept: true }, 1);
+  const visit = await project();
+  const start = Date.parse(a.b.startsAt);
+  await assert.rejects(
+    transaction((c) =>
+      assertAppointment(
+        c,
+        "pro",
+        new Date(start + 9 * 60000).toISOString(),
+        visit,
+      ),
+    ),
+    /overlaps a confirmed call/,
+  );
+  await transaction((c) =>
+    assertAppointment(
+      c,
+      "pro",
+      new Date(start + 10 * 60000).toISOString(),
+      visit,
+    ),
   );
 });
 

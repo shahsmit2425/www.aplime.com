@@ -306,7 +306,9 @@ function Directory() {
   const profiles = eligibleProfiles;
   return (
     <section
-      className="directory-page"
+      className={
+        "directory-page" + (page === "saved" ? " saved-professionals-page" : "")
+      }
       aria-label={
         page === "saved" ? "Saved professionals" : "Professional directory"
       }
@@ -340,7 +342,7 @@ function Directory() {
           </span>
         </div>
       </div>
-      {(page !== "saved" || openDiscovery) && openProjects.length > 0 && (
+      {page !== "saved" && openProjects.length > 0 && (
         <div className="directory-project-context">
           <Field label="Project to discuss">
             <select
@@ -356,7 +358,7 @@ function Directory() {
           </Field>
         </div>
       )}
-      {openDiscovery && !openProjects.length && (
+      {page !== "saved" && openDiscovery && !openProjects.length && (
         <div className="inline-next-action">
           <p>
             Have a project in mind?{" "}
@@ -381,9 +383,16 @@ function Directory() {
               <ProfessionalCard
                 key={p.id}
                 profile={p}
+                layout={page === "saved" ? "horizontal" : "vertical"}
                 preview={data.marketplacePreview && !p.canRespond}
                 save={<SavePro proId={p.id} />}
-                actions={<ProfessionalActions proId={p.id} projectId={match} />}
+                actions={
+                  <ProfessionalActions
+                    proId={p.id}
+                    projectId={page === "saved" ? undefined : match}
+                    saved={page === "saved"}
+                  />
+                }
               />
             );
           })}

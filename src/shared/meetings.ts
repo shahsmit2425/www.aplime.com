@@ -1,5 +1,5 @@
 import { z } from "zod";
-export const CALL_MINUTES = 30;
+export const CALL_MINUTES = 10;
 export const CALL_HORIZON_DAYS = 21;
 export type CallMeeting = {
   id: string;
@@ -62,7 +62,7 @@ export function callCanJoin(
   const start = Date.parse(m.startsAt);
   return (
     m.status === "confirmed" &&
-    now >= start - 15 * 60000 &&
+    now >= start &&
     now < start + CALL_MINUTES * 60000
   );
 }
@@ -72,5 +72,5 @@ export function callIsActive(
 ) {
   return m.status === "confirmed"
     ? now < Date.parse(m.startsAt) + CALL_MINUTES * 60000
-    : m.status === "requested" && now < Date.parse(m.proposedAt || m.startsAt);
+    : m.status === "requested";
 }

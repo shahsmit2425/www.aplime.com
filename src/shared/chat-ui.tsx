@@ -166,12 +166,14 @@ export function ChatHeader({
   subtitle,
   back,
   actions,
+  context,
   support = false,
 }: {
   title: string;
   subtitle: string;
   back?: () => void;
   actions?: ReactNode;
+  context?: ReactNode;
   support?: boolean;
 }) {
   return (
@@ -191,7 +193,7 @@ export function ChatHeader({
       </span>
       <div className="chat-header-copy">
         <h3>{title}</h3>
-        <small>{subtitle}</small>
+        {context || <small>{subtitle}</small>}
       </div>
       <div className="chat-header-actions">{actions}</div>
     </header>

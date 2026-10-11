@@ -517,8 +517,8 @@ export function CallMeetings({
               )}
               {active && proposalExpired && (
                 <p className="meeting-proposal">
-                  This proposed time has passed. Choose a new time or decline
-                  the proposal.
+                  This proposed time has passed. The request stays open. Choose
+                  a new time or decline the proposal.
                 </p>
               )}
               {m.note && <p>{m.note}</p>}
@@ -610,7 +610,7 @@ export function CallMeetings({
                   />
                 )}
               {m.status === "confirmed" && !ended && !callCanJoin(m, now) && (
-                <small>Join opens 15 minutes before the meeting.</small>
+                <small>Join opens at the scheduled start time.</small>
               )}
             </article>
           );

@@ -92,11 +92,11 @@ async function calendar(
     );
   const busy = (
     await c.query(
-      `SELECT starts_at AS start, starts_at+interval '30 minutes' AS finish FROM scheduled_calls
-    WHERE status='confirmed' AND (pro_id=$1 OR customer_id=$2) AND ($3::uuid IS NULL OR id<>$3) AND starts_at+interval '30 minutes'>now()
+      `SELECT starts_at AS start, starts_at+make_interval(mins => $4::int) AS finish FROM scheduled_calls
+    WHERE status='confirmed' AND (pro_id=$1 OR customer_id=$2) AND ($3::uuid IS NULL OR id<>$3) AND starts_at+make_interval(mins => $4::int)>now()
     UNION ALL SELECT scheduled_at,scheduled_at+interval '1 hour' FROM projects WHERE (pro_id=$1 OR customer_id=$2)
     AND status IN ('booked','in_progress','paused','disputed') AND scheduled_at+interval '1 hour'>now()`,
-      [proId, customerId, exclude || null],
+      [proId, customerId, exclude || null, CALL_MINUTES],
     )
   ).rows;
   return { profile, busy };
@@ -361,7 +361,7 @@ callMeetings.post("/call-meetings/:id/join", async (req, res) => {
     if (!callCanJoin(m))
       fail(
         409,
-        "Join opens 15 minutes before a confirmed meeting and closes when the meeting ends.",
+        "Join opens at the confirmed start time and closes after 10 minutes.",
       );
     const thread = await ensurePairConversation(c, p.id, p.customerId, m.proId);
     return { m, thread };

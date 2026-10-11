@@ -6090,3 +6090,54 @@ body {
     padding: 0 6px 6px;
   }
 }
+
+/* Project context belongs to the conversation header, below the account name. */
+.workspace-main .chat-header .chat-header-copy {
+  flex: 1 1 240px;
+}
+.workspace-main .chat-header .chat-project-context {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  margin-top: 6px;
+  max-width: 400px;
+}
+.chat-header .chat-project-context > span {
+  font-size: var(--text-caption);
+}
+.chat-header .chat-project-context select {
+  flex: 1 1 100%;
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--section-border);
+  border-radius: 8px;
+  text-overflow: ellipsis;
+}
+.saved-professionals-page {
+  container-type: inline-size;
+}
+.saved-professionals-page > .pro-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+.saved-project-options {
+  display: grid;
+  gap: 10px;
+}
+.saved-project-options > button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  white-space: normal;
+  text-align: left;
+}
+.saved-pro-project-picker h2 {
+  margin: 0;
+}
+@media (max-width: 600px) {
+  .workspace-main .chat-header .chat-header-copy {
+    flex-basis: 0;
+  }
+}

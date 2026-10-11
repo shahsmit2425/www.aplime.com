@@ -179,6 +179,24 @@ export function Discussions({
                     ? `${contexts.length} shared projects`
                     : context?.title || "Private conversation"
                 }
+                context={
+                  contexts.length > 1 ? (
+                    <label className="chat-project-context">
+                      <span>Discussing</span>
+                      <select
+                        aria-label="Project being discussed"
+                        value={context?.id || ""}
+                        onChange={(e) => setContextId(e.target.value)}
+                      >
+                        {contexts.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.title} · {p.status.replaceAll("_", " ")}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ) : undefined
+                }
                 back={embedded ? () => go("messages") : undefined}
                 actions={
                   <>
@@ -242,22 +260,7 @@ export function Discussions({
                   </>
                 }
               />
-              {contexts.length > 1 && (
-                <label className="chat-project-context">
-                  <span>Discussing</span>
-                  <select
-                    aria-label="Project being discussed"
-                    value={context?.id || ""}
-                    onChange={(e) => setContextId(e.target.value)}
-                  >
-                    {contexts.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.title} · {p.status.replaceAll("_", " ")}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
+
               <ChatLog
                 threadKey={thread.id}
                 messages={thread.messages.map((m) => ({
