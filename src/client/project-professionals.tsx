@@ -167,6 +167,7 @@ export function ProjectProfessionals({
             <ProfessionalCard
               key={proId}
               profile={profile}
+              layout="horizontal"
               preview={data.marketplacePreview && !profile.canRespond}
               save={<SavePro proId={proId} />}
               actions={

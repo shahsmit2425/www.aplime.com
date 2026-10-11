@@ -118,8 +118,10 @@ export function ProfessionalCard({
   actions,
   save,
   children,
+  layout = "vertical",
 }: {
   profile: Profile;
+  layout?: "vertical" | "horizontal";
   preview?: boolean;
   actions: ReactNode;
   save: ReactNode;
@@ -128,7 +130,13 @@ export function ProfessionalCard({
   const cover = p.images?.find((i) => i.slot === "cover"),
     logo = p.images?.find((i) => i.slot === "logo");
   return (
-    <article className="professional-card" data-service={p.category}>
+    <article
+      className={
+        "professional-card" +
+        (layout === "horizontal" ? " professional-card-horizontal" : "")
+      }
+      data-service={p.category}
+    >
       <div
         className={
           "professional-card-cover" + (!cover ? " professional-card-art" : "")
@@ -159,68 +167,73 @@ export function ProfessionalCard({
         <div className="professional-card-save">{save}</div>
       </div>
       <div className="professional-card-body">
-        <div className="professional-card-identity">
-          <div className="professional-card-logo">
-            {logo ? (
-              <img src={logo.url} alt={p.business + " logo"} loading="lazy" />
-            ) : (
-              <ServiceIcon service={p.category} size={29} />
+        <div className="professional-card-content">
+          <div className="professional-card-identity">
+            <div className="professional-card-logo">
+              {logo ? (
+                <img src={logo.url} alt={p.business + " logo"} loading="lazy" />
+              ) : (
+                <ServiceIcon service={p.category} size={29} />
+              )}
+            </div>
+            <div className="professional-card-heading">
+              <h2>{p.business}</h2>
+              <span className="professional-rating">
+                <Star size={14} />
+                {p.reviewCount ? (
+                  <>
+                    <strong>{p.rating.toFixed(1)}</strong>
+                    <span>({p.reviewCount})</span>
+                  </>
+                ) : (
+                  <span>No reviews yet</span>
+                )}
+              </span>
+            </div>
+          </div>
+          <div className="professional-card-name">
+            <p>
+              <MapPin size={14} />
+              {p.zip}
+              {p.serviceRadiusMiles > 0 &&
+                " · Serves within " + p.serviceRadiusMiles + " miles"}
+            </p>
+          </div>
+          <div className="professional-card-services">
+            {p.serviceCategories.slice(0, 3).map((c) => (
+              <span key={c}>{c}</span>
+            ))}
+            {p.serviceCategories.length > 3 && (
+              <span>+{p.serviceCategories.length - 3} more</span>
             )}
           </div>
-          <div className="professional-card-heading">
-            <h2>{p.business}</h2>
-            <span className="professional-rating">
-              <Star size={14} />
-              {p.reviewCount ? (
-                <>
-                  <strong>{p.rating.toFixed(1)}</strong>
-                  <span>({p.reviewCount})</span>
-                </>
-              ) : (
-                <span>No reviews yet</span>
-              )}
+          <p className="professional-card-bio">{p.bio}</p>
+
+          {preview && (
+            <p className="card-preview-note">Not accepting requests yet</p>
+          )}
+          {children}
+        </div>
+        <div className="professional-card-sidebar">
+          <div className="professional-card-facts">
+            <span className={p.verified ? "verified-fact" : "pending-fact"}>
+              {p.verified ? <ShieldCheck size={15} /> : <Clock3 size={15} />}{" "}
+              {p.verified ? "Identity verified" : "Identity pending"}
+            </span>
+            <span className="professional-card-rate">
+              <strong>
+                {new Intl.NumberFormat("en-US", {
+                  style: "currency",
+                  currency: "USD",
+                  maximumFractionDigits: 2,
+                  minimumFractionDigits: 0,
+                }).format(p.rate)}
+              </strong>{" "}
+              /hr<small>Starting rate</small>
             </span>
           </div>
+          <div className="professional-card-actions">{actions}</div>
         </div>
-        <div className="professional-card-name">
-          <p>
-            <MapPin size={14} />
-            {p.zip}
-            {p.serviceRadiusMiles > 0 &&
-              " · Serves within " + p.serviceRadiusMiles + " miles"}
-          </p>
-        </div>
-        <div className="professional-card-services">
-          {p.serviceCategories.slice(0, 3).map((c) => (
-            <span key={c}>{c}</span>
-          ))}
-          {p.serviceCategories.length > 3 && (
-            <span>+{p.serviceCategories.length - 3} more</span>
-          )}
-        </div>
-        <p className="professional-card-bio">{p.bio}</p>
-        <div className="professional-card-facts">
-          <span className={p.verified ? "verified-fact" : "pending-fact"}>
-            {p.verified ? <ShieldCheck size={15} /> : <Clock3 size={15} />}{" "}
-            {p.verified ? "Identity verified" : "Identity pending"}
-          </span>
-          <span className="professional-card-rate">
-            <strong>
-              {new Intl.NumberFormat("en-US", {
-                style: "currency",
-                currency: "USD",
-                maximumFractionDigits: 2,
-                minimumFractionDigits: 0,
-              }).format(p.rate)}
-            </strong>{" "}
-            /hr<small>Starting rate</small>
-          </span>
-        </div>
-        {preview && (
-          <p className="card-preview-note">Not accepting requests yet</p>
-        )}
-        {children}
-        <div className="professional-card-actions">{actions}</div>
       </div>
     </article>
   );

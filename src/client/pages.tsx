@@ -1039,6 +1039,9 @@ function ProjectDetail() {
   useEffect(() => {
     setEditing(false);
   }, [id]);
+  useEffect(() => {
+    if (editing) jumpTo("project-edit");
+  }, [editing]);
   if (!p)
     return (
       <Empty title="Project unavailable.">
@@ -1176,23 +1179,27 @@ function ProjectDetail() {
           )}
         </section>
       )}
-      <ProjectActionBar
-        project={p}
-        canRespond={canQuote && !previewBlocked}
-        hasEstimates={quotes.some((q) => q.status === "pending")}
-        hasOwnEstimate={!!ownQuote && ownQuote.status === "pending"}
-        onPropose={() => {
-          setAction("reschedule");
-          jumpTo("project-details");
-        }}
-        onEdit={() => setEditing(true)}
-      />
-      {editing && customer && (
-        <EditDetails
+      {!customer && (
+        <ProjectActionBar
           project={p}
-          submit={submit}
-          onDone={() => setEditing(false)}
+          canRespond={canQuote && !previewBlocked}
+          hasEstimates={quotes.some((q) => q.status === "pending")}
+          hasOwnEstimate={!!ownQuote && ownQuote.status === "pending"}
+          onPropose={() => {
+            setAction("reschedule");
+            jumpTo("project-details");
+          }}
+          onEdit={() => setEditing(true)}
         />
+      )}
+      {editing && customer && (
+        <section id="project-edit" aria-label="Edit project details">
+          <EditDetails
+            project={p}
+            submit={submit}
+            onDone={() => setEditing(false)}
+          />
+        </section>
       )}
       {customer && p.proId && open && (
         <Panel title="Waiting on your chosen professional">
@@ -1321,10 +1328,7 @@ function ProjectDetail() {
           )}
           <Panel title={customer ? undefined : "Project details"}>
             {customer ? (
-              <CustomerProjectDetails
-                project={p}
-                onEdit={() => setEditing(true)}
-              />
+              <CustomerProjectDetails project={p} />
             ) : (
               <>
                 <p className="project-description">{p.description}</p>
@@ -1466,7 +1470,25 @@ function ProjectDetail() {
               </button>
             )}
             <div className="customer-project-controls">
-              <ProjectControls key={p.id} project={p} />
+              <ProjectControls
+                key={p.id}
+                project={p}
+                onEdit={() => setEditing(true)}
+                extraActions={
+                  <ProjectActionBar
+                    compact
+                    project={p}
+                    canRespond={false}
+                    hasEstimates={quotes.some((q) => q.status === "pending")}
+                    hasOwnEstimate={false}
+                    onPropose={() => {
+                      setAction("reschedule");
+                      jumpTo("project-details");
+                    }}
+                    onEdit={() => setEditing(true)}
+                  />
+                }
+              />
             </div>
           </aside>
         )}

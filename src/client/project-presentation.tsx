@@ -6,7 +6,6 @@ import {
   FileText,
   House,
   MapPin,
-  Pencil,
   UserRound,
 } from "lucide-react";
 import type { ReactNode } from "react";
@@ -75,13 +74,7 @@ export function CustomerProjectHeader({
     </header>
   );
 }
-export function CustomerProjectDetails({
-  project: p,
-  onEdit,
-}: {
-  project: Project;
-  onEdit: () => void;
-}) {
+export function CustomerProjectDetails({ project: p }: { project: Project }) {
   const rows: { label: string; value: ReactNode; icon: ReactNode }[] = [
     ...Object.entries(p.intake || {}).map(([key, value]) => ({
       label: questionLabel(p.category as ServiceCategory, key),
@@ -160,12 +153,6 @@ export function CustomerProjectDetails({
     <>
       <div className="project-section-heading">
         <h2>Project details</h2>
-        {["requested", "quoted"].includes(p.status) && (
-          <button className="secondary" onClick={onEdit}>
-            <Pencil size={15} />
-            Edit
-          </button>
-        )}
       </div>
       <dl className="project-detail-rows">
         {rows.map((r, i) => (

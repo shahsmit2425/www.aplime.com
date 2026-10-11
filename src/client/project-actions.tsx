@@ -114,6 +114,7 @@ export function ProjectActionBar({
   hasOwnEstimate,
   onPropose,
   onEdit,
+  compact = false,
 }: {
   project: Project;
   canRespond: boolean;
@@ -121,6 +122,7 @@ export function ProjectActionBar({
   hasOwnEstimate: boolean;
   onPropose: () => void;
   onEdit: () => void;
+  compact?: boolean;
 }) {
   const { data, run, busy, go } = useWorkspace();
   const customer = p.customerId === data.user.id;
@@ -130,8 +132,14 @@ export function ProjectActionBar({
   const live = ["booked", "in_progress", "paused"].includes(p.status);
   const reviewed = data.reviews.some((r) => r.projectId === p.id);
   const buttons: React.ReactNode[] = [];
-  const add = (key: string, node: React.ReactNode) =>
+  const add = (key: string, node: React.ReactNode) => {
+    if (
+      compact &&
+      ["find", "compare", "chat", "open-chat", "edit", "help"].includes(key)
+    )
+      return;
     buttons.push(<span key={key}>{node}</span>);
+  };
   if (customer && open) {
     if (!p.proId)
       add(
@@ -278,6 +286,7 @@ export function ProjectActionBar({
       <HelpCircle size={17} /> Get help
     </button>,
   );
+  if (!buttons.length) return null;
   return (
     <nav className="project-actions actions" aria-label="Project actions">
       {buttons}

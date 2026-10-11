@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   Play,
   Pause,
@@ -8,6 +8,7 @@ import {
   XCircle,
   Trash2,
   ShieldAlert,
+  Pencil,
 } from "lucide-react";
 import {
   allowedTransition,
@@ -79,7 +80,15 @@ type Activity = {
   created_at: string;
   actor_name: string;
 };
-export function ProjectControls({ project: p }: { project: Project }) {
+export function ProjectControls({
+  project: p,
+  onEdit,
+  extraActions,
+}: {
+  project: Project;
+  onEdit?: () => void;
+  extraActions?: ReactNode;
+}) {
   const { data, run, busy } = useWorkspace();
   const [intent, setIntent] = useState<Intent | null>(null);
   const [activity, setActivity] = useState<Activity[]>([]),
@@ -265,6 +274,13 @@ export function ProjectControls({ project: p }: { project: Project }) {
           </div>
         )}
         <div className="actions">
+          {onEdit &&
+            p.customerId === data.user.id &&
+            ["requested", "quoted"].includes(p.status) && (
+              <button className="secondary" disabled={busy} onClick={onEdit}>
+                <Pencil size={17} /> Edit details
+              </button>
+            )}
           {(Object.keys(icons) as (keyof typeof icons)[])
             .filter(
               (type) =>
@@ -289,6 +305,7 @@ export function ProjectControls({ project: p }: { project: Project }) {
               );
             })}
         </div>
+        {extraActions}
         {intent && (
           <Form
             busy={busy}
