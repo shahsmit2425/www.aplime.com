@@ -6,6 +6,7 @@ import {
   CustomerProjectDetails,
 } from "./project-presentation.js";
 import { CustomerDashboard } from "./customer-dashboard.js";
+import { ProDashboard } from "./pro-dashboard.js";
 import { ProjectProfessionals } from "./project-professionals.js";
 import { SetupNotice } from "./setup-notice.js";
 import {
@@ -44,9 +45,7 @@ import {
   MessageCircle,
   Plus,
   Search,
-  ArrowUpRight,
   CheckCircle2,
-  ShieldCheck,
   Upload,
   Phone,
   Video,
@@ -91,7 +90,12 @@ export function Pages() {
   );
 }
 function PageContent() {
-  const { page, id } = useWorkspace();
+  const { page, id, data } = useWorkspace();
+  if (
+    data.user.role === "pro" &&
+    ["leads", "projects", "quotes"].includes(page)
+  )
+    return <ProDashboard />;
   switch (page) {
     case "dashboard":
       return <Dashboard />;
@@ -159,132 +163,8 @@ function ProjectList({ projects }: { projects: Project[] }) {
   );
 }
 function Dashboard() {
-  const { data, go } = useWorkspace();
-  const pro = data.user.role === "pro";
-  if (!pro) return <CustomerDashboard />;
-  const active = data.projects.filter(
-    (p) => !["completed", "cancelled"].includes(p.status),
-  );
-  return (
-    <>
-      <Head
-        title={"Welcome back, " + data.user.name.split(" ")[0] + "."}
-        action={
-          <button onClick={() => (pro ? go("leads") : go("projects", "new"))}>
-            <Plus size={17} />
-            {pro ? "Browse projects" : "Start a project"}
-          </button>
-        }
-      >
-        {pro
-          ? "Your projects, conversations, and business in one place."
-          : "Your home projects, all coming together."}
-      </Head>
-      <div className="stats">
-        {[
-          ["Active projects", active.length],
-          [
-            "Estimates",
-            data.quotes.filter((q) => q.status === "pending").length,
-          ],
-          [
-            "Upcoming visits",
-            data.projects.filter((p) => p.status === "booked").length,
-          ],
-          [
-            "Completed projects",
-            data.projects.filter((p) => p.status === "completed").length,
-          ],
-        ].map(([label, value], index) => (
-          <div className="stat" key={label}>
-            <span className="stat-label">
-              {label}
-              <span className="stat-icon">
-                {index === 0 ? (
-                  <ServiceIcon service="Handyman" size={18} />
-                ) : index === 1 ? (
-                  <MessageCircle size={18} />
-                ) : index === 2 ? (
-                  <CalendarDays size={18} />
-                ) : (
-                  <CheckCircle2 size={18} />
-                )}
-              </span>
-            </span>
-            <strong>{value}</strong>
-          </div>
-        ))}
-      </div>
-      <div className="two-columns">
-        <Panel title="Recent projects">
-          <ProjectList
-            projects={data.projects.filter((p) => !p.archived).slice(0, 4)}
-          />
-        </Panel>
-        <Panel title="Needs your attention">
-          {data.projects
-            .filter(
-              (p) =>
-                (p.status === "in_progress" &&
-                  p.completionRequested &&
-                  (p.completionRequestedBy || p.proId) !== data.user.id) ||
-                (p.cancellationRequestedBy &&
-                  p.cancellationRequestedBy !== data.user.id) ||
-                (p.proposedAt &&
-                  p.proposedBy !== data.user.id &&
-                  ["requested", "quoted", "booked"].includes(p.status)),
-            )
-            .map((p) => (
-              <button
-                className="project-row"
-                key={p.id}
-                onClick={() => go("project", p.id)}
-              >
-                <span>
-                  <strong>{p.title}</strong>
-                  <small>
-                    {p.cancellationRequestedBy
-                      ? "Respond to cancellation request"
-                      : p.completionRequested &&
-                          (p.completionRequestedBy || p.proId) !== data.user.id
-                        ? "Review completed work"
-                        : "Respond to appointment proposal"}
-                  </small>
-                </span>
-                <ArrowUpRight size={18} />
-              </button>
-            ))}
-          {pro &&
-          (!data.profiles.find((p) => p.id === data.user.id)?.verified ||
-            data.profiles.find((p) => p.id === data.user.id)?.reviewStatus !==
-              "approved") ? (
-            <>
-              <ShieldCheck />
-              <h3>Finish your professional setup.</h3>
-              <p>
-                Save your business profile, add business images, verify your
-                identity, submit the listing for review, and activate your
-                subscription.
-              </p>
-              <button onClick={() => go("profile")}>Continue setup</button>
-            </>
-          ) : data.notices.length ? (
-            data.notices.slice(0, 3).map((n) => (
-              <article className="notice-item" key={n.id}>
-                <strong>{n.title}</strong>
-                <p>{n.body}</p>
-              </article>
-            ))
-          ) : (
-            <p>
-              Project updates and requests appear here. Open a project to see
-              your next step.
-            </p>
-          )}
-        </Panel>
-      </div>
-    </>
-  );
+  const { data } = useWorkspace();
+  return data.user.role === "pro" ? <ProDashboard /> : <CustomerDashboard />;
 }
 function Directory() {
   const { data, page, id, run, go, busy } = useWorkspace();
@@ -1253,7 +1133,7 @@ function ProjectDetail() {
             run(
               () => submit({ type: "decline_award", reason }),
               "You declined this job. The customer was notified.",
-              () => go("leads"),
+              () => go("dashboard"),
             )
           }
           withdraw={() =>

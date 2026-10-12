@@ -6136,6 +6136,62 @@ body {
 .saved-pro-project-picker h2 {
   margin: 0;
 }
+.pro-dashboard .project-collection {
+  margin: 24px 0;
+}
+.pro-estimate-history {
+  padding: 18px;
+  border: 2px solid var(--section-border);
+  border-radius: 18px;
+  background: #fffefa;
+}
+.pro-estimate-history > summary {
+  color: var(--green-dark);
+  font-weight: 700;
+  cursor: pointer;
+}
+.pro-estimate-history > summary span {
+  margin-left: 10px;
+}
+.pro-estimate-list {
+  display: grid;
+  gap: 16px;
+  margin-top: 18px;
+}
+.pro-estimate-item {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--section-border);
+  border-radius: 12px;
+  background: #fff;
+  overflow-wrap: anywhere;
+}
+.pro-estimate-heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.pro-estimate-heading h3 {
+  flex: 1 1 180px;
+  margin: 0;
+}
+.pro-estimate-item > small {
+  display: block;
+  margin: 10px 0;
+}
+.portfolio-media-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+}
+.portfolio-media-grid > .business-media-slot {
+  grid-column: auto;
+}
+.portfolio-media-grid .business-image-frame {
+  height: 210px;
+}
+.portfolio-media-grid .business-image-frame img {
+  object-fit: contain;
+}
 @media (max-width: 600px) {
   .workspace-main .chat-header .chat-header-copy {
     flex-basis: 0;

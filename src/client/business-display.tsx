@@ -27,7 +27,10 @@ export function BusinessDisplay({
 }) {
   const cover = profile.images?.find((i) => i.slot === "cover"),
     logo = profile.images?.find((i) => i.slot === "logo"),
-    work = profile.images?.filter((i) => i.slot.startsWith("work-")) || [];
+    work =
+      profile.images
+        ?.filter((i) => i.slot.startsWith("work-"))
+        .sort((a, b) => a.slot.localeCompare(b.slot)) || [];
   const [view, setView] = useState<{ url: string; label: string } | null>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   useEffect(() => {
@@ -138,7 +141,12 @@ export function BusinessDisplay({
           </section>
           {work.length > 0 && (
             <section className="profile-content-card">
-              <h2>Our work</h2>
+              <div className="profile-card-heading">
+                <h2>Past work portfolio</h2>
+                <span>
+                  {work.length} {work.length === 1 ? "photo" : "photos"}
+                </span>
+              </div>
               <div className="business-portfolio">
                 {work.map((photo, index) => (
                   <button
@@ -148,14 +156,17 @@ export function BusinessDisplay({
                     onClick={() =>
                       setView({
                         url: photo.url,
-                        label: "Work photo " + (index + 1),
+                        label:
+                          profile.business +
+                          " · Past work photo " +
+                          (index + 1),
                       })
                     }
                   >
                     <img
                       loading="lazy"
                       src={photo.url}
-                      alt={`${profile.business} work photo ${index + 1}`}
+                      alt={`${profile.business} past work photo ${index + 1}`}
                     />
                     <span>
                       <Expand size={16} /> View photo

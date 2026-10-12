@@ -1,6 +1,6 @@
 import { AddressAutocomplete } from "./address-autocomplete.js";
 import { useEffect, useState } from "react";
-import { Building2, ImagePlus, Eye } from "lucide-react";
+import { Building2, ImagePlus, Images, Eye } from "lucide-react";
 import { categories } from "../shared/domain.js";
 import { hasBusinessBranding } from "../shared/business-images.js";
 import { useWorkspace } from "./workspace.js";
@@ -11,9 +11,13 @@ import { BusinessDisplay } from "./business-display.js";
 
 export function BusinessProfile() {
   const { data, run, busy, go, id } = useWorkspace();
-  const [tab, setTab] = useState(id === "setup" ? "setup" : "details");
+  const [tab, setTab] = useState(
+    id === "setup" ? "setup" : id === "portfolio" ? "portfolio" : "details",
+  );
   useEffect(() => {
-    setTab(id === "setup" ? "setup" : "details");
+    setTab(
+      id === "setup" ? "setup" : id === "portfolio" ? "portfolio" : "details",
+    );
   }, [id]);
   if (data.user.role !== "pro")
     return <Empty title="Professional account required" />;
@@ -21,6 +25,7 @@ export function BusinessProfile() {
   const steps = [
     { id: "details", label: "Business details", Icon: Building2 },
     { id: "photos", label: "Logo & advertising image", Icon: ImagePlus },
+    { id: "portfolio", label: "Past work portfolio", Icon: Images },
     { id: "preview", label: "View profile", Icon: Eye },
   ];
   return (
@@ -75,6 +80,9 @@ export function BusinessProfile() {
       {tab === "preview" && p && <BusinessDisplay profile={p} preview />}
       <div hidden={tab !== "photos"}>
         <BusinessMedia profile={p} />
+      </div>
+      <div hidden={tab !== "portfolio"}>
+        <BusinessMedia profile={p} portfolio />
       </div>
       {tab === "setup" && (
         <>
@@ -250,7 +258,10 @@ export function BusinessProfile() {
               />
             </Field>
             <div className="business-save">
-              <p>You can update your images and schedule in the tabs above.</p>
+              <p>
+                Manage your images and portfolio above. Work hours are in
+                Schedule & preferences.
+              </p>
               <button>{busy ? "Saving…" : "Save business details"}</button>
             </div>
           </Form>

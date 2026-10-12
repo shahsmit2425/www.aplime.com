@@ -14,9 +14,14 @@ type Selection = {
   reservation?: string;
   uploaded?: boolean;
 };
-export function BusinessMedia({ profile }: { profile?: Profile }) {
+export function BusinessMedia({
+  profile,
+  portfolio = false,
+}: {
+  profile?: Profile;
+  portfolio?: boolean;
+}) {
   const { run, busy } = useWorkspace();
-  const [showOlderPhotos, setShowOlderPhotos] = useState(false);
   const [pending, setPending] = useState<Record<string, Selection>>({});
   const [statuses, setStatuses] = useState<
     Record<string, { progress: string; failed: boolean }>
@@ -43,8 +48,9 @@ export function BusinessMedia({ profile }: { profile?: Profile }) {
   useEffect(() => {
     if (view) dialog.current?.showModal();
   }, [view]);
-  const olderPhotos =
-    profile?.images?.filter((image) => image.slot.startsWith("work-")) || [];
+  const savedCount =
+    profile?.images?.filter((image) => image.slot.startsWith("work-")).length ||
+    0;
   const clear = (slot: string) => {
     const selected = pending[slot];
     if (selected) {
@@ -112,10 +118,18 @@ export function BusinessMedia({ profile }: { profile?: Profile }) {
     }, "Business image saved.");
   };
   return (
-    <Panel title="Logo & advertising image">
+    <Panel
+      title={
+        portfolio
+          ? `Past work portfolio · ${savedCount} / 5 photos`
+          : "Logo & advertising image"
+      }
+    >
       <p>
-        Choose an image, check the preview, then save it. Replacing an image
-        keeps the current one until the new image is saved successfully.
+        {portfolio
+          ? "Show customers your past work. Add up to five photos; saved photos appear on your business profile."
+          : "Choose an image, check the preview, then save it."}{" "}
+        Your current image stays in place until its replacement is saved.
       </p>
       {!profile && (
         <p className="business-tip">
@@ -126,14 +140,16 @@ export function BusinessMedia({ profile }: { profile?: Profile }) {
         JPG, PNG or WebP · maximum 10 MB per image. Use images you have
         permission to publish.
       </p>
-      <div className="business-media-grid">
+      <div
+        className={
+          "business-media-grid" + (portfolio ? " portfolio-media-grid" : "")
+        }
+      >
         {businessImageSlots
-          .filter(
-            (slot) =>
-              slot === "logo" ||
-              slot === "cover" ||
-              (showOlderPhotos &&
-                olderPhotos.some((image) => image.slot === slot)),
+          .filter((slot) =>
+            portfolio
+              ? slot.startsWith("work-")
+              : slot === "logo" || slot === "cover",
           )
           .map((slot) => {
             const image = profile?.images?.find((i) => i.slot === slot);
@@ -147,7 +163,7 @@ export function BusinessMedia({ profile }: { profile?: Profile }) {
                 ? "Business logo"
                 : slot === "cover"
                   ? "Advertising image"
-                  : "Work photo " + slot.slice(-1);
+                  : "Past work photo " + slot.slice(-1);
             const source = selected?.preview || image?.url;
             return (
               <section
@@ -183,7 +199,9 @@ export function BusinessMedia({ profile }: { profile?: Profile }) {
                 <small>
                   {slot === "logo"
                     ? "Use a square logo. The full image is kept."
-                    : "Use a wide image to promote your business."}
+                    : slot === "cover"
+                      ? "Use a wide image to promote your business."
+                      : "Show a completed job or a detail of your work."}
                 </small>
                 {selected && (
                   <small className="business-file-name">
@@ -339,17 +357,6 @@ export function BusinessMedia({ profile }: { profile?: Profile }) {
             );
           })}
       </div>
-      {olderPhotos.length > 0 && (
-        <button
-          type="button"
-          className="text-button"
-          disabled={busy}
-          onClick={() => setShowOlderPhotos(!showOlderPhotos)}
-        >
-          {showOlderPhotos ? "Hide" : "Manage"} previous work photos (
-          {olderPhotos.length})
-        </button>
-      )}
       {view && (
         <dialog
           ref={dialog}

@@ -1269,6 +1269,115 @@ test("API image uploads enforce ownership and file limits and preserve saved ima
       1,
       "repeated delete does not discard another session's pending replacement",
     );
+
+    // Portfolio uses the same authorized upload/commit path as branding.
+    await query(
+      "UPDATE profiles SET verified=true,review_status='approved',listed=true WHERE id=$1",
+      [owner.id],
+    );
+    const portfolioIds: string[] = [];
+    for (let i = 1; i <= 5; i++) {
+      const result = await fetch(base + "/profile/images", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slot: `work-${i}`,
+          name: `job-${i}.png`,
+          size: bytes.length,
+          contentType: "image/png",
+          transport: "api",
+        }),
+      });
+      assert.equal(result.status, 200);
+      const photo = await result.json();
+      portfolioIds.push(photo.id);
+      assert.equal(
+        (
+          await fetch(base + photo.uploadPath, {
+            method: "PUT",
+            headers: { "Content-Type": "image/png" },
+            body: new Uint8Array(bytes),
+          })
+        ).status,
+        200,
+      );
+      assert.equal(
+        (
+          await fetch(base + "/profile/images/" + photo.id + "/complete", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: "{}",
+          })
+        ).status,
+        200,
+      );
+    }
+    assert.equal(
+      (
+        await fetch(base + "/profile/images", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            slot: "work-6",
+            name: "extra.png",
+            size: bytes.length,
+            contentType: "image/png",
+            transport: "api",
+          }),
+        })
+      ).status,
+      400,
+    );
+    await query("INSERT INTO saved(user_id,pro_id) VALUES($1,$2)", [
+      customer.id,
+      owner.id,
+    ]);
+    const visiblePortfolio = (await workspace(customer)).profiles.find(
+      (p) => p.id === owner.id,
+    )!.images!;
+    assert.equal(
+      visiblePortfolio.length,
+      5,
+      "customers receive every saved past-work photo",
+    );
+    assert.deepEqual(
+      visiblePortfolio.map((p) => p.slot),
+      ["work-1", "work-2", "work-3", "work-4", "work-5"],
+    );
+    for (const image of visiblePortfolio) {
+      assert.equal("key" in image, false);
+      assert.match(image.url, /^https:\/\//);
+    }
+    assert.equal(
+      (
+        await fetch(base + "/profile/images/work-1", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json", "x-actor": "other" },
+          body: JSON.stringify({ imageId: portfolioIds[0] }),
+        })
+      ).status,
+      200,
+    ); // An empty foreign slot is a safe no-op, never a cross-account delete.
+    assert.equal(
+      (await workspace(customer)).profiles.find((p) => p.id === owner.id)!
+        .images!.length,
+      5,
+    );
+    assert.equal(
+      (
+        await fetch(base + "/profile/images/work-1", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ imageId: portfolioIds[0] }),
+        })
+      ).status,
+      200,
+    );
+    assert.equal(
+      (await workspace(customer)).profiles.find((p) => p.id === owner.id)!
+        .images!.length,
+      4,
+    );
   } finally {
     await new Promise<void>((resolve) => server.close(() => resolve()));
     S3Client.prototype.send = original;

@@ -113,9 +113,6 @@ const navigation = {
   ],
   pro: [
     ["dashboard", "Dashboard"],
-    ["leads", "Find projects"],
-    ["projects", "My jobs"],
-    ["quotes", "My estimates"],
     ["schedule", "Schedule"],
     ["messages", "Messages"],
     ["profile", "My business"],
@@ -805,7 +802,15 @@ export default function Workspace() {
             (route.page === "projects" && !route.id)
           : data.user.role === "customer" && p === "projects"
             ? route.page === "projects" && !!route.id
-            : route.page === p) ||
+            : data.user.role === "pro" && p === "dashboard"
+              ? [
+                  "dashboard",
+                  "project",
+                  "projects",
+                  "leads",
+                  "quotes",
+                ].includes(route.page)
+              : route.page === p) ||
         (data.user.role === "pro" &&
           p === "profile" &&
           [
@@ -1013,6 +1018,10 @@ export default function Workspace() {
             <button
               aria-current={
                 route.page === "dashboard" ||
+                (data.user.role === "pro" &&
+                  ["project", "projects", "leads", "quotes"].includes(
+                    route.page,
+                  )) ||
                 (data.user.role === "customer" &&
                   (route.page === "project" ||
                     (route.page === "projects" && !route.id)))
@@ -1046,22 +1055,18 @@ export default function Workspace() {
             ) : (
               <>
                 <button
-                  onClick={() => go("leads")}
-                  aria-current={route.page === "leads" ? "page" : undefined}
+                  onClick={() => go("schedule")}
+                  aria-current={route.page === "schedule" ? "page" : undefined}
                 >
-                  <Search size={21} />
-                  <span>Explore</span>
+                  <CalendarDays size={21} />
+                  <span>Schedule</span>
                 </button>
                 <button
-                  onClick={() => go("projects")}
-                  aria-current={
-                    ["projects", "project"].includes(route.page)
-                      ? "page"
-                      : undefined
-                  }
+                  onClick={() => go("profile")}
+                  aria-current={route.page === "profile" ? "page" : undefined}
                 >
-                  <BriefcaseBusiness size={21} />
-                  <span>Projects</span>
+                  <UserRound size={21} />
+                  <span>My business</span>
                 </button>
               </>
             )}

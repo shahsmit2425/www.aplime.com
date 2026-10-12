@@ -104,6 +104,11 @@ test("approved professional pages expose truthful local business metadata", () =
         slot: "logo",
         url: "https://api.aplime.com/api/business-images/image-1",
       },
+      {
+        id: "past-work-1",
+        slot: "work-1",
+        url: "https://api.aplime.com/api/business-images/past-work-1",
+      },
     ],
     details: {
       legalName: "Green Home Repair LLC",
@@ -133,6 +138,12 @@ test("approved professional pages expose truthful local business metadata", () =
   assert.match(page.head, /"ratingValue":4.8/);
   assert.match(page.head, /"addressLocality":"New York"/);
   assert.match(page.html, /Green Home Repair/);
+  assert.match(page.html, /Past work portfolio/);
+  assert.match(page.html, /Green Home Repair past work photo 1/);
+  assert.match(
+    page.html,
+    /https:\/\/api\.aplime\.com\/api\/business-images\/past-work-1/,
+  );
 });
 test("bootstrap JSON cannot break out of a script tag", () => {
   const page = renderPage("/", {
