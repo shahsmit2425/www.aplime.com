@@ -1,5 +1,5 @@
+import { quotePrice, quoteTiming } from "../shared/estimates.js";
 import { SlidersHorizontal, ArrowUpRight } from "lucide-react";
-import { money } from "../shared/domain.js";
 import { useWorkspace } from "./workspace.js";
 import { Head, Empty, Badge } from "./ui.js";
 import { CollectionHeading, ProjectCard } from "./marketplace-cards.js";
@@ -88,12 +88,12 @@ export function ProDashboard() {
                     <h3>
                       {project?.title || q.projectTitle || "Project estimate"}
                     </h3>
-                    <strong>{money(q.amount)}</strong>
+                    <strong>{quotePrice(q)}</strong>
                     <Badge>{q.status.replaceAll("_", " ")}</Badge>
                   </div>
                   <p>{q.description}</p>
                   <small>
-                    {q.timeline} · Version {q.revision}
+                    {quoteTiming(q)} · Version {q.revision}
                     {q.expiresAt &&
                       ` · Valid until ${new Date(q.expiresAt).toLocaleDateString()}`}
                   </small>

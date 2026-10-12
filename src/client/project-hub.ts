@@ -43,6 +43,9 @@ export function projectProfessionals(
 export function estimateCanBeAccepted(p: Project, q: Quote, now = Date.now()) {
   return (
     q.projectId === p.id &&
+    !q.assessmentRequired &&
+    typeof q.amount === "number" &&
+    q.amount > 0 &&
     q.status === "pending" &&
     ["requested", "quoted"].includes(p.status) &&
     (!q.expiresAt || Date.parse(q.expiresAt) > now)

@@ -9,7 +9,6 @@ import {
   CalendarDays,
   CalendarPlus,
   Heart,
-  HelpCircle,
   MapPin,
   MessageCircle,
   Pencil,
@@ -280,12 +279,6 @@ export function ProjectActionBar({
     );
   } else if (customer && live && p.proId)
     add("save", <SavePro proId={p.proId} label />);
-  add(
-    "help",
-    <button className="text-button" onClick={() => go("help")}>
-      <HelpCircle size={17} /> Get help
-    </button>,
-  );
   if (!buttons.length) return null;
   return (
     <nav className="project-actions actions" aria-label="Project actions">

@@ -12,6 +12,7 @@ const quote = {
   projectId: "project",
   proId: "quoted",
   status: "pending",
+  amount: 10000,
   expiresAt: null,
 } as Quote;
 test("dashboard separates archived projects from current states without hiding them from All", () => {
@@ -95,6 +96,21 @@ test("acceptance UI excludes expired, unrelated, non-pending and closed-project 
       { ...quote, expiresAt: "2026-01-01T00:00:00Z" },
       Date.parse("2026-01-01T00:00:00Z"),
     ),
+    false,
+  );
+});
+
+test("assessment requests cannot be accepted as priced estimates", () => {
+  assert.equal(
+    estimateCanBeAccepted(project, {
+      ...quote,
+      assessmentRequired: true,
+      amount: null,
+    }),
+    false,
+  );
+  assert.equal(
+    estimateCanBeAccepted(project, { ...quote, amount: null }),
     false,
   );
 });

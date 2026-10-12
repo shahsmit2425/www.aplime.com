@@ -61,7 +61,7 @@ const descriptions = {
     "Remove the archived label without reopening or changing this project's status.",
   ],
   dispute: [
-    "Get help",
+    "Report an issue",
     "Describe the problem for support. Work actions pause until the case is resolved.",
   ],
 } as const;
@@ -284,6 +284,7 @@ export function ProjectControls({
           {(Object.keys(icons) as (keyof typeof icons)[])
             .filter(
               (type) =>
+                type !== "dispute" &&
                 allowed(type) &&
                 !(type === "archive" && p.archived) &&
                 !(type === "restore" && !p.archived),

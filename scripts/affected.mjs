@@ -60,7 +60,7 @@ export function affected(paths) {
     if (/^(src\/server\/|apps\/api\/)/.test(file)) {
       result.api = true;
       if (
-        /(\/db\/|\/config\.|\/repository\.|\/worker\.|\/meeting-lifecycle\.|\/integrations\/email\.|\/errors\.)/.test(
+        /(\/db\/|\/config\.|\/repository\.|\/worker\.|\/estimates\.|\/meeting-lifecycle\.|\/integrations\/email\.|\/errors\.)/.test(
           file,
         )
       )

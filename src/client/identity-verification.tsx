@@ -330,9 +330,6 @@ export function IdentityVerification() {
             >
               Stripe privacy <ExternalLink size={14} />
             </a>
-            <button className="text-button" onClick={() => go("help")}>
-              Get help
-            </button>
             {support && <a href={"mailto:" + support}>Contact support</a>}
           </div>
         </aside>

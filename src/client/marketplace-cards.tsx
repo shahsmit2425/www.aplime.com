@@ -42,6 +42,7 @@ export function ProjectCard({
   const pendingEstimates = quotes.filter(
     (q) =>
       q.projectId === p.id &&
+      !q.assessmentRequired &&
       q.status === "pending" &&
       (!q.expiresAt || Date.parse(q.expiresAt) > Date.now()),
   ).length;

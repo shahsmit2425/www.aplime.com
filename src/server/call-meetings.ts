@@ -32,11 +32,11 @@ function future(value: string, leadMinutes = 15) {
   if (
     t <= now + leadMinutes * 60000 ||
     t > now + CALL_HORIZON_DAYS * 86400000 ||
-    t % (30 * 60000) !== 0
+    t % (CALL_MINUTES * 60000) !== 0
   )
     fail(
       409,
-      `Choose an available half-hour slot ${leadMinutes ? "at least 15 minutes ahead" : "in the future"}, within the next 21 days.`,
+      `Choose an available 10-minute slot ${leadMinutes ? "at least 15 minutes ahead" : "in the future"}, within the next 21 days.`,
     );
 }
 async function maySchedule(
@@ -173,7 +173,7 @@ callMeetings.get(
       const { profile, busy } = await calendar(c, proId, p.customerId, exclude);
       const slots: string[] = [],
         now = Date.now(),
-        step = 30 * 60000;
+        step = CALL_MINUTES * 60000;
       for (
         let t = Math.ceil((now + 15 * 60000) / step) * step;
         t <= now + CALL_HORIZON_DAYS * 86400000;

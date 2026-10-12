@@ -103,7 +103,9 @@ export type Quote = {
   id: string;
   projectId: string;
   proId: string;
-  amount: number;
+  amount: number | null;
+  assessmentRequired?: boolean;
+  estimatedDays?: number | null;
   laborAmount: number;
   materialsAmount: number;
   description: string;
@@ -266,9 +268,11 @@ export const actionSchema = z
         type: z.literal("quote"),
         laborAmount: z.number().int().min(0).max(10000000),
         materialsAmount: z.number().int().min(0).max(10000000),
-        description: text(10, 2000),
+        assessmentRequired: z.boolean().optional(),
+        estimatedDays: z.number().int().min(1).max(3650).nullable().optional(),
+        description: z.string().trim().max(2000),
         exclusions: z.string().trim().max(2000),
-        timeline: text(3, 300),
+        timeline: z.string().trim().max(300),
         expiresAt: z.string().datetime().nullable(),
       })
       .strict(),
@@ -346,6 +350,7 @@ export const actionSchema = z
   .superRefine((action, context) => {
     if (
       action.type === "quote" &&
+      !action.assessmentRequired &&
       action.laborAmount + action.materialsAmount < 100
     )
       context.addIssue({
@@ -353,6 +358,31 @@ export const actionSchema = z
         message: "Estimate total must be at least $1",
         path: ["laborAmount"],
       });
+    if (action.type === "quote") {
+      if (
+        !action.assessmentRequired &&
+        !action.estimatedDays &&
+        action.timeline.length < 3
+      )
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Enter estimated days to finish",
+          path: ["estimatedDays"],
+        });
+      if (
+        action.assessmentRequired &&
+        (action.laborAmount !== 0 ||
+          action.materialsAmount !== 0 ||
+          action.estimatedDays ||
+          action.expiresAt)
+      )
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message:
+            "Assessment requests must not include pricing, completion days or expiration",
+          path: ["assessmentRequired"],
+        });
+    }
     if (
       action.type === "update_details" &&
       action.budgetMin !== null &&

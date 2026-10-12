@@ -1,7 +1,8 @@
+import { quotePrice, quoteTiming } from "../shared/estimates.js";
 import { ProfessionalCard } from "./marketplace-cards.js";
 import { ProfessionalActions } from "./professional-actions.js";
 import { CalendarDays, Users } from "lucide-react";
-import { money, type Project, type Quote } from "../shared/domain.js";
+import { type Project, type Quote } from "../shared/domain.js";
 import { useWorkspace } from "./workspace.js";
 import { Badge } from "./ui.js";
 import { SavePro } from "./project-actions.js";
@@ -36,7 +37,7 @@ export function ProjectProfessionals({
   const accept = (q: Quote, business: string) => {
     if (
       !window.confirm(
-        `Accept ${money(q.amount)} from ${business}? This professional must confirm the job. Your other estimates stay on hold until they do.`,
+        `Accept ${quotePrice(q)} from ${business}? This professional must confirm the job. Your other estimates stay on hold until they do.`,
       )
     )
       return;
@@ -93,7 +94,7 @@ export function ProjectProfessionals({
                   aria-label={business + " estimate"}
                 >
                   <div className="project-pro-price">
-                    <strong>{money(q.amount)}</strong>
+                    <strong>{quotePrice(q)}</strong>
                     <Badge>
                       {q.status === "pending" &&
                       q.expiresAt &&
@@ -106,18 +107,18 @@ export function ProjectProfessionals({
                   </div>
                   <p className="project-pro-timeline">
                     <CalendarDays size={15} />
-                    {q.timeline}
+                    {quoteTiming(q)}
                   </p>
                   <details>
                     <summary>Estimate details · version {q.revision}</summary>
                     <p>{q.description}</p>
                     <dl>
-                      <dt>Labor</dt>
-                      <dd>{money(q.laborAmount)}</dd>
-                      <dt>Materials</dt>
-                      <dd>{money(q.materialsAmount)}</dd>
-                      <dt>Exclusions</dt>
-                      <dd>{q.exclusions || "None listed"}</dd>
+                      {q.exclusions && (
+                        <>
+                          <dt>Exclusions</dt>
+                          <dd>{q.exclusions}</dd>
+                        </>
+                      )}
                       <dt>Valid until</dt>
                       <dd>
                         {q.expiresAt

@@ -68,10 +68,12 @@ export async function projectAction(
         !["pending", "withdrawn", "expired"].includes(existing.status)
       )
         fail(409, "This estimate is closed.");
-      const amount = action.laborAmount + action.materialsAmount;
+      const amount = action.assessmentRequired
+        ? null
+        : action.laborAmount + action.materialsAmount;
       if (action.expiresAt) assertFuture(action.expiresAt);
       await c.query(
-        "INSERT INTO quotes(id,project_id,pro_id,amount,labor_amount,materials_amount,description,exclusions,timeline,expires_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT(project_id,pro_id) DO UPDATE SET status='pending',amount=EXCLUDED.amount,labor_amount=EXCLUDED.labor_amount,materials_amount=EXCLUDED.materials_amount,description=EXCLUDED.description,exclusions=EXCLUDED.exclusions,timeline=EXCLUDED.timeline,expires_at=EXCLUDED.expires_at,created_at=now(),revision=quotes.revision+1",
+        "INSERT INTO quotes(id,project_id,pro_id,amount,labor_amount,materials_amount,description,exclusions,timeline,expires_at,assessment_required,estimated_days) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) ON CONFLICT(project_id,pro_id) DO UPDATE SET status='pending',amount=EXCLUDED.amount,labor_amount=EXCLUDED.labor_amount,materials_amount=EXCLUDED.materials_amount,description=EXCLUDED.description,exclusions=EXCLUDED.exclusions,timeline=EXCLUDED.timeline,expires_at=EXCLUDED.expires_at,assessment_required=EXCLUDED.assessment_required,estimated_days=EXCLUDED.estimated_days,created_at=now(),revision=quotes.revision+1",
         [
           randomUUID(),
           id,
@@ -81,15 +83,22 @@ export async function projectAction(
           action.materialsAmount,
           action.description,
           action.exclusions,
-          action.timeline,
+          action.estimatedDays
+            ? `${action.estimatedDays} ${action.estimatedDays === 1 ? "day" : "days"}`
+            : action.timeline,
           action.expiresAt,
+          !!action.assessmentRequired,
+          action.estimatedDays || null,
         ],
       );
       await c.query(
         "INSERT INTO project_discussions(id,project_id,pro_id) VALUES($1,$2,$3) ON CONFLICT(project_id,pro_id) DO NOTHING",
         [randomUUID(), id, user.id],
       );
-      await c.query("UPDATE projects SET status='quoted' WHERE id=$1", [id]);
+      await c.query(
+        "UPDATE projects SET status=CASE WHEN EXISTS(SELECT 1 FROM quotes WHERE project_id=$1 AND status='pending' AND NOT assessment_required) THEN 'quoted' ELSE 'requested' END WHERE id=$1",
+        [id],
+      );
     } else if (action.type === "withdraw_quote") {
       const changed = await c.query(
         "UPDATE quotes SET status='withdrawn',revision=revision+1 WHERE project_id=$1 AND pro_id=$2 AND status='pending' RETURNING id",
@@ -99,14 +108,14 @@ export async function projectAction(
         fail(409, "There is no pending estimate to withdraw.");
       extraRecipient = user.id;
       await c.query(
-        "UPDATE projects SET status=CASE WHEN EXISTS(SELECT 1 FROM quotes WHERE project_id=$1 AND status='pending') THEN 'quoted' ELSE 'requested' END WHERE id=$1",
+        "UPDATE projects SET status=CASE WHEN EXISTS(SELECT 1 FROM quotes WHERE project_id=$1 AND status='pending' AND NOT assessment_required) THEN 'quoted' ELSE 'requested' END WHERE id=$1",
         [id],
       );
     } else if (action.type === "accept" || action.type === "decline") {
       const quote = (
         await c.query(
           action.type === "accept"
-            ? "SELECT q.* FROM quotes q JOIN profiles f ON f.id=q.pro_id WHERE q.id=$1 AND q.project_id=$2 AND q.status='pending' AND (q.expires_at IS NULL OR q.expires_at>now()) AND f.verified AND (f.review_status='approved' OR f.listed) AND NOT f.suspended"
+            ? "SELECT q.* FROM quotes q JOIN profiles f ON f.id=q.pro_id WHERE q.id=$1 AND q.project_id=$2 AND q.status='pending' AND NOT q.assessment_required AND q.amount IS NOT NULL AND (q.expires_at IS NULL OR q.expires_at>now()) AND f.verified AND (f.review_status='approved' OR f.listed) AND NOT f.suspended"
             : "SELECT q.* FROM quotes q WHERE q.id=$1 AND q.project_id=$2 AND q.status='pending'",
           [action.quoteId, id],
         )
@@ -142,14 +151,14 @@ export async function projectAction(
           quote.id,
         ]);
         await c.query(
-          "UPDATE projects SET status=CASE WHEN EXISTS(SELECT 1 FROM quotes WHERE project_id=$1 AND status='pending') THEN 'quoted' ELSE 'requested' END WHERE id=$1",
+          "UPDATE projects SET status=CASE WHEN EXISTS(SELECT 1 FROM quotes WHERE project_id=$1 AND status='pending' AND NOT assessment_required) THEN 'quoted' ELSE 'requested' END WHERE id=$1",
           [id],
         );
       }
     } else if (action.type === "open_request") {
       extraRecipient = p.proId || undefined;
       await c.query(
-        "UPDATE projects SET pro_id=NULL,status=CASE WHEN EXISTS(SELECT 1 FROM quotes WHERE project_id=$1 AND status='pending') THEN 'quoted' ELSE 'requested' END WHERE id=$1",
+        "UPDATE projects SET pro_id=NULL,status=CASE WHEN EXISTS(SELECT 1 FROM quotes WHERE project_id=$1 AND status='pending' AND NOT assessment_required) THEN 'quoted' ELSE 'requested' END WHERE id=$1",
         [id],
       );
     } else if (action.type === "update_details") {
@@ -200,7 +209,7 @@ export async function projectAction(
         [id, p.proId, action.type === "decline_award" ? "declined" : "pending"],
       );
       await c.query(
-        "UPDATE projects SET pro_id=NULL,amount=NULL,award_accepted=true,proposed_at=NULL,proposed_by=NULL,scheduled_at=NULL,status=CASE WHEN EXISTS(SELECT 1 FROM quotes WHERE project_id=$1 AND status='pending') THEN 'quoted' ELSE 'requested' END WHERE id=$1",
+        "UPDATE projects SET pro_id=NULL,amount=NULL,award_accepted=true,proposed_at=NULL,proposed_by=NULL,scheduled_at=NULL,status=CASE WHEN EXISTS(SELECT 1 FROM quotes WHERE project_id=$1 AND status='pending' AND NOT assessment_required) THEN 'quoted' ELSE 'requested' END WHERE id=$1",
         [id],
       );
     } else if (action.type === "respond_appointment") {
@@ -232,7 +241,10 @@ export async function projectAction(
     } else fail(400, "Unsupported project action.");
     await c.query("UPDATE projects SET version=version+1 WHERE id=$1", [id]);
     const titles: Record<string, string> = {
-      quote: "Estimate received or updated",
+      quote:
+        action.type === "quote" && action.assessmentRequired
+          ? "Assessment requested before pricing"
+          : "Estimate received or updated",
       accept: "Estimate selected: awaiting professional confirmation",
       accept_award: "Professional confirmed the job",
       decline_award: "Professional declined the job",

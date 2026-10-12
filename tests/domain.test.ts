@@ -147,3 +147,47 @@ test("administrator status does not grant private conversation membership", () =
     false,
   );
 });
+
+test("assessment requests defer price and days; priced estimates require a completion estimate", () => {
+  const base = {
+    type: "quote",
+    laborAmount: 0,
+    materialsAmount: 0,
+    description: "",
+    exclusions: "",
+    timeline: "",
+    expiresAt: null,
+  };
+  assert.equal(
+    actionSchema.safeParse({
+      ...base,
+      assessmentRequired: true,
+      estimatedDays: null,
+    }).success,
+    true,
+  );
+  for (const change of [
+    { laborAmount: 500 },
+    { estimatedDays: 2 },
+    { expiresAt: "2030-01-01T00:00:00Z" },
+  ])
+    assert.equal(
+      actionSchema.safeParse({ ...base, assessmentRequired: true, ...change })
+        .success,
+      false,
+    );
+  assert.equal(
+    actionSchema.safeParse({ ...base, laborAmount: 4000, estimatedDays: 2 })
+      .success,
+    true,
+  );
+  for (const days of [null, 0, 1.5, 3651])
+    assert.equal(
+      actionSchema.safeParse({
+        ...base,
+        laborAmount: 4000,
+        estimatedDays: days,
+      }).success,
+      false,
+    );
+});

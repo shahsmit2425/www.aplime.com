@@ -21,7 +21,7 @@ export async function expireEstimates(limit = 50) {
         )
       ).rows;
       await c.query(
-        "UPDATE projects SET version=version+1,status=CASE WHEN EXISTS(SELECT 1 FROM quotes WHERE project_id=$1 AND status='pending') THEN 'quoted' ELSE 'requested' END WHERE id=$1",
+        "UPDATE projects SET version=version+1,status=CASE WHEN EXISTS(SELECT 1 FROM quotes WHERE project_id=$1 AND status='pending' AND NOT assessment_required) THEN 'quoted' ELSE 'requested' END WHERE id=$1",
         [p.id],
       );
       for (const q of expired)

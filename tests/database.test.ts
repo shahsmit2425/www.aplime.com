@@ -114,6 +114,13 @@ await db.exec(
   ),
 );
 
+await db.exec(
+  await readFile(
+    "src/server/db/migrations/016_assessment_estimates.sql",
+    "utf8",
+  ),
+);
+
 test.after(async () => {
   await db.close();
   await pool.end();
@@ -3573,4 +3580,102 @@ test("project and inbox call entry points resolve one stable room identity acros
     ensurePairConversation(c, firstId, customer.id, professional.id),
   );
   assert.deepEqual(first, repeat);
+});
+
+test("assessment remains unpriced and private until the pro revises it; only the latest priced version can be booked", async () => {
+  const pro = {
+    ...professional,
+    id: "assessment-" + randomUUID(),
+    email: randomUUID() + "@example.invalid",
+  };
+  await query("INSERT INTO users(id,name,email,role) VALUES($1,$2,$3,'pro')", [
+    pro.id,
+    pro.name,
+    pro.email,
+  ]);
+  await query(
+    "INSERT INTO profiles(id,business,category,bio,zip,rate,verified,review_status) VALUES($1,'Assessment business','Handyman','Detailed description','10001',40,true,'approved')",
+    [pro.id],
+  );
+  await query(
+    "INSERT INTO professional_subscriptions(user_id,status) VALUES($1,'active')",
+    [pro.id],
+  );
+  const id = await lifecycleProject("requested", false);
+  const assessment = {
+    type: "quote" as const,
+    assessmentRequired: true,
+    laborAmount: 0,
+    materialsAmount: 0,
+    estimatedDays: null,
+    description: "",
+    exclusions: "",
+    timeline: "",
+    expiresAt: null,
+  };
+  await assert.rejects(
+    projectAction(id, outsider, assessment),
+    /not available/,
+  );
+  await projectAction(id, pro, assessment, 1);
+  let q = (await query("SELECT * FROM quotes WHERE project_id=$1", [id]))
+    .rows[0];
+  assert.equal(q.amount, null);
+  assert.equal(q.assessment_required, true);
+  assert.equal((await projectRow(id)).status, "requested");
+  assert.equal(q.estimated_days, null);
+  assert.equal((await projectRow(id)).pro_id, null);
+  assert.equal(
+    (await workspace(customer)).quotes.find((x) => x.id === q.id)
+      ?.assessmentRequired,
+    true,
+  );
+  await assert.rejects(
+    projectAction(id, customer, { type: "accept", quoteId: q.id, revision: 1 }),
+    /no longer available/,
+  );
+  await assert.rejects(
+    query("UPDATE quotes SET status='accepted' WHERE id=$1", [q.id]),
+    /quotes_assessment_pricing_check/,
+  );
+  await projectAction(
+    id,
+    pro,
+    {
+      ...assessment,
+      assessmentRequired: false,
+      laborAmount: 12500,
+      estimatedDays: 2,
+    },
+    2,
+  );
+  q = (await query("SELECT * FROM quotes WHERE project_id=$1", [id])).rows[0];
+  assert.equal(q.amount, 12500);
+  assert.equal(q.estimated_days, 2);
+  assert.equal(q.assessment_required, false);
+  assert.equal((await projectRow(id)).status, "quoted");
+  assert.equal(q.revision, 2);
+  assert.equal(q.timeline, "2 days");
+  await assert.rejects(
+    projectAction(id, customer, { type: "accept", quoteId: q.id, revision: 1 }),
+    /changed/,
+  );
+  await projectAction(
+    id,
+    customer,
+    { type: "accept", quoteId: q.id, revision: 2 },
+    3,
+  );
+  assert.equal((await projectRow(id)).amount, 12500);
+  assert.equal((await projectRow(id)).pro_id, pro.id);
+  assert.equal((await projectRow(id)).award_accepted, false);
+  assert.equal(
+    (
+      await query(
+        "SELECT count(*)::int AS n FROM notifications WHERE user_id=$1 AND title='Assessment requested before pricing'",
+        [customer.id],
+      )
+    ).rows[0].n,
+    1,
+  );
 });

@@ -770,3 +770,34 @@ test("a cancellation while Daily creates a token does not release a join link", 
     globalThis.fetch = original;
   }
 });
+
+test("availability offers ten-minute start times and accepts them without allowing off-grid times", async () => {
+  const p = await project();
+  const r = await call(
+    "customer",
+    `/projects/${p}/professionals/pro/call-slots`,
+  );
+  assert.equal(r.status, 200);
+  assert.equal(r.body.minutes, 10);
+  const start = slot();
+  const ten = new Date(Date.parse(start) + 10 * 60000).toISOString();
+  assert.ok(r.body.slots.includes(ten));
+  assert.ok(
+    r.body.slots.includes(
+      new Date(Date.parse(start) + 20 * 60000).toISOString(),
+    ),
+  );
+  assert.ok(
+    r.body.slots.every((s: string) => Date.parse(s) % (10 * 60000) === 0),
+  );
+  const bad = await call("customer", "/call-meetings", {
+    id: randomUUID(),
+    projectId: p,
+    proId: "pro",
+    startsAt: new Date(Date.parse(start) + 5 * 60000).toISOString(),
+    mode: "video",
+  });
+  assert.equal(bad.status, 409);
+  const a = await create(p, ten);
+  assert.equal((await row(a.id)).status, "requested");
+});
