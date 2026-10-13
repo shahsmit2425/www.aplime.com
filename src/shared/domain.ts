@@ -17,6 +17,8 @@ export type User = {
   settings: Record<string, unknown>;
 };
 export type Profile = {
+  town?: string;
+  region?: string;
   address: string;
   placeId: string;
   serviceCategories: string[];
@@ -61,6 +63,8 @@ export const statuses = [
 ] as const;
 export type Status = (typeof statuses)[number];
 export type Project = {
+  town?: string;
+  region?: string;
   version?: number;
   archived?: boolean;
   awardAccepted?: boolean;

@@ -1,3 +1,4 @@
+import { projectIntent } from "./project-intent.js";
 import { NotificationDropdown } from "./notification-dropdown.js";
 import { MeetingProvider } from "./meeting-state.js";
 import { watchNotifications } from "./live-notifications.js";
@@ -161,7 +162,12 @@ function RoleChoice({
   );
 }
 export default function Workspace() {
-  const [route, setRoute] = useState(readRoute),
+  const [route, setRoute] = useState(() => {
+      try {
+        projectIntent(location.search, sessionStorage);
+      } catch {}
+      return readRoute();
+    }),
     [signupRole, setSignupRole] = useState<"customer" | "pro">(() =>
       new URLSearchParams(location.search).get("role") === "pro"
         ? "pro"

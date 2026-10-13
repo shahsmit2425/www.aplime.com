@@ -1,3 +1,4 @@
+import { customerPreviewName } from "../shared/locations.js";
 import {
   matchSql,
   rankSql,
@@ -13,7 +14,7 @@ import { pool, camel } from "./db/index.js";
 import type pg from "pg";
 import type { User, Workspace, Profile, Project } from "../shared/domain.js";
 import { fail } from "./errors.js";
-export const profileSelect = `SELECT p.id,u.name,p.business,p.details,p.category,p.bio,p.zip,p.rate,p.available,p.availability,p.verified,p.suspended,p.listed,p.connect_ready,p.service_radius_miles,p.address,p.place_id,p.service_categories,p.weekly_hours,p.time_zone,p.review_status,p.review_note,p.submitted_at,p.reviewed_at,
+export const profileSelect = `SELECT p.id,u.name,p.business,p.details,p.category,p.bio,p.zip,p.town,p.region,p.rate,p.available,p.availability,p.verified,p.suspended,p.listed,p.connect_ready,p.service_radius_miles,p.address,p.place_id,p.service_categories,p.weekly_hours,p.time_zone,p.review_status,p.review_note,p.submitted_at,p.reviewed_at,
  COALESCE((SELECT json_agg(json_build_object('id',i.id,'slot',i.slot,'key',i.object_key) ORDER BY i.slot) FROM business_images i WHERE i.profile_id=p.id AND i.status='ready'),'[]'::json) AS images,
  COALESCE((SELECT avg(r.rating)::float FROM reviews r WHERE r.pro_id=p.id),0) AS rating,
  (SELECT count(*)::int FROM reviews r WHERE r.pro_id=p.id) AS review_count FROM profiles p JOIN users u ON u.id=p.id`;
@@ -157,10 +158,13 @@ export async function workspace(user: User): Promise<Workspace> {
     user.role === "pro"
       ? (
           await pool.query(
-            `SELECT p.id,p.version,p.title,p.description,p.intake,p.category,p.zip,p.urgency,p.property_type,p.budget_min,p.budget_max,p.status,p.created_at,p.scheduled_at,NULL AS customer_id,NULL AS pro_id,NULL AS amount FROM projects p ${preview ? "JOIN users f ON f.id=$1 LEFT JOIN profiles own ON own.id=f.id" : "JOIN profiles f ON f.id=$1"} WHERE p.pro_id IS NULL AND p.status IN ('requested','quoted') AND ${unblockedSql()} AND (${preview ? "(own.id IS NULL OR NOT own.suspended)" : `${discoverySql()} OR EXISTS(SELECT 1 FROM quotes own_quote WHERE own_quote.project_id=p.id AND own_quote.pro_id=$1 AND own_quote.status='pending')`}) ORDER BY p.created_at DESC,p.id ${preview ? "" : "LIMIT 100"}`,
+            `SELECT p.id,p.version,p.title,p.description,p.intake,p.category,p.zip,p.town,p.region,c.name AS customer_name,p.urgency,p.property_type,p.budget_min,p.budget_max,p.status,p.created_at,p.scheduled_at,NULL AS customer_id,NULL AS pro_id,NULL AS amount FROM projects p JOIN users c ON c.id=p.customer_id ${preview ? "JOIN users f ON f.id=$1 LEFT JOIN profiles own ON own.id=f.id" : "JOIN profiles f ON f.id=$1"} WHERE p.pro_id IS NULL AND p.status IN ('requested','quoted') AND ${unblockedSql()} AND (${preview ? "(own.id IS NULL OR NOT own.suspended)" : `${discoverySql()} OR EXISTS(SELECT 1 FROM quotes own_quote WHERE own_quote.project_id=p.id AND own_quote.pro_id=$1 AND own_quote.status='pending')`}) ORDER BY p.created_at DESC,p.id ${preview ? "" : "LIMIT 100"}`,
             [user.id],
           )
-        ).rows.map((r) => camel<Project>(r))
+        ).rows.map((r) => ({
+          ...camel<Project>(r),
+          customerName: customerPreviewName(r.customer_name),
+        }))
       : [];
   const allIds = [...ids, ...leads.map((p) => p.id)];
   const [

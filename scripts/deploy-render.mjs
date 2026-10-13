@@ -115,7 +115,9 @@ for (const target of selected) {
     if (production) {
       if (
         !robots.includes(`Sitemap: ${site}/sitemap.xml`) ||
-        !sitemap.includes(`${site}/services/plumbing`)
+        !sitemap.includes(`${site}/services/plumbing`) ||
+        !sitemap.includes(`${site}/new-jersey`) ||
+        !home.includes("New Jersey")
       )
         throw new Error("Production robots or sitemap content is invalid");
     } else if (

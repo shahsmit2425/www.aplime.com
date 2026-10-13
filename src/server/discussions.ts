@@ -114,7 +114,7 @@ discussions.get("/discussions/:id/projects/:projectId", async (req, res) => {
   );
   const p = (
     await pool.query(
-      "SELECT p.id,p.title,p.description,p.category,p.zip,p.intake,p.property_type,p.urgency,p.status,p.budget_min,p.budget_max,p.amount,p.created_at,p.scheduled_at,p.customer_id,p.pro_id,c.name AS customer_name,CASE WHEN p.customer_id=$2 OR p.pro_id=$2 THEN p.address ELSE NULL END AS address,CASE WHEN p.customer_id=$2 OR p.pro_id=$2 THEN p.address_unit ELSE NULL END AS address_unit FROM projects p JOIN users c ON c.id=p.customer_id WHERE p.id=$1",
+      "SELECT p.id,p.title,p.description,p.category,p.zip,p.town,p.region,p.intake,p.property_type,p.urgency,p.status,p.budget_min,p.budget_max,p.amount,p.created_at,p.scheduled_at,p.customer_id,p.pro_id,c.name AS customer_name,CASE WHEN p.customer_id=$2 OR p.pro_id=$2 THEN p.address ELSE NULL END AS address,CASE WHEN p.customer_id=$2 OR p.pro_id=$2 THEN p.address_unit ELSE NULL END AS address_unit FROM projects p JOIN users c ON c.id=p.customer_id WHERE p.id=$1",
       [row.project_id, req.account.id],
     )
   ).rows[0];

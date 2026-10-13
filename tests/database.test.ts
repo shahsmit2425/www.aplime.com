@@ -121,6 +121,10 @@ await db.exec(
   ),
 );
 
+await db.exec(
+  await readFile("src/server/db/migrations/017_public_localities.sql", "utf8"),
+);
+
 test.after(async () => {
   await db.close();
   await pool.end();
@@ -1565,7 +1569,7 @@ test("open discovery crosses service and location preferences but keeps eligibil
       "customers may browse before posting",
     );
     await query(
-      "INSERT INTO projects(id,customer_id,title,description,category,zip,address,place_id) VALUES($1,$2,'Open repairs','Scope without private address','Handyman','10001','Private customer address','private-customer-place')",
+      "INSERT INTO projects(id,customer_id,title,description,category,zip,address,place_id,town,region) VALUES($1,$2,'Open repairs','Scope without private address','Handyman','08859','Private customer address','private-customer-place','Parlin','NJ')",
       [id, owner.id],
     );
     const customerView = await workspace(owner);
@@ -1576,6 +1580,9 @@ test("open discovery crosses service and location preferences but keeps eligibil
     const project = (await workspace(pro)).leads.find((p) => p.id === id)!;
     assert.ok(project);
     assert.equal(project.customerId, null);
+    assert.equal(project.town, "Parlin");
+    assert.equal(project.region, "NJ");
+    assert.equal(project.customerName, "Test c.");
     assert.equal(project.address, undefined);
     assert.equal(project.placeId, undefined);
     assert.equal((project as any).latitude, undefined);
@@ -3678,4 +3685,47 @@ test("assessment remains unpriced and private until the pro revises it; only the
     ).rows[0].n,
     1,
   );
+});
+
+test("public SEO listings expose town/ZIP while enforcing subscription and identity", async () => {
+  const { publicProfiles } = await import("../src/server/repository.js");
+  const id = "local-seo-" + randomUUID();
+  await query(
+    "INSERT INTO users(id,name,email,role) VALUES($1,'Private owner',$2,'pro')",
+    [id, id + "@example.invalid"],
+  );
+  await query(
+    "INSERT INTO profiles(id,business,category,bio,zip,town,region,address,place_id,rate,verified,review_status) VALUES($1,'NJ business','Cleaning','A useful profile description','08859','Parlin','NJ','Private business street','private-place',40,true,'approved')",
+    [id],
+  );
+  assert.equal((await publicProfiles(id)).length, 0);
+  await query(
+    "INSERT INTO professional_subscriptions(user_id,status) VALUES($1,'active')",
+    [id],
+  );
+  const visible = (await publicProfiles(id))[0];
+  assert.equal(visible.town, "Parlin");
+  assert.equal(visible.region, "NJ");
+  assert.equal(visible.zip, "08859");
+  assert.equal(visible.address, "");
+  assert.equal(visible.placeId, "");
+  await query("UPDATE profiles SET available=false WHERE id=$1", [id]);
+  assert.equal((await publicProfiles(id))[0].available, false);
+  for (const condition of [
+    "suspended=true",
+    "verified=false",
+    "review_status='draft'",
+  ]) {
+    await query("UPDATE profiles SET " + condition + " WHERE id=$1", [id]);
+    assert.equal((await publicProfiles(id)).length, 0, condition);
+    await query(
+      "UPDATE profiles SET available=true,suspended=false,verified=true,review_status='approved' WHERE id=$1",
+      [id],
+    );
+  }
+  await query(
+    "UPDATE professional_subscriptions SET status='canceled' WHERE user_id=$1",
+    [id],
+  );
+  assert.equal((await publicProfiles(id)).length, 0);
 });

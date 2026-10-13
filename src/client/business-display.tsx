@@ -1,3 +1,4 @@
+import { locationLabel } from "../shared/locations.js";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   MapPin,
@@ -39,10 +40,11 @@ export function BusinessDisplay({
   const services = profile.serviceCategories?.length
     ? profile.serviceCategories
     : [profile.category];
-  const location =
-    [profile.details?.city, profile.details?.state]
-      .filter(Boolean)
-      .join(", ") || "ZIP " + profile.zip;
+  const location = locationLabel({
+    ...profile,
+    town: profile.town || profile.details?.city,
+    region: profile.region || profile.details?.state,
+  });
   const accepting =
     profile.available && !profile.suspended && profile.canRespond !== false;
   return (

@@ -256,7 +256,7 @@ api.put("/profile", async (req, res) => {
       existing.place_id !== location.placeId ||
       canonical(existing.details) !== canonical(p.details);
     await c.query(
-      "INSERT INTO profiles(id,business,category,bio,zip,rate,available,availability,details,service_radius_miles,latitude,longitude,address,place_id,service_categories) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,jsonb_build_array($3::text)) ON CONFLICT(id) DO UPDATE SET business=$2,category=$3,bio=$4,zip=$5,rate=$6,available=$7,availability=$8,details=$9,service_radius_miles=$10,latitude=$11,longitude=$12,address=$13,place_id=$14",
+      "INSERT INTO profiles(id,business,category,bio,zip,rate,available,availability,details,service_radius_miles,latitude,longitude,address,place_id,service_categories,town,region) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,jsonb_build_array($3::text),$15,$16) ON CONFLICT(id) DO UPDATE SET business=$2,category=$3,bio=$4,zip=$5,rate=$6,available=$7,availability=$8,details=$9,service_radius_miles=$10,latitude=$11,longitude=$12,address=$13,place_id=$14,town=$15,region=$16",
       [
         q.account.id,
         p.business,
@@ -272,6 +272,8 @@ api.put("/profile", async (req, res) => {
         location.lng,
         location.label,
         location.placeId,
+        location.town,
+        location.region,
       ],
     );
     if (material) {
@@ -368,7 +370,7 @@ api.post("/projects", async (req, res) => {
   const id = randomUUID();
   await transaction(async (c) => {
     await c.query(
-      "INSERT INTO projects(id,customer_id,pro_id,title,description,category,zip,scheduled_at,intake,urgency,property_type,budget_min,budget_max,latitude,longitude,address,place_id,address_unit) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)",
+      "INSERT INTO projects(id,customer_id,pro_id,title,description,category,zip,scheduled_at,intake,urgency,property_type,budget_min,budget_max,latitude,longitude,address,place_id,address_unit,town,region) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)",
       [
         id,
         q.account.id,
@@ -388,6 +390,8 @@ api.post("/projects", async (req, res) => {
         location.label,
         location.placeId,
         p.addressUnit,
+        location.town,
+        location.region,
       ],
     );
     if (p.proId) await assertMatch(c, p.proId, id);

@@ -1,3 +1,4 @@
+import { addressLocality } from "../../shared/locations.js";
 import { env } from "../config.js";
 import { fail } from "../errors.js";
 import { AddressError } from "./address-error.js";
@@ -107,6 +108,14 @@ export async function locateAddress(placeId: string, sessionToken?: string) {
     placeId: data.id,
     label: data.formattedAddress,
     zip: component("postal_code").longText,
+    town:
+      component("locality")?.longText ||
+      component("postal_town")?.longText ||
+      component("sublocality_level_1")?.longText ||
+      addressLocality(data.formattedAddress).town,
+    region:
+      component("administrative_area_level_1")?.shortText ||
+      addressLocality(data.formattedAddress).region,
     lat: data.location.latitude,
     lng: data.location.longitude,
   };

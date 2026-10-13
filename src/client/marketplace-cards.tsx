@@ -1,3 +1,4 @@
+import { locationLabel } from "../shared/locations.js";
 import type { ReactNode } from "react";
 import {
   ArrowUpRight,
@@ -6,6 +7,7 @@ import {
   Star,
   ShieldCheck,
   Clock3,
+  UserRound,
 } from "lucide-react";
 import {
   money,
@@ -85,8 +87,12 @@ export function ProjectCard({
       </span>
       <span className="project-card-details">
         <span>
+          <UserRound size={15} />
+          {p.customerName || "Customer"}
+        </span>
+        <span>
           <MapPin size={15} />
-          {p.zip || "Location in project"}
+          {locationLabel(p)}
         </span>
         <span>
           <CalendarDays size={15} />
@@ -195,7 +201,11 @@ export function ProfessionalCard({
           <div className="professional-card-name">
             <p>
               <MapPin size={14} />
-              {p.zip}
+              {locationLabel({
+                ...p,
+                town: p.town || p.details?.city,
+                region: p.region || p.details?.state,
+              })}
               {p.serviceRadiusMiles > 0 &&
                 " · Serves within " + p.serviceRadiusMiles + " miles"}
             </p>

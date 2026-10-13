@@ -6,7 +6,8 @@ Public pages are rendered on the web service so their headings, descriptions, li
 
 Production exposes:
 
-- `/services` and one detailed page for every supported service category
+- `/services` and one New Jersey guide for every supported service category
+- `/new-jersey` and inventory-backed `/new-jersey/<town>/<service>` pages
 - `/about`, `/how-it-works`, `/for-professionals`, and `/trust-and-safety`
 - approved public professional profiles
 - `/robots.txt` and `/sitemap.xml`
@@ -33,7 +34,7 @@ The GitHub Render deployment script verifies all of the following after the web 
 - release SHA and environment match the pushed branch
 - the home page contains the correct canonical URL and JSON-LD
 - production `robots.txt` advertises the canonical sitemap
-- the production sitemap contains service landing pages
+- the production sitemap contains service landing pages and `/new-jersey`, and the home page identifies New Jersey
 - development and staging return `Disallow: /` and an `X-Robots-Tag: noindex` header
 
 No additional environment variable is required for this SEO implementation.
@@ -58,3 +59,22 @@ Search engines decide when and whether to index a page. Deployment and sitemap s
 - Update service guidance when the product workflow changes so metadata and visible page content remain consistent.
 
 References: [Google Search SEO fundamentals](https://developers.google.com/search/docs/fundamentals/seo-starter-guide), [Google structured-data guidelines](https://developers.google.com/search/docs/appearance/structured-data/sd-policies), [Render custom domains](https://render.com/docs/custom-domains), and [Render Blueprint specification](https://render.com/docs/blueprint-spec).
+
+
+## New Jersey launch pages and local business inventory
+
+The homepage, six service guides and professional recruitment page now describe the New Jersey launch. Existing service URLs are preserved. `/new-jersey` is the coverage hub. Links to town/service pages are generated from eligible public business profiles with a server-resolved New Jersey town and state, not from a fabricated town list. For example, `/new-jersey/parlin/cleaning` exists only if the public inventory includes an approved/listed, identity-verified, nonsuspended business based in Parlin with Cleaning in its service preferences and an active/trialing subscription. The API enforces subscription and listing eligibility before supplying inventory. The existing public feed limit of 200 businesses remains; pagination should be introduced before that limit becomes insufficient.
+
+Town pages describe where businesses are based, show shared business cards and link to full profiles/portfolios. They do not claim a base address guarantees coverage for a customer's address. A project is matched using the existing category, service-area and eligibility rules. Temporary availability changes retain useful public URLs and display Not accepting new requests; backend actions still reject unavailable businesses. Removed/ineligible inventory no longer creates town paths or sitemap entries. Unknown town/service combinations return a real 404 with noindex. A transient API inventory failure returns 503 with no-store, noindex and Retry-After for town pages, while useful statewide guides remain available without listings. Sitemap generation falls back to static public URLs if the API is unavailable.
+
+Metadata uses New Jersey service coverage and identifies Aplime as the marketplace/broker, not the service performer. Coverage and town pages include CollectionPage, ItemList and breadcrumb JSON-LD; business ratings remain based on actual reviews. Public listing bootstrap data includes only card fields, without private street addresses, place IDs, account names or review notes. Individual profile publication retains its existing reviewed public data policy. Schema does not promise rich-result eligibility or rankings.
+
+Service/town project links carry their context into the existing project form. Only validated category and locality hints are saved in sessionStorage for up to one hour so sign-in navigation does not lose the request context; they are cleared after publishing. A saved project draft still takes precedence when resumed. The town hint is a prompt for the address field, not an authoritative location or a bypass of address selection. The API independently resolves the chosen Google place before saving.
+
+## Deployment for locality-aware SEO
+
+Deploy API first with the existing `npm run config:check && npm run db:migrate` pre-deploy command. Forward-only migration 017 adds public town/state fields to projects and profiles and backfills clearly formatted, previously resolved US addresses. Ambiguous or missing legacy addresses remain blank instead of guessing a town from ZIP. New project/profile saves use Google's structured locality and state components. No new environment variables, credentials or services are required. Shared modules/domain and migration changes select API, worker, web, admin and mobile through the existing affected-service rules.
+
+Keep development and staging noindex. Promote to production through the existing reviewed branch workflow. Once production is live, submit `https://aplime.com/sitemap.xml` in Search Console and inspect `/new-jersey`, one service guide, a real town/service page and a public business profile. Validate structured data using Rich Results Test and Schema Markup Validator. The deployment script now checks the New Jersey hub and homepage content in addition to existing release/canonical/index controls.
+
+Design references: [Google people-first content](https://developers.google.com/search/docs/fundamentals/creating-helpful-content), [doorway abuse](https://developers.google.com/search/docs/essentials/spam-policies#doorway-abuse), [structured-data guidelines](https://developers.google.com/search/docs/appearance/structured-data/sd-policies) and [Schema.org Service/broker](https://schema.org/Service).
