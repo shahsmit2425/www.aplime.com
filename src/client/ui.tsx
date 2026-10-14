@@ -1,4 +1,4 @@
-import type { ReactNode, FormEvent } from "react";
+import type { ReactNode, FormEvent, MouseEventHandler } from "react";
 import {
   ArrowUpRight,
   Inbox,
@@ -9,9 +9,38 @@ import {
   Paintbrush,
   TreePine,
 } from "lucide-react";
-export function Brand() {
+export function Brand({
+  href = "/",
+  onClick,
+}: {
+  href?: string;
+  onClick?: MouseEventHandler<HTMLAnchorElement>;
+} = {}) {
+  const openHome: MouseEventHandler<HTMLAnchorElement> = (event) => {
+    if (
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    )
+      return;
+    event.preventDefault();
+    // Public pages are server-rendered. Resolve the browser's session only
+    // when the logo is clicked, without putting account data in public HTML.
+    void (async () => {
+      try {
+        const { auth } = await import("./auth.js");
+        const session = auth();
+        await session.authStateReady();
+        window.location.assign(session.currentUser ? "/app/dashboard" : "/");
+      } catch {
+        window.location.assign("/");
+      }
+    })();
+  };
   return (
-    <a className="brand" href="/">
+    <a className="brand" href={href} onClick={onClick || openHome}>
       <svg className="brand-mark" viewBox="0 0 64 64" aria-hidden="true">
         <path className="mark-left" d="M7 50 26 14h10L18 50Z" />
         <path className="mark-right" d="m31 14 22 36H41L25 24Z" />

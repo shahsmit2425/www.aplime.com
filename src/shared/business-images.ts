@@ -8,7 +8,23 @@ export const businessImageSlots = [
   "work-3",
   "work-4",
   "work-5",
+  "work-6",
+  "work-7",
+  "work-8",
+  "work-9",
+  "work-10",
+  "work-11",
+  "work-12",
+  "work-13",
+  "work-14",
+  "work-15",
+  "work-16",
+  "work-17",
+  "work-18",
+  "work-19",
+  "work-20",
 ] as const;
+export const MAX_BUSINESS_PORTFOLIO_IMAGES = 20;
 export function hasBusinessBranding(readySlots: readonly string[]) {
   return readySlots.includes("logo") && readySlots.includes("cover");
 }

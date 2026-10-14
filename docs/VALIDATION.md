@@ -1,3 +1,11 @@
+## Dashboard logo navigation and 20-photo business portfolio - October 14, 2026
+
+Authenticated workspace logo links now navigate within the app to Dashboard, which renders the account's customer or professional dashboard. Public-page logo clicks resolve Firebase's persisted browser session before choosing Dashboard or the public home page; no account information is embedded in public SSR HTML. Native workspace navigation uses the existing hash route.
+
+The shared image schema and editor allow 20 optional portfolio photos in addition to logo/advertising images. Preview, replacement, retry and deletion reuse the existing owner-authorized upload flow. Numbering and customer gallery order handle double-digit slots. Forward-only migration `018_business_portfolio_twenty.sql` expands the database slot constraint without changing saved images. Deploy migrations/API before the new client; no new environment variables are required.
+
+Validation: TypeScript, all 154 tests and customer client/SSR plus admin builds pass. The existing HTTP integration test uploads/completes all 20 photos, rejects a 21st, checks signed customer image visibility, ownership and deletion. R2 is mocked; live storage and signed-in browser navigation remain unverified. Capacitor Android/iOS asset/plugin sync passes; CocoaPods/Xcode and signed device builds are unavailable on Windows. Changes are committed locally; Render deployment is not verified.
+
 ## Rollback of New Jersey SEO and locality changes - October 14, 2026
 
 Reverted application changes from commit 14dd5cb to the behavior in 42cb161 at the owner's request. Migration 017 is retained unchanged because it may already have deployed; its unused additive columns and existing data are preserved. Database integration tests run the restored application against that schema. TypeScript, all 154 tests, customer client/SSR and admin builds pass. Android/iOS Capacitor asset and plugin synchronization passes; CocoaPods/Xcode and signed device builds are unavailable on Windows. This rollback is local only; Render deployment is not verified.

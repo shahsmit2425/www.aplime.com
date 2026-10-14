@@ -125,6 +125,9 @@ await db.exec(
 await db.exec(
   await readFile("src/server/db/migrations/017_public_localities.sql", "utf8"),
 );
+await db.exec(
+  await readFile("src/server/db/migrations/018_business_portfolio_twenty.sql", "utf8"),
+);
 test.after(async () => {
   await db.close();
   await pool.end();
@@ -1287,7 +1290,7 @@ test("API image uploads enforce ownership and file limits and preserve saved ima
       [owner.id],
     );
     const portfolioIds: string[] = [];
-    for (let i = 1; i <= 5; i++) {
+    for (let i = 1; i <= 20; i++) {
       const result = await fetch(base + "/profile/images", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1329,7 +1332,7 @@ test("API image uploads enforce ownership and file limits and preserve saved ima
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            slot: "work-6",
+            slot: "work-21",
             name: "extra.png",
             size: bytes.length,
             contentType: "image/png",
@@ -1348,12 +1351,12 @@ test("API image uploads enforce ownership and file limits and preserve saved ima
     )!.images!;
     assert.equal(
       visiblePortfolio.length,
-      5,
+      20,
       "customers receive every saved past-work photo",
     );
     assert.deepEqual(
-      visiblePortfolio.map((p) => p.slot),
-      ["work-1", "work-2", "work-3", "work-4", "work-5"],
+      new Set(visiblePortfolio.map((p) => p.slot)),
+      new Set(Array.from({ length: 20 }, (_, i) => `work-${i + 1}`)),
     );
     for (const image of visiblePortfolio) {
       assert.equal("key" in image, false);
@@ -1372,7 +1375,7 @@ test("API image uploads enforce ownership and file limits and preserve saved ima
     assert.equal(
       (await workspace(customer)).profiles.find((p) => p.id === owner.id)!
         .images!.length,
-      5,
+      20,
     );
     assert.equal(
       (
@@ -1387,7 +1390,7 @@ test("API image uploads enforce ownership and file limits and preserve saved ima
     assert.equal(
       (await workspace(customer)).profiles.find((p) => p.id === owner.id)!
         .images!.length,
-      4,
+      19,
     );
   } finally {
     await new Promise<void>((resolve) => server.close(() => resolve()));

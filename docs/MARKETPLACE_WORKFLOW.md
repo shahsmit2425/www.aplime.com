@@ -4,7 +4,7 @@
 
 1. A professional saves complete business details and selects a full US business-base address using Google address suggestions. The street address is private; the public profile displays the ZIP and service area. Under Calendar & preferences, the professional selects service categories, a radius, a business time zone, and weekly opening hours.
 2. Stripe Identity verifies the account holder. Identity verification does not approve licensing, insurance, or the marketplace listing.
-3. The professional adds a logo or cover image. Up to five past-work portfolio photos are optional.
+3. The professional adds a logo or cover image. Up to 20 past-work portfolio photos are optional, in addition to the logo and advertising image. Each photo supports preview, replacement and deletion and appears on the customer-facing business profile once saved. Migration `018_business_portfolio_twenty.sql` must run before deploying the expanded portfolio API/client.
 4. The professional submits the listing for review.
 5. An administrator approves it, requests specific changes, or rejects it. Every decision is audited and sent to the professional as an in-app and email notification.
 6. A listing appears in public search only while it is approved, identity verified, available, not suspended, and backed by an active or trialing Aplime subscription.

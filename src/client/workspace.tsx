@@ -848,9 +848,26 @@ export default function Workspace() {
         </button>
       );
     });
+  const dashboardBrand = (
+    <Brand
+      href={Capacitor.isNativePlatform() ? "#/dashboard" : "/app/dashboard"}
+      onClick={(event) => {
+        if (
+          event.button !== 0 ||
+          event.metaKey ||
+          event.ctrlKey ||
+          event.shiftKey ||
+          event.altKey
+        )
+          return;
+        event.preventDefault();
+        go("dashboard");
+      }}
+    />
+  );
   const nav = (
     <>
-      <Brand />
+      {dashboardBrand}
       <p className="workspace-label">
         {data.user.role === "pro" ? "YOUR BUSINESS" : "YOUR HOME, ORGANIZED"}
       </p>
@@ -903,7 +920,7 @@ export default function Workspace() {
               }
               ref={headerRef}
             >
-              <Brand />
+              {dashboardBrand}
               <nav
                 className="workspace-primary-nav"
                 aria-label="Main navigation"

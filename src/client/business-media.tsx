@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { ImagePlus, Upload, X, Eye, Trash2, RefreshCw } from "lucide-react";
 import type { Profile } from "../shared/domain.js";
-import { businessImageSlots } from "../shared/business-images.js";
+import {
+  businessImageSlots,
+  MAX_BUSINESS_PORTFOLIO_IMAGES,
+} from "../shared/business-images.js";
 import { imageError, IMAGE_TYPES } from "../shared/uploads.js";
 import { useWorkspace } from "./workspace.js";
 import { request, uploadImageContent } from "./api.js";
@@ -121,13 +124,13 @@ export function BusinessMedia({
     <Panel
       title={
         portfolio
-          ? `Past work portfolio · ${savedCount} / 5 photos`
+          ? `Past work portfolio · ${savedCount} / ${MAX_BUSINESS_PORTFOLIO_IMAGES} photos`
           : "Logo & advertising image"
       }
     >
       <p>
         {portfolio
-          ? "Show customers your past work. Add up to five photos; saved photos appear on your business profile."
+          ? `Show customers your past work. Add up to ${MAX_BUSINESS_PORTFOLIO_IMAGES} photos; saved photos appear on your business profile.`
           : "Choose an image, check the preview, then save it."}{" "}
         Your current image stays in place until its replacement is saved.
       </p>
@@ -163,7 +166,7 @@ export function BusinessMedia({
                 ? "Business logo"
                 : slot === "cover"
                   ? "Advertising image"
-                  : "Past work photo " + slot.slice(-1);
+                  : "Past work photo " + slot.slice("work-".length);
             const source = selected?.preview || image?.url;
             return (
               <section

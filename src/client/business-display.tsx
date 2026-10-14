@@ -30,7 +30,9 @@ export function BusinessDisplay({
     work =
       profile.images
         ?.filter((i) => i.slot.startsWith("work-"))
-        .sort((a, b) => a.slot.localeCompare(b.slot)) || [];
+        .sort((a, b) =>
+          a.slot.localeCompare(b.slot, undefined, { numeric: true }),
+        ) || [];
   const [view, setView] = useState<{ url: string; label: string } | null>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   useEffect(() => {
