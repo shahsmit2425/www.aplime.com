@@ -10,10 +10,10 @@ import {
   businessImageSlots,
   matchesImageSignature,
 } from "../shared/business-images.js";
+import { sanitizeImage } from "./image-processing.js";
 import {
   imageUrl,
   imageHeader,
-  uploadUrl,
   inspectObject,
   removeObject,
   storeBusinessImage,
@@ -44,7 +44,7 @@ businessImages.use((req, _res, next) => {
 });
 businessImages.post("/", async (req, res) => {
   const data = businessImageSchema
-    .extend({ transport: z.enum(["direct", "api"]).default("direct") })
+    .extend({ transport: z.literal("api").default("api") })
     .parse(req.body);
   const result = await transaction(async (c) => {
     if (
@@ -65,10 +65,6 @@ businessImages.post("/", async (req, res) => {
       key =
         pending?.object_key ||
         `${env.APP_ENV}/business/${req.account.id}/${id}`;
-    const url =
-      data.transport === "direct"
-        ? await uploadUrl(key, data.contentType, data.size)
-        : undefined;
     await c.query(
       "INSERT INTO business_images(id,profile_id,slot,object_key,name,content_type,size) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(profile_id,slot,status) DO UPDATE SET name=EXCLUDED.name,content_type=EXCLUDED.content_type,size=EXCLUDED.size",
       [
@@ -81,10 +77,7 @@ businessImages.post("/", async (req, res) => {
         data.size,
       ],
     );
-    return {
-      id,
-      ...(url ? { url } : { uploadPath: "/profile/images/" + id + "/content" }),
-    };
+    return { id, uploadPath: "/profile/images/" + id + "/content" };
   });
   res.json(result);
 });
@@ -156,7 +149,12 @@ businessImages.put(
             400,
             "This file does not match the selected image. Choose a JPG, PNG, or WebP image again.",
           );
-        await storeBusinessImage(f.object_key, f.content_type, req.body);
+        const clean = await sanitizeImage(req.body, f.content_type);
+        await storeBusinessImage(f.object_key, f.content_type, clean);
+        await c.query("UPDATE business_images SET size=$2 WHERE id=$1", [
+          f.id,
+          clean.length,
+        ]);
       });
       res.json({ ok: true });
     } finally {
@@ -256,6 +254,6 @@ publicBusinessImages.get("/business-images/:id", async (req, res) => {
     )
   ).rows[0];
   if (!f) fail(404, "Business image not available.");
-  res.set("Cache-Control", "private, no-store");
+  res.set("Cache-Control", "public, max-age=120");
   res.redirect(await imageUrl(f.object_key));
 });

@@ -12,6 +12,7 @@ import {
   MAX_PROJECT_IMAGES,
 } from "../shared/uploads.js";
 import { matchesImageSignature } from "../shared/business-images.js";
+import { sanitizeImage } from "./image-processing.js";
 import {
   inspectObject,
   imageHeader,
@@ -134,7 +135,12 @@ projectImages.put(
           !matchesImageSignature(f.content_type, req.body)
         )
           fail(400, "This file does not match the selected photo.");
-        await storeBusinessImage(f.object_key, f.content_type, req.body);
+        const clean = await sanitizeImage(req.body, f.content_type);
+        await storeBusinessImage(f.object_key, f.content_type, clean);
+        await c.query("UPDATE uploads SET size=$2 WHERE id=$1", [
+          f.id,
+          clean.length,
+        ]);
       });
       res.json({ ok: true });
     } finally {

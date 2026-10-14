@@ -1,4 +1,5 @@
 import { assertMatch } from "./matching.js";
+import { assertMessageQuota } from "./quotas.js";
 import { Router } from "express";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -208,11 +209,13 @@ discussions.post("/projects/:id/discussions", async (req, res) => {
           [p.id, req.account.id],
         )
       ).rows[0];
-    if (body)
+    if (body) {
+      await assertMessageQuota(c, req.account.id);
       await c.query(
         "INSERT INTO discussion_messages(id,discussion_id,sender_id,body) VALUES($1,$2,$3,$4)",
         [randomUUID(), d.id, req.account.id, body],
       );
+    }
     if (created.rowCount || body)
       await notify(
         c,
@@ -253,6 +256,7 @@ discussions.post("/discussions/:id/messages", async (req, res) => {
   );
   await maySend(row, req.account.id, other);
   await transaction(async (c) => {
+    await assertMessageQuota(c, req.account.id);
     await c.query(
       "INSERT INTO discussion_messages(id,discussion_id,sender_id,body) VALUES($1,$2,$3,$4)",
       [randomUUID(), row.id, req.account.id, body],

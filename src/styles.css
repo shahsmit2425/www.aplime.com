@@ -73,6 +73,10 @@ button:hover:not(:disabled),
   border-color: #ccd7e6;
   color: #1c3555;
 }
+button.danger {
+  background: #b42318;
+  border-color: #b42318;
+}
 .text-button {
   background: transparent;
   color: var(--blue);

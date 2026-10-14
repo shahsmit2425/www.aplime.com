@@ -1,4 +1,8 @@
 import { Router } from "express";
+import {
+  assertSupportRequestQuota,
+  assertSupportReplyQuota,
+} from "./quotas.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { pool, camel, transaction } from "./db/index.js";
@@ -71,6 +75,7 @@ export function supportRouter(admin: boolean) {
       ).rows[0];
       if (!target || !["customer", "pro"].includes(target.role))
         fail(404, "Marketplace user not found.");
+      if (!admin) await assertSupportRequestQuota(c, userId);
       await c.query(
         "INSERT INTO tickets(id,user_id,subject,body,opened_by) VALUES($1,$2,$3,$4,$5)",
         [id, userId, input.subject, input.body, req.account.id],
@@ -174,6 +179,7 @@ export function supportRouter(admin: boolean) {
       }
       if (ticket.status !== "open")
         fail(409, "Reopen this conversation before replying.");
+      if (!admin) await assertSupportReplyQuota(c, req.account.id);
       await c.query(
         "INSERT INTO support_messages(id,ticket_id,sender_id,client_key,body) VALUES($1,$2,$3,$4,$5)",
         [randomUUID(), id, req.account.id, input.clientKey, input.body],

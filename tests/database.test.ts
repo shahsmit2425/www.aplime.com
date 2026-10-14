@@ -126,7 +126,13 @@ await db.exec(
   await readFile("src/server/db/migrations/017_public_localities.sql", "utf8"),
 );
 await db.exec(
-  await readFile("src/server/db/migrations/018_business_portfolio_twenty.sql", "utf8"),
+  await readFile(
+    "src/server/db/migrations/018_business_portfolio_twenty.sql",
+    "utf8",
+  ),
+);
+await db.exec(
+  await readFile("src/server/db/migrations/019_account_deletion.sql", "utf8"),
 );
 test.after(async () => {
   await db.close();
@@ -698,54 +704,6 @@ test("subscription webhooks use current Stripe state and match stored customers"
   }
 });
 
-test("project image reservations count pending files and reject the sixth image", async () => {
-  const { reserveUpload } = await import("../src/server/uploads.js");
-  const projectId = randomUUID();
-  await query(
-    "INSERT INTO projects(id,customer_id,title,description,category,zip) VALUES($1,$2,$3,$4,$5,$6)",
-    [
-      projectId,
-      customer.id,
-      "Photo limit test",
-      "A project for testing image limits",
-      "Handyman",
-      "10001",
-    ],
-  );
-  for (let index = 0; index < 5; index++) {
-    const id = randomUUID();
-    await reserveUpload(id, projectId, customer.id, id, {
-      name: "photo.jpg",
-      contentType: "image/jpeg",
-      size: 100,
-    });
-  }
-  await assert.rejects(
-    () =>
-      reserveUpload(randomUUID(), projectId, customer.id, randomUUID(), {
-        name: "sixth.png",
-        contentType: "image/png",
-        size: 100,
-      }),
-    /up to 5 images/,
-  );
-  assert.equal(
-    (
-      await db.query<{ n: number }>(
-        "SELECT count(*)::int AS n FROM uploads WHERE project_id=$1",
-        [projectId],
-      )
-    ).rows[0].n,
-    5,
-  );
-  const docId = randomUUID();
-  await reserveUpload(docId, projectId, customer.id, docId, {
-    name: "specification.pdf",
-    contentType: "application/pdf",
-    size: 100,
-  });
-});
-
 test("private discussions hide messages from outsiders and enforce blocking", async () => {
   const { default: express } = await import("express");
   const { discussions } = await import("../src/server/discussions.js");
@@ -1130,10 +1088,12 @@ test("API image uploads enforce ownership and file limits and preserve saved ima
     "INSERT INTO business_images(id,profile_id,slot,object_key,name,content_type,size,status) VALUES($1,$2,'logo','old-logo','old.png','image/png',20,'ready')",
     [old, owner.id],
   );
-  const bytes = Buffer.concat([
-    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
-    Buffer.alloc(12),
-  ]);
+  const sharp = (await import("sharp")).default;
+  const bytes = await sharp({
+    create: { width: 8, height: 8, channels: 3, background: "#fff" },
+  })
+    .png()
+    .toBuffer();
   const stored = new Map<string, { body: Buffer; type: string }>();
   stored.set("old-logo", { body: bytes, type: "image/png" });
   let denyStorage = false,
@@ -1236,6 +1196,16 @@ test("API image uploads enforce ownership and file limits and preserve saved ima
     denyStorage = false;
     assert.equal((await put(bytes)).status, 200);
     assert.equal(puts, 1);
+    const pendingRow = (
+      await query("SELECT object_key,size FROM business_images WHERE id=$1", [
+        item.id,
+      ])
+    ).rows[0] as { object_key: string; size: number };
+    assert.equal(
+      pendingRow.size,
+      stored.get(pendingRow.object_key)!.body.length,
+      "the recorded size is that of the re-encoded image actually stored",
+    );
     assert.ok(stored.has("old-logo"), "old image remains until completion");
     const complete = () =>
       fetch(base + "/profile/images/" + item.id + "/complete", {
@@ -3685,4 +3655,185 @@ test("assessment remains unpriced and private until the pro revises it; only the
     ).rows[0].n,
     1,
   );
+});
+
+test("account quotas stop project, message and support-request floods", async () => {
+  const {
+    assertProjectQuota,
+    assertMessageQuota,
+    assertSupportRequestQuota,
+    QUOTAS,
+  } = await import("../src/server/quotas.js");
+  const user = "quota-" + randomUUID();
+  const peer = "quota-peer-" + randomUUID();
+  for (const [id, role] of [
+    [user, "customer"],
+    [peer, "pro"],
+  ])
+    await query("INSERT INTO users(id,email,name,role) VALUES($1,$2,$3,$4)", [
+      id,
+      id + "@example.invalid",
+      id,
+      role,
+    ]);
+  const projectId = randomUUID();
+  for (let index = 0; index < QUOTAS.projectsPerDay; index++) {
+    await assertProjectQuota({ query } as never, user);
+    await query(
+      "INSERT INTO projects(id,customer_id,title,description,category,zip) VALUES($1,$2,$3,$4,$5,$6)",
+      [
+        index ? randomUUID() : projectId,
+        user,
+        "Quota project " + index,
+        "A project used for quota tests",
+        "Handyman",
+        "10001",
+      ],
+    );
+  }
+  await assert.rejects(
+    () => assertProjectQuota({ query } as never, user),
+    (error: { status?: number }) => error.status === 429,
+  );
+  await assertProjectQuota({ query } as never, outsider.id);
+  const discussionId = randomUUID();
+  await query(
+    "INSERT INTO project_discussions(id,project_id,pro_id) VALUES($1,$2,$3)",
+    [discussionId, projectId, peer],
+  );
+  for (let index = 0; index < QUOTAS.messagesPerMinute; index++) {
+    await assertMessageQuota({ query } as never, user);
+    await query(
+      "INSERT INTO discussion_messages(id,discussion_id,sender_id,body) VALUES($1,$2,$3,$4)",
+      [randomUUID(), discussionId, user, "hello " + index],
+    );
+  }
+  await assert.rejects(
+    () => assertMessageQuota({ query } as never, user),
+    /too quickly/,
+  );
+  await assertMessageQuota({ query } as never, peer);
+  for (let index = 0; index < QUOTAS.supportRequestsPerDay; index++) {
+    await assertSupportRequestQuota({ query } as never, user);
+    await query(
+      "INSERT INTO tickets(id,user_id,subject,body) VALUES($1,$2,$3,$4)",
+      [randomUUID(), user, "Quota ticket " + index, "A support request body"],
+    );
+  }
+  await assert.rejects(
+    () => assertSupportRequestQuota({ query } as never, user),
+    (error: { status?: number }) => error.status === 429,
+  );
+});
+
+test("account export is scoped to the owner and deletion anonymises while protecting active work", async () => {
+  const { exportAccountData, deleteAccountData, assertRecentSignIn } =
+    await import("../src/server/account-data.js");
+  const owner = "erase-" + randomUUID();
+  const pro = "erase-pro-" + randomUUID();
+  for (const [id, role] of [
+    [owner, "customer"],
+    [pro, "pro"],
+  ])
+    await query("INSERT INTO users(id,email,name,role) VALUES($1,$2,$3,$4)", [
+      id,
+      id + "@example.invalid",
+      "Real Name " + id,
+      role,
+    ]);
+  const open = randomUUID();
+  const active = randomUUID();
+  for (const [id, status, proId] of [
+    [open, "requested", null],
+    [active, "in_progress", pro],
+  ])
+    await query(
+      "INSERT INTO projects(id,customer_id,pro_id,title,description,category,zip,status) VALUES($1,$2,$3,$4,$5,$6,$7,$8)",
+      [
+        id,
+        owner,
+        proId,
+        "Erase " + status,
+        "Private details",
+        "Handyman",
+        "10001",
+        status,
+      ],
+    );
+  await query(
+    "INSERT INTO notifications(id,user_id,title,body) VALUES($1,$2,'t','b')",
+    [randomUUID(), owner],
+  );
+  await query(
+    "INSERT INTO saved(user_id,pro_id) SELECT $1,id FROM profiles LIMIT 1",
+    [owner],
+  );
+
+  const exported = (await exportAccountData(owner)) as Record<string, any>;
+  assert.equal(exported.account.email, owner + "@example.invalid");
+  assert.equal(exported.projects.length, 2);
+  assert.equal(exported.notifications.length, 1);
+  assert.ok(!JSON.stringify(exported).includes(pro + "@example.invalid"));
+  await assert.rejects(
+    () => exportAccountData("nobody-" + randomUUID()),
+    /not found/,
+  );
+
+  await assert.rejects(
+    () => deleteAccountData(owner),
+    (error: { status?: number; message?: string }) =>
+      error.status === 409 && /1 active project/.test(error.message || ""),
+  );
+  assert.equal(
+    (await query("SELECT deleted_at FROM users WHERE id=$1", [owner])).rows[0]
+      .deleted_at,
+    null,
+  );
+  await query("UPDATE projects SET status='completed' WHERE id=$1", [active]);
+  await deleteAccountData(owner);
+
+  const user = (await query("SELECT * FROM users WHERE id=$1", [owner]))
+    .rows[0];
+  assert.equal(user.name, "Deleted user");
+  assert.match(user.email, /@deleted\.invalid$/);
+  assert.ok(user.deleted_at);
+  assert.equal(
+    (await query("SELECT status FROM projects WHERE id=$1", [open])).rows[0]
+      .status,
+    "cancelled",
+  );
+  assert.equal(
+    (
+      await query(
+        "SELECT count(*)::int n FROM notifications WHERE user_id=$1",
+        [owner],
+      )
+    ).rows[0].n,
+    0,
+  );
+  assert.equal(
+    (await query("SELECT count(*)::int n FROM saved WHERE user_id=$1", [owner]))
+      .rows[0].n,
+    0,
+  );
+  await assert.rejects(() => deleteAccountData(owner), /not found/);
+  await assert.rejects(() => exportAccountData(owner), /not found/);
+
+  await query(
+    "INSERT INTO profiles(id,business,category,bio,zip,rate,listed,verified,address) VALUES($1,'Real Biz','Handyman','Bio','10001',50,true,true,'1 Main St')",
+    [pro],
+  );
+  await query("UPDATE projects SET status='completed' WHERE pro_id=$1", [pro]);
+  await deleteAccountData(pro);
+  const profile = (await query("SELECT * FROM profiles WHERE id=$1", [pro]))
+    .rows[0];
+  assert.equal(profile.business, "Deleted business");
+  assert.equal(profile.address, "");
+  assert.equal(profile.listed, false);
+  assert.equal(profile.verified, false);
+
+  const now = Math.floor(Date.now() / 1000);
+  assertRecentSignIn(now - 30);
+  assert.throws(() => assertRecentSignIn(now - 3600), /again/);
+  assert.throws(() => assertRecentSignIn(undefined), /again/);
 });

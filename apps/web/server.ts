@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import express from "express";
+import compression from "compression";
 import helmet from "helmet";
 import { categories } from "../../src/shared/domain.js";
 import type { Profile } from "../../src/shared/domain.js";
@@ -113,6 +114,7 @@ app.use(
     crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
   }),
 );
+app.use(compression());
 app.get("/health", (_q, r) =>
   r.json({
     ok: true,
@@ -192,7 +194,21 @@ if (env.NODE_ENV !== "production") {
     appType: "custom",
   });
   app.use(vite.middlewares);
-} else app.use(express.static("dist/client", { index: false, maxAge: "1h" }));
+} else
+  app.use(
+    express.static("dist/client", {
+      index: false,
+      setHeaders(res, file) {
+        const hashed = file.split(path.sep).includes("assets");
+        res.setHeader(
+          "Cache-Control",
+          hashed
+            ? "public, max-age=31536000, immutable"
+            : "public, max-age=3600",
+        );
+      },
+    }),
+  );
 app.use(async (req, res, next) => {
   if (req.method !== "GET") return next();
   try {

@@ -2,6 +2,7 @@ import { closeNotificationStream } from "./notification-stream.js";
 import express from "express";
 import helmet from "helmet";
 import cors from "cors";
+import compression from "compression";
 import rateLimit from "express-rate-limit";
 import * as Sentry from "@sentry/node";
 import { errorResponse } from "./error-response.js";
@@ -75,12 +76,34 @@ app.use(
   }),
 );
 app.use(
+  compression({
+    filter: (req, res) =>
+      !req.path.endsWith("/notifications/stream") &&
+      !String(res.getHeader("Content-Type") || "").startsWith(
+        "text/event-stream",
+      ) &&
+      compression.filter(req, res),
+  }),
+);
+const isBusinessImage = (path: string) => path.startsWith("/business-images/");
+app.use(
   "/api",
   rateLimit({
     windowMs: 60000,
     limit: 240,
     standardHeaders: "draft-8",
     legacyHeaders: false,
+    skip: (req) => isBusinessImage(req.path),
+  }),
+);
+app.use(
+  "/api",
+  rateLimit({
+    windowMs: 60000,
+    limit: 1200,
+    standardHeaders: "draft-8",
+    legacyHeaders: false,
+    skip: (req) => !isBusinessImage(req.path),
   }),
 );
 app.use((_q, r, next) => {

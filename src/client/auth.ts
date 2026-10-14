@@ -10,6 +10,9 @@ import {
   sendEmailVerification,
   sendPasswordResetEmail,
   signOut,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  reauthenticateWithPopup,
   setPersistence,
   browserLocalPersistence,
   browserSessionPersistence,
@@ -20,8 +23,12 @@ import { FirebaseAuthentication } from "@capacitor-firebase/authentication";
 import { fallbackConfig } from "../shared/config.js";
 import { createOrResume } from "./registration.js";
 export async function configureSession(remember: boolean) {
-  await setPersistence(auth(), remember || Capacitor.isNativePlatform()
-    ? browserLocalPersistence : browserSessionPersistence);
+  await setPersistence(
+    auth(),
+    remember || Capacitor.isNativePlatform()
+      ? browserLocalPersistence
+      : browserSessionPersistence,
+  );
 }
 export function auth() {
   const c = window.__CONFIG__ || fallbackConfig;
@@ -64,6 +71,48 @@ export async function logout() {
   await signOut(auth());
   if (Capacitor.isNativePlatform()) await FirebaseAuthentication.signOut();
 }
+export function usesPassword() {
+  return auth().currentUser?.providerData.some(
+    (p) => p.providerId === "password",
+  );
+}
+export async function reauthenticate(password?: string) {
+  const user = auth().currentUser;
+  if (!user) throw new Error("Please sign in again.");
+  const provider = user.providerData[0]?.providerId;
+  if (provider === "password") {
+    if (!password) throw new Error("Enter your password to continue.");
+    await reauthenticateWithCredential(
+      user,
+      EmailAuthProvider.credential(user.email || "", password),
+    );
+  } else if (provider === "google.com" || provider === "apple.com") {
+    if (!Capacitor.isNativePlatform())
+      await reauthenticateWithPopup(
+        user,
+        provider === "google.com"
+          ? new GoogleAuthProvider()
+          : new OAuthProvider("apple.com"),
+      );
+    else if (provider === "google.com") {
+      const r = await FirebaseAuthentication.signInWithGoogle();
+      await reauthenticateWithCredential(
+        user,
+        GoogleAuthProvider.credential(r.credential?.idToken),
+      );
+    } else {
+      const r = await FirebaseAuthentication.signInWithApple();
+      await reauthenticateWithCredential(
+        user,
+        new OAuthProvider("apple.com").credential({
+          idToken: r.credential?.idToken,
+          rawNonce: r.credential?.nonce,
+        }),
+      );
+    }
+  } else throw new Error("Sign out and sign in again, then retry.");
+  await user.getIdToken(true);
+}
 export async function recover(email: string) {
   await sendPasswordResetEmail(auth(), email);
 }
@@ -96,6 +145,8 @@ export function authErrorMessage(error: unknown) {
     case "auth/account-exists-with-different-credential":
       return "This email already uses another sign-in method. Sign in using the original method.";
     default:
-      return error instanceof Error ? error.message : "Authentication could not be completed.";
+      return error instanceof Error
+        ? error.message
+        : "Authentication could not be completed.";
   }
 }

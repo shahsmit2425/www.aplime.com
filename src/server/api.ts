@@ -1,4 +1,9 @@
 import { callMeetings } from "./call-meetings.js";
+import {
+  assertProjectQuota,
+  assertMessageQuota,
+  assertSupportRequestQuota,
+} from "./quotas.js";
 import { projectImages } from "./project-images.js";
 import { identityVerification } from "./identity-verification.js";
 import { adminConsole } from "./admin-console.js";
@@ -21,9 +26,6 @@ import { assertAppointment } from "./scheduling.js";
 import { businessImages, publicBusinessImages } from "./business-images.js";
 import { notificationStream } from "./notification-stream.js";
 import { discussions, ensurePairConversation } from "./discussions.js";
-import { reserveUpload } from "./uploads.js";
-import { uploadSchema, MAX_PROJECT_IMAGES } from "../shared/uploads.js";
-import { matchesImageSignature } from "../shared/business-images.js";
 import { subscriptions } from "./subscriptions.js";
 import { Router, json, type Request } from "express";
 import { randomUUID } from "node:crypto";
@@ -40,7 +42,14 @@ import {
 } from "../shared/domain.js";
 import { pool, camel, transaction } from "./db/index.js";
 import { assertAdmin } from "./admin-policy.js";
-import { verifyToken } from "./integrations/firebase.js";
+import rateLimit from "express-rate-limit";
+import { verifyToken, deleteFirebaseUser } from "./integrations/firebase.js";
+import { clearTokenCache } from "./token-cache.js";
+import {
+  assertRecentSignIn,
+  deleteAccountData,
+  exportAccountData,
+} from "./account-data.js";
 import { env, publicConfig } from "./config.js";
 import { fail } from "./errors.js";
 import {
@@ -53,21 +62,19 @@ import {
 } from "./repository.js";
 import { projectAction } from "./projects.js";
 import { stripe } from "./integrations/stripe.js";
-import {
-  uploadUrl,
-  downloadUrl,
-  imageUrl,
-  inspectObject,
-  imageHeader,
-  removeObject,
-} from "./integrations/storage.js";
+import { downloadUrl, imageUrl, removeObject } from "./integrations/storage.js";
 import { locate } from "./integrations/maps.js";
 import { distributedLimiter } from "./integrations/redis.js";
 declare global {
   namespace Express {
     interface Request {
       account: User;
-      identity: { uid: string; email: string; admin?: boolean };
+      identity: {
+        uid: string;
+        email: string;
+        admin?: boolean;
+        authTime?: number;
+      };
     }
   }
 }
@@ -75,10 +82,29 @@ type AuthRequest = Request;
 export const api = Router();
 api.use(publicBusinessImages);
 api.get("/config", (_q, r) => r.json(publicConfig));
-api.get("/professionals/:id", async (q, r) =>
-  r.json(await publicProfiles(String(q.params.id))),
-);
-api.get("/professionals", async (_q, r) => r.json(await publicProfiles()));
+const PUBLIC_PROFILE_TTL_MS = 30_000;
+const publicProfileMemo = new Map<
+  string,
+  { at: number; value: Awaited<ReturnType<typeof publicProfiles>> }
+>();
+async function cachedPublicProfiles(id?: string) {
+  const key = id ?? "";
+  const hit = publicProfileMemo.get(key);
+  if (hit && Date.now() - hit.at < PUBLIC_PROFILE_TTL_MS) return hit.value;
+  const value = await publicProfiles(id);
+  if (publicProfileMemo.size >= 500) publicProfileMemo.clear();
+  publicProfileMemo.set(key, { at: Date.now(), value });
+  return value;
+}
+const publicListCache = "public, max-age=15, stale-while-revalidate=30";
+api.get("/professionals/:id", async (q, r) => {
+  const value = await cachedPublicProfiles(String(q.params.id));
+  r.set("Cache-Control", publicListCache).json(value);
+});
+api.get("/professionals", async (_q, r) => {
+  const value = await cachedPublicProfiles();
+  r.set("Cache-Control", publicListCache).json(value);
+});
 api.get("/health", async (_q, r) => {
   if (!env.DATABASE_URL)
     return r
@@ -101,6 +127,7 @@ api.use(async (req, res, next) => {
     uid: decoded.uid,
     email: decoded.email!,
     admin: decoded.admin === true,
+    authTime: decoded.auth_time,
   };
   if (distributedLimiter) {
     const result = await distributedLimiter.limit(decoded.uid);
@@ -110,6 +137,13 @@ api.use(async (req, res, next) => {
   const record = (
     await pool.query("SELECT * FROM users WHERE id=$1", [decoded.uid])
   ).rows[0];
+  if (record?.deleted_at) {
+    clearTokenCache();
+    void deleteFirebaseUser(decoded.uid).catch(() => {
+      console.error("Deleted-account sign-in cleanup failed");
+    });
+    fail(403, "This account was deleted.");
+  }
   if (record) {
     q.account = camel<User>(record);
   }
@@ -220,6 +254,42 @@ api.put("/account", async (req, res) => {
     "UPDATE users SET name=$2,settings=jsonb_set(settings,'{emailAlerts}',$3::jsonb) WHERE id=$1",
     [q.account.id, data.name, JSON.stringify(data.emailAlerts)],
   );
+  res.json({ ok: true });
+});
+const exportLimiter = rateLimit({
+  windowMs: 3_600_000,
+  limit: 5,
+  keyGenerator: (req) => (req as AuthRequest).account.id,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  validate: { keyGeneratorIpFallback: false },
+  message: { error: "Data exports are limited. Try again later." },
+});
+api.get("/account/export", exportLimiter, async (req, res) => {
+  const q = req as AuthRequest;
+  if (q.account.role === "admin") fail(403, "Use the administrator tools.");
+  assertRecentSignIn(q.identity.authTime);
+  const data = await exportAccountData(q.account.id);
+  res
+    .set(
+      "Content-Disposition",
+      'attachment; filename="aplime-account-data.json"',
+    )
+    .json(data);
+});
+api.post("/account/delete", async (req, res) => {
+  const q = req as AuthRequest;
+  z.object({ confirm: z.literal("DELETE") })
+    .strict()
+    .parse(q.body);
+  assertRecentSignIn(q.identity.authTime);
+  await deleteAccountData(q.account.id);
+  clearTokenCache();
+  try {
+    await deleteFirebaseUser(q.account.id);
+  } catch {
+    console.error("Deleted-account sign-in removal failed; will retry on use");
+  }
   res.json({ ok: true });
 });
 // Stable stringify so jsonb key reordering never looks like an edit.
@@ -367,6 +437,7 @@ api.post("/projects", async (req, res) => {
   if (!location) fail(400, "Select a complete street address.");
   const id = randomUUID();
   await transaction(async (c) => {
+    await assertProjectQuota(c, q.account.id);
     await c.query(
       "INSERT INTO projects(id,customer_id,pro_id,title,description,category,zip,scheduled_at,intake,urgency,property_type,budget_min,budget_max,latitude,longitude,address,place_id,address_unit) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)",
       [
@@ -487,6 +558,7 @@ api.post("/projects/:id/messages", async (req, res) => {
       p.proId!,
     );
     const messageId = randomUUID();
+    await assertMessageQuota(c, q.account.id);
     await c.query(
       "INSERT INTO messages(id,project_id,sender_id,body) VALUES($1,$2,$3,$4)",
       [messageId, p.id, q.account.id, body.body],
@@ -655,6 +727,7 @@ api.post("/support", async (req, res) => {
     .strict()
     .parse(q.body);
   await transaction(async (c) => {
+    await assertSupportRequestQuota(c, q.account.id);
     await c.query(
       "INSERT INTO tickets(id,user_id,subject,body) VALUES($1,$2,$3,$4)",
       [randomUUID(), q.account.id, data.subject, data.body],
@@ -718,16 +791,6 @@ api.get("/payments/:id/receipt", async (req, res) => {
     fail(404, "Receipt not available.");
   res.json({ url: charge.receipt_url });
 });
-api.post("/projects/:id/uploads", async (req, res) => {
-  const q = req as AuthRequest;
-  const p = await memberProject(String(q.params.id), q.account);
-  const data = uploadSchema.parse(q.body);
-  const id = randomUUID(),
-    key = env.APP_ENV + "/" + p.id + "/" + id;
-  const url = await uploadUrl(key, data.contentType, data.size);
-  await reserveUpload(id, p.id, q.account.id, key, data);
-  res.json({ id, url });
-});
 api.delete("/uploads/:id", async (req, res) => {
   const q = req as AuthRequest;
   await transaction(async (c) => {
@@ -741,82 +804,6 @@ api.delete("/uploads/:id", async (req, res) => {
     await memberProject(f.project_id, q.account);
     await removeObject(f.object_key);
     await c.query("DELETE FROM uploads WHERE id=$1", [f.id]);
-  });
-  res.json({ ok: true });
-});
-api.post("/uploads/:id/retry", async (req, res) => {
-  const q = req as AuthRequest;
-  const f = (
-    await pool.query("SELECT * FROM uploads WHERE id=$1 AND user_id=$2", [
-      z.string().uuid().parse(q.params.id),
-      q.account.id,
-    ])
-  ).rows[0];
-  if (!f) fail(404, "Upload not found.");
-  await memberProject(f.project_id, q.account);
-  res.json({
-    id: f.id,
-    ready: f.status === "ready",
-    url:
-      f.status === "ready"
-        ? undefined
-        : await uploadUrl(f.object_key, f.content_type, f.size),
-  });
-});
-api.post("/uploads/:id/complete", async (req, res) => {
-  const q = req as AuthRequest;
-  await transaction(async (c) => {
-    const candidate = (
-      await c.query(
-        "SELECT project_id FROM uploads WHERE id=$1 AND user_id=$2",
-        [z.string().uuid().parse(q.params.id), q.account.id],
-      )
-    ).rows[0];
-    if (!candidate) fail(404, "Upload not found.");
-    await c.query("SELECT id FROM projects WHERE id=$1 FOR UPDATE", [
-      candidate.project_id,
-    ]);
-    const f = (
-      await c.query(
-        "SELECT * FROM uploads WHERE id=$1 AND user_id=$2 FOR UPDATE",
-        [z.string().uuid().parse(q.params.id), q.account.id],
-      )
-    ).rows[0];
-    if (!f) fail(404, "Upload not found.");
-    await memberProject(f.project_id, q.account);
-    if (f.status === "ready") return;
-    if (f.content_type.startsWith("image/")) {
-      const count = (
-        await c.query(
-          "SELECT count(*)::int AS n FROM uploads WHERE project_id=$1 AND status='ready' AND content_type LIKE 'image/%'",
-          [f.project_id],
-        )
-      ).rows[0];
-      if (count.n >= MAX_PROJECT_IMAGES)
-        fail(
-          409,
-          "A project can have up to 5 images. Replace photos through Edit details.",
-        );
-    }
-    const head = await inspectObject(f.object_key);
-    if (head.ContentLength !== f.size || head.ContentType !== f.content_type) {
-      await removeObject(f.object_key);
-      fail(400, "Uploaded file does not match its declared type or size.");
-    }
-    if (
-      f.content_type.startsWith("image/") &&
-      !matchesImageSignature(f.content_type, await imageHeader(f.object_key))
-    )
-      fail(400, "Choose a supported JPG, PNG or WebP photo.");
-    await c.query("UPDATE uploads SET status='ready' WHERE id=$1", [f.id]);
-    const p = await memberProject(f.project_id, q.account);
-    await notify(
-      c,
-      p.customerId === q.account.id ? p.proId : p.customerId,
-      "New project attachment",
-      "A participant added a file to " + p.title + ".",
-      { page: "project", id: p.id },
-    );
   });
   res.json({ ok: true });
 });

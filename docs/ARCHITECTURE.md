@@ -54,7 +54,7 @@ Stripe handles hosted Identity, Express Connect onboarding, Checkout destination
 
 Daily issues project-specific private rooms and short-lived participant tokens. Calls open in the system/browser calling surface; camera and microphone permission is requested by that surface. This is a foreground calling flow, not native background ringing or push calling.
 
-R2 uploads use short-lived signed URLs, project ownership checks, type/size allowlists, and a final object inspection. Buckets are private and downloads use short-lived URLs. Identity documents are never uploaded through R2.
+Photo uploads go through the API (`PUT .../content`), which checks ownership, type and size, then re-encodes the image with sharp (removing EXIF/GPS and other metadata) before writing to R2; there is no browser-to-R2 upload path. Buckets are private and downloads use short-lived signed URLs. Per-account creation limits live in `src/server/quotas.ts`, and account export/deletion in `src/server/account-data.ts`. Identity documents are never uploaded through R2.
 
 Upstash provides shared per-user throttling; Express also limits requests per IP. PostgreSQL is the source of truth. The email worker consumes an outbox with row locks, exponential retry and an eight-attempt limit. Email delivery is at-least-once: a process failure after delivery but before acknowledgment can produce a duplicate alert.
 

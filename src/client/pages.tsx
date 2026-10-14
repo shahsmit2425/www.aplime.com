@@ -23,6 +23,7 @@ import { AwardResponse } from "./award-response.js";
 import { ProjectControls } from "./project-controls.js";
 import { AddressAutocomplete } from "./address-autocomplete.js";
 import { Preferences } from "./preferences.js";
+import { AccountData } from "./account-data.js";
 import { Availability } from "./availability.js";
 import { BusinessProfile } from "./business-profile.js";
 import { IdentityVerification } from "./identity-verification.js";
@@ -1732,13 +1733,7 @@ function Settings() {
           <p>No blocked conversations.</p>
         )}
       </Panel>
-      <Panel title="Account and data requests">
-        <p>
-          Use Help & safety to request account deletion, a data export, or help
-          with your account. Requests are reviewed by support.
-        </p>
-        <a href="/app/help">Contact support →</a>
-      </Panel>
+      <AccountData />
     </>
   );
 }

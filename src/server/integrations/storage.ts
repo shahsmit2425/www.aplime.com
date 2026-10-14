@@ -32,18 +32,6 @@ function client() {
   });
   return s3;
 }
-export async function uploadUrl(key: string, type: string, size: number) {
-  return getSignedUrl(
-    client(),
-    new PutObjectCommand({
-      Bucket: env.R2_BUCKET,
-      Key: key,
-      ContentType: type,
-      ContentLength: size,
-    }),
-    { expiresIn: 300 },
-  );
-}
 export async function storeBusinessImage(
   key: string,
   type: string,

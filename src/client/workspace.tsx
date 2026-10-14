@@ -211,6 +211,7 @@ export default function Workspace() {
   }, [route.page, !!data]);
   const [liveConnected, setLiveConnected] = useState(false);
   const loadSequence = useRef(0);
+  const lastLoadAt = useRef(0);
   const [liveNotice, setLiveNotice] = useState<Notice | null>(null);
   const knownNotices = useRef<{ user: string; ids: Set<string> }>({
     user: "",
@@ -309,6 +310,7 @@ export default function Workspace() {
     const owner = auth().currentUser;
     if (!owner) return;
     const sequence = ++loadSequence.current;
+    lastLoadAt.current = Date.now();
     try {
       const result = await request<Data>("/workspace");
       if (auth().currentUser !== owner || sequence !== loadSequence.current)
@@ -368,16 +370,23 @@ export default function Workspace() {
   }, []);
   useEffect(() => {
     if (!data) return;
+    // While the live stream is connected it announces every change, so polling
+    // is only a slow safety net; without it, keep the fast fallback.
+    const interval = liveConnected ? 60000 : 10000;
     const refresh = () => {
-      if (document.visibilityState === "visible") void load().catch(() => {});
+      if (
+        document.visibilityState === "visible" &&
+        Date.now() - lastLoadAt.current >= interval / 2
+      )
+        void load().catch(() => {});
     };
-    const timer = setInterval(refresh, 10000);
+    const timer = setInterval(refresh, interval);
     window.addEventListener("focus", refresh);
     return () => {
       clearInterval(timer);
       window.removeEventListener("focus", refresh);
     };
-  }, [data?.user.id]);
+  }, [data?.user.id, liveConnected]);
   useEffect(() => {
     if (!menu || !data) return;
     const previousFocus = document.activeElement as HTMLElement | null;
