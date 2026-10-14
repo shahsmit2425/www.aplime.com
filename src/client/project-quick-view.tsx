@@ -1,4 +1,3 @@
-import { locationLabel } from "../shared/locations.js";
 import { useEffect, useRef, useState } from "react";
 import { X, ExternalLink } from "lucide-react";
 import type { Project, Upload } from "../shared/domain.js";
@@ -101,8 +100,7 @@ export function ProjectQuickView({
             <div>
               <dt>Location</dt>
               <dd>
-                {[p.address, p.addressUnit].filter(Boolean).join(" ") ||
-                  locationLabel(p)}
+                {[p.address, p.addressUnit].filter(Boolean).join(" ") || p.zip}
               </dd>
             </div>
             <div>

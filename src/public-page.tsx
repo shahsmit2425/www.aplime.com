@@ -1,10 +1,3 @@
-import {
-  CoverageLinks,
-  LocalBusinesses,
-  NewJerseyPage,
-  TownServicePage,
-} from "./public-marketplace.js";
-import { localServicePage, projectStartUrl } from "./shared/new-jersey.js";
 import { Menu, MessageCircle, FileText } from "lucide-react";
 import { BusinessDisplay } from "./client/business-display.js";
 import { categories, type Profile } from "./shared/domain.js";
@@ -41,11 +34,10 @@ function ServicesIndex() {
       <Breadcrumbs current="Services" />
       <section className="seo-intro">
         <p className="eyebrow">HOME SERVICES</p>
-        <h1>Find home services in New Jersey.</h1>
+        <h1>Plan your next home project with clearer information.</h1>
         <p className="lede">
-          Explore New Jersey home services, learn what to include in your
-          request, and compare approved professional profiles and written
-          estimates.
+          Explore common project types, learn what to include in your request,
+          and compare approved professional profiles and written estimates.
         </p>
       </section>
       <section className="service-grid" aria-label="Home service categories">
@@ -73,19 +65,13 @@ function ServicesIndex() {
           Create a request with photos and project details. You can discuss the
           work and compare estimates before selecting a professional.
         </p>
-        <LinkButton href="/app/projects/new">Start a project</LinkButton>
+        <LinkButton href="/app/projects">Start a project</LinkButton>
       </section>
     </>
   );
 }
 
-function ServicePage({
-  category,
-  profiles,
-}: {
-  category: (typeof categories)[number];
-  profiles: Profile[];
-}) {
+function ServicePage({ category }: { category: (typeof categories)[number] }) {
   const content = serviceSeoContent[category];
   return (
     <>
@@ -101,7 +87,7 @@ function ServicePage({
           <span className="service-hero-icon">
             <ServiceIcon service={category} size={30} />
           </span>
-          <p className="eyebrow">NEW JERSEY · {category.toUpperCase()}</p>
+          <p className="eyebrow">{category.toUpperCase()} PROJECTS</p>
           <h1>{content.title}</h1>
           <p className="lede">{content.introduction}</p>
           <div className="actions">
@@ -155,7 +141,7 @@ function ServicePage({
           ],
           [
             "Compare the details",
-            "Discuss the work and compare total prices, estimated completion days and comments. An assessment may be needed first.",
+            "Discuss the work and review labor, materials, timing, and exclusions.",
           ],
           [
             "Confirm each step",
@@ -168,20 +154,6 @@ function ServicePage({
             <p>{body}</p>
           </article>
         ))}
-      </section>
-      <LocalBusinesses
-        profiles={profiles}
-        category={category}
-        heading={category + " businesses in New Jersey"}
-      />
-      <section className="seo-section">
-        <h2>Explore {category.toLowerCase()} by town</h2>
-        <p>
-          Browse businesses based in these New Jersey communities. Final matches
-          depend on the project address and each business’s preferences.
-        </p>
-        <CoverageLinks profiles={profiles} category={category} />
-        <a href="/new-jersey">View all New Jersey service areas →</a>
       </section>
       <section className="seo-faq" aria-labelledby="faq-title">
         <p className="eyebrow">HELPFUL ANSWERS</p>
@@ -221,7 +193,7 @@ function InformationPage({ path }: { path: string }) {
           ],
           [
             "2. Discuss and compare",
-            "Use private messages, scheduled ten-minute calls and written estimates to understand the scope. A professional can assess the job before adding pricing.",
+            "Use private messages, audio or video calls, and itemized written estimates to understand the scope.",
           ],
           [
             "3. Choose and schedule",
@@ -244,11 +216,11 @@ function InformationPage({ path }: { path: string }) {
             ],
             [
               "Receive relevant opportunities",
-              "Approved, subscribed businesses receive relevant New Jersey opportunities according to their category and service preferences. Membership does not guarantee projects or earnings.",
+              "Approved, subscribed businesses receive matching projects in their category and configured service radius.",
             ],
             [
               "Set clear expectations",
-              "Ask questions, schedule ten-minute calls, send prices and estimated completion days, and confirm appointment and completion updates.",
+              "Ask questions, use private calls, send itemized estimates, and confirm appointment and completion updates.",
             ],
           ]
         : path === "/trust-and-safety"
@@ -324,17 +296,12 @@ function InformationPage({ path }: { path: string }) {
 export function PublicPage({
   path,
   profile,
-  profiles = [],
 }: {
   path: string;
   profile?: Profile;
-  profiles?: Profile[];
 }) {
-  const local = localServicePage(path, profiles);
-  const coverage = path === "/new-jersey";
-  const category = categories.find(
-    (c) => path === "/services/" + c.toLowerCase(),
-  );
+  const slug = decodeURIComponent(path.split("/")[2] || "");
+  const category = categories.find((c) => c.toLowerCase() === slug);
   const information =
     informationalPages[path as keyof typeof informationalPages];
   const servicesIndex = path === "/services";
@@ -345,9 +312,7 @@ export function PublicPage({
     !profile &&
     !legal &&
     !information &&
-    !servicesIndex &&
-    !coverage &&
-    !local;
+    !servicesIndex;
   return (
     <>
       <a className="skip-link" href="#main-content">
@@ -356,8 +321,7 @@ export function PublicPage({
       <header className="public-header">
         <Brand />
         <nav aria-label="Main navigation">
-          <a href="/services">Explore services</a>
-          <a href="/new-jersey">New Jersey</a>
+          <a href="/#services">Explore services</a>
           <a href="/how-it-works">How it works</a>
           <a href="/for-professionals">For professionals</a>
           <a className="button" href="/app/login">
@@ -370,7 +334,6 @@ export function PublicPage({
           </summary>
           <div>
             <a href="/services">Explore services</a>
-            <a href="/new-jersey">New Jersey coverage</a>
             <a href="/how-it-works">How it works</a>
             <a href="/for-professionals">For professionals</a>
             <a href="/trust-and-safety">Trust &amp; safety</a>
@@ -423,39 +386,34 @@ export function PublicPage({
             <BusinessDisplay profile={profile} />
             <div className="business-public-action">
               <LinkButton
-                href={projectStartUrl(
-                  profile.category,
-                  profile.region === "NJ" ? profile.town : undefined,
-                )}
+                href={
+                  "/app/projects/new?category=" +
+                  encodeURIComponent(profile.category)
+                }
               >
                 Start a project to get matched
               </LinkButton>
             </div>
           </section>
-        ) : coverage ? (
-          <NewJerseyPage profiles={profiles} />
-        ) : local ? (
-          <TownServicePage page={local} />
         ) : information ? (
           <InformationPage path={path} />
         ) : servicesIndex ? (
           <ServicesIndex />
         ) : category ? (
-          <ServicePage category={category} profiles={profiles} />
+          <ServicePage category={category} />
         ) : (
           <>
             <section className="hero">
               <div>
-                <p className="eyebrow">HOME SERVICES · NEW JERSEY</p>
+                <p className="eyebrow">A LITTLE HELP. A HAPPIER HOME.</p>
                 <h1>
-                  Find home professionals.
+                  Your next home project.
                   <br />
-                  <em>Here in New Jersey.</em>
+                  <em>In good hands.</em>
                 </h1>
                 <p className="lede">
-                  Connect with New Jersey businesses for cleaning, repairs and
-                  home improvements. Compare profiles and estimates, then manage
-                  your project in one place.
+                  Find the right professional, compare clear estimates, and keep
+                  every conversation in one place.
                 </p>
                 <div className="actions">
                   <LinkButton href={"/app/projects/new"}>
@@ -514,19 +472,6 @@ export function PublicPage({
                 ))}
               </div>
             </section>
-            <section className="seo-section">
-              <div className="section-heading">
-                <p className="eyebrow">CLOSE TO HOME</p>
-                <h2>Explore New Jersey business areas</h2>
-                <p>
-                  Discover where local professionals are based, then check
-                  coverage for your project address.
-                </p>
-              </div>
-              <CoverageLinks profiles={profiles} />
-              <a href="/new-jersey">Explore New Jersey coverage →</a>
-            </section>
-            <LocalBusinesses profiles={profiles} />
             <section className="how">
               <div>
                 <p className="eyebrow">FROM IDEA TO DONE</p>
@@ -557,13 +502,13 @@ export function PublicPage({
       </main>
       <footer className="public-footer">
         <Brand />
-        <p>Home services made simple. Currently focused on New Jersey.</p>
+        <p>Built around your home.</p>
         <nav>
           <a href="/privacy">Privacy</a>
           <a href="/terms">Service information</a>
           <a href="/trust-and-safety">Trust &amp; safety</a>
           <a href="/about">About</a>
-          <a href="/new-jersey">New Jersey coverage</a>
+          <a href="/app/help">Get help</a>
         </nav>
       </footer>
     </>

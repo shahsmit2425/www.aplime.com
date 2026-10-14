@@ -1,4 +1,3 @@
-import { locationLabel } from "../shared/locations.js";
 import { useWorkspace } from "./workspace.js";
 import { ChatWithPro } from "./project-actions.js";
 import { CallScheduler, ScheduleCallButton } from "./call-meetings.js";
@@ -161,7 +160,7 @@ function SavedProfessionalActions({ proId }: { proId: string }) {
                 >
                   {p.title}
                   <small>
-                    {p.category} · {locationLabel(p)}
+                    {p.category} · {p.zip}
                   </small>
                 </button>
               ))}

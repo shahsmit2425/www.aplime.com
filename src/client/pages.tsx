@@ -1,5 +1,3 @@
-import { projectIntent, clearProjectIntent } from "./project-intent.js";
-import { locationLabel } from "../shared/locations.js";
 import { EstimateForm } from "./estimate-form.js";
 import { quotePrice, quoteTiming } from "../shared/estimates.js";
 import { ProfessionalActions } from "./professional-actions.js";
@@ -235,7 +233,7 @@ function Directory() {
             >
               {openProjects.map((p) => (
                 <option value={p.id} key={p.id}>
-                  {p.title} · {locationLabel(p)}
+                  {p.title} · {p.zip}
                 </option>
               ))}
             </select>
@@ -373,7 +371,7 @@ function ProProfile() {
                   >
                     {openProjects.map((x) => (
                       <option value={x.id} key={x.id}>
-                        {x.title} · {locationLabel(x)}
+                        {x.title} · {x.zip}
                       </option>
                     ))}
                   </select>
@@ -410,14 +408,9 @@ function ProProfile() {
 function Projects() {
   const { data, page, id, run, busy, go } = useWorkspace();
   const selectedProfessional = data.profiles.find((p) => p.id === id);
-  const [intent] = useState(() => {
-    try {
-      return projectIntent(window.location.search, sessionStorage);
-    } catch {
-      return null;
-    }
-  });
-  const requestedCategory = intent?.category;
+  const requestedCategory = new URLSearchParams(window.location.search).get(
+    "category",
+  );
   const initialCategory = (selectedProfessional?.category ||
     (categories.includes(requestedCategory as ServiceCategory)
       ? requestedCategory
@@ -507,9 +500,6 @@ function Projects() {
         setFormValues(null);
         setSavedProjectId(null);
         setPhotos([]);
-        try {
-          clearProjectIntent(sessionStorage);
-        } catch {}
       },
       "Project published. Matching professionals have been notified.",
       () => go("project", createdId),
@@ -695,7 +685,6 @@ function Projects() {
                   </Field>
                   <AddressAutocomplete
                     label="Full service address"
-                    localityHint={intent?.town}
                     defaultAddress={initial?.address || ""}
                     defaultPlaceId={initial?.placeId || ""}
                   />
@@ -988,7 +977,7 @@ function ProjectDetail() {
           title={p.title}
           action={<Badge>{p.status.replace("_", " ")}</Badge>}
         >
-          {p.category} · {locationLabel(p)}
+          {p.category} · {p.zip}
         </Head>
       )}
       {data.marketplacePreview &&
@@ -1131,8 +1120,7 @@ function ProjectDetail() {
               <span>
                 <strong>Project details</strong>
                 <small>
-                  {p.category} · {locationLabel(p)} ·{" "}
-                  {p.propertyType.replaceAll("_", " ")}
+                  {p.category} · {p.zip} · {p.propertyType.replaceAll("_", " ")}
                 </small>
               </span>
               <span className="project-details-chips" aria-hidden="true">

@@ -11,9 +11,9 @@ export type ServiceSeoContent = {
 
 export const serviceSeoContent: Record<ServiceCategory, ServiceSeoContent> = {
   Handyman: {
-    title: "Handyman Services in New Jersey",
+    title: "Handyman Services for Home Repairs",
     description:
-      "Find New Jersey handyman professionals for mounting, assembly, minor repairs, and home maintenance. Compare written estimates and project details on Aplime.",
+      "Find handyman professionals for mounting, assembly, minor repairs, and home maintenance. Compare written estimates and project details on Aplime.",
     introduction:
       "A handyman can help combine the small repairs and installations that keep a home working well. Describe each task, share photos, and tell professionals whether materials are already available so estimates can reflect the real scope.",
     commonJobs: [
@@ -49,9 +49,9 @@ export const serviceSeoContent: Record<ServiceCategory, ServiceSeoContent> = {
     ],
   },
   Cleaning: {
-    title: "Home Cleaning Services in New Jersey",
+    title: "Home Cleaning Services",
     description:
-      "Find New Jersey home cleaning professionals for recurring, deep, and move-related cleaning. Share room details and compare written estimates on Aplime.",
+      "Find home cleaning professionals for recurring, deep, and move-related cleaning. Share room details and compare written estimates on Aplime.",
     introduction:
       "A clear cleaning request explains the size and condition of the space, the rooms that need attention, and any priorities such as appliances or pet hair. Professionals can then explain what is included and how long the visit may take.",
     commonJobs: [
@@ -87,9 +87,9 @@ export const serviceSeoContent: Record<ServiceCategory, ServiceSeoContent> = {
     ],
   },
   Plumbing: {
-    title: "Plumbing Services in New Jersey",
+    title: "Plumbing Services and Repairs",
     description:
-      "Find New Jersey plumbing professionals for leaks, fixtures, drains, and repair projects. Describe symptoms, share photos, and compare estimates on Aplime.",
+      "Find plumbing professionals for leaks, fixtures, drains, and repair projects. Describe symptoms, share photos, and compare estimates on Aplime.",
     introduction:
       "Plumbing symptoms can have more than one cause. Explain where the problem appears, when it started, what has already been tried, and whether water can be shut off. A professional may need an on-site inspection before confirming a final scope.",
     commonJobs: [
@@ -125,9 +125,9 @@ export const serviceSeoContent: Record<ServiceCategory, ServiceSeoContent> = {
     ],
   },
   Electrical: {
-    title: "Electrical Services in New Jersey",
+    title: "Electrical Services for Home Projects",
     description:
-      "Find New Jersey electrical professionals for outlets, lighting, fixtures, and home projects. Compare scope, timing, and written estimates through Aplime.",
+      "Find electrical professionals for outlets, lighting, fixtures, and home projects. Compare scope, timing, and written estimates through Aplime.",
     introduction:
       "Electrical work needs a precise description and may require a licensed professional or permit. Note the affected circuit or fixture, when the issue occurs, and any recent changes. Do not touch exposed wiring or unsafe equipment.",
     commonJobs: [
@@ -163,9 +163,9 @@ export const serviceSeoContent: Record<ServiceCategory, ServiceSeoContent> = {
     ],
   },
   Painting: {
-    title: "Painting Services in New Jersey",
+    title: "Interior and Exterior Painting Services",
     description:
-      "Find New Jersey painting professionals for rooms, trim, cabinets, and exterior projects. Share dimensions and finishes, then compare written estimates on Aplime.",
+      "Find painting professionals for rooms, trim, cabinets, and exterior projects. Share dimensions and finishes, then compare written estimates on Aplime.",
     introduction:
       "A useful painting request covers surface condition, approximate dimensions, colors, finish, preparation, and access. Ask each professional to separate labor and materials and describe how repairs, protection, and cleanup are handled.",
     commonJobs: [
@@ -201,9 +201,9 @@ export const serviceSeoContent: Record<ServiceCategory, ServiceSeoContent> = {
     ],
   },
   Landscaping: {
-    title: "Landscaping Services in New Jersey",
+    title: "Landscaping and Yard Services",
     description:
-      "Find New Jersey landscaping professionals for lawn care, cleanup, planting, and outdoor improvements. Share property details and compare estimates on Aplime.",
+      "Find landscaping professionals for lawn care, cleanup, planting, and outdoor improvements. Share property details and compare estimates on Aplime.",
     introduction:
       "Outdoor work changes with property size, terrain, access, season, and disposal needs. Share wide photos, approximate dimensions, and your maintenance goals so professionals can plan labor, equipment, and materials.",
     commonJobs: [
@@ -254,11 +254,10 @@ export const informationalPages = {
     heading: "From a project idea to a confirmed finish.",
   },
   "/for-professionals": {
-    title: "Aplime for New Jersey Home-Service Professionals",
+    title: "Aplime for Home-Service Professionals",
     description:
-      "Join Aplime as a New Jersey home-service business. Build a reviewed profile, choose your service preferences, and manage opportunities, estimates and customers.",
-    heading:
-      "Grow your New Jersey home-service business with clearer connections.",
+      "Build a reviewed business profile, receive relevant local opportunities, send written estimates, and manage customer communication with Aplime.",
+    heading: "A professional workspace built around clear expectations.",
   },
   "/trust-and-safety": {
     title: "Trust and Safety at Aplime",
@@ -270,6 +269,5 @@ export const informationalPages = {
 
 export const seoStaticPaths = [
   "/services",
-  "/new-jersey",
   ...Object.keys(informationalPages),
 ] as string[];

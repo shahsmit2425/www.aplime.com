@@ -36,8 +36,6 @@ test("address suggestions use Places New with session token and bounded results"
     assert.equal(body.sessionToken, "session");
     const result = await locateAddress("place-0", "session");
     assert.equal(result.zip, "10118");
-    assert.equal(result.town, "New York");
-    assert.equal(result.region, "NY");
     assert.ok(calls[1].url.endsWith("?sessionToken=session"));
     assert.equal(
       JSON.stringify(result).includes("server-only-test-key"),
@@ -143,37 +141,5 @@ test("address failures provide safe diagnostics and never leak provider secrets"
   } finally {
     global.fetch = original;
     env.GOOGLE_MAPS_SERVER_KEY = key;
-  }
-});
-
-test("town/state come from structured Google components rather than client hints", async () => {
-  const { locateAddress } =
-    await import("../src/server/integrations/address.js");
-  const original = global.fetch;
-  global.fetch = (async () =>
-    Response.json({
-      id: "place-nj",
-      formattedAddress: "21 Example Ave, Different Label, NJ 08859, USA",
-      location: { latitude: 40.46, longitude: -74.32 },
-      addressComponents: [
-        { types: ["country"], shortText: "US" },
-        { types: ["postal_code"], longText: "08859" },
-        { types: ["street_number"], longText: "21" },
-        { types: ["route"], longText: "Example Ave" },
-        { types: ["locality"], longText: "Parlin" },
-        {
-          types: ["administrative_area_level_1"],
-          shortText: "NJ",
-          longText: "New Jersey",
-        },
-      ],
-    })) as typeof fetch;
-  try {
-    const result = await locateAddress("place-nj");
-    assert.equal(result.town, "Parlin");
-    assert.equal(result.region, "NJ");
-    assert.equal(result.zip, "08859");
-  } finally {
-    global.fetch = original;
   }
 });

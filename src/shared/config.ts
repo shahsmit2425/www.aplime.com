@@ -31,10 +31,6 @@ export const fallbackConfig: PublicConfig = {
 declare global {
   interface Window {
     __CONFIG__?: PublicConfig;
-    __PAGE__?: {
-      path: string;
-      profile?: import("./domain").Profile;
-      profiles?: import("./domain").Profile[];
-    };
+    __PAGE__?: { path: string; profile?: import("./domain").Profile };
   }
 }

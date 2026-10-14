@@ -1,4 +1,3 @@
-import { locationLabel } from "../shared/locations.js";
 import type pg from "pg";
 import { randomUUID } from "node:crypto";
 import type { Project } from "../shared/domain.js";
@@ -46,7 +45,7 @@ export async function notifyMatchingProfessionals(
 ) {
   const matches = (
     await c.query(
-      `SELECT f.id,p.category,p.zip,p.town,p.region FROM profiles f JOIN projects p ON p.id=$1 WHERE p.pro_id IS NULL AND p.status IN ('requested','quoted') AND ${matchSql()}
+      `SELECT f.id,p.category,p.zip FROM profiles f JOIN projects p ON p.id=$1 WHERE p.pro_id IS NULL AND p.status IN ('requested','quoted') AND ${matchSql()}
        AND NOT EXISTS (SELECT 1 FROM quotes q WHERE q.project_id=p.id AND q.pro_id=f.id)
        AND NOT EXISTS (SELECT 1 FROM notifications n WHERE n.user_id=f.id AND n.target_page='project' AND n.target_id=p.id::text AND n.title=$2 AND n.created_at>now()-interval '12 hours')
        ORDER BY ${rankSql()} LIMIT ${ALERT_LIMIT}`,
@@ -58,7 +57,7 @@ export async function notifyMatchingProfessionals(
       c,
       matches.map((row) => row.id as string),
       title,
-      `${matches[0].category} request in ${locationLabel(matches[0])}. Review the project before responding.`,
+      `${matches[0].category} request in ZIP ${matches[0].zip}. Review the project before responding.`,
       { page: "project", id: projectId },
     );
   return matches.map((row) => row.id as string);

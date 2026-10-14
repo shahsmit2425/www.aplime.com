@@ -1,4 +1,3 @@
-import { localServicePages } from "../../src/shared/new-jersey.js";
 import "dotenv/config";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
@@ -158,12 +157,9 @@ app.get("/sitemap.xml", async (_q, r) => {
   const esc = (s: string) =>
     s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
   let professionalPaths: string[] = [];
-  let localPaths: string[] = [];
   if (env.APP_ENV === "production")
     try {
-      const profiles = await publicProfiles();
-      localPaths = localServicePages(profiles).map((page) => page.path);
-      professionalPaths = profiles.map(
+      professionalPaths = (await publicProfiles()).map(
         (profile) => "/professionals/" + encodeURIComponent(profile.id),
       );
     } catch {
@@ -176,7 +172,6 @@ app.get("/sitemap.xml", async (_q, r) => {
           ...seoStaticPaths,
           ...categories.map((c) => "/services/" + c.toLowerCase()),
           ...professionalPaths,
-          ...localPaths,
         ]
       : [];
   r.set("Cache-Control", "public, max-age=900, stale-while-revalidate=3600")
@@ -208,34 +203,12 @@ app.use(async (req, res, next) => {
     const profile = profileId
       ? (await publicProfiles(profileId))[0]
       : undefined;
-    let profiles: Profile[] = [];
-    if (
-      pathName === "/" ||
-      pathName.startsWith("/services") ||
-      pathName.startsWith("/new-jersey")
-    ) {
-      try {
-        profiles = await publicProfiles();
-      } catch (error) {
-        // A transient inventory failure must not turn a valid town page into an indexable empty page or a 404.
-        if (pathName.startsWith("/new-jersey/")) throw error;
-        console.warn(
-          "Public inventory unavailable; serving the service guide without listings",
-        );
-      }
-    }
     const mod = vite
       ? await vite.ssrLoadModule("/src/entry-server.tsx")
       : await import(
           pathToFileURL(path.resolve("dist/server/entry-server.js")).href
         );
-    const page = mod.renderPage(
-      pathName,
-      await configuration(),
-      profile,
-      profiles,
-    );
-    if (page.status !== 200) res.setHeader("X-Robots-Tag", "noindex, nofollow");
+    const page = mod.renderPage(pathName, await configuration(), profile);
     let template = await readFile(
       vite ? "index.html" : "dist/client/index.html",
       "utf8",
@@ -274,9 +247,6 @@ app.use(
   ) => {
     console.error("Website request failed");
     r.status(503)
-      .set("X-Robots-Tag", "noindex, nofollow")
-      .set("Cache-Control", "no-store")
-      .set("Retry-After", "60")
       .type("html")
       .send(
         "<h1>Aplime is temporarily unavailable</h1><p>Please try again shortly.</p>",

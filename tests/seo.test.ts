@@ -12,12 +12,12 @@ const production = {
 test("public service routes contain useful server rendered content and production SEO metadata", () => {
   const page = renderPage("/services/plumbing", production);
   assert.equal(page.status, 200);
-  assert.match(page.html, /Plumbing Services in New Jersey/);
+  assert.match(page.html, /Plumbing Services and Repairs/);
   assert.match(page.html, /Leaking faucets, pipes, and fixtures/);
   assert.match(page.html, /What should a plumbing estimate include/);
   assert.match(page.head, /index,follow/);
   assert.match(page.head, /https:\/\/aplime.com\/services\/plumbing/);
-  assert.match(page.head, /Plumbing Services in New Jersey \| Aplime/);
+  assert.match(page.head, /Plumbing Services and Repairs \| Aplime/);
   assert.match(page.head, /application\/ld\+json/);
   assert.match(page.head, /summary_large_image/);
   assert.match(page.head, /BreadcrumbList/);
@@ -27,7 +27,6 @@ test("every SEO landing page has unique metadata, useful copy, and valid structu
   const paths = [
     "/",
     "/services",
-    "/new-jersey",
     ...categories.map((category) => "/services/" + category.toLowerCase()),
     ...Object.keys(informationalPages),
   ];

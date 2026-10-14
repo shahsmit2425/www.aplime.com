@@ -1,8 +1,3 @@
-import {
-  localServicePage,
-  newJerseyBusinesses,
-  publicListingProfiles,
-} from "./shared/new-jersey.js";
 import { renderToString } from "react-dom/server";
 import { PublicPage } from "./public-page.js";
 import { categories, type Profile } from "./shared/domain.js";
@@ -42,65 +37,51 @@ export function renderPage(
   path: string,
   config: PublicConfig,
   profile?: Profile,
-  profiles: Profile[] = [],
 ) {
-  profiles = publicListingProfiles(profiles);
   const category = categories.find(
     (item) => path === "/services/" + item.toLowerCase(),
   );
   const information =
     informationalPages[path as keyof typeof informationalPages];
   const servicesIndex = path === "/services";
-  const coverage = path === "/new-jersey";
-  const local = localServicePage(path, profiles);
   const privatePage = path.startsWith("/app");
   const legalPage = ["/privacy", "/terms"].includes(path);
   const valid =
     privatePage ||
     path === "/" ||
     servicesIndex ||
-    coverage ||
-    !!local ||
     !!category ||
     !!information ||
     !!profile ||
     legalPage;
   const homeDescription =
-    "Find New Jersey home-service professionals for cleaning, repairs and improvements. Compare business profiles and estimates, chat, and organize your project with Aplime.";
+    "Find home-service professionals, compare itemized estimates, and manage project messages, calls, scheduling, and updates with Aplime.";
   const title = profile
-    ? `${profile.business} | ${profile.category}${profile.town || profile.details?.city ? ` in ${profile.town || profile.details?.city}, ${profile.region || profile.details?.state || ""}` : ""} | Aplime`
-    : local
-      ? `${local.category} Services in ${local.town}, NJ | Aplime`
-      : coverage
-        ? "Home Services in New Jersey | Local Businesses | Aplime"
-        : category
-          ? `${serviceSeoContent[category].title} | Aplime`
-          : information
-            ? `${information.title} | Aplime`
-            : servicesIndex
-              ? "New Jersey Home Services Directory | Aplime"
-              : privatePage
-                ? "Your workspace | Aplime"
-                : !valid
-                  ? "Page not found | Aplime"
-                  : path === "/"
-                    ? "Find Home Service Professionals in New Jersey | Aplime"
-                    : path === "/privacy"
-                      ? "Privacy Information | Aplime"
-                      : "Service Information | Aplime";
+    ? `${profile.business} | ${profile.category}${profile.details?.city ? ` in ${profile.details.city}, ${profile.details.state}` : ""} | Aplime`
+    : category
+      ? `${serviceSeoContent[category].title} | Aplime`
+      : information
+        ? `${information.title} | Aplime`
+        : servicesIndex
+          ? "Home Services Directory | Aplime"
+          : privatePage
+            ? "Your workspace | Aplime"
+            : !valid
+              ? "Page not found | Aplime"
+              : path === "/"
+                ? "Home Services Made Simple | Aplime"
+                : path === "/privacy"
+                  ? "Privacy Information | Aplime"
+                  : "Service Information | Aplime";
   const description = profile
     ? profile.bio.slice(0, 160)
-    : local
-      ? `Compare ${local.category.toLowerCase()} businesses based in ${local.town}, NJ. Explore real profiles, work photos and reviews, then post a project to confirm coverage and pricing.`
-      : coverage
-        ? "Explore New Jersey home services and local business areas. Find cleaning, repairs and home improvements, compare professionals, and post your project on Aplime."
-        : category
-          ? serviceSeoContent[category].description
-          : information
-            ? information.description
-            : servicesIndex
-              ? "Explore New Jersey cleaning, handyman, plumbing, electrical, painting and landscaping services. Prepare your project and compare local business profiles on Aplime."
-              : homeDescription;
+    : category
+      ? serviceSeoContent[category].description
+      : information
+        ? information.description
+        : servicesIndex
+          ? "Explore home-service categories, prepare a useful project request, and compare approved professional profiles and written estimates on Aplime."
+          : homeDescription;
   const siteUrl = config.siteUrl.replace(/\/$/, "");
   const canonical = siteUrl + path;
   const indexable =
@@ -137,8 +118,8 @@ export function renderPage(
       address: profile.details
         ? {
             "@type": "PostalAddress",
-            addressLocality: profile.town || profile.details.city,
-            addressRegion: profile.region || profile.details.state,
+            addressLocality: profile.details.city,
+            addressRegion: profile.details.state,
             postalCode: profile.zip,
             addressCountry: "US",
           }
@@ -160,40 +141,6 @@ export function renderPage(
         { name: profile.business, path },
       ]),
     );
-  } else if (local || coverage) {
-    const listings = local ? local.profiles : newJerseyBusinesses(profiles);
-    graph.push({
-      "@type": "CollectionPage",
-      "@id": canonical + "#page",
-      name: title,
-      description,
-      url: canonical,
-      about: local
-        ? {
-            "@type": "City",
-            name: local.town,
-            containedInPlace: { "@type": "State", name: "New Jersey" },
-          }
-        : { "@type": "State", name: "New Jersey" },
-      mainEntity: {
-        "@type": "ItemList",
-        itemListElement: listings.map((p, index) => ({
-          "@type": "ListItem",
-          position: index + 1,
-          name: p.business,
-          url: siteUrl + "/professionals/" + encodeURIComponent(p.id),
-        })),
-      },
-    });
-    graph.push(
-      breadcrumbSchema(siteUrl, [
-        { name: "Home", path: "/" },
-        { name: "New Jersey", path: "/new-jersey" },
-        ...(local
-          ? [{ name: local.category + " in " + local.town, path }]
-          : []),
-      ]),
-    );
   } else if (category) {
     graph.push({
       "@type": "Service",
@@ -202,12 +149,8 @@ export function renderPage(
       serviceType: category + " services",
       description,
       url: canonical,
-      areaServed: {
-        "@type": "State",
-        name: "New Jersey",
-        containedInPlace: { "@type": "Country", name: "United States" },
-      },
-      broker: { "@id": organization["@id"] },
+      areaServed: { "@type": "Country", name: "United States" },
+      provider: { "@id": organization["@id"] },
     });
     graph.push(
       breadcrumbSchema(siteUrl, [
@@ -276,9 +219,7 @@ export function renderPage(
     status: valid ? 200 : 404,
     html: privatePage
       ? ""
-      : renderToString(
-          <PublicPage path={path} profile={profile} profiles={profiles} />,
-        ),
+      : renderToString(<PublicPage path={path} profile={profile} />),
     head:
       "<title>" +
       escapeHtml(title) +
@@ -309,7 +250,7 @@ export function renderPage(
       "<script>window.__CONFIG__=" +
       serialize(config) +
       ";window.__PAGE__=" +
-      serialize({ path, profile, profiles }) +
+      serialize({ path, profile }) +
       ";</script>",
   };
 }

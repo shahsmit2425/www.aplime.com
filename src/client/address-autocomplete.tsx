@@ -6,12 +6,10 @@ export function AddressAutocomplete({
   label,
   defaultAddress = "",
   defaultPlaceId = "",
-  localityHint,
 }: {
   label: string;
   defaultAddress?: string;
   defaultPlaceId?: string;
-  localityHint?: string;
 }) {
   const id = useId(),
     input = useRef<HTMLInputElement>(null);
@@ -120,11 +118,7 @@ export function AddressAutocomplete({
           aria-controls={id + "-list"}
           aria-activedescendant={active >= 0 ? id + "-" + active : undefined}
           aria-describedby={id + "-status"}
-          placeholder={
-            localityHint
-              ? `Street number and street in ${localityHint}, NJ`
-              : "Start with a street number and street"
-          }
+          placeholder="Start with a street number and street"
           onChange={(event) => {
             version.current++;
             setValue(event.target.value);

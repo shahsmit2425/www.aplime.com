@@ -1,4 +1,3 @@
-import { locationLabel } from "../shared/locations.js";
 import {
   ArrowLeft,
   CalendarDays,
@@ -58,7 +57,7 @@ export function CustomerProjectHeader({
           </span>
           <span>
             <MapPin size={16} />
-            {locationLabel(p)}
+            {p.zip}
           </span>
           <span>
             <CalendarDays size={16} />
