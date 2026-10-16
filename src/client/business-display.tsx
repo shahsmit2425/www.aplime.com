@@ -12,6 +12,7 @@ import {
   BriefcaseBusiness,
 } from "lucide-react";
 import { Availability } from "./availability.js";
+import { BusinessPortfolio } from "./business-portfolio.js";
 import type { Profile } from "../shared/domain.js";
 import { businessFields, businessFieldGroups } from "../shared/business.js";
 import { ServiceIcon } from "./ui.js";
@@ -26,13 +27,7 @@ export function BusinessDisplay({
   actions?: ReactNode;
 }) {
   const cover = profile.images?.find((i) => i.slot === "cover"),
-    logo = profile.images?.find((i) => i.slot === "logo"),
-    work =
-      profile.images
-        ?.filter((i) => i.slot.startsWith("work-"))
-        .sort((a, b) =>
-          a.slot.localeCompare(b.slot, undefined, { numeric: true }),
-        ) || [];
+    logo = profile.images?.find((i) => i.slot === "logo");
   const [view, setView] = useState<{ url: string; label: string } | null>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   useEffect(() => {
@@ -105,6 +100,10 @@ export function BusinessDisplay({
       </header>
       <div className="profile-content-grid">
         <div className="profile-main-content">
+          <BusinessPortfolio
+            images={profile.images}
+            business={profile.business}
+          />
           <section className="profile-content-card">
             <p className="eyebrow">GET TO KNOW US</p>
             <h2>About {profile.business}</h2>
@@ -141,43 +140,6 @@ export function BusinessDisplay({
           <section className="profile-content-card">
             <Availability profile={profile} />
           </section>
-          {work.length > 0 && (
-            <section className="profile-content-card">
-              <div className="profile-card-heading">
-                <h2>Past work portfolio</h2>
-                <span>
-                  {work.length} {work.length === 1 ? "photo" : "photos"}
-                </span>
-              </div>
-              <div className="business-portfolio">
-                {work.map((photo, index) => (
-                  <button
-                    className="profile-photo-button"
-                    type="button"
-                    key={photo.id}
-                    onClick={() =>
-                      setView({
-                        url: photo.url,
-                        label:
-                          profile.business +
-                          " · Past work photo " +
-                          (index + 1),
-                      })
-                    }
-                  >
-                    <img
-                      loading="lazy"
-                      src={photo.url}
-                      alt={`${profile.business} past work photo ${index + 1}`}
-                    />
-                    <span>
-                      <Expand size={16} /> View photo
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </section>
-          )}
           {profile.details &&
             businessFieldGroups
               .filter(

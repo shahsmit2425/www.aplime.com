@@ -41,6 +41,12 @@ export type BusinessImage = {
   slot: (typeof businessImageSlots)[number];
   url: string;
 };
+export function portfolioImages(images: readonly BusinessImage[] = []) {
+  return images
+    .filter((image) => /^work-(?:[1-9]|1\d|20)$/.test(image.slot))
+    .sort((a, b) => Number(a.slot.slice(5)) - Number(b.slot.slice(5)))
+    .slice(0, MAX_BUSINESS_PORTFOLIO_IMAGES);
+}
 export function matchesImageSignature(type: string, bytes: Uint8Array) {
   if (type === "image/jpeg")
     return bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255;

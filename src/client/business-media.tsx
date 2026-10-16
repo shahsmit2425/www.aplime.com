@@ -130,7 +130,7 @@ export function BusinessMedia({
     >
       <p>
         {portfolio
-          ? `Show customers your past work. Add up to ${MAX_BUSINESS_PORTFOLIO_IMAGES} photos; saved photos appear on your business profile.`
+          ? `Show customers your past work. Add up to ${MAX_BUSINESS_PORTFOLIO_IMAGES} photos; customers see them after your profile updates are approved.`
           : "Choose an image, check the preview, then save it."}{" "}
         Your current image stays in place until its replacement is saved.
       </p>
