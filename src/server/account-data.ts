@@ -3,6 +3,7 @@ import { pool, transaction } from "./db/index.js";
 import { fail } from "./errors.js";
 import { audit, notify } from "./repository.js";
 import { recordProjectActivity } from "./project-events.js";
+import { stripe } from "./integrations/stripe.js";
 import { removeObject } from "./integrations/storage.js";
 
 const EXPORT_ROW_LIMIT = 5000;
@@ -14,13 +15,23 @@ export function assertRecentSignIn(authTime: number | undefined) {
   const now = Math.floor(Date.now() / 1000);
   if (
     !Number.isFinite(authTime) ||
+    (authTime as number) > now + 60 ||
     now - (authTime as number) > REAUTH_WINDOW_SECONDS
   )
     fail(401, "Confirm your password or sign-in provider again to continue.");
 }
 
-const rows = async (sql: string, values: unknown[]) =>
-  (await pool.query(sql + " LIMIT " + EXPORT_ROW_LIMIT, values)).rows;
+const rows = async (sql: string, values: unknown[]) => {
+  const result = (
+    await pool.query(sql + " LIMIT " + (EXPORT_ROW_LIMIT + 1), values)
+  ).rows;
+  if (result.length > EXPORT_ROW_LIMIT)
+    fail(
+      409,
+      "Your account needs a larger export. Contact support for a complete copy; no partial download was generated.",
+    );
+  return result;
+};
 
 export async function exportAccountData(userId: string) {
   const user = (
@@ -32,7 +43,7 @@ export async function exportAccountData(userId: string) {
   if (!user) fail(404, "Account not found.");
   const profile = (
     await pool.query(
-      "SELECT to_jsonb(p)-'stripe_account_id'-'identity_session_id' AS profile FROM profiles p WHERE id=$1",
+      "SELECT to_jsonb(p)-'stripe_account_id'-'identity_session_id'-'published_profile' AS profile FROM profiles p WHERE id=$1",
       [userId],
     )
   ).rows[0]?.profile;
@@ -68,8 +79,8 @@ export async function exportAccountData(userId: string) {
       [userId],
     ),
     quotes: await rows(
-      "SELECT * FROM quotes WHERE pro_id=$1 OR project_id=ANY($2::uuid[]) ORDER BY created_at DESC",
-      [userId, projectIds],
+      "SELECT q.* FROM quotes q WHERE q.pro_id=$1 OR q.project_id IN (SELECT id FROM projects WHERE customer_id=$1) ORDER BY q.created_at DESC",
+      [userId],
     ),
     reviews: await byProject("reviews"),
     payments: await byProject("payments"),
@@ -183,7 +194,7 @@ export async function deleteAccountData(userId: string) {
       );
     const membership = (
       await c.query(
-        "SELECT status,cancel_at_period_end FROM professional_subscriptions WHERE user_id=$1",
+        "SELECT * FROM professional_subscriptions WHERE user_id=$1 FOR UPDATE",
         [userId],
       )
     ).rows[0];
@@ -194,6 +205,39 @@ export async function deleteAccountData(userId: string) {
     )
       fail(409, "Cancel your membership before deleting your account.");
 
+    // The same membership row serializes checkout creation and account deletion.
+    // A completed checkout may precede its webhook; never delete in that gap.
+    if (membership?.checkout_id) {
+      const checkout = await stripe().checkout.sessions.retrieve(
+        membership.checkout_id,
+      );
+      if (checkout.status === "complete") {
+        if (!membership.subscription_id)
+          fail(
+            409,
+            "Your checkout is processing. Wait for billing confirmation before deleting your account.",
+          );
+      } else if (checkout.status === "open") {
+        try {
+          await stripe().checkout.sessions.expire(checkout.id);
+        } catch {
+          fail(
+            409,
+            "Checkout could not be closed. Refresh billing and retry deletion.",
+          );
+        }
+      }
+    }
+    if (membership?.subscription_id) {
+      const current = await stripe().subscriptions.retrieve(
+        membership.subscription_id,
+      );
+      if (
+        !["canceled", "incomplete_expired"].includes(current.status) &&
+        !current.cancel_at_period_end
+      )
+        fail(409, "Cancel your membership before deleting your account.");
+    }
     await closeOpenCustomerProjects(c, userId);
     await c.query(
       "UPDATE quotes SET status='withdrawn' WHERE pro_id=$1 AND status='pending'",
@@ -212,6 +256,12 @@ export async function deleteAccountData(userId: string) {
         )
       ).rows,
     ].map((r) => String(r.object_key));
+    const published = (
+      await c.query("SELECT published_profile FROM profiles WHERE id=$1", [
+        userId,
+      ])
+    ).rows[0]?.published_profile;
+    for (const image of published?.images || []) keys.push(image.key);
     await c.query("DELETE FROM uploads WHERE user_id=$1", [userId]);
     await c.query("DELETE FROM business_images WHERE profile_id=$1", [userId]);
     await c.query("DELETE FROM project_drafts WHERE user_id=$1", [userId]);
@@ -223,12 +273,16 @@ export async function deleteAccountData(userId: string) {
       userId,
     ]);
     await c.query(
-      "UPDATE profiles SET business='Deleted business',bio='',zip='',address='',place_id='',town='',region='',details='{}',latitude=NULL,longitude=NULL,listed=false,available=false,verified=false,review_status='draft',review_note=NULL,submitted_at=NULL,reviewed_at=NULL,reviewed_by=NULL,service_categories='[]',weekly_hours='{}',availability='[]' WHERE id=$1",
+      "UPDATE profiles SET published_profile=NULL,business='Deleted business',bio='',zip='',address='',place_id='',town='',region='',details='{}',latitude=NULL,longitude=NULL,listed=false,available=false,verified=false,review_status='draft',review_note=NULL,submitted_at=NULL,reviewed_at=NULL,reviewed_by=NULL,service_categories='[]',weekly_hours='{}',availability='[]' WHERE id=$1",
       [userId],
     );
     await c.query(
       "UPDATE users SET email='deleted-'||id||'@deleted.invalid',name='Deleted user',settings='{}',deleted_at=now() WHERE id=$1",
       [userId],
+    );
+    await c.query(
+      "INSERT INTO account_cleanup_jobs(user_id,object_keys) VALUES($1,$2)",
+      [userId, JSON.stringify(keys)],
     );
     await audit(c, userId, "account_deleted", userId);
     return keys;

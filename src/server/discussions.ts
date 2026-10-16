@@ -1,5 +1,5 @@
 import { assertMatch } from "./matching.js";
-import { assertMessageQuota } from "./quotas.js";
+import { assertMessageQuota, lockActiveAccount } from "./quotas.js";
 import { Router } from "express";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -105,14 +105,47 @@ export const conversationListSql = `WITH pairs AS (
   ORDER BY COALESCE((SELECT max(m.created_at) FROM discussion_messages m WHERE m.discussion_id=ANY(t.aliases)),t.created_at) DESC,t.id LIMIT 100`;
 discussions.get("/discussions", async (req, res) => {
   res.setHeader("Cache-Control", "no-store");
-  res.json((await pool.query(conversationListSql, [req.account.id])).rows);
+  const sql =
+    req.query.preview === "true"
+      ? conversationListSql.replace("LIMIT 200", "LIMIT 1")
+      : conversationListSql;
+  res.json((await pool.query(sql, [req.account.id])).rows);
 });
+discussions.get("/discussions/:id/history", async (req, res) => {
+  const { links } = await participant(String(req.params.id), req.account.id);
+  const before = z
+    .object({ at: z.string().datetime(), id: z.string().uuid() })
+    .optional()
+    .parse(
+      req.query.beforeAt
+        ? { at: req.query.beforeAt, id: req.query.beforeId }
+        : undefined,
+    );
+  const result = await pool.query(
+    "SELECT m.id,m.sender_id,m.body,m.created_at,d.project_id FROM discussion_messages m JOIN project_discussions d ON d.id=m.discussion_id WHERE m.discussion_id=ANY($1::uuid[]) AND ($2::timestamptz IS NULL OR (m.created_at,m.id)<($2::timestamptz,$3::uuid)) ORDER BY m.created_at DESC,m.id DESC LIMIT 51",
+    [links.map((d) => d.id), before?.at || null, before?.id || null],
+  );
+  res.json({
+    messages: result.rows.slice(0, 50).reverse(),
+    hasMore: result.rows.length > 50,
+  });
+});
+
 discussions.get("/discussions/:id/projects/:projectId", async (req, res) => {
   const { row } = await participant(
     String(req.params.id),
     req.account.id,
     z.string().uuid().parse(req.params.projectId),
   );
+  if (req.account.role === "pro") {
+    const other = row.customer_id;
+    await maySend(row, req.account.id, other);
+    if (row.selected_pro && row.selected_pro !== req.account.id)
+      fail(
+        403,
+        "Project details are no longer available to this professional.",
+      );
+  }
   const p = (
     await pool.query(
       "SELECT p.id,p.title,p.description,p.category,p.zip,p.intake,p.property_type,p.urgency,p.status,p.budget_min,p.budget_max,p.amount,p.created_at,p.scheduled_at,p.customer_id,p.pro_id,c.name AS customer_name,CASE WHEN p.customer_id=$2 OR p.pro_id=$2 THEN p.address ELSE NULL END AS address,CASE WHEN p.customer_id=$2 OR p.pro_id=$2 THEN p.address_unit ELSE NULL END AS address_unit FROM projects p JOIN users c ON c.id=p.customer_id WHERE p.id=$1",
@@ -242,10 +275,11 @@ discussions.post("/discussions/:id/read", async (req, res) => {
 });
 
 discussions.post("/discussions/:id/messages", async (req, res) => {
-  const { body, projectId } = z
+  const { body, projectId, clientKey } = z
     .object({
       body: z.string().trim().min(1).max(4000),
       projectId: z.string().uuid().optional(),
+      clientKey: z.string().uuid().optional(),
     })
     .strict()
     .parse(req.body);
@@ -256,10 +290,24 @@ discussions.post("/discussions/:id/messages", async (req, res) => {
   );
   await maySend(row, req.account.id, other);
   await transaction(async (c) => {
+    await lockActiveAccount(c, req.account.id);
+    if (clientKey) {
+      const previous = (
+        await c.query(
+          "SELECT body FROM discussion_messages WHERE discussion_id=$1 AND sender_id=$2 AND client_key=$3",
+          [row.id, req.account.id, clientKey],
+        )
+      ).rows[0];
+      if (previous) {
+        if (previous.body !== body)
+          fail(409, "This message was already sent with different content.");
+        return;
+      }
+    }
     await assertMessageQuota(c, req.account.id);
     await c.query(
-      "INSERT INTO discussion_messages(id,discussion_id,sender_id,body) VALUES($1,$2,$3,$4)",
-      [randomUUID(), row.id, req.account.id, body],
+      "INSERT INTO discussion_messages(id,discussion_id,sender_id,body,client_key) VALUES($1,$2,$3,$4,$5)",
+      [randomUUID(), row.id, req.account.id, body, clientKey || null],
     );
     await notify(c, other, "New message", "Open Messages to reply.", {
       page: "messages",

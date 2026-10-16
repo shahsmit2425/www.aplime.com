@@ -42,6 +42,11 @@ export function Discussions({
     ),
     [selected, setSelected] = useState(""),
     [error, setError] = useState("");
+  const [older, setOlder] = useState<Record<string, Discussion["messages"]>>(
+    {},
+  );
+  const [historyEnd, setHistoryEnd] = useState<Record<string, boolean>>({});
+  const retryMessage = useRef({ signature: "", key: "" });
   const mounted = useRef(true);
   useEffect(() => {
     mounted.current = true;
@@ -261,23 +266,67 @@ export function Discussions({
                 }
               />
 
+              <button
+                type="button"
+                className="secondary"
+                disabled={busy || historyEnd[thread.id]}
+                onClick={() =>
+                  void run(async () => {
+                    const first = older[thread.id]?.[0] || thread.messages[0];
+                    const query = first
+                      ? `?beforeAt=${encodeURIComponent(first.created_at)}&beforeId=${first.id}`
+                      : "";
+                    const result = await request<{
+                      messages: Discussion["messages"];
+                      hasMore: boolean;
+                    }>(`/discussions/${thread.id}/history${query}`);
+                    setOlder((current) => ({
+                      ...current,
+                      [thread.id]: [
+                        ...result.messages,
+                        ...(current[thread.id] || []),
+                      ],
+                    }));
+                    setHistoryEnd((current) => ({
+                      ...current,
+                      [thread.id]: !result.hasMore,
+                    }));
+                  })
+                }
+              >
+                {historyEnd[thread.id]
+                  ? "Beginning of conversation"
+                  : "Load earlier messages"}
+              </button>
               <ChatLog
                 threadKey={thread.id}
-                messages={thread.messages.map((m) => ({
-                  id: m.id,
-                  body: m.body,
-                  name:
-                    (data.user.role === "customer"
-                      ? thread.business
-                      : thread.customer_name) +
-                    (contexts.length > 1 && m.project_id
-                      ? " · " +
-                        (contexts.find((p) => p.id === m.project_id)?.title ||
-                          "Project")
-                      : ""),
-                  time: m.created_at,
-                  mine: m.sender_id === data.user.id,
-                }))}
+                messages={[
+                  ...new Map(
+                    [...(older[thread.id] || []), ...thread.messages].map(
+                      (m) => [m.id, m],
+                    ),
+                  ).values(),
+                ]
+                  .sort(
+                    (a, b) =>
+                      a.created_at.localeCompare(b.created_at) ||
+                      a.id.localeCompare(b.id),
+                  )
+                  .map((m) => ({
+                    id: m.id,
+                    body: m.body,
+                    name:
+                      (data.user.role === "customer"
+                        ? thread.business
+                        : thread.customer_name) +
+                      (contexts.length > 1 && m.project_id
+                        ? " · " +
+                          (contexts.find((p) => p.id === m.project_id)?.title ||
+                            "Project")
+                        : ""),
+                    time: m.created_at,
+                    mine: m.sender_id === data.user.id,
+                  }))}
               />
               {closed || blocked ? (
                 <div className="chat-extra">
@@ -292,10 +341,22 @@ export function Discussions({
                   disabled={busy}
                   send={() =>
                     void run(async () => {
+                      const signature = JSON.stringify([
+                        thread.id,
+                        context?.id,
+                        draft,
+                      ]);
+                      if (retryMessage.current.signature !== signature)
+                        retryMessage.current = {
+                          signature,
+                          key: crypto.randomUUID(),
+                        };
                       await request(`/discussions/${thread.id}/messages`, {
+                        clientKey: retryMessage.current.key,
                         body: draft,
                         projectId: context?.id,
                       });
+                      retryMessage.current = { signature: "", key: "" };
                       setDraft("");
                       await load();
                     }, "")

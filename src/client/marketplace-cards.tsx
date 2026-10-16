@@ -75,7 +75,13 @@ export function ProjectCard({
         </span>
         <span className={"project-status status-" + p.status}>
           <i aria-hidden="true" />
-          {statusLabels[p.status]}
+          {p.status === "booked"
+            ? p.awardAccepted === false
+              ? "Awaiting pro confirmation"
+              : p.scheduledAt
+                ? "Scheduled"
+                : "Accepted · choose a time"
+            : statusLabels[p.status]}
         </span>
       </span>
       <span className="project-card-copy">

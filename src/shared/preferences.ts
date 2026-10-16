@@ -54,20 +54,27 @@ export const preferencesSchema = z
   })
   .strict();
 
+const hourFormatters = new Map<string, Intl.DateTimeFormat>();
 export function withinWeeklyHours(
   value: string,
   hours: WeeklyHours,
   timeZone: string,
 ) {
   if (!Number.isFinite(Date.parse(value))) return false;
-  const parts = Object.fromEntries(
-    new Intl.DateTimeFormat("en-US", {
+  let formatter = hourFormatters.get(timeZone);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat("en-US", {
       timeZone,
       weekday: "short",
       hour: "2-digit",
       minute: "2-digit",
       hourCycle: "h23",
-    })
+    });
+    if (hourFormatters.size >= 100) hourFormatters.clear();
+    hourFormatters.set(timeZone, formatter);
+  }
+  const parts = Object.fromEntries(
+    formatter
       .formatToParts(new Date(value))
       .map((part) => [part.type, part.value]),
   );

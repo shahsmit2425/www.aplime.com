@@ -124,12 +124,20 @@ test("call meeting contract is shared by marketplace clients and API, while its 
   );
 });
 
-test("meeting expiry is a shared API and worker responsibility", () => {
-  assert.deepEqual(affected(["src/server/meeting-lifecycle.ts"]), {
-    web: false,
-    admin: false,
-    api: true,
-    worker: true,
-    mobile: false,
-  });
+test("meeting expiry and cleanup dependencies deploy both API and worker", () => {
+  for (const path of [
+    "src/server/meeting-lifecycle.ts",
+    "src/server/account-cleanup.ts",
+    "src/server/business-publication.ts",
+    "src/server/integrations/firebase.ts",
+    "src/server/integrations/storage.ts",
+    "src/server/integrations/storage-error.ts",
+  ])
+    assert.deepEqual(affected([path]), {
+      web: false,
+      admin: false,
+      api: true,
+      worker: true,
+      mobile: false,
+    });
 });

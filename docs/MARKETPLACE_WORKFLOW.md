@@ -1,5 +1,15 @@
 # Marketplace workflow
 
+## Review hardening — October 15, 2026
+
+- Dashboards separate archived work from current projects. Booked cards distinguish pending professional confirmation from a scheduled appointment.
+- New project addresses must resolve to New Jersey. Existing project records remain manageable.
+- Customers see the last approved business details and images while edits await review; owners see their edits. Availability, suspension, identity and membership remain live checks.
+- Conversations remain between accounts. Earlier messages load in authorized pages of 50. Retry keys prevent duplicate messages and project submissions after a lost response.
+- Customers cannot confirm overlapping visits with different professionals. Existing call/visit conflicts and 10-minute call limits remain in place.
+- Exports include only a professional's own estimates and estimates received on their own customer projects. Oversized exports request support instead of returning an incomplete file.
+- Deletion checks current billing and unfinished work, expires open checkouts and queues provider cleanup after local anonymization. Shared records needed by other participants remain. Settings includes sign-out on all devices after recent sign-in.
+
 ## Professional listing
 
 1. A professional saves complete business details and selects a full US business-base address using Google address suggestions. The street address is private; the public profile displays the ZIP and service area. Under Calendar & preferences, the professional selects service categories, a radius, a business time zone, and weekly opening hours.

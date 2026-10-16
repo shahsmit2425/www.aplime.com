@@ -1,3 +1,4 @@
+import { lockActiveAccount } from "./quotas.js";
 import { commitProjectPhotos } from "./project-images.js";
 import { removeObject } from "./integrations/storage.js";
 import { changeLifecycle, lifecycleActions } from "./project-lifecycle.js";
@@ -23,6 +24,7 @@ export async function projectAction(
 ) {
   const removedKeys: string[] = [];
   const result = await transaction(async (c) => {
+    await lockActiveAccount(c, user.id);
     const p = await getProject(c, id);
     if (!allowedTransition(p, user, action.type))
       fail(403, "This action is not available for this project.");

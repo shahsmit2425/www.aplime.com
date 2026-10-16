@@ -107,7 +107,16 @@ export async function locateAddress(placeId: string, sessionToken?: string) {
     placeId: data.id,
     label: data.formattedAddress,
     zip: component("postal_code").longText,
+    region: component("administrative_area_level_1")?.shortText || "",
     lat: data.location.latitude,
     lng: data.location.longitude,
   };
+}
+
+export function assertServiceArea(location: { region?: string }) {
+  if (location.region !== "NJ")
+    fail(
+      400,
+      "Aplime currently serves New Jersey only. Choose a New Jersey project address.",
+    );
 }

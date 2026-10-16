@@ -73,7 +73,7 @@ export async function assertMatch(
 export async function isOpenLead(proId: string, projectId: string) {
   const found = await pool.query(
     `SELECT 1 FROM profiles f JOIN projects p ON p.id=$2 WHERE f.id=$1 AND p.pro_id IS NULL AND p.status IN ('requested','quoted')
-     AND (${discoverySql()} OR EXISTS(SELECT 1 FROM quotes own_quote WHERE own_quote.project_id=p.id AND own_quote.pro_id=f.id AND own_quote.status='pending'))`,
+     AND NOT f.suspended AND ${unblockedSql()} AND (${discoverySql()} OR EXISTS(SELECT 1 FROM quotes own_quote WHERE own_quote.project_id=p.id AND own_quote.pro_id=f.id AND own_quote.status='pending'))`,
     [proId, projectId],
   );
   return !!found.rowCount;

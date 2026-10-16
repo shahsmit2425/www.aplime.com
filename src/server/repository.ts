@@ -13,7 +13,7 @@ import { pool, camel } from "./db/index.js";
 import type pg from "pg";
 import type { User, Workspace, Profile, Project } from "../shared/domain.js";
 import { fail } from "./errors.js";
-export const profileSelect = `SELECT p.id,u.name,p.business,p.details,p.category,p.bio,p.zip,p.rate,p.available,p.availability,p.verified,p.suspended,p.listed,p.connect_ready,p.service_radius_miles,p.address,p.place_id,p.service_categories,p.weekly_hours,p.time_zone,p.review_status,p.review_note,p.submitted_at,p.reviewed_at,
+export const profileSelect = `SELECT p.id,p.published_profile,u.name,p.business,p.details,p.category,p.bio,p.zip,p.rate,p.available,p.availability,p.verified,p.suspended,p.listed,p.connect_ready,p.service_radius_miles,p.address,p.place_id,p.service_categories,p.weekly_hours,p.time_zone,p.review_status,p.review_note,p.submitted_at,p.reviewed_at,
  COALESCE((SELECT json_agg(json_build_object('id',i.id,'slot',i.slot,'key',i.object_key) ORDER BY i.slot) FROM business_images i WHERE i.profile_id=p.id AND i.status='ready'),'[]'::json) AS images,
  COALESCE((SELECT avg(r.rating)::float FROM reviews r WHERE r.pro_id=p.id),0) AS rating,
  (SELECT count(*)::int FROM reviews r WHERE r.pro_id=p.id) AS review_count FROM profiles p JOIN users u ON u.id=p.id`;
@@ -23,13 +23,17 @@ async function mappedProfile(
   signedImages = false,
   administrator = false,
 ) {
-  const profile = camel<Profile>(row);
+  const publication = row.published_profile;
+  const usePublication = !!publication && row.id !== ownerId && !administrator;
+  const visible = usePublication ? { ...row, ...publication } : row;
+  const { published_profile: _privatePublication, ...safe } = visible;
+  const profile = camel<Profile>(safe);
   profile.images = await Promise.all(
-    (row.images || []).map(async (i: any) => ({
+    (visible.images || []).map(async (i: any) => ({
       id: i.id,
       slot: i.slot,
       url:
-        profile.id === ownerId || signedImages
+        profile.id === ownerId || signedImages || usePublication
           ? await imageUrl(i.key)
           : env.API_URL.replace(/\/$/, "") + "/api/business-images/" + i.id,
     })),

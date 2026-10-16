@@ -143,3 +143,11 @@ test("address failures provide safe diagnostics and never leak provider secrets"
     env.GOOGLE_MAPS_SERVER_KEY = key;
   }
 });
+
+test("project service area fails closed outside New Jersey", async () => {
+  const { assertServiceArea } =
+    await import("../src/server/integrations/address.js");
+  assert.doesNotThrow(() => assertServiceArea({ region: "NJ" }));
+  for (const region of ["NY", "PA", "CA", "", undefined])
+    assert.throws(() => assertServiceArea({ region }), /New Jersey/);
+});

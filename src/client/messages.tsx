@@ -31,7 +31,7 @@ export function MessagesInbox({
       if (pending) return;
       pending = true;
       const results = await Promise.allSettled([
-        request<Discussion[]>("/discussions"),
+        request<Discussion[]>("/discussions?preview=true"),
         request<{ rows: SupportTicket[]; total: number }>(
           "/support/conversations?page=" + page,
         ),
@@ -56,7 +56,9 @@ export function MessagesInbox({
       pending = false;
     };
     void load();
-    const timer = setInterval(() => void load(), 10000);
+    const timer = setInterval(() => {
+      if (document.visibilityState === "visible") void load();
+    }, 60000);
     window.addEventListener("aplime:updates", load);
     window.addEventListener("aplime:chat-read", load);
     return () => {

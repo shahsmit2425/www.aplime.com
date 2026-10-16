@@ -1,3 +1,7 @@
+import {
+  preservePublication,
+  releasePublication,
+} from "./business-publication.js";
 import { callMeetings } from "./call-meetings.js";
 import {
   assertProjectQuota,
@@ -16,7 +20,11 @@ import {
   notifyProjectMembers,
   notifyMatchingProfessionals,
 } from "./project-events.js";
-import { autocompleteAddress, locateAddress } from "./integrations/address.js";
+import {
+  autocompleteAddress,
+  locateAddress,
+  assertServiceArea,
+} from "./integrations/address.js";
 import {
   assertIndependentParties,
   assertMatch,
@@ -28,7 +36,8 @@ import { notificationStream } from "./notification-stream.js";
 import { discussions, ensurePairConversation } from "./discussions.js";
 import { subscriptions } from "./subscriptions.js";
 import { Router, json, type Request } from "express";
-import { randomUUID } from "node:crypto";
+import { randomUUID, createHash } from "node:crypto";
+import { previousProjectRequest } from "./project-retries.js";
 import { z } from "zod";
 import {
   signupSchema,
@@ -43,7 +52,11 @@ import {
 import { pool, camel, transaction } from "./db/index.js";
 import { assertAdmin } from "./admin-policy.js";
 import rateLimit from "express-rate-limit";
-import { verifyToken, deleteFirebaseUser } from "./integrations/firebase.js";
+import {
+  verifyToken,
+  deleteFirebaseUser,
+  revokeUserSessions,
+} from "./integrations/firebase.js";
 import { clearTokenCache } from "./token-cache.js";
 import {
   assertRecentSignIn,
@@ -144,6 +157,11 @@ api.use(async (req, res, next) => {
     });
     fail(403, "This account was deleted.");
   }
+  if (
+    record?.sessions_revoked_at &&
+    decoded.auth_time * 1000 <= new Date(record.sessions_revoked_at).getTime()
+  )
+    fail(401, "Your sessions were signed out. Please sign in again.");
   if (record) {
     q.account = camel<User>(record);
   }
@@ -277,6 +295,16 @@ api.get("/account/export", exportLimiter, async (req, res) => {
     )
     .json(data);
 });
+api.post("/account/revoke-sessions", async (req, res) => {
+  assertRecentSignIn(req.identity.authTime);
+  await revokeUserSessions(req.account.id);
+  await pool.query(
+    "UPDATE users SET sessions_revoked_at=to_timestamp($2) WHERE id=$1",
+    [req.account.id, Math.floor(Date.now() / 1000)],
+  );
+  clearTokenCache();
+  res.json({ ok: true });
+});
 api.post("/account/delete", async (req, res) => {
   const q = req as AuthRequest;
   z.object({ confirm: z.literal("DELETE") })
@@ -315,6 +343,7 @@ api.put("/profile", async (req, res) => {
         q.account.id,
       ])
     ).rows[0];
+    await preservePublication(c, q.account.id);
     // Customer-facing listing content needs review; availability, schedule
     // and service-radius changes are operational and never unlist a business.
     const material =
@@ -431,12 +460,28 @@ api.delete("/project-draft", async (req, res) => {
 api.post("/projects", async (req, res) => {
   const q = req as AuthRequest;
   if (q.account.role !== "customer") fail(403, "Customer account required.");
-  const p = projectSchema.parse(q.body);
+  const { clientKey, ...payload } = z
+    .object({ clientKey: z.string().uuid().optional() })
+    .passthrough()
+    .parse(q.body);
+  const p = projectSchema.parse(payload);
+  const fingerprint = createHash("sha256").update(canonical(p)).digest("hex");
   assertFuture(p.scheduledAt);
   const location = await locateAddress(p.placeId);
   if (!location) fail(400, "Select a complete street address.");
-  const id = randomUUID();
+  assertServiceArea(location);
+  let id: string = randomUUID();
   await transaction(async (c) => {
+    const previous = await previousProjectRequest(
+      c,
+      q.account.id,
+      clientKey,
+      fingerprint,
+    );
+    if (previous) {
+      id = previous;
+      return;
+    }
     await assertProjectQuota(c, q.account.id);
     await c.query(
       "INSERT INTO projects(id,customer_id,pro_id,title,description,category,zip,scheduled_at,intake,urgency,property_type,budget_min,budget_max,latitude,longitude,address,place_id,address_unit) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)",
@@ -461,6 +506,11 @@ api.post("/projects", async (req, res) => {
         p.addressUnit,
       ],
     );
+    if (clientKey)
+      await c.query(
+        "INSERT INTO project_publish_requests(user_id,client_key,project_id,fingerprint) VALUES($1,$2,$3,$4)",
+        [q.account.id, clientKey, id, fingerprint],
+      );
     if (p.proId) await assertMatch(c, p.proId, id);
     if (p.scheduledAt) await assertAppointment(c, p.proId, p.scheduledAt, id);
     if (p.proId)
@@ -815,6 +865,13 @@ api.get("/uploads/:id", async (req, res) => {
     ])
   ).rows[0];
   if (!f) fail(404, "File not found.");
+  if (q.account.role === "pro") {
+    const denied = await pool.query(
+      "SELECT 1 FROM projects p JOIN profiles f ON f.id=$2 WHERE p.id=$1 AND (f.suspended OR EXISTS(SELECT 1 FROM blocked b WHERE (b.user_id=$2 AND b.other_id=p.customer_id) OR (b.other_id=$2 AND b.user_id=p.customer_id)))",
+      [f.project_id, q.account.id],
+    );
+    if (denied.rowCount) fail(403, "Project photos are unavailable.");
+  }
   const openLead =
     q.account.role === "pro" &&
     String(f.content_type).startsWith("image/") &&
@@ -824,7 +881,10 @@ api.get("/uploads/:id", async (req, res) => {
     String(f.content_type).startsWith("image/") &&
     (
       await pool.query(
-        "SELECT 1 FROM project_discussions WHERE project_id=$1 AND pro_id=$2",
+        `SELECT 1 FROM project_discussions d JOIN projects p ON p.id=d.project_id JOIN profiles f ON f.id=d.pro_id
+        WHERE d.project_id=$1 AND d.pro_id=$2 AND NOT f.suspended
+        AND (p.pro_id IS NULL OR p.pro_id=$2)
+        AND NOT EXISTS(SELECT 1 FROM blocked b WHERE (b.user_id=$2 AND b.other_id=p.customer_id) OR (b.other_id=$2 AND b.user_id=p.customer_id))`,
         [f.project_id, q.account.id],
       )
     ).rowCount;
@@ -900,9 +960,14 @@ api.post("/admin/profiles/:id/review", async (req, res) => {
   if (decision.status !== "approved" && decision.note.length < 10)
     fail(400, "Explain what the professional needs to change.");
   await transaction(async (c) => {
+    await c.query("SELECT id FROM profiles WHERE id=$1 FOR UPDATE", [
+      q.params.id,
+    ]);
+    if (decision.status !== "changes_requested")
+      await releasePublication(c, String(q.params.id));
     const profile = (
       await c.query(
-        "UPDATE profiles SET review_status=$2,listed=($2='approved'),review_note=NULLIF($3,''),reviewed_at=now(),reviewed_by=$4 WHERE id=$1 AND review_status='pending' RETURNING business",
+        "UPDATE profiles SET review_status=$2,listed=($2='approved' OR ($2='changes_requested' AND published_profile IS NOT NULL)),review_note=NULLIF($3,''),reviewed_at=now(),reviewed_by=$4 WHERE id=$1 AND review_status='pending' RETURNING business",
         [q.params.id, decision.status, decision.note, q.account.id],
       )
     ).rows[0];

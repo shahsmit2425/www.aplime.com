@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { randomBytes } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -70,6 +71,10 @@ async function configuration() {
 }
 const app = express();
 app.disable("x-powered-by");
+app.use((_req, res, next) => {
+  res.locals.cspNonce = randomBytes(18).toString("base64");
+  next();
+});
 app.use(
   helmet({
     contentSecurityPolicy: {
@@ -77,7 +82,12 @@ app.use(
         defaultSrc: ["'self'"],
         scriptSrc: [
           "'self'",
-          "'unsafe-inline'",
+          ...(env.NODE_ENV === "production"
+            ? [
+                (_req: unknown, res: any) =>
+                  "'nonce-" + res.locals.cspNonce + "'",
+              ]
+            : ["'unsafe-inline'"]),
           "https://apis.google.com",
           "https://js.stripe.com",
           "https://*.js.stripe.com",
@@ -245,9 +255,21 @@ app.use(async (req, res, next) => {
       .type("html")
       .send(
         template
-          .replace("<!--head-->", page.head)
+          .replace(
+            "<!--head-->",
+            page.head.replaceAll(
+              "<script ",
+              `<script nonce="${res.locals.cspNonce}" `,
+            ),
+          )
           .replace("<!--app-->", page.html)
-          .replace("<!--bootstrap-->", page.bootstrap),
+          .replace(
+            "<!--bootstrap-->",
+            page.bootstrap.replace(
+              "<script>",
+              `<script nonce="${res.locals.cspNonce}">`,
+            ),
+          ),
       );
   } catch (e) {
     next(e);

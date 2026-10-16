@@ -1,3 +1,4 @@
+import { cleanupDeletedAccounts, cleanupStorage } from "./account-cleanup.js";
 import { pool } from "./db/index.js";
 import { sendEmail } from "./integrations/email.js";
 import { env, validateMailWorker } from "./config.js";
@@ -13,6 +14,8 @@ for (const signal of ["SIGINT", "SIGTERM"])
 const batch = 20;
 while (!stopping) {
   try {
+    await cleanupStorage();
+    await cleanupDeletedAccounts();
     await expireEstimates();
     await closeDueMeetings();
     while (!stopping && (await deliverOutbox(sendEmail, batch)) === batch);

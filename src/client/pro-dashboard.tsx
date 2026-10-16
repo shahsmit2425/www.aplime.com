@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { quotePrice, quoteTiming } from "../shared/estimates.js";
 import { SlidersHorizontal, ArrowUpRight } from "lucide-react";
 import { useWorkspace } from "./workspace.js";
@@ -7,12 +8,19 @@ import { SetupNotice } from "./setup-notice.js";
 
 export function ProDashboard() {
   const { data, go } = useWorkspace();
-  const projects = [...new Map(data.projects.map((p) => [p.id, p])).values()];
-  const projectIds = new Set(projects.map((p) => p.id));
+  const [archived, setArchived] = useState(false);
+  const projects = [
+    ...new Map(
+      data.projects
+        .filter((p) => !!p.archived === archived)
+        .map((p) => [p.id, p]),
+    ).values(),
+  ];
+  const projectIds = new Set(data.projects.map((p) => p.id));
   const matches = [
     ...new Map(data.leads.map((p) => [p.id, p])).values(),
   ].filter((p) => !projectIds.has(p.id));
-  const allProjects = [...projects, ...matches];
+  const allProjects = [...data.projects, ...matches];
   const estimates = data.quotes.filter((q) => q.proId === data.user.id);
   return (
     <section className="pro-dashboard" aria-label="Professional dashboard">
@@ -32,6 +40,16 @@ export function ProDashboard() {
           onContinue={() => go("profile")}
         />
       )}
+      <div className="actions">
+        <button
+          type="button"
+          className="secondary"
+          aria-pressed={archived}
+          onClick={() => setArchived(!archived)}
+        >
+          {archived ? "Show current projects" : "Show archived projects"}
+        </button>
+      </div>
       {projects.length > 0 && (
         <section className="project-collection" aria-label="Your projects">
           <CollectionHeading title="Your projects" count={projects.length} />

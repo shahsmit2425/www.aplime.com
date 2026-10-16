@@ -44,3 +44,7 @@ export async function verifyToken(token: string): Promise<DecodedIdToken> {
     fail(401, "Please sign in again.");
   }
 }
+
+export async function revokeUserSessions(uid: string) {
+  await getAuth(firebaseApp()).revokeRefreshTokens(uid);
+}

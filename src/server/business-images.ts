@@ -10,6 +10,7 @@ import {
   businessImageSlots,
   matchesImageSignature,
 } from "../shared/business-images.js";
+import { preservePublication, publishedImage } from "./business-publication.js";
 import { sanitizeImage } from "./image-processing.js";
 import {
   imageUrl,
@@ -186,6 +187,7 @@ businessImages.post("/:id/complete", async (req, res) => {
         400,
         "The uploaded file is not a supported image or does not match its declared size. Choose a JPG, PNG, or WebP image.",
       );
+    await preservePublication(c, req.account.id);
     const old = await c.query(
       "DELETE FROM business_images WHERE profile_id=$1 AND slot=$2 AND status='ready' RETURNING object_key",
       [req.account.id, f.slot],
@@ -198,7 +200,7 @@ businessImages.post("/:id/complete", async (req, res) => {
   });
   for (const key of oldKeys)
     try {
-      await removeObject(key);
+      if (!(await publishedImage(pool, key))) await removeObject(key);
     } catch {
       console.error("Replaced business image object cleanup failed");
     }
@@ -228,6 +230,7 @@ businessImages.delete("/:slot", async (req, res) => {
           "This image was replaced in another session. Refresh before deleting it.",
         );
     }
+    await preservePublication(c, req.account.id);
     const removed = (
       await c.query(
         "DELETE FROM business_images WHERE profile_id=$1 AND slot=$2 RETURNING object_key",
@@ -239,7 +242,8 @@ businessImages.delete("/:slot", async (req, res) => {
   });
   for (const f of files)
     try {
-      await removeObject(f.object_key);
+      if (!(await publishedImage(pool, f.object_key)))
+        await removeObject(f.object_key);
     } catch {
       console.error("Removed business image object cleanup failed");
     }
@@ -249,7 +253,7 @@ export const publicBusinessImages = Router();
 publicBusinessImages.get("/business-images/:id", async (req, res) => {
   const f = (
     await pool.query(
-      "SELECT i.object_key FROM business_images i JOIN profiles p ON p.id=i.profile_id WHERE i.id=$1 AND i.status='ready' AND p.verified AND (p.review_status='approved' OR p.listed) AND NOT p.suspended AND EXISTS(SELECT 1 FROM professional_subscriptions s WHERE s.user_id=p.id AND s.status IN ('active','trialing'))",
+      "SELECT image->>'key' AS object_key FROM profiles p CROSS JOIN LATERAL jsonb_array_elements(CASE WHEN p.published_profile IS NOT NULL THEN p.published_profile->'images' ELSE COALESCE((SELECT jsonb_agg(jsonb_build_object('id',i.id,'key',i.object_key)) FROM business_images i WHERE i.profile_id=p.id AND i.status='ready'),'[]'::jsonb) END) image WHERE image->>'id'=$1 AND p.verified AND (p.review_status='approved' OR p.listed) AND NOT p.suspended AND EXISTS(SELECT 1 FROM professional_subscriptions s WHERE s.user_id=p.id AND s.status IN ('active','trialing'))",
       [z.string().uuid().parse(req.params.id)],
     )
   ).rows[0];

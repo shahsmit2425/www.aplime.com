@@ -66,7 +66,9 @@
   "overrides": {
     "gaxios": {
       "uuid": "^11.1.1"
-    }
+    },
+    "@grpc/grpc-js": "1.14.6",
+    "source-map-js": "1.2.2"
   },
   "devDependencies": {
     "@capacitor/cli": "^7.4.3",

@@ -51,6 +51,33 @@ export function AccountData() {
         )}
         <button className="secondary">Download my data</button>
       </Form>
+      <h3>Sign out all devices</h3>
+      <Form
+        busy={busy}
+        onSubmit={(f) =>
+          run(
+            async () => {
+              await confirm(f);
+              await request("/account/revoke-sessions", {});
+              await logout().catch(() => {});
+            },
+            "All devices have been signed out.",
+            () => go("login"),
+          )
+        }
+      >
+        {password && (
+          <Field label="Confirm your password">
+            <input
+              name="password"
+              type="password"
+              autoComplete="current-password"
+              required
+            />
+          </Field>
+        )}
+        <button className="secondary">Sign out all devices</button>
+      </Form>
       <h3>Delete account</h3>
       <p>
         Deleting removes your sign-in, profile, photos, saved items and

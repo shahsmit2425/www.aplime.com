@@ -48,8 +48,8 @@ export async function assertAppointment(
       "Choose a one-hour visit within the professional’s published hours.",
     );
   const conflict = await c.query(
-    "SELECT 1 FROM projects WHERE pro_id=$1 AND id<>$2 AND status IN ('booked','in_progress','paused','disputed') AND scheduled_at IS NOT NULL AND scheduled_at < $3::timestamptz + interval '1 hour' AND scheduled_at + interval '1 hour' > $3::timestamptz",
-    [proId, projectId, value],
+    "SELECT 1 FROM projects WHERE (pro_id=$1 OR customer_id=$4) AND id<>$2 AND status IN ('booked','in_progress','paused','disputed') AND scheduled_at IS NOT NULL AND scheduled_at < $3::timestamptz + interval '1 hour' AND scheduled_at + interval '1 hour' > $3::timestamptz",
+    [proId, projectId, value, project?.customer_id || ""],
   );
   if (conflict.rowCount)
     fail(

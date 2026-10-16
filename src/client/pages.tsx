@@ -40,7 +40,7 @@ import {
   sendProjectPhoto,
   useProjectPhotos,
 } from "./project-photos.js";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   CalendarDays,
   ChevronDown,
@@ -422,6 +422,7 @@ function Projects() {
       useState<ServiceCategory>(initialCategory);
   const [photos, setPhotos] = useProjectPhotos();
   const [savedProjectId, setSavedProjectId] = useState<string | null>(null);
+  const publishRetry = useRef({ signature: "", key: "" });
   const [uploadProgress, setUploadProgress] = useState("");
   const [draft, setDraft] = useState<Record<string, any> | null>(null);
   const [formValues, setFormValues] = useState<Record<string, any> | null>(
@@ -473,9 +474,15 @@ function Projects() {
     let createdId = "";
     return run(
       async () => {
+        const signature = JSON.stringify(payload);
+        if (publishRetry.current.signature !== signature)
+          publishRetry.current = { signature, key: crypto.randomUUID() };
         const result = savedProjectId
           ? { id: savedProjectId }
-          : await request("/projects", payload);
+          : await request("/projects", {
+              ...payload,
+              clientKey: publishRetry.current.key,
+            });
         setSavedProjectId(result.id);
         createdId = result.id;
         try {

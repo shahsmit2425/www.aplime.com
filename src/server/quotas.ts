@@ -1,6 +1,17 @@
 import type pg from "pg";
 import { fail } from "./errors.js";
 
+export async function lockActiveAccount(
+  c: Pick<pg.PoolClient, "query">,
+  userId: string,
+) {
+  const found = await c.query(
+    "SELECT id FROM users WHERE id=$1 AND deleted_at IS NULL FOR UPDATE",
+    [userId],
+  );
+  if (!found.rowCount) fail(403, "This account is no longer available.");
+}
+
 type Db = Pick<pg.PoolClient, "query">;
 
 // Soft per-account abuse limits. Each one fans out notifications and emails to
@@ -14,6 +25,7 @@ export const QUOTAS = {
 } as const;
 
 export async function assertProjectQuota(c: Db, customerId: string) {
+  await lockActiveAccount(c, customerId);
   const { n } = (
     await c.query(
       "SELECT count(*)::int AS n FROM projects WHERE customer_id=$1 AND created_at > now() - interval '24 hours'",
@@ -27,6 +39,7 @@ export async function assertProjectQuota(c: Db, customerId: string) {
     );
 }
 export async function assertMessageQuota(c: Db, senderId: string) {
+  await lockActiveAccount(c, senderId);
   const row = (
     await c.query(
       "SELECT count(*) FILTER (WHERE created_at > now() - interval '1 minute')::int AS minute, count(*)::int AS day FROM discussion_messages WHERE sender_id=$1 AND created_at > now() - interval '24 hours'",
@@ -39,6 +52,7 @@ export async function assertMessageQuota(c: Db, senderId: string) {
     fail(429, "You have reached today's message limit. Try again tomorrow.");
 }
 export async function assertSupportRequestQuota(c: Db, userId: string) {
+  await lockActiveAccount(c, userId);
   const { n } = (
     await c.query(
       "SELECT count(*)::int AS n FROM tickets WHERE user_id=$1 AND (opened_by IS NULL OR opened_by=$1) AND created_at > now() - interval '24 hours'",
@@ -52,6 +66,7 @@ export async function assertSupportRequestQuota(c: Db, userId: string) {
     );
 }
 export async function assertSupportReplyQuota(c: Db, senderId: string) {
+  await lockActiveAccount(c, senderId);
   const { n } = (
     await c.query(
       "SELECT count(*)::int AS n FROM support_messages WHERE sender_id=$1 AND created_at > now() - interval '1 hour'",

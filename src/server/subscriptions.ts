@@ -77,6 +77,13 @@ subscriptions.post("/checkout", async (req, res) => {
     "This membership plan is unavailable.",
   );
   const result = await transaction(async (c) => {
+    const account = (
+      await c.query(
+        "SELECT id FROM users WHERE id=$1 AND deleted_at IS NULL FOR UPDATE",
+        [req.account.id],
+      )
+    ).rows[0];
+    if (!account) fail(403, "This account is no longer available.");
     await c.query(
       "INSERT INTO professional_subscriptions(user_id) VALUES($1) ON CONFLICT DO NOTHING",
       [req.account.id],

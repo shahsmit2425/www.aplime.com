@@ -134,6 +134,31 @@ await db.exec(
 await db.exec(
   await readFile("src/server/db/migrations/019_account_deletion.sql", "utf8"),
 );
+await db.exec(
+  await readFile(
+    "src/server/db/migrations/020_reliable_account_cleanup.sql",
+    "utf8",
+  ),
+);
+await db.exec(
+  await readFile(
+    "src/server/db/migrations/021_approved_business_publication.sql",
+    "utf8",
+  ),
+);
+await db.exec(
+  await readFile(
+    "src/server/db/migrations/022_account_session_revocation.sql",
+    "utf8",
+  ),
+);
+await db.exec(
+  await readFile(
+    "src/server/db/migrations/023_project_publish_retries.sql",
+    "utf8",
+  ),
+);
+
 test.after(async () => {
   await db.close();
   await pool.end();
@@ -1316,6 +1341,10 @@ test("API image uploads enforce ownership and file limits and preserve saved ima
       customer.id,
       owner.id,
     ]);
+    await query(
+      "UPDATE profiles SET published_profile=NULL,review_status='approved' WHERE id=$1",
+      [owner.id],
+    );
     const visiblePortfolio = (await workspace(customer)).profiles.find(
       (p) => p.id === owner.id,
     )!.images!;
@@ -1357,6 +1386,18 @@ test("API image uploads enforce ownership and file limits and preserve saved ima
       ).status,
       200,
     );
+    assert.equal(
+      (await workspace(customer)).profiles.find((p) => p.id === owner.id)!
+        .images!.length,
+      20,
+      "Pending deletions preserve the approved public gallery",
+    );
+    const { releasePublication } =
+      await import("../src/server/business-publication.js");
+    await releasePublication({ query } as never, owner.id);
+    await query("UPDATE profiles SET review_status='approved' WHERE id=$1", [
+      owner.id,
+    ]);
     assert.equal(
       (await workspace(customer)).profiles.find((p) => p.id === owner.id)!
         .images!.length,
@@ -3836,4 +3877,313 @@ test("account export is scoped to the owner and deletion anonymises while protec
   assertRecentSignIn(now - 30);
   assert.throws(() => assertRecentSignIn(now - 3600), /again/);
   assert.throws(() => assertRecentSignIn(undefined), /again/);
+});
+
+test("professional exports never disclose competing estimates and checkout deletion expires open sessions", async () => {
+  const { exportAccountData, deleteAccountData } =
+    await import("../src/server/account-data.js");
+  const owner = "privacy-c-" + randomUUID(),
+    pro = "privacy-p-" + randomUUID(),
+    competitor = "privacy-other-" + randomUUID();
+  for (const [id, role] of [
+    [owner, "customer"],
+    [pro, "pro"],
+    [competitor, "pro"],
+  ])
+    await query("INSERT INTO users(id,email,name,role) VALUES($1,$2,$1,$3)", [
+      id,
+      id + "@example.invalid",
+      role,
+    ]);
+  const id = randomUUID();
+  await query(
+    "INSERT INTO projects(id,customer_id,pro_id,title,description,category,zip,status) VALUES($1,$2,$3,'Privacy regression','Private request','Cleaning','08859','completed')",
+    [id, owner, pro],
+  );
+  for (const uid of [pro, competitor])
+    await query(
+      "INSERT INTO quotes(id,project_id,pro_id,amount,description) VALUES($1,$2,$3,10000,'Confidential scope')",
+      [randomUUID(), id, uid],
+    );
+  assert.deepEqual(
+    (await exportAccountData(pro)).quotes.map((q) => q.pro_id),
+    [pro],
+  );
+  assert.equal((await exportAccountData(owner)).quotes.length, 2);
+  await query(
+    "INSERT INTO professional_subscriptions(user_id,customer_id,checkout_id) VALUES($1,'cus_privacy','cs_privacy')",
+    [competitor],
+  );
+  const client = stripe(),
+    retrieve = client.checkout.sessions.retrieve,
+    expire = client.checkout.sessions.expire;
+  let expired = false;
+  try {
+    client.checkout.sessions.retrieve = (async () => ({
+      id: "cs_privacy",
+      status: "complete",
+    })) as unknown as typeof retrieve;
+    await assert.rejects(deleteAccountData(competitor), /processing/);
+    assert.equal(
+      (await query("SELECT deleted_at FROM users WHERE id=$1", [competitor]))
+        .rows[0].deleted_at,
+      null,
+    );
+    client.checkout.sessions.retrieve = (async () => ({
+      id: "cs_privacy",
+      status: "open",
+    })) as unknown as typeof retrieve;
+    client.checkout.sessions.expire = (async () => {
+      expired = true;
+      return { id: "cs_privacy", status: "expired" };
+    }) as unknown as typeof expire;
+    await deleteAccountData(competitor);
+    assert.ok(expired);
+    assert.equal(
+      (
+        await query(
+          "SELECT count(*)::int n FROM account_cleanup_jobs WHERE user_id=$1",
+          [competitor],
+        )
+      ).rows[0].n,
+      1,
+    );
+  } finally {
+    client.checkout.sessions.retrieve = retrieve;
+    client.checkout.sessions.expire = expire;
+  }
+});
+
+test("approved business publication remains unchanged while its profile is edited", async () => {
+  const { preservePublication, releasePublication } =
+    await import("../src/server/business-publication.js");
+  const id = "publication-" + randomUUID();
+  await query(
+    "INSERT INTO users(id,email,name,role) VALUES($1,$2,'Publication owner','pro')",
+    [id, id + "@example.invalid"],
+  );
+  await query(
+    "INSERT INTO profiles(id,business,category,bio,zip,rate,verified,listed,review_status) VALUES($1,'Approved name','Cleaning','Approved description','08859',50,true,true,'approved')",
+    [id],
+  );
+  await query("INSERT INTO saved(user_id,pro_id) VALUES($1,$2)", [
+    customer.id,
+    id,
+  ]);
+  await preservePublication({ query } as never, id);
+  await query(
+    "UPDATE profiles SET business='Pending name',bio='Pending description',review_status='pending' WHERE id=$1",
+    [id],
+  );
+  assert.equal(
+    (await workspace(customer)).profiles.find((p) => p.id === id)?.business,
+    "Approved name",
+  );
+  const own = {
+    id,
+    name: "Publication owner",
+    email: id + "@example.invalid",
+    role: "pro" as const,
+    settings: {},
+  };
+  assert.equal(
+    (await workspace(own)).profiles.find((p) => p.id === id)?.business,
+    "Pending name",
+  );
+  await releasePublication({ query } as never, id);
+  await query("UPDATE profiles SET review_status='approved' WHERE id=$1", [id]);
+  assert.equal(
+    (await workspace(customer)).profiles.find((p) => p.id === id)?.business,
+    "Pending name",
+  );
+});
+
+test("blocked estimates cannot authorize photos and customers cannot double-book site visits", async () => {
+  const { isOpenLead } = await import("../src/server/matching.js");
+  const { assertAppointment } = await import("../src/server/scheduling.js");
+  const c = "safety-c-" + randomUUID(),
+    a = "safety-a-" + randomUUID(),
+    b = "safety-b-" + randomUUID();
+  for (const [id, role] of [
+    [c, "customer"],
+    [a, "pro"],
+    [b, "pro"],
+  ])
+    await query("INSERT INTO users(id,email,name,role) VALUES($1,$2,$1,$3)", [
+      id,
+      id + "@example.invalid",
+      role,
+    ]);
+  for (const id of [a, b])
+    await query(
+      `INSERT INTO profiles(id,business,category,bio,zip,rate,weekly_hours) VALUES($1,'Safety fixture','Cleaning','Regression fixture','08859',50,'{"Mon":{"start":"08:00","end":"17:00"}}')`,
+      [id],
+    );
+  const first = randomUUID(),
+    second = randomUUID();
+  await query(
+    "INSERT INTO projects(id,customer_id,pro_id,title,description,category,zip,status,scheduled_at) VALUES($1,$2,$3,'Visit','Regression fixture','Cleaning','08859','booked','2030-01-07T14:00:00Z')",
+    [first, c, a],
+  );
+  await query(
+    "INSERT INTO projects(id,customer_id,pro_id,title,description,category,zip,status) VALUES($1,$2,$3,'Visit','Regression fixture','Cleaning','08859','booked')",
+    [second, c, b],
+  );
+  await assert.rejects(
+    assertAppointment({ query } as never, b, "2030-01-07T14:00:00Z", second),
+    /overlaps/,
+  );
+  await assertAppointment(
+    { query } as never,
+    b,
+    "2030-01-07T15:00:00Z",
+    second,
+  );
+  const lead = randomUUID();
+  await query(
+    "INSERT INTO projects(id,customer_id,title,description,category,zip) VALUES($1,$2,'Lead','Regression fixture','Cleaning','08859')",
+    [lead, c],
+  );
+  await query(
+    "INSERT INTO quotes(id,project_id,pro_id,amount,description) VALUES($1,$2,$3,1000,'Estimate')",
+    [randomUUID(), lead, a],
+  );
+  assert.equal(await isOpenLead(a, lead), true);
+  await query("INSERT INTO blocked(user_id,other_id) VALUES($1,$2)", [c, a]);
+  assert.equal(await isOpenLead(a, lead), false);
+  await query("DELETE FROM blocked WHERE user_id=$1 AND other_id=$2", [c, a]);
+  await query("UPDATE profiles SET suspended=true WHERE id=$1", [a]);
+  assert.equal(await isOpenLead(a, lead), false);
+});
+
+test("conversation history is paginated and message retries are idempotent", async () => {
+  const customer = {
+    id: "history-c-" + randomUUID(),
+    name: "History customer",
+    role: "customer" as const,
+    email: "",
+    settings: {},
+  };
+  const professional = {
+    id: "history-p-" + randomUUID(),
+    name: "History pro",
+    role: "pro" as const,
+    email: "",
+    settings: {},
+  };
+  for (const user of [customer, professional])
+    await query("INSERT INTO users(id,email,name,role) VALUES($1,$2,$3,$4)", [
+      user.id,
+      user.id + "@example.invalid",
+      user.name,
+      user.role,
+    ]);
+  await query(
+    "INSERT INTO profiles(id,business,category,bio,zip,rate) VALUES($1,'History business','Cleaning','History fixture','08859',50)",
+    [professional.id],
+  );
+
+  const express = (await import("express")).default;
+  const { discussions } = await import("../src/server/discussions.js");
+  const { errorResponse } = await import("../src/server/error-response.js");
+  const id = randomUUID(),
+    d = randomUUID();
+  await query(
+    "INSERT INTO projects(id,customer_id,title,description,category,zip) VALUES($1,$2,'History','Regression fixture','Cleaning','08859')",
+    [id, customer.id],
+  );
+  await query(
+    "INSERT INTO project_discussions(id,project_id,pro_id) VALUES($1,$2,$3)",
+    [d, id, professional.id],
+  );
+  await query(
+    "INSERT INTO discussion_messages(id,discussion_id,sender_id,body) SELECT gen_random_uuid(),$1,$2,'Older message '||n FROM generate_series(1,230) n",
+    [d, professional.id],
+  );
+  const app = express();
+  app.use(express.json());
+  app.use((req, _res, next) => {
+    req.account = req.headers["x-outsider"] ? outsider : customer;
+    next();
+  });
+  app.use(discussions);
+  app.use((e: unknown, _q: any, r: any, _n: any) => {
+    const out = errorResponse(e);
+    r.status(out.status).json(out.body);
+  });
+  const server = app.listen(0, "127.0.0.1");
+  await new Promise<void>((r) => server.once("listening", r));
+  const base = "http://127.0.0.1:" + (server.address() as any).port;
+  try {
+    const first = await (
+      await fetch(base + `/discussions/${d}/history`)
+    ).json();
+    assert.equal(first.messages.length, 50);
+    assert.equal(first.hasMore, true);
+    const cursor = first.messages[0];
+    const second = await (
+      await fetch(
+        base +
+          `/discussions/${d}/history?beforeAt=${encodeURIComponent(cursor.created_at)}&beforeId=${cursor.id}`,
+      )
+    ).json();
+    assert.equal(
+      new Set([...first.messages, ...second.messages].map((m) => m.id)).size,
+      100,
+    );
+    assert.equal(
+      (
+        await fetch(base + `/discussions/${d}/history`, {
+          headers: { "x-outsider": "1" },
+        })
+      ).status,
+      404,
+    );
+    const clientKey = randomUUID();
+    const send = (body: string) =>
+      fetch(base + `/discussions/${d}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body, projectId: id, clientKey }),
+      });
+    assert.equal((await send("Retry-safe message")).status, 200);
+    assert.equal((await send("Retry-safe message")).status, 200);
+    assert.equal((await send("Changed payload")).status, 409);
+    assert.equal(
+      (
+        await query(
+          "SELECT count(*)::int n FROM discussion_messages WHERE client_key=$1",
+          [clientKey],
+        )
+      ).rows[0].n,
+      1,
+    );
+  } finally {
+    await new Promise<void>((r) => server.close(() => r()));
+  }
+});
+
+test("project publish retry keys are scoped to the account and reject changed details", async () => {
+  const { previousProjectRequest } =
+    await import("../src/server/project-retries.js");
+  const c = { query } as any;
+  const id = await lifecycleProject("requested", false);
+  const key = randomUUID();
+  assert.equal(
+    await previousProjectRequest(c, customer.id, key, "first"),
+    undefined,
+  );
+  await query(
+    "INSERT INTO project_publish_requests(user_id,client_key,project_id,fingerprint) VALUES($1,$2,$3,$4)",
+    [customer.id, key, id, "first"],
+  );
+  assert.equal(await previousProjectRequest(c, customer.id, key, "first"), id);
+  await assert.rejects(
+    previousProjectRequest(c, customer.id, key, "changed"),
+    /different details/,
+  );
+  assert.equal(
+    await previousProjectRequest(c, outsider.id, key, "first"),
+    undefined,
+  );
 });
