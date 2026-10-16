@@ -153,3 +153,34 @@ test("bootstrap JSON cannot break out of a script tag", () => {
   assert.ok(!page.bootstrap.includes("</script><script>"));
   assert.match(page.bootstrap, /\\u003c/);
 });
+test("FAQ and contact pages are indexable, in the sitemap list, and expose truthful structured data", async () => {
+  const { seoStaticPaths } = await import("../src/shared/seo-content.js");
+  assert.ok(seoStaticPaths.includes("/faq"));
+  assert.ok(seoStaticPaths.includes("/contact"));
+  const faq = renderPage("/faq", production);
+  assert.equal(faq.status, 200);
+  assert.match(faq.head, /index,follow/);
+  assert.match(faq.head, /"@type":"FAQPage"/);
+  assert.match(faq.head, /"@type":"Question"/);
+  assert.match(faq.html, /Does Aplime handle payment for the work\?/);
+  const contact = renderPage("/contact", {
+    ...production,
+    supportEmail: "help@example.com",
+  });
+  assert.equal(contact.status, 200);
+  assert.match(contact.head, /"@type":"ContactPage"/);
+  assert.match(contact.html, /mailto:help@example.com/);
+  assert.doesNotMatch(renderPage("/contact", production).html, /mailto:/);
+});
+test("titles do not repeat the brand and the organization logo is a raster image", () => {
+  const about = renderPage("/about", production).head;
+  assert.match(about, /<title>About Aplime<\/title>/);
+  assert.match(about, /"logo":"https:\/\/aplime.com\/icon-512.png"/);
+});
+test("unknown pages return a helpful noindex 404", () => {
+  const page = renderPage("/nope", production);
+  assert.equal(page.status, 404);
+  assert.match(page.head, /noindex,nofollow/);
+  assert.match(page.html, /href="\/services"/);
+  assert.match(page.html, /href="\/faq"/);
+});

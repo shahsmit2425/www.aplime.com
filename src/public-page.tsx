@@ -2,7 +2,11 @@ import { Menu, MessageCircle, FileText } from "lucide-react";
 import { BusinessDisplay } from "./client/business-display.js";
 import { categories, type Profile } from "./shared/domain.js";
 import { Brand, LinkButton, ServiceIcon } from "./client/ui.js";
-import { informationalPages, serviceSeoContent } from "./shared/seo-content.js";
+import {
+  generalFaqs,
+  informationalPages,
+  serviceSeoContent,
+} from "./shared/seo-content.js";
 export const serviceCopy: Record<string, string> = {
   Handyman:
     "Get help with assembly, wall mounting, minor repairs, and the small improvements that make a home work better.",
@@ -293,12 +297,145 @@ function InformationPage({ path }: { path: string }) {
     </>
   );
 }
+function FaqPage({ path }: { path: string }) {
+  const page = informationalPages[path as keyof typeof informationalPages];
+  return (
+    <>
+      <Breadcrumbs current={page.title} />
+      <section className="seo-intro">
+        <p className="eyebrow">HELPFUL ANSWERS</p>
+        <h1>{page.heading}</h1>
+        <p className="lede">{page.description}</p>
+      </section>
+      {generalFaqs.map((group, index) => (
+        <section
+          className="seo-faq"
+          aria-labelledby={"faq-group-" + index}
+          key={group.heading}
+        >
+          <h2 id={"faq-group-" + index}>{group.heading}</h2>
+          {group.items.map((faq) => (
+            <details key={faq.question}>
+              <summary>{faq.question}</summary>
+              <p>{faq.answer}</p>
+            </details>
+          ))}
+        </section>
+      ))}
+      <section className="seo-callout">
+        <h2>Still have a question?</h2>
+        <LinkButton href="/contact">Contact Aplime</LinkButton>
+      </section>
+    </>
+  );
+}
+
+function ContactPage({
+  path,
+  supportEmail,
+}: {
+  path: string;
+  supportEmail?: string;
+}) {
+  const page = informationalPages[path as keyof typeof informationalPages];
+  return (
+    <>
+      <Breadcrumbs current={page.title} />
+      <section className="seo-intro">
+        <p className="eyebrow">CONTACT</p>
+        <h1>{page.heading}</h1>
+        <p className="lede">{page.description}</p>
+      </section>
+      <section className="seo-editorial-grid">
+        <article>
+          <h2>If you have an account</h2>
+          <p>
+            Sign in and open Help to message the Aplime team about a project, a
+            professional, billing, or your listing. Your conversation and its
+            status stay in your account.
+          </p>
+          <p>
+            <a href="/app/help">Open Help</a>
+          </p>
+        </article>
+        {supportEmail ? (
+          <article>
+            <h2>By email</h2>
+            <p>
+              Write to <a href={"mailto:" + supportEmail}>{supportEmail}</a> if
+              you cannot sign in or have a question before creating an account.
+            </p>
+          </article>
+        ) : null}
+        <article>
+          <h2>Your data</h2>
+          <p>
+            Download a copy of your data or delete your account from Settings
+            after signing in.
+          </p>
+        </article>
+        <article>
+          <h2>Urgent problems at home</h2>
+          <p>
+            Aplime is not an emergency service. For fire, flooding, gas, live
+            wiring, or immediate danger, contact emergency services or the
+            appropriate utility.
+          </p>
+        </article>
+      </section>
+      <section className="seo-callout">
+        <h2>Looking for quick answers?</h2>
+        <LinkButton href="/faq">Read the FAQ</LinkButton>
+      </section>
+    </>
+  );
+}
+
+function NotFoundPage() {
+  return (
+    <>
+      <section className="seo-intro">
+        <p className="eyebrow">PAGE NOT FOUND</p>
+        <h1>We couldn’t find that page.</h1>
+        <p className="lede">
+          The link may be out of date or mistyped. Try one of these instead.
+        </p>
+        <div className="actions">
+          <LinkButton href="/">Back to home</LinkButton>
+          <a href="/services">Browse all services →</a>
+        </div>
+      </section>
+      <section className="seo-related">
+        <h2>Popular services</h2>
+        <nav aria-label="Services">
+          {categories.map((item) => (
+            <a href={"/services/" + item.toLowerCase()} key={item}>
+              <ServiceIcon service={item} size={18} />
+              {item}
+            </a>
+          ))}
+        </nav>
+      </section>
+      <section className="seo-related">
+        <h2>Need help?</h2>
+        <nav aria-label="Help">
+          <a href="/faq">Frequently asked questions</a>
+          <a href="/contact">Contact Aplime</a>
+          <a href="/app/login">Sign in</a>
+        </nav>
+      </section>
+    </>
+  );
+}
+
 export function PublicPage({
   path,
   profile,
+  supportEmail,
 }: {
   path: string;
   profile?: Profile;
+  supportEmail?: string;
 }) {
   const slug = decodeURIComponent(path.split("/")[2] || "");
   const category = categories.find((c) => c.toLowerCase() === slug);
@@ -377,10 +514,7 @@ export function PublicPage({
             </p>
           </article>
         ) : notFound ? (
-          <section className="panel">
-            <h1>We couldn’t find that page.</h1>
-            <LinkButton href="/">Back to home</LinkButton>
-          </section>
+          <NotFoundPage />
         ) : profile ? (
           <section className="profile-public">
             <BusinessDisplay profile={profile} />
@@ -395,6 +529,10 @@ export function PublicPage({
               </LinkButton>
             </div>
           </section>
+        ) : path === "/faq" ? (
+          <FaqPage path={path} />
+        ) : path === "/contact" ? (
+          <ContactPage path={path} supportEmail={supportEmail} />
         ) : information ? (
           <InformationPage path={path} />
         ) : servicesIndex ? (
@@ -508,6 +646,8 @@ export function PublicPage({
           <a href="/terms">Service information</a>
           <a href="/trust-and-safety">Trust &amp; safety</a>
           <a href="/about">About</a>
+          <a href="/faq">FAQ</a>
+          <a href="/contact">Contact</a>
           <a href="/app/help">Get help</a>
         </nav>
       </footer>

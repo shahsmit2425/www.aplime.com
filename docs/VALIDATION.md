@@ -1,3 +1,11 @@
+## Public site polish: icons, FAQ, contact, 404 and HSTS - October 16, 2026
+
+Added a complete icon set under `public/` (`favicon.ico`, `apple-touch-icon.png`, 192/512 px PNGs, `site.webmanifest`) generated from `favicon.svg`, linked from `index.html`, and switched the organization logo schema to a PNG. Added indexable `/faq` (with `FAQPage` markup) and `/contact` pages to `informationalPages`, so they enter the sitemap automatically; the footer links to both. The 404 page now links to services, FAQ, contact and sign-in. Titles no longer repeat the brand (for example "About Aplime"). The three admin static sites now send `Strict-Transport-Security`. No environment variables changed; `/contact` reads the existing public `supportEmail`.
+
+FAQ answers restate behavior documented elsewhere in this repository (New Jersey project addresses, no project payment processing, Stripe Identity plus administrator review, no call recording, export/deletion rules). Re-check them whenever those rules change.
+
+Validation: TypeScript, 172 tests and the web, SSR and admin builds pass. A local production-mode server returned 200 for the new icons, manifest, `/faq` and `/contact`, 404 for an unknown path, and listed `/faq` and `/contact` in the sitemap. Not verified: how the new pages look in a browser (no browser was available), live HSTS headers after the Render deploy, Google's handling of the icons and FAQ markup, and the generated icons on real iOS/Android home screens. The gzipped customer stylesheet is about 30 KB, so splitting the shared CSS was not attempted.
+
 ## Security and workflow hardening — October 15, 2026
 
 Implemented after the marketplace review: exports exclude competitors' estimates and explicitly refuse oversized exports rather than silently truncating. Deletion checks Stripe's current subscription/checkout state, expires open checkouts, and queues durable Firebase/R2 cleanup. Approved business details/images remain published while edits await review. Blocked/suspended professionals cannot use an old quote or conversation to access current project photos. Quotas lock the active account within the creation transaction. Customer appointments conflict with their other confirmed visits, including visits with different professionals.

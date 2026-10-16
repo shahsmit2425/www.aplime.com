@@ -2,7 +2,11 @@ import { renderToString } from "react-dom/server";
 import { PublicPage } from "./public-page.js";
 import { categories, type Profile } from "./shared/domain.js";
 import type { PublicConfig } from "./shared/config.js";
-import { informationalPages, serviceSeoContent } from "./shared/seo-content.js";
+import {
+  generalFaqs,
+  informationalPages,
+  serviceSeoContent,
+} from "./shared/seo-content.js";
 
 export function escapeHtml(value: string) {
   return value.replace(
@@ -33,6 +37,9 @@ function breadcrumbSchema(
   };
 }
 
+const withBrand = (title: string) =>
+  title.includes("Aplime") ? title : title + " | Aplime";
+
 export function renderPage(
   path: string,
   config: PublicConfig,
@@ -59,9 +66,9 @@ export function renderPage(
   const title = profile
     ? `${profile.business} | ${profile.category}${profile.details?.city ? ` in ${profile.details.city}, ${profile.details.state}` : ""} | Aplime`
     : category
-      ? `${serviceSeoContent[category].title} | Aplime`
+      ? withBrand(serviceSeoContent[category].title)
       : information
-        ? `${information.title} | Aplime`
+        ? withBrand(information.title)
         : servicesIndex
           ? "Home Services Directory | Aplime"
           : privatePage
@@ -91,7 +98,7 @@ export function renderPage(
     "@id": siteUrl + "/#organization",
     name: "Aplime",
     url: siteUrl + "/",
-    logo: siteUrl + "/favicon.svg",
+    logo: siteUrl + "/icon-512.png",
     ...(config.supportEmail
       ? {
           contactPoint: {
@@ -184,12 +191,28 @@ export function renderPage(
     );
   } else if (information) {
     graph.push({
-      "@type": "WebPage",
+      "@type":
+        path === "/faq"
+          ? "FAQPage"
+          : path === "/contact"
+            ? "ContactPage"
+            : "WebPage",
       "@id": canonical + "#page",
       name: information.title,
       description,
       url: canonical,
       isPartOf: { "@id": siteUrl + "/#website" },
+      ...(path === "/faq"
+        ? {
+            mainEntity: generalFaqs.flatMap((group) =>
+              group.items.map((faq) => ({
+                "@type": "Question",
+                name: faq.question,
+                acceptedAnswer: { "@type": "Answer", text: faq.answer },
+              })),
+            ),
+          }
+        : {}),
     });
     graph.push(
       breadcrumbSchema(siteUrl, [
@@ -219,7 +242,13 @@ export function renderPage(
     status: valid ? 200 : 404,
     html: privatePage
       ? ""
-      : renderToString(<PublicPage path={path} profile={profile} />),
+      : renderToString(
+          <PublicPage
+            path={path}
+            profile={profile}
+            supportEmail={config.supportEmail}
+          />,
+        ),
     head:
       "<title>" +
       escapeHtml(title) +

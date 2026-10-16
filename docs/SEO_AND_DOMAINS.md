@@ -7,9 +7,12 @@ Public pages are rendered on the web service so their headings, descriptions, li
 Production exposes:
 
 - `/services` and one detailed page for every supported service category
-- `/about`, `/how-it-works`, `/for-professionals`, and `/trust-and-safety`
+- `/about`, `/how-it-works`, `/for-professionals`, `/trust-and-safety`, `/faq`, and `/contact`
 - approved public professional profiles
 - `/robots.txt` and `/sitemap.xml`
+- Browser and search icons: `favicon.ico` (16/32/48 px), `favicon.svg`, `apple-touch-icon.png`, `icon-192.png`, `icon-512.png`, and `site.webmanifest`, all served from `public/`. The structured-data organization logo points at `icon-512.png`.
+
+`/faq` carries `FAQPage` markup that matches its visible answers, and `/contact` carries `ContactPage` markup. `/contact` shows the support email only when `SUPPORT_EMAIL` is configured. Unknown URLs return a real HTTP 404, `noindex`, with links to services, FAQ, contact, and sign-in. Page titles append `| Aplime` only when the title does not already contain the brand name.
 
 The sitemap omits drafts, unapproved professionals, private pages, legal pages marked noindex, development, and staging. If the API is temporarily unavailable, the sitemap continues to serve the static public URLs instead of returning an error.
 

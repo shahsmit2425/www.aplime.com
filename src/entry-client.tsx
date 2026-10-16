@@ -55,5 +55,11 @@ if (privatePage) {
     </React.StrictMode>,
   );
 } else if (root.hasChildNodes() && window.__PAGE__) {
-  hydrateRoot(root, <PublicPage {...window.__PAGE__} />);
-} else createRoot(root).render(<PublicPage path={location.pathname} />);
+  hydrateRoot(
+    root,
+    <PublicPage {...window.__PAGE__} supportEmail={config.supportEmail} />,
+  );
+} else
+  createRoot(root).render(
+    <PublicPage path={location.pathname} supportEmail={config.supportEmail} />,
+  );

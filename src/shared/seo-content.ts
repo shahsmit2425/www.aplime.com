@@ -265,7 +265,90 @@ export const informationalPages = {
       "Understand Aplime identity verification, business-profile review, private communication, reporting, and safer home-service practices.",
     heading: "Know what Aplime checks and what you should confirm.",
   },
+  "/faq": {
+    title: "Frequently Asked Questions",
+    description:
+      "Answers about requesting estimates, payments, professional verification, calls, privacy, and account deletion on Aplime.",
+    heading: "Answers to common questions about Aplime.",
+  },
+  "/contact": {
+    title: "Contact Aplime",
+    description:
+      "Reach Aplime support about a project, a professional profile, billing, or your account. Signed-in users can message support from Help.",
+    heading: "Get help from the Aplime team.",
+  },
 } as const;
+
+export const generalFaqs: {
+  heading: string;
+  items: { question: string; answer: string }[];
+}[] = [
+  {
+    heading: "Using Aplime",
+    items: [
+      {
+        question: "What is Aplime?",
+        answer:
+          "Aplime is a marketplace for home services. Customers describe a project, professionals discuss it and send written estimates, and messages, calls, scheduling, and project updates stay in one place.",
+      },
+      {
+        question: "Where does Aplime currently operate?",
+        answer:
+          "New project addresses must currently be in New Jersey. Aplime will say so when you choose an address outside that area.",
+      },
+      {
+        question: "How do I get estimates for my project?",
+        answer:
+          "Create a request, answer the service questions, and add up to five photos. Eligible professionals can start a private conversation about the project and send itemized written estimates, and you choose which one to accept.",
+      },
+      {
+        question: "Does Aplime handle payment for the work?",
+        answer:
+          "No. Customers and professionals arrange payment for the work directly. Aplime does not process project payments. Professionals pay Aplime a membership through Stripe.",
+      },
+      {
+        question: "Can I talk to a professional before choosing?",
+        answer:
+          "Yes. You can use private project messages and schedule audio or video calls. Aplime does not record audio or video calls in this application.",
+      },
+    ],
+  },
+  {
+    heading: "Trust and safety",
+    items: [
+      {
+        question: "How are professionals checked?",
+        answer:
+          "Stripe Identity verifies the account holder, and Aplime administrators review a business profile before it is published. This does not prove licensing, insurance, qualifications, or quality of work, so confirm those directly with the business and the issuing authority.",
+      },
+      {
+        question: "What should I do if something goes wrong on a project?",
+        answer:
+          "Use Report an issue on the project while work is under way, paused, or finished. Reporting alerts Aplime administrators. You can also message support from Help in your account.",
+      },
+      {
+        question: "Is Aplime an emergency service?",
+        answer:
+          "No. For fire, flooding, gas, live wiring, or any immediate danger, contact emergency services or the appropriate utility first.",
+      },
+    ],
+  },
+  {
+    heading: "Your account and privacy",
+    items: [
+      {
+        question: "Who can see my project messages and files?",
+        answer:
+          "Project conversations are between the accounts involved, and files are stored privately. Authorized Aplime administrators can review account details, projects, conversations, and uploaded files for support, marketplace operations, and safety, and that access is logged.",
+      },
+      {
+        question: "How do I download my data or delete my account?",
+        answer:
+          "Open Settings in your account to download a copy of your data or permanently delete the account. Deletion is not available while you have booked, in-progress, paused, or disputed work.",
+      },
+    ],
+  },
+];
 
 export const seoStaticPaths = [
   "/services",

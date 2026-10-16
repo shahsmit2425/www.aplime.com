@@ -58,6 +58,13 @@ test("admin static headers permit private signed R2 image previews without openi
         (h: any) => h.name === "Referrer-Policy" && h.value === "no-referrer",
       ),
     );
+    assert.ok(
+      service.headers.some(
+        (h: any) =>
+          h.name === "Strict-Transport-Security" &&
+          /max-age=\d{8,}/.test(h.value),
+      ),
+    );
   }
 });
 test("promotion guard rejects direct development-to-main changes", () => {
