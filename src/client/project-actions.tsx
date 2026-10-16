@@ -346,6 +346,7 @@ export function EditDetails({
                 budgetMin: cents(f.get("budgetMin")),
                 budgetMax: cents(f.get("budgetMax")),
               });
+              for (const photo of photos) photo.saved = true;
               onDone();
             } finally {
               setUploading("");

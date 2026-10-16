@@ -1,5 +1,5 @@
 import { Router, raw } from "express";
-import { randomUUID } from "node:crypto";
+import { randomUUID, createHash } from "node:crypto";
 import { z } from "zod";
 import type pg from "pg";
 import { pool, transaction } from "./db/index.js";
@@ -18,6 +18,7 @@ import {
   imageHeader,
   storeBusinessImage,
 } from "./integrations/storage.js";
+import { recordProjectActivity } from "./project-events.js";
 export const projectImages = Router();
 async function editable(
   c: Pick<pg.PoolClient, "query">,
@@ -33,14 +34,38 @@ async function editable(
 }
 projectImages.post("/projects/:id/photos/reservations", async (req, res) => {
   const data = uploadSchema
-    .extend({ contentType: z.enum(IMAGE_TYPES) })
+    .extend({
+      contentType: z.enum(IMAGE_TYPES),
+      clientKey: z.string().uuid().optional(),
+    })
     .strict()
     .parse(req.body);
   const projectId = z.string().uuid().parse(req.params.id);
-  const id = randomUUID(),
-    key = `${env.APP_ENV}/${projectId}/${id}`;
+  let id: string = randomUUID();
+  const key = `${env.APP_ENV}/${projectId}/${id}`;
   await transaction(async (c) => {
     await editable(c, projectId, req.account.id);
+    if (data.clientKey) {
+      const previous = (
+        await c.query(
+          "SELECT * FROM uploads WHERE project_id=$1 AND user_id=$2 AND client_key=$3",
+          [projectId, req.account.id, data.clientKey],
+        )
+      ).rows[0];
+      if (previous) {
+        if (
+          previous.name !== data.name ||
+          previous.content_type !== data.contentType ||
+          previous.source_size !== data.size
+        )
+          fail(
+            409,
+            "This photo request was already used for another file. Choose the photo again.",
+          );
+        id = previous.id;
+        return;
+      }
+    }
     const counts = (
       await c.query(
         "SELECT count(*)::int AS n FROM uploads WHERE project_id=$1 AND user_id=$2 AND status='pending' AND content_type LIKE 'image/%'",
@@ -53,7 +78,7 @@ projectImages.post("/projects/:id/photos/reservations", async (req, res) => {
         "Finish or remove your unfinished photo uploads before adding more.",
       );
     await c.query(
-      "INSERT INTO uploads(id,project_id,user_id,object_key,name,content_type,size) VALUES($1,$2,$3,$4,$5,$6,$7)",
+      "INSERT INTO uploads(id,project_id,user_id,object_key,name,content_type,size,source_size,client_key) VALUES($1,$2,$3,$4,$5,$6,$7,$7,$8)",
       [
         id,
         projectId,
@@ -62,6 +87,7 @@ projectImages.post("/projects/:id/photos/reservations", async (req, res) => {
         data.name,
         data.contentType,
         data.size,
+        data.clientKey || null,
       ],
     );
   });
@@ -77,7 +103,7 @@ projectImages.put(
     if (
       !(
         await pool.query(
-          "SELECT 1 FROM uploads WHERE id=$1 AND user_id=$2 AND status='pending' AND content_type LIKE 'image/%'",
+          "SELECT 1 FROM uploads WHERE id=$1 AND user_id=$2 AND status IN ('pending','ready') AND content_type LIKE 'image/%'",
           [id, req.account.id],
         )
       ).rowCount
@@ -127,20 +153,30 @@ projectImages.put(
             [req.params.id, req.account.id],
           )
         ).rows[0];
-        if (!f || f.status !== "pending")
-          fail(409, "This upload is no longer pending.");
+        if (!f) fail(404, "Photo unavailable.");
+        const sourceHash = createHash("sha256").update(req.body).digest("hex");
         if (
-          f.size !== req.body.length ||
+          (f.source_size !== null && f.source_size !== req.body.length) ||
           f.content_type !== req.get("content-type") ||
           !matchesImageSignature(f.content_type, req.body)
         )
           fail(400, "This file does not match the selected photo.");
+        if (f.status === "ready") {
+          if (f.source_hash !== sourceHash)
+            fail(
+              409,
+              "This photo is already saved. Use the editor to replace it.",
+            );
+          return;
+        }
+        if (f.status !== "pending")
+          fail(409, "This upload is no longer pending.");
         const clean = await sanitizeImage(req.body, f.content_type);
         await storeBusinessImage(f.object_key, f.content_type, clean);
-        await c.query("UPDATE uploads SET size=$2 WHERE id=$1", [
-          f.id,
-          clean.length,
-        ]);
+        await c.query(
+          "UPDATE uploads SET size=$2,source_size=$3,source_hash=$4,content_received_at=now() WHERE id=$1",
+          [f.id, clean.length, req.body.length, sourceHash],
+        );
       });
       res.json({ ok: true });
     } finally {
@@ -148,6 +184,81 @@ projectImages.put(
     }
   },
 );
+projectImages.post("/projects/:id/photos/complete", async (req, res) => {
+  const projectId = z.string().uuid().parse(req.params.id);
+  const { photoIds } = z
+    .object({
+      photoIds: z.array(z.string().uuid()).min(1).max(MAX_PROJECT_IMAGES),
+    })
+    .strict()
+    .parse(req.body);
+  await transaction((c) =>
+    completeNewProjectPhotos(c, projectId, req.account.id, photoIds),
+  );
+  res.json({ ok: true });
+});
+// Compatibility for already-open clients using the former completion URL.
+// Only owner-authorized, API-sanitized project photos can be completed here.
+projectImages.post(
+  ["/project-photos/:id/complete", "/uploads/:id/complete"],
+  async (req, res) => {
+    const id = z.string().uuid().parse(req.params.id);
+    z.object({}).strict().parse(req.body);
+    await transaction(async (c) => {
+      const file = (
+        await c.query(
+          "SELECT project_id FROM uploads WHERE id=$1 AND user_id=$2 AND content_type LIKE 'image/%'",
+          [id, req.account.id],
+        )
+      ).rows[0];
+      if (!file) fail(404, "Photo unavailable.");
+      await completeNewProjectPhotos(c, file.project_id, req.account.id, [id]);
+    });
+    res.json({ ok: true });
+  },
+);
+
+async function completeNewProjectPhotos(
+  c: pg.PoolClient,
+  projectId: string,
+  userId: string,
+  photoIds: string[],
+) {
+  await editable(c, projectId, userId);
+  if (new Set(photoIds).size !== photoIds.length)
+    fail(400, "A photo cannot appear twice.");
+  const files = (
+    await c.query(
+      "SELECT * FROM uploads WHERE project_id=$1 AND user_id=$2 AND content_type LIKE 'image/%' FOR UPDATE",
+      [projectId, userId],
+    )
+  ).rows;
+  const selected = photoIds.map((id) => files.find((f) => f.id === id));
+  if (selected.some((f) => !f))
+    fail(404, "One of these photos is unavailable.");
+  const pending = selected.filter((f) => f.status !== "ready");
+  if (!pending.length) return;
+  if (pending.some((f) => !f.content_received_at || !f.source_hash))
+    fail(
+      409,
+      "A photo did not finish uploading. Retry the photo upload before saving.",
+    );
+  const readyIds = files.filter((f) => f.status === "ready").map((f) => f.id);
+  await commitProjectPhotos(c, projectId, userId, {
+    expectedIds: readyIds,
+    photoIds: [...readyIds, ...pending.map((f) => f.id)],
+  });
+  await c.query("UPDATE projects SET version=version+1 WHERE id=$1", [
+    projectId,
+  ]);
+  await recordProjectActivity(
+    c,
+    projectId,
+    userId,
+    "photos_added",
+    `${pending.length} project photo${pending.length === 1 ? "" : "s"} added`,
+  );
+}
 // Called inside update_details: text and the complete photo selection commit
 // together. A failed upload/validation leaves every existing image unchanged.
 export async function commitProjectPhotos(

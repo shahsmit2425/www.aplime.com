@@ -38,7 +38,7 @@ import {
 } from "./project-actions.js";
 import {
   ProjectPhotos,
-  sendProjectPhoto,
+  publishProjectPhotos,
   useProjectPhotos,
 } from "./project-photos.js";
 import { useEffect, useState, useRef } from "react";
@@ -421,7 +421,7 @@ function Projects() {
   const [creating, setCreating] = useState(!!id),
     [projectCategory, setProjectCategory] =
       useState<ServiceCategory>(initialCategory);
-  const [photos, setPhotos] = useProjectPhotos();
+  const [photos, setPhotos] = useProjectPhotos(true);
   const [savedProjectId, setSavedProjectId] = useState<string | null>(null);
   const publishRetry = useRef({ signature: "", key: "" });
   const [uploadProgress, setUploadProgress] = useState("");
@@ -487,12 +487,7 @@ function Projects() {
         setSavedProjectId(result.id);
         createdId = result.id;
         try {
-          for (let index = 0; index < photos.length; index++) {
-            setUploadProgress(
-              `Uploading photo ${index + 1} of ${photos.length}…`,
-            );
-            await sendProjectPhoto(result.id, photos[index]);
-          }
+          await publishProjectPhotos(result.id, photos, setUploadProgress);
         } catch (error) {
           setUploadProgress(
             "Your project is saved. Some photos could not be uploaded. Retry below, or open your project to continue later.",

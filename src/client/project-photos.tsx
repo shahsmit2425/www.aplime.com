@@ -16,43 +16,33 @@ import {
   IMAGE_TYPES,
 } from "../shared/uploads.js";
 import { request, uploadImageContent } from "./api.js";
-export type ProjectPhoto = {
-  key: string;
-  file: File;
-  preview: string;
-  uploadId?: string;
-  done?: boolean;
+import {
+  transferProjectPhoto,
+  publishPhotos,
+  type ProjectPhoto,
+} from "./project-photo-transfer.js";
+export type { ProjectPhoto } from "./project-photo-transfer.js";
+const transport = {
+  request,
+  upload: (path: string, file: File) =>
+    uploadImageContent(path, file, AbortSignal.timeout(120000)),
 };
-async function transferProjectPhoto(projectId: string, photo: ProjectPhoto) {
-  if (!photo.uploadId) {
-    const reservation = await request(
-      `/projects/${projectId}/photos/reservations`,
-      {
-        name: photo.file.name,
-        contentType: photo.file.type,
-        size: photo.file.size,
-      },
-    );
-    photo.uploadId = reservation.id;
-  }
-  await uploadImageContent(
-    `/project-photos/${photo.uploadId}/content`,
-    photo.file,
-    AbortSignal.timeout(120000),
-  );
-}
 export async function sendProjectPhoto(projectId: string, photo: ProjectPhoto) {
-  if (photo.done) return;
-  await transferProjectPhoto(projectId, photo);
-  await request(`/uploads/${photo.uploadId}/complete`, {});
-  photo.done = true;
+  await publishPhotos(projectId, [photo], transport);
+}
+export async function publishProjectPhotos(
+  projectId: string,
+  photos: ProjectPhoto[],
+  progress: (message: string) => void,
+) {
+  await publishPhotos(projectId, photos, transport, progress);
 }
 export async function stageProjectPhoto(
   projectId: string,
   photo: ProjectPhoto,
 ) {
   if (photo.done) return;
-  await transferProjectPhoto(projectId, photo);
+  await transferProjectPhoto(projectId, photo, transport);
   photo.done = true;
 }
 // The project form owns previews so review/back navigation keeps them alive.
@@ -64,7 +54,7 @@ export function useProjectPhotos(cleanupPending = false) {
     (next: ProjectPhoto[]) => {
       if (cleanupPending)
         for (const photo of current.current) {
-          if (photo.uploadId && !next.includes(photo))
+          if (photo.uploadId && !photo.saved && !next.includes(photo))
             void request(
               `/uploads/${photo.uploadId}`,
               undefined,
@@ -85,7 +75,7 @@ export function useProjectPhotos(cleanupPending = false) {
     () => () => {
       if (cleanupPending)
         for (const photo of current.current) {
-          if (photo.uploadId)
+          if (photo.uploadId && !photo.saved)
             void request(
               `/uploads/${photo.uploadId}`,
               undefined,
@@ -282,10 +272,14 @@ export function ProjectPhotos({
             <div className="business-image-heading">
               <strong>Photo {index + 1}</strong>
               <span className="business-image-status">
-                {photo.done ? (
+                {photo.done || photo.transferred ? (
                   <>
                     <CheckCircle2 size={13} />
-                    {editing ? "Uploaded · not saved" : "Uploaded"}
+                    {editing
+                      ? "Uploaded · not saved"
+                      : photo.done
+                        ? "Saved"
+                        : "Uploaded · ready to save"}
                   </>
                 ) : editing ? (
                   "Ready to save"

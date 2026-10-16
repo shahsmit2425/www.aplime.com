@@ -163,6 +163,13 @@ await db.exec(
   await readFile("src/server/db/migrations/024_event_email_alerts.sql", "utf8"),
 );
 
+await db.exec(
+  await readFile(
+    "src/server/db/migrations/025_project_photo_completion.sql",
+    "utf8",
+  ),
+);
+
 test.after(async () => {
   await db.close();
   await pool.end();
