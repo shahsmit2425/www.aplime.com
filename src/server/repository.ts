@@ -7,6 +7,7 @@ import {
   marketplacePreview,
 } from "./matching.js";
 import { env } from "./config.js";
+import { queueEventEmails } from "./email-alerts.js";
 import { imageUrl } from "./integrations/storage.js";
 import { randomUUID } from "node:crypto";
 import { pool, camel } from "./db/index.js";
@@ -252,13 +253,17 @@ export async function notify(
   target: { page: string; id?: string } = { page: "notifications" },
 ) {
   if (!userId) return;
+  const noticeId = randomUUID();
   await c.query(
     "INSERT INTO notifications(id,user_id,title,body,target_page,target_id) VALUES($1,$2,$3,$4,$5,$6)",
-    [randomUUID(), userId, title, body, target.page, target.id || null],
+    [noticeId, userId, title, body, target.page, target.id || null],
   );
-  await c.query(
-    "INSERT INTO email_outbox(id,user_id,subject,body) SELECT $1,id,$3,$4 FROM users WHERE id=$2 AND COALESCE((settings->>'emailAlerts')::boolean,true)",
-    [randomUUID(), userId, title, body],
+  await queueEventEmails(
+    c,
+    [{ id: noticeId, user_id: userId }],
+    title,
+    body,
+    target,
   );
 }
 // One bulk insert for fan-out alerts: a notification per user plus an email for those who allow email alerts.
@@ -270,14 +275,11 @@ export async function notifyMany(
   target: { page: string; id?: string } = { page: "notifications" },
 ) {
   if (!userIds.length) return;
-  await c.query(
-    "INSERT INTO notifications(id,user_id,title,body,target_page,target_id) SELECT gen_random_uuid(),u,$2,$3,$4,$5 FROM unnest($1::text[]) AS u",
-    [userIds, title, body, target.page, target.id || null],
+  const inserted = await c.query(
+    "INSERT INTO notifications(id,user_id,title,body,target_page,target_id) SELECT gen_random_uuid(),u,$2,$3,$4,$5 FROM unnest($1::text[]) AS u RETURNING id,user_id",
+    [[...new Set(userIds)], title, body, target.page, target.id || null],
   );
-  await c.query(
-    "INSERT INTO email_outbox(id,user_id,subject,body) SELECT gen_random_uuid(),id,$2,$3 FROM users WHERE id=ANY($1::text[]) AND COALESCE((settings->>'emailAlerts')::boolean,true)",
-    [userIds, title, body],
-  );
+  await queueEventEmails(c, inserted.rows, title, body, target);
 }
 export async function audit(
   c: pg.PoolClient,

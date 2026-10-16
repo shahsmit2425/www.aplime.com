@@ -158,7 +158,8 @@ export function validateDeployment() {
     throw new Error("Production requires a Stripe live key.");
 }
 
-// The mail process does not use payments, authentication, maps, calls, or storage.
+// Mail starts independently of optional provider jobs; account cleanup needs
+// Firebase/R2 credentials when such jobs are present.
 export function validateMailWorker(config: typeof env = env) {
   const keys = [
     "DATABASE_URL",
@@ -180,4 +181,12 @@ export function validateMailWorker(config: typeof env = env) {
     config.SMTP_PORT > 65535
   )
     throw new Error("SMTP_PORT must be a valid port number.");
+  if (
+    config.NODE_ENV === "production" &&
+    (!config.SITE_URL.startsWith("https://") ||
+      new URL(config.SITE_URL).origin !== config.SITE_URL)
+  )
+    throw new Error(
+      "Email worker SITE_URL must be the exact HTTPS customer website origin.",
+    );
 }

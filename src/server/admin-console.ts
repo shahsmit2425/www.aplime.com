@@ -11,6 +11,8 @@ import { fail } from "./errors.js";
 import type { Profile } from "../shared/domain.js";
 import { stripe } from "./integrations/stripe.js";
 import { subscriptionMembership } from "./membership-plans.js";
+import { emailCategories } from "../shared/email-alerts.js";
+import { eventEmail } from "./email-template.js";
 export const adminConsole = Router();
 adminConsole.use((req, res, next) => {
   if (req.account.role !== "admin") fail(403, "Administrator access required.");
@@ -42,6 +44,92 @@ adminConsole.get("/session", async (req, res) => {
     )
   ).rows[0].n;
   res.json({ user: req.account, notices, unreadCount });
+});
+adminConsole.get("/email-alerts", async (req, res) => {
+  const { page, status } = z
+    .object({
+      page: z.coerce.number().int().min(1).max(100000).default(1),
+      status: z
+        .enum(["all", "failed", "pending", "sent", "skipped"])
+        .default("all"),
+    })
+    .strict()
+    .parse(req.query);
+  const states: Record<string, string> = {
+    all: "true",
+    failed: "o.sent_at IS NULL AND o.cancelled_at IS NULL AND o.attempts>=8",
+    pending: "o.sent_at IS NULL AND o.cancelled_at IS NULL AND o.attempts<8",
+    sent: "o.sent_at IS NOT NULL",
+    skipped: "o.cancelled_at IS NOT NULL",
+  };
+  const where = states[status];
+  const total = (
+    await pool.query(
+      `SELECT count(*)::int n FROM email_outbox o WHERE ${where}`,
+    )
+  ).rows[0].n;
+  const entries = await rows(
+    `SELECT o.id,o.user_id,u.name,u.email,o.subject,o.category,o.attempts,o.sent_at,o.cancelled_at,o.next_attempt_at,o.created_at FROM email_outbox o JOIN users u ON u.id=o.user_id WHERE ${where} ORDER BY o.created_at DESC,o.id LIMIT 25 OFFSET $1`,
+    [(page - 1) * 25],
+  );
+  const categories = await rows(
+    "SELECT category,enabled FROM email_category_settings ORDER BY category",
+  );
+  await logRead(req.account.id, "admin_email_delivery_read", String(page));
+  res.json({
+    rows: entries,
+    total,
+    page,
+    categories,
+    preview: eventEmail(
+      "Your project has an update",
+      "A professional responded to your request. Sign in to review the details.",
+      { page: "dashboard" },
+    ),
+    labels: emailCategories,
+  });
+});
+adminConsole.post("/email-alerts/settings", async (req, res) => {
+  const input = z
+    .object({
+      category: z.enum([
+        "projects",
+        "messages",
+        "meetings",
+        "business",
+        "reviews",
+        "support",
+      ]),
+      enabled: z.boolean(),
+    })
+    .strict()
+    .parse(req.body);
+  await transaction(async (c) => {
+    await c.query(
+      "UPDATE email_category_settings SET enabled=$2 WHERE category=$1",
+      [input.category, input.enabled],
+    );
+    await audit(
+      c,
+      req.account.id,
+      input.enabled ? "enable_email_category" : "disable_email_category",
+      input.category,
+    );
+  });
+  res.json({ ok: true });
+});
+adminConsole.post("/email-alerts/:id/retry", async (req, res) => {
+  const id = z.string().uuid().parse(req.params.id);
+  await transaction(async (c) => {
+    const updated = await c.query(
+      "UPDATE email_outbox SET attempts=0,next_attempt_at=now() WHERE id=$1 AND sent_at IS NULL AND cancelled_at IS NULL AND attempts>=8 RETURNING id",
+      [id],
+    );
+    if (!updated.rowCount)
+      fail(409, "Only failed, unsent email deliveries can be retried.");
+    await audit(c, req.account.id, "retry_email_delivery", id);
+  });
+  res.json({ ok: true });
 });
 adminConsole.get("/overview", async (_req, res) => {
   const totals = (

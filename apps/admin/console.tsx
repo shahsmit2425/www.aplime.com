@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { EmailAlerts } from "./email-alerts.js";
 import {
   LayoutDashboard,
   Users,
@@ -53,6 +54,7 @@ const items = [
   ["support", "Support inbox", MessageCircle],
   ["audit", "Audit trail", Activity],
   ["updates", "Notifications", Bell],
+  ["emails", "Email & alerts", Bell],
 ] as const;
 const date = (s: unknown) =>
   s
@@ -1703,6 +1705,8 @@ export function AdminConsole({
         <div key={route.page + ":" + route.id}>
           {route.page === "overview" ? (
             <Overview request={request} revision={session} go={go} />
+          ) : route.page === "emails" ? (
+            <EmailAlerts request={request} run={run} busy={busy} go={go} />
           ) : route.page === "support" ? (
             <SupportInbox
               id={route.id}

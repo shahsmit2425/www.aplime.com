@@ -172,7 +172,7 @@ export async function deleteAccountData(userId: string) {
   const keys = await transaction(async (c) => {
     const user = (
       await c.query(
-        "SELECT id,role,deleted_at FROM users WHERE id=$1 FOR UPDATE",
+        "SELECT id,email,role,deleted_at FROM users WHERE id=$1 FOR UPDATE",
         [userId],
       )
     ).rows[0];
@@ -285,6 +285,10 @@ export async function deleteAccountData(userId: string) {
       [userId, JSON.stringify(keys)],
     );
     await audit(c, userId, "account_deleted", userId);
+    await c.query(
+      "INSERT INTO email_outbox(id,user_id,subject,body,category,essential,recipient_email,target_page) VALUES(gen_random_uuid(),$1,'Account deleted','Your Aplime account has been deleted. Shared records needed by other participants or for support are retained under our retention policy.','security',true,$2,'settings')",
+      [userId, user.email],
+    );
     return keys;
   });
   await Promise.all(

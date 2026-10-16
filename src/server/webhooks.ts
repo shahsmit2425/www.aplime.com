@@ -6,11 +6,16 @@ import { transaction } from "./db/index.js";
 import { notify } from "./repository.js";
 import { requireValue, fail } from "./errors.js";
 import { subscriptionMembership } from "./membership-plans.js";
+import { notifyOnce } from "./email-alerts.js";
 export const webhooks = Router();
 const subscriptionEvents = new Set([
   "customer.subscription.created",
   "customer.subscription.updated",
   "customer.subscription.deleted",
+  "invoice.paid",
+  "invoice.payment_failed",
+  "invoice.payment_action_required",
+  "invoice.upcoming",
 ]);
 const identityEvents = new Set([
   "identity.verification_session.verified",
@@ -59,6 +64,75 @@ webhooks.post(
       )
         return;
       const obj = event.data.object as unknown as Record<string, any>;
+      if (
+        subscriptionEvents.has(event.type) &&
+        event.type.startsWith("invoice.")
+      ) {
+        const customerId =
+          typeof obj.customer === "string" ? obj.customer : obj.customer?.id;
+        const subscription =
+          obj.parent?.subscription_details?.subscription || obj.subscription;
+        const subscriptionId =
+          typeof subscription === "string" ? subscription : subscription?.id;
+        if (!customerId || !subscriptionId) return;
+        const owner = (
+          await c.query(
+            "SELECT * FROM professional_subscriptions WHERE customer_id=$1 FOR UPDATE",
+            [customerId],
+          )
+        ).rows[0];
+        if (
+          !owner ||
+          (owner.subscription_id && owner.subscription_id !== subscriptionId)
+        )
+          return;
+        const current = await stripe().subscriptions.retrieve(subscriptionId);
+        const currentCustomer =
+          typeof current.customer === "string"
+            ? current.customer
+            : current.customer.id;
+        if (currentCustomer !== customerId || !subscriptionMembership(current))
+          return;
+        if (
+          event.type === "invoice.upcoming" &&
+          (current.cancel_at_period_end ||
+            !["active", "trialing"].includes(current.status))
+        )
+          return;
+        // An old failed invoice must not generate a payment demand after it was paid.
+        const invoice =
+          event.type === "invoice.upcoming"
+            ? obj
+            : await stripe().invoices.retrieve(obj.id);
+        if (event.type === "invoice.paid" && invoice.status !== "paid") return;
+        if (
+          [
+            "invoice.payment_failed",
+            "invoice.payment_action_required",
+          ].includes(event.type) &&
+          invoice.status !== "open"
+        )
+          return;
+        const titles: Record<string, string> = {
+          "invoice.paid": "Membership payment received",
+          "invoice.payment_failed": "Membership payment failed",
+          "invoice.payment_action_required":
+            "Membership payment needs confirmation",
+          "invoice.upcoming": "Your membership renews soon",
+        };
+        await notifyOnce(
+          c,
+          owner.user_id,
+          `billing:${event.type}:${obj.id || subscriptionId + ":" + obj.period_end}`,
+          titles[event.type],
+          event.type === "invoice.paid"
+            ? "Your Aplime membership invoice is paid. Open Membership for billing details. This is not a payment for home services."
+            : event.type === "invoice.upcoming"
+              ? "Your Aplime membership is approaching renewal. Review your plan and billing details in Membership."
+              : "Your Aplime membership payment needs attention. Open Membership to manage billing securely.",
+          { page: "subscription" },
+        );
+      }
       if (identityEvents.has(event.type)) {
         const owner = (
           await c.query(
@@ -120,18 +194,31 @@ webhooks.post(
             )
               return;
           }
-          const correctPrice = !!subscriptionMembership(current);
+          const plan = subscriptionMembership(current);
+          const priceId = current.items.data[0]?.price.id || null;
+          const correctPrice = !!plan;
           const newStatus = correctPrice
             ? current.status
             : "unrecognized_price";
           if (
             owner.status !== newStatus ||
-            owner.cancel_at_period_end !== current.cancel_at_period_end
+            owner.cancel_at_period_end !== current.cancel_at_period_end ||
+            (owner.billing_price_id && owner.billing_price_id !== priceId)
           )
             await notify(
               c,
               owner.user_id,
-              "Subscription updated",
+              owner.status !== newStatus
+                ? newStatus === "active" || newStatus === "trialing"
+                  ? "Membership activated"
+                  : newStatus === "canceled"
+                    ? "Membership ended"
+                    : "Membership needs attention"
+                : owner.cancel_at_period_end !== current.cancel_at_period_end
+                  ? current.cancel_at_period_end
+                    ? "Membership cancellation scheduled"
+                    : "Membership renewal restored"
+                  : "Membership plan updated",
               "Your membership status is " +
                 newStatus.replaceAll("_", " ") +
                 (current.cancel_at_period_end
@@ -140,12 +227,13 @@ webhooks.post(
               { page: "subscription" },
             );
           await c.query(
-            "UPDATE professional_subscriptions SET subscription_id=$2,status=$3,cancel_at_period_end=$4,updated_at=now() WHERE user_id=$1",
+            "UPDATE professional_subscriptions SET subscription_id=$2,status=$3,cancel_at_period_end=$4,updated_at=now(),billing_price_id=$5 WHERE user_id=$1",
             [
               owner.user_id,
               current.id,
               correctPrice ? current.status : "unrecognized_price",
               current.cancel_at_period_end,
+              priceId,
             ],
           );
         }

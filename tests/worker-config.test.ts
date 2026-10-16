@@ -24,6 +24,17 @@ test("mail worker starts with mail and database settings without unrelated provi
   assert.doesNotThrow(() => validateMailWorker(config));
 });
 test("mail worker still fails closed on missing mail/database configuration", () => {
+  assert.throws(
+    () => validateMailWorker({ ...config, NODE_ENV: "production" }),
+    /SITE_URL/,
+  );
+  assert.doesNotThrow(() =>
+    validateMailWorker({
+      ...config,
+      NODE_ENV: "production",
+      SITE_URL: "https://example.invalid",
+    }),
+  );
   for (const key of [
     "DATABASE_URL",
     "SMTP_HOST",

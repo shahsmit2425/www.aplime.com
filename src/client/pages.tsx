@@ -1,4 +1,5 @@
 import { EstimateForm } from "./estimate-form.js";
+import { emailCategories } from "../shared/email-alerts.js";
 import { quotePrice, quoteTiming } from "../shared/estimates.js";
 import { ProfessionalActions } from "./professional-actions.js";
 import { CallMeetings } from "./call-meetings.js";
@@ -1689,6 +1690,12 @@ function Settings() {
                 {
                   name: f.get("name"),
                   emailAlerts: f.get("emailAlerts") === "on",
+                  emailCategories: Object.fromEntries(
+                    Object.keys(emailCategories).map((key) => [
+                      key,
+                      f.get("email:" + key) === "on",
+                    ]),
+                  ),
                 },
                 "PUT",
               ),
@@ -1713,8 +1720,28 @@ function Settings() {
               type="checkbox"
               defaultChecked={data.user.settings.emailAlerts !== false}
             />
-            Email me about project updates
+            Enable optional email alerts
           </label>
+          {Object.entries(emailCategories).map(([key, label]) => (
+            <label className="checkbox" key={key}>
+              <input
+                type="checkbox"
+                name={"email:" + key}
+                defaultChecked={
+                  (
+                    data.user.settings.emailCategories as
+                      Record<string, boolean> | undefined
+                  )?.[key] !== false
+                }
+              />
+              {label}
+            </label>
+          ))}
+          <p>
+            Essential security, billing, account restrictions and direct Aplime
+            support messages may still be sent. In-app notifications stay
+            available.
+          </p>
           <button>Save preferences</button>
         </Form>
       </Panel>

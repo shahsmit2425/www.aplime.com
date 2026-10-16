@@ -265,12 +265,32 @@ api.put("/account", async (req, res) => {
     .object({
       name: z.string().trim().min(2).max(80),
       emailAlerts: z.boolean(),
+      emailCategories: z
+        .object({
+          projects: z.boolean(),
+          messages: z.boolean(),
+          meetings: z.boolean(),
+          business: z.boolean(),
+          reviews: z.boolean(),
+          support: z.boolean(),
+        })
+        .strict()
+        .optional(),
     })
     .strict()
     .parse(q.body);
   await pool.query(
-    "UPDATE users SET name=$2,settings=jsonb_set(settings,'{emailAlerts}',$3::jsonb) WHERE id=$1",
-    [q.account.id, data.name, JSON.stringify(data.emailAlerts)],
+    "UPDATE users SET name=$2,settings=settings || $3::jsonb WHERE id=$1",
+    [
+      q.account.id,
+      data.name,
+      JSON.stringify({
+        emailAlerts: data.emailAlerts,
+        ...(data.emailCategories
+          ? { emailCategories: data.emailCategories }
+          : {}),
+      }),
+    ],
   );
   res.json({ ok: true });
 });
@@ -303,6 +323,15 @@ api.post("/account/revoke-sessions", async (req, res) => {
     [req.account.id, Math.floor(Date.now() / 1000)],
   );
   clearTokenCache();
+  await transaction((c) =>
+    notify(
+      c,
+      req.account.id,
+      "All devices signed out",
+      "You signed out of all devices. Sign in again to continue. If you did not request this, reset your password.",
+      { page: "settings" },
+    ),
+  );
   res.json({ ok: true });
 });
 api.post("/account/delete", async (req, res) => {
@@ -420,6 +449,13 @@ api.post("/profile/submit-review", async (req, res) => {
       c,
       "Business profile ready for review",
       profile.business + " submitted its marketplace listing.",
+    );
+    await notify(
+      c,
+      q.account.id,
+      "Business profile submitted for review",
+      "Your business profile is under review. We will notify you when a decision is available.",
+      { page: "profile" },
     );
     await audit(c, q.account.id, "submit_profile_review", q.account.id);
   });

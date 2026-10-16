@@ -1,7 +1,13 @@
 import nodemailer from "nodemailer";
 import { env } from "../config.js";
 import { requireValue } from "../errors.js";
-export async function sendEmail(to: string, subject: string, text: string) {
+export async function sendEmail(
+  to: string,
+  subject: string,
+  text: string,
+  html?: string,
+  messageId?: string,
+) {
   requireValue(
     env.SMTP_USER &&
       env.SMTP_FROM &&
@@ -40,7 +46,14 @@ export async function sendEmail(to: string, subject: string, text: string) {
     socketTimeout: 20000,
   });
   try {
-    await transport.sendMail({ from: env.SMTP_FROM, to, subject, text });
+    await transport.sendMail({
+      from: env.SMTP_FROM,
+      to,
+      subject,
+      text,
+      html,
+      messageId,
+    });
   } finally {
     transport.close();
   }
