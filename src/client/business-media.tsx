@@ -9,6 +9,7 @@ import { imageError, IMAGE_TYPES } from "../shared/uploads.js";
 import { useWorkspace } from "./workspace.js";
 import { request, uploadImageContent } from "./api.js";
 import { Panel } from "./ui.js";
+import { PortfolioPublication } from "./portfolio-publication.js";
 
 type Selection = {
   slot: string;
@@ -24,7 +25,7 @@ export function BusinessMedia({
   profile?: Profile;
   portfolio?: boolean;
 }) {
-  const { run, busy } = useWorkspace();
+  const { run, busy, go } = useWorkspace();
   const [pending, setPending] = useState<Record<string, Selection>>({});
   const [statuses, setStatuses] = useState<
     Record<string, { progress: string; failed: boolean }>
@@ -54,6 +55,20 @@ export function BusinessMedia({
   const savedCount =
     profile?.images?.filter((image) => image.slot.startsWith("work-")).length ||
     0;
+  const workSlots = businessImageSlots.filter((slot) =>
+    slot.startsWith("work-"),
+  );
+  const nextSlot = workSlots.find(
+    (slot) =>
+      !pending[slot] && !profile?.images?.some((image) => image.slot === slot),
+  );
+  const visibleSlots = portfolio
+    ? workSlots.filter(
+        (slot) =>
+          pending[slot] ||
+          profile?.images?.some((image) => image.slot === slot),
+      )
+    : businessImageSlots.filter((slot) => slot === "logo" || slot === "cover");
   const clear = (slot: string) => {
     const selected = pending[slot];
     if (selected) {
@@ -143,223 +158,268 @@ export function BusinessMedia({
         JPG, PNG or WebP · maximum 10 MB per image. Use images you have
         permission to publish.
       </p>
+      {portfolio && profile && (
+        <PortfolioPublication
+          profile={profile}
+          onReview={() => go("profile", "setup")}
+        />
+      )}
       <div
         className={
           "business-media-grid" + (portfolio ? " portfolio-media-grid" : "")
         }
       >
-        {businessImageSlots
-          .filter((slot) =>
-            portfolio
-              ? slot.startsWith("work-")
-              : slot === "logo" || slot === "cover",
-          )
-          .map((slot) => {
-            const image = profile?.images?.find((i) => i.slot === slot);
-            const selected = pending[slot];
-            const { progress, failed } = statuses[slot] || {
-              progress: "",
-              failed: false,
-            };
-            const label =
-              slot === "logo"
-                ? "Business logo"
-                : slot === "cover"
-                  ? "Advertising image"
-                  : "Past work photo " + slot.slice("work-".length);
-            const source = selected?.preview || image?.url;
-            return (
-              <section
-                key={slot}
-                className={"business-media-slot " + slot}
-                aria-label={label}
-              >
-                <div className="business-image-frame">
-                  {source ? (
-                    <img
-                      src={source}
-                      alt={selected ? label + " — unsaved preview" : label}
-                    />
-                  ) : (
-                    <div className="business-image-empty">
-                      <ImagePlus size={32} />
-                      <span>No image yet</span>
-                    </div>
-                  )}
-                </div>
-                <div className="business-image-heading">
-                  <strong>{label}</strong>
-                  <span className="business-image-status">
-                    {selected
-                      ? failed
-                        ? "Needs retry"
-                        : "Not saved yet"
-                      : image
-                        ? "Saved"
-                        : "Not uploaded"}
-                  </span>
-                </div>
-                <small>
-                  {slot === "logo"
-                    ? "Use a square logo. The full image is kept."
-                    : slot === "cover"
-                      ? "Use a wide image to promote your business."
-                      : "Show a completed job or a detail of your work."}
-                </small>
-                {selected && (
-                  <small className="business-file-name">
-                    {selected.file.name} ·{" "}
-                    {(selected.file.size / 1024 / 1024).toFixed(2)} MB
-                  </small>
+        {visibleSlots.map((slot) => {
+          const image = profile?.images?.find((i) => i.slot === slot);
+          const selected = pending[slot];
+          const { progress, failed } = statuses[slot] || {
+            progress: "",
+            failed: false,
+          };
+          const label =
+            slot === "logo"
+              ? "Business logo"
+              : slot === "cover"
+                ? "Advertising image"
+                : "Past work photo " + slot.slice("work-".length);
+          const source = selected?.preview || image?.url;
+          return (
+            <section
+              key={slot}
+              className={"business-media-slot " + slot}
+              aria-label={label}
+            >
+              <div className="business-image-frame">
+                {source ? (
+                  <img
+                    src={source}
+                    alt={selected ? label + " — unsaved preview" : label}
+                  />
+                ) : (
+                  <div className="business-image-empty">
+                    <ImagePlus size={32} />
+                    <span>No image yet</span>
+                  </div>
                 )}
-                <div className="actions">
-                  {source && (
+              </div>
+              <div className="business-image-heading">
+                <strong>{label}</strong>
+                <span className="business-image-status">
+                  {selected
+                    ? failed
+                      ? "Needs retry"
+                      : "Not saved yet"
+                    : image
+                      ? portfolio && profile?.portfolioPublication
+                        ? profile.portfolioPublication.approvedImageIds.includes(
+                            image.id,
+                          )
+                          ? "Approved"
+                          : "Saved · awaiting review"
+                        : "Saved"
+                      : "Not uploaded"}
+                </span>
+              </div>
+              <small>
+                {slot === "logo"
+                  ? "Use a square logo. The full image is kept."
+                  : slot === "cover"
+                    ? "Use a wide image to promote your business."
+                    : "Show a completed job or a detail of your work."}
+              </small>
+              {selected && (
+                <small className="business-file-name">
+                  {selected.file.name} ·{" "}
+                  {(selected.file.size / 1024 / 1024).toFixed(2)} MB
+                </small>
+              )}
+              <div className="actions">
+                {source && (
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => setView({ url: source, label })}
+                  >
+                    <Eye size={16} />
+                    View image
+                  </button>
+                )}
+                <label className="business-image-picker">
+                  <Upload size={16} />
+                  {selected
+                    ? "Choose another"
+                    : image
+                      ? "Replace image"
+                      : "Choose image"}
+                  <input
+                    aria-label={"Choose " + label}
+                    type="file"
+                    accept={IMAGE_TYPES.join(",")}
+                    disabled={!profile || busy}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = "";
+                      if (!file) return;
+                      const problem = imageError(file);
+                      if (problem) {
+                        status(slot, problem, true);
+                        return;
+                      }
+                      if (selected) {
+                        URL.revokeObjectURL(selected.preview);
+                        urls.current.delete(selected.preview);
+                      }
+                      const preview = URL.createObjectURL(file);
+                      urls.current.add(preview);
+                      setPending((current) => ({
+                        ...current,
+                        [slot]: { slot, file, preview },
+                      }));
+                      status(slot, "");
+                      setConfirmDelete(null);
+                      setView(null);
+                    }}
+                  />
+                </label>
+                {image && !selected && (
+                  <button
+                    type="button"
+                    className="text-button"
+                    disabled={busy}
+                    onClick={() => setConfirmDelete({ slot, id: image.id })}
+                  >
+                    <Trash2 size={16} />
+                    Delete
+                  </button>
+                )}
+              </div>
+              {selected && (
+                <div className="business-image-save">
+                  <p>
+                    {image
+                      ? "This preview will replace the saved image only after you save."
+                      : "This image is only a preview until you save."}
+                  </p>
+                  <div className="actions">
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => upload(selected)}
+                    >
+                      {failed ? <RefreshCw size={16} /> : <Upload size={16} />}
+                      {activeSlot === slot
+                        ? "Saving…"
+                        : failed
+                          ? "Retry save"
+                          : "Save image"}
+                    </button>
                     <button
                       type="button"
                       className="secondary"
-                      onClick={() => setView({ url: source, label })}
+                      disabled={busy}
+                      onClick={() => clear(slot)}
                     >
-                      <Eye size={16} />
-                      View image
+                      Discard selection
                     </button>
-                  )}
-                  <label className="business-image-picker">
-                    <Upload size={16} />
-                    {selected
-                      ? "Choose another"
-                      : image
-                        ? "Replace image"
-                        : "Choose image"}
-                    <input
-                      aria-label={"Choose " + label}
-                      type="file"
-                      accept={IMAGE_TYPES.join(",")}
-                      disabled={!profile || busy}
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        e.target.value = "";
-                        if (!file) return;
-                        const problem = imageError(file);
-                        if (problem) {
-                          status(slot, problem, true);
-                          return;
-                        }
-                        if (selected) {
-                          URL.revokeObjectURL(selected.preview);
-                          urls.current.delete(selected.preview);
-                        }
-                        const preview = URL.createObjectURL(file);
-                        urls.current.add(preview);
-                        setPending((current) => ({
-                          ...current,
-                          [slot]: { slot, file, preview },
-                        }));
-                        status(slot, "");
-                        setConfirmDelete(null);
-                        setView(null);
-                      }}
-                    />
-                  </label>
-                  {image && !selected && (
+                  </div>
+                </div>
+              )}
+              {confirmDelete?.slot === slot && (
+                <div
+                  className="business-image-save"
+                  role="group"
+                  aria-label={"Confirm deletion of " + label}
+                >
+                  <p>
+                    Delete this {label.toLowerCase()} from your profile? You can
+                    upload a new one later.
+                  </p>
+                  <div className="actions">
                     <button
                       type="button"
-                      className="text-button"
                       disabled={busy}
-                      onClick={() => setConfirmDelete({ slot, id: image.id })}
+                      onClick={() =>
+                        void run(async () => {
+                          await request(
+                            "/profile/images/" + slot,
+                            { imageId: confirmDelete.id },
+                            "DELETE",
+                          );
+                          setConfirmDelete(null);
+                          setView(null);
+                        }, "Business image deleted.")
+                      }
                     >
-                      <Trash2 size={16} />
-                      Delete
+                      Delete image
                     </button>
-                  )}
+                    <button
+                      type="button"
+                      className="secondary"
+                      disabled={busy}
+                      onClick={() => setConfirmDelete(null)}
+                    >
+                      Keep image
+                    </button>
+                  </div>
                 </div>
-                {selected && (
-                  <div className="business-image-save">
-                    <p>
-                      {image
-                        ? "This preview will replace the saved image only after you save."
-                        : "This image is only a preview until you save."}
-                    </p>
-                    <div className="actions">
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => upload(selected)}
-                      >
-                        {failed ? (
-                          <RefreshCw size={16} />
-                        ) : (
-                          <Upload size={16} />
-                        )}
-                        {activeSlot === slot
-                          ? "Saving…"
-                          : failed
-                            ? "Retry save"
-                            : "Save image"}
-                      </button>
-                      <button
-                        type="button"
-                        className="secondary"
-                        disabled={busy}
-                        onClick={() => clear(slot)}
-                      >
-                        Discard selection
-                      </button>
-                    </div>
-                  </div>
-                )}
-                {confirmDelete?.slot === slot && (
-                  <div
-                    className="business-image-save"
-                    role="group"
-                    aria-label={"Confirm deletion of " + label}
-                  >
-                    <p>
-                      Delete this {label.toLowerCase()} from your profile? You
-                      can upload a new one later.
-                    </p>
-                    <div className="actions">
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() =>
-                          void run(async () => {
-                            await request(
-                              "/profile/images/" + slot,
-                              { imageId: confirmDelete.id },
-                              "DELETE",
-                            );
-                            setConfirmDelete(null);
-                            setView(null);
-                          }, "Business image deleted.")
-                        }
-                      >
-                        Delete image
-                      </button>
-                      <button
-                        type="button"
-                        className="secondary"
-                        disabled={busy}
-                        onClick={() => setConfirmDelete(null)}
-                      >
-                        Keep image
-                      </button>
-                    </div>
-                  </div>
-                )}
-                {progress && (
-                  <p
-                    className={
-                      failed ? "business-upload-error" : "business-tip"
-                    }
-                    role={failed ? "alert" : "status"}
-                  >
-                    {progress}
-                  </p>
-                )}
-              </section>
-            );
-          })}
+              )}
+              {progress && (
+                <p
+                  className={failed ? "business-upload-error" : "business-tip"}
+                  role={failed ? "alert" : "status"}
+                >
+                  {progress}
+                </p>
+              )}
+            </section>
+          );
+        })}
+        {portfolio && nextSlot && (
+          <label className="portfolio-add-tile">
+            <ImagePlus size={34} aria-hidden="true" />
+            <strong>Add a past-work photo</strong>
+            <span>
+              {MAX_BUSINESS_PORTFOLIO_IMAGES - visibleSlots.length} spaces left
+              · Preview before saving
+            </span>
+            <input
+              type="file"
+              aria-label="Add a past-work photo"
+              accept={IMAGE_TYPES.join(",")}
+              disabled={!profile || busy}
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                event.target.value = "";
+                if (!file) return;
+                const problem = imageError(file);
+                if (problem) {
+                  status("add", problem, true);
+                  return;
+                }
+                const preview = URL.createObjectURL(file);
+                urls.current.add(preview);
+                setPending((current) => ({
+                  ...current,
+                  [nextSlot]: { slot: nextSlot, file, preview },
+                }));
+                status("add", "");
+                status(nextSlot, "");
+              }}
+            />
+          </label>
+        )}
       </div>
+      {portfolio && statuses.add?.progress && (
+        <p role="alert" className="business-upload-error">
+          {statuses.add.progress}
+        </p>
+      )}
+      {portfolio && !nextSlot && (
+        <p className="business-tip">
+          All 20 spaces are in use. Replace or delete an existing photo to add
+          another.
+        </p>
+      )}
       {view && (
         <dialog
           ref={dialog}

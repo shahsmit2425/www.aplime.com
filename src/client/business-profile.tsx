@@ -8,6 +8,7 @@ import { request } from "./api.js";
 import { Empty, Head, Panel, Field, Form } from "./ui.js";
 import { BusinessMedia } from "./business-media.js";
 import { BusinessDisplay } from "./business-display.js";
+import { PortfolioPublication } from "./portfolio-publication.js";
 
 export function BusinessProfile() {
   const { data, run, busy, go, id } = useWorkspace();
@@ -77,7 +78,15 @@ export function BusinessProfile() {
           ))}
         </nav>
       )}
-      {tab === "preview" && p && <BusinessDisplay profile={p} preview />}
+      {tab === "preview" && p && (
+        <>
+          <PortfolioPublication
+            profile={p}
+            onReview={() => go("profile", "setup")}
+          />
+          <BusinessDisplay profile={p} preview />
+        </>
+      )}
       <div hidden={tab !== "photos"}>
         <BusinessMedia profile={p} />
       </div>

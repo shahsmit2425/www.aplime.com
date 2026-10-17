@@ -29,6 +29,25 @@ async function mappedProfile(
   const visible = usePublication ? { ...row, ...publication } : row;
   const { published_profile: _privatePublication, ...safe } = visible;
   const profile = camel<Profile>(safe);
+  if (row.id === ownerId) {
+    const workIds = (images: any[]) =>
+      images
+        .filter((image) => /^work-(?:[1-9]|1\d|20)$/.test(image.slot))
+        .map((image) => String(image.id))
+        .sort();
+    const current = workIds(row.images || []);
+    const approved = workIds(
+      publication?.images ||
+        (row.listed || row.review_status === "approved"
+          ? row.images || []
+          : []),
+    );
+    profile.portfolioPublication = {
+      approvedImageIds: approved,
+      hasUnpublishedChanges:
+        JSON.stringify(current) !== JSON.stringify(approved),
+    };
+  }
   profile.images = await Promise.all(
     (visible.images || []).map(async (i: any) => ({
       id: i.id,
@@ -178,6 +197,7 @@ export async function workspace(user: User): Promise<Workspace> {
     uploads,
     saved,
     blocked,
+    projectDraft,
   ] = await Promise.all([
     pool.query(
       admin
@@ -213,9 +233,16 @@ export async function workspace(user: User): Promise<Workspace> {
     ),
     pool.query("SELECT pro_id FROM saved WHERE user_id=$1", [user.id]),
     pool.query("SELECT other_id FROM blocked WHERE user_id=$1", [user.id]),
+    user.role === "customer"
+      ? pool.query(
+          "SELECT payload,updated_at FROM project_drafts WHERE user_id=$1",
+          [user.id],
+        )
+      : Promise.resolve({ rows: [] }),
   ]);
   return {
     user,
+    projectDraft: projectDraft.rows[0] ? camel(projectDraft.rows[0]) : null,
     discoveryMode: preview ? "open" : env.MARKETPLACE_DISCOVERY_MODE,
     marketplacePreview: preview,
     discoveryRequirements,

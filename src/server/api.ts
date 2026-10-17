@@ -1,3 +1,4 @@
+import { projectDrafts } from "./project-drafts.js";
 import {
   preservePublication,
   releasePublication,
@@ -465,34 +466,7 @@ api.use("/profile/images", businessImages);
 api.use(discussions);
 api.use(callMeetings);
 api.use(projectImages);
-const projectDraftSchema = z.record(z.string().max(64), z.unknown());
-api.get("/project-draft", async (req, res) => {
-  if (req.account.role !== "customer") fail(403, "Customer account required.");
-  const row = (
-    await pool.query(
-      "SELECT payload,updated_at FROM project_drafts WHERE user_id=$1",
-      [req.account.id],
-    )
-  ).rows[0];
-  res.json(row ? camel(row) : { payload: null, updatedAt: null });
-});
-api.put("/project-draft", async (req, res) => {
-  if (req.account.role !== "customer") fail(403, "Customer account required.");
-  const payload = projectDraftSchema.parse(req.body);
-  if (JSON.stringify(payload).length > 30000) fail(413, "Draft is too large.");
-  await pool.query(
-    "INSERT INTO project_drafts(user_id,payload) VALUES($1,$2) ON CONFLICT(user_id) DO UPDATE SET payload=$2,updated_at=now()",
-    [req.account.id, JSON.stringify(payload)],
-  );
-  res.json({ ok: true });
-});
-api.delete("/project-draft", async (req, res) => {
-  if (req.account.role !== "customer") fail(403, "Customer account required.");
-  await pool.query("DELETE FROM project_drafts WHERE user_id=$1", [
-    req.account.id,
-  ]);
-  res.json({ ok: true });
-});
+api.use(projectDrafts);
 api.post("/projects", async (req, res) => {
   const q = req as AuthRequest;
   if (q.account.role !== "customer") fail(403, "Customer account required.");

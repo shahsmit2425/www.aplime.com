@@ -1,11 +1,14 @@
 import { useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, FilePenLine, Trash2 } from "lucide-react";
+import { request } from "./api.js";
 import { useWorkspace } from "./workspace.js";
 import { Head, Empty } from "./ui.js";
 import { ProjectCard } from "./marketplace-cards.js";
 export function CustomerDashboard() {
-  const { data, go } = useWorkspace();
+  const { data, go, run, busy } = useWorkspace();
   const [tab, setTab] = useState("active");
+  const [discard, setDiscard] = useState(false);
+  const draft = data.projectDraft;
   const owned = data.projects.filter((p) => p.customerId === data.user.id);
   const projects = owned.filter((p) =>
     tab === "archived"
@@ -27,6 +30,84 @@ export function CustomerDashboard() {
           </button>
         }
       />
+      {draft && (
+        <section className="dashboard-draft" aria-label="Saved project draft">
+          <div className="dashboard-draft-icon">
+            <FilePenLine size={26} />
+          </div>
+          <div className="dashboard-draft-copy">
+            <span className="dashboard-draft-label">
+              Saved draft · Not submitted
+            </span>
+            <h2>
+              {(typeof draft.payload.title === "string" &&
+                draft.payload.title.trim()) ||
+                "Untitled project"}
+            </h2>
+            <p>
+              {typeof draft.payload.category === "string"
+                ? draft.payload.category + " · "
+                : ""}
+              Saved {new Date(draft.updatedAt).toLocaleString()}. Only you can
+              see this draft.
+            </p>
+          </div>
+          <div className="actions">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => go("projects", "draft")}
+            >
+              Continue draft
+            </button>
+            <button
+              type="button"
+              className="secondary"
+              disabled={busy}
+              onClick={() => setDiscard(true)}
+            >
+              <Trash2 size={17} /> Discard
+            </button>
+          </div>
+          {discard && (
+            <div
+              className="dashboard-draft-confirm"
+              role="group"
+              aria-label="Discard saved draft"
+            >
+              <p>
+                Discard this unpublished draft? Your submitted projects will
+                stay in place.
+              </p>
+              <div className="actions">
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() =>
+                    void run(async () => {
+                      await request(
+                        "/project-draft",
+                        { updatedAt: draft.updatedAt },
+                        "DELETE",
+                      );
+                      setDiscard(false);
+                    }, "Draft discarded.")
+                  }
+                >
+                  Discard draft
+                </button>
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => setDiscard(false)}
+                >
+                  Keep draft
+                </button>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
       <nav className="actions" aria-label="Project status">
         {["active", "completed", "archived", "all"].map((value) => (
           <button
@@ -56,7 +137,9 @@ export function CustomerDashboard() {
           title={
             owned.length
               ? "No projects in this view."
-              : "Start your first project."
+              : draft
+                ? "No submitted projects yet."
+                : "Start your first project."
           }
         >
           <button onClick={() => go("projects", "new")}>Post a project</button>

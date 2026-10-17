@@ -26,6 +26,11 @@ export type Profile = {
   discoverable?: boolean;
   canRespond?: boolean;
   images?: BusinessImage[];
+  // Owner-only publication information; never contains storage keys.
+  portfolioPublication?: {
+    approvedImageIds: string[];
+    hasUnpublishedChanges: boolean;
+  };
   id: string;
   name: string;
   business: string;
@@ -169,6 +174,10 @@ export type Upload = {
   status: string;
 };
 export type Workspace = {
+  projectDraft?: {
+    payload: Record<string, any>;
+    updatedAt: string;
+  } | null;
   discoveryMode?: "open" | "matched";
   marketplacePreview?: boolean;
   discoveryRequirements?: string[];

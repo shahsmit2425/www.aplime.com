@@ -1352,6 +1352,30 @@ test("API image uploads enforce ownership and file limits and preserve saved ima
       customer.id,
       owner.id,
     ]);
+    const pendingOwner = (await workspace(owner)).profiles.find(
+      (p) => p.id === owner.id,
+    )!;
+    assert.equal(pendingOwner.images!.length, 20);
+    assert.deepEqual(pendingOwner.portfolioPublication, {
+      approvedImageIds: [],
+      hasUnpublishedChanges: true,
+    });
+    const pendingCustomer = (await workspace(customer)).profiles.find(
+      (p) => p.id === owner.id,
+    )!;
+    assert.equal(
+      pendingCustomer.images!.length,
+      0,
+      "Pending photos must not bypass marketplace review",
+    );
+    assert.equal(
+      pendingCustomer.portfolioPublication,
+      undefined,
+      "Review metadata is owner-only",
+    );
+    const { releasePublication: approvePortfolio } =
+      await import("../src/server/business-publication.js");
+    await approvePortfolio({ query } as never, owner.id);
     await query(
       "UPDATE profiles SET published_profile=NULL,review_status='approved' WHERE id=$1",
       [owner.id],
@@ -1359,6 +1383,14 @@ test("API image uploads enforce ownership and file limits and preserve saved ima
     const visiblePortfolio = (await workspace(customer)).profiles.find(
       (p) => p.id === owner.id,
     )!.images!;
+    assert.deepEqual(
+      (await workspace(owner)).profiles.find((p) => p.id === owner.id)!
+        .portfolioPublication,
+      {
+        approvedImageIds: [...portfolioIds].sort(),
+        hasUnpublishedChanges: false,
+      },
+    );
     assert.equal(
       visiblePortfolio.length,
       20,
@@ -3962,6 +3994,93 @@ test("professional exports never disclose competing estimates and checkout delet
   } finally {
     client.checkout.sessions.retrieve = retrieve;
     client.checkout.sessions.expire = expire;
+  }
+});
+
+test("saved drafts appear only in the owner's dashboard, resume incomplete details and discard safely", async () => {
+  const express = (await import("express")).default;
+  const { projectDrafts } = await import("../src/server/project-drafts.js");
+  const { errorResponse } = await import("../src/server/error-response.js");
+  const app = express();
+  app.use(express.json());
+  app.use((req, _res, next) => {
+    req.account =
+      req.headers["x-actor"] === "pro"
+        ? professional
+        : req.headers["x-actor"] === "other"
+          ? outsider
+          : customer;
+    next();
+  });
+  app.use(projectDrafts);
+  app.use((error: unknown, _req: any, res: any, _next: any) => {
+    const output = errorResponse(error);
+    res.status(output.status).json(output.body);
+  });
+  const server = app.listen(0, "127.0.0.1");
+  await new Promise<void>((resolve) => server.once("listening", resolve));
+  const url =
+    "http://127.0.0.1:" + (server.address() as any).port + "/project-draft";
+  const send = (method: string, body?: unknown, actor = "customer") =>
+    fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json", "x-actor": actor },
+      ...(body ? { body: JSON.stringify(body) } : {}),
+    });
+  try {
+    await query("DELETE FROM project_drafts WHERE user_id=ANY($1::text[])", [
+      [customer.id, outsider.id],
+    ]);
+    const before = (await workspace(customer)).projects.length;
+    const payload = {
+      title: "",
+      category: "Cleaning",
+      address: "PRIVATE DRAFT ADDRESS",
+      intake: { pets: "No pets" },
+      proId: professional.id,
+    };
+    const saved = await send("PUT", payload);
+    assert.equal(saved.status, 200);
+    const { updatedAt } = await saved.json();
+    assert.ok(updatedAt);
+    assert.deepEqual((await (await send("GET")).json()).payload, payload);
+    const own = await workspace(customer);
+    assert.deepEqual(own.projectDraft?.payload, payload);
+    assert.equal(
+      own.projects.length,
+      before,
+      "Saving a draft does not publish a project",
+    );
+    assert.equal((await workspace(outsider)).projectDraft, null);
+    assert.equal((await workspace(professional)).projectDraft, null);
+    assert.equal((await send("GET", undefined, "pro")).status, 403);
+    assert.equal((await send("PUT", payload, "pro")).status, 403);
+    assert.equal((await send("DELETE", {}, "pro")).status, 403);
+    assert.equal(
+      (await send("PUT", { description: "x".repeat(30001) })).status,
+      413,
+    );
+    assert.equal((await send("DELETE", { updatedAt }, "other")).status, 200);
+    assert.ok((await workspace(customer)).projectDraft);
+    await query(
+      "UPDATE project_drafts SET updated_at=updated_at+interval '1 second',payload=payload || '{\"title\":\"Updated draft\"}'::jsonb WHERE user_id=$1",
+      [customer.id],
+    );
+    assert.equal((await send("DELETE", { updatedAt })).status, 409);
+    const latest = await (await send("GET")).json();
+    assert.equal(latest.payload.title, "Updated draft");
+    assert.equal(
+      (await send("DELETE", { updatedAt: latest.updatedAt })).status,
+      200,
+    );
+    assert.equal((await workspace(customer)).projectDraft, null);
+    assert.equal(
+      (await send("DELETE", { updatedAt: latest.updatedAt })).status,
+      200,
+      "Discard can be retried after an interrupted response",
+    );
+  } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
   }
 });
 

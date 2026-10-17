@@ -409,13 +409,18 @@ function ProProfile() {
 }
 function Projects() {
   const { data, page, id, run, busy, go } = useWorkspace();
-  const selectedProfessional = data.profiles.find((p) => p.id === id);
+  const selectedProfessional = data.profiles.find(
+    (p) => p.id === (id === "draft" ? data.projectDraft?.payload.proId : id),
+  );
   const requestedCategory = new URLSearchParams(window.location.search).get(
     "category",
   );
   const initialCategory = (selectedProfessional?.category ||
     (categories.includes(requestedCategory as ServiceCategory)
       ? requestedCategory
+      : null) ||
+    (categories.includes(data.projectDraft?.payload.category as ServiceCategory)
+      ? data.projectDraft?.payload.category
       : null) ||
     categories[0]) as ServiceCategory;
   const [creating, setCreating] = useState(!!id),
@@ -425,7 +430,12 @@ function Projects() {
   const [savedProjectId, setSavedProjectId] = useState<string | null>(null);
   const publishRetry = useRef({ signature: "", key: "" });
   const [uploadProgress, setUploadProgress] = useState("");
-  const [draft, setDraft] = useState<Record<string, any> | null>(null);
+  const [draft, setDraft] = useState<Record<string, any> | null>(
+    data.projectDraft?.payload || null,
+  );
+  const [draftUpdatedAt, setDraftUpdatedAt] = useState(
+    data.projectDraft?.updatedAt,
+  );
   const [formValues, setFormValues] = useState<Record<string, any> | null>(
     null,
   );
@@ -435,16 +445,6 @@ function Projects() {
     any
   > | null>(null);
   const source = page === "leads" ? data.leads : data.projects;
-  useEffect(() => {
-    if (data.user.role !== "customer") return;
-    void request<{ payload: Record<string, any> | null }>("/project-draft")
-      .then((result) => {
-        setDraft(result.payload);
-        if (!selectedProfessional && result.payload?.category)
-          setProjectCategory(result.payload.category as ServiceCategory);
-      })
-      .catch(() => undefined);
-  }, [data.user.id, selectedProfessional?.id]);
   const payloadFrom = (f: FormData) => ({
     title: String(f.get("title") || ""),
     description: String(f.get("description") || ""),
@@ -494,9 +494,12 @@ function Projects() {
           );
           throw error;
         }
-        await request("/project-draft", undefined, "DELETE").catch(
-          () => undefined,
-        );
+        if (draftUpdatedAt)
+          await request(
+            "/project-draft",
+            { updatedAt: draftUpdatedAt },
+            "DELETE",
+          ).catch(() => undefined);
         setDraft(null);
         setUploadProgress("");
         setCreating(false);
@@ -644,11 +647,21 @@ function Projects() {
               onSubmit={(f) => {
                 const payload = payloadFrom(f);
                 if (f.get("intent") === "draft")
-                  return run(async () => {
-                    await request("/project-draft", payload, "PUT");
-                    setFormValues(null);
-                    setDraft(payload);
-                  }, "Draft saved. You can continue it from any signed-in device.");
+                  return run(
+                    async () => {
+                      const saved = await request<{ updatedAt: string }>(
+                        "/project-draft",
+                        payload,
+                        "PUT",
+                      );
+                      setDraftUpdatedAt(saved.updatedAt);
+                      setFormValues(null);
+                      setDraft(payload);
+                    },
+                    photos.length
+                      ? "Draft details saved to your dashboard. Select photos again if you leave this page before publishing."
+                      : "Draft saved to your dashboard. Continue it from any signed-in device.",
+                  );
                 setFormValues(payload);
                 setPendingProject(payload);
                 return Promise.resolve();
