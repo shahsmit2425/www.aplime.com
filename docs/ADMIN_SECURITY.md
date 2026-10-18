@@ -67,6 +67,8 @@ The admin app uses in-memory Firebase persistence: reloading/closing it requires
 
 ## If sign-in still stops
 
+Run `npm run admin:setup -- ADMIN_EMAIL --check` from the API Shell; `admin:setup` alone is not a shell command. A successful check validates prerequisites only and does not exercise role/claim writes. If provisioning subsequently fails, the setup command reports the failing stage (identity, policy, database, claims or revocation) and a sanitized error code. It does not echo raw provider errors, SQL details, credentials or subprocess stack traces. A database `23505` indicates a unique-value conflict, potentially an old account using the same email under another UID; inspect the account rather than deleting it or automatically assigning its role to the new identity. `42P01`/`42703` indicate missing tables/columns; apply pending API migrations. `42501` indicates database permissions. Claims/revocation failures require checking Firebase service-account permissions. A failure can occur after the database role or Firebase claim changed, so no success is claimed and state must be inspected before retrying. Existing API checks still require all administrator conditions together.
+
 - **Incorrect email/password:** ensure the admin site and API point to the same Firebase project. Use password reset; never share the password in logs or support messages.
 - **Verify your email:** send the link from the admin site, follow it and check verification. Do not create a marketplace profile.
 - **Owner approval required:** compare the displayed UID with `ADMIN_ALLOWED_UIDS`, then run the setup command in the correct API Shell. Sign out and back in after provisioning so revoked/stale tokens are replaced.

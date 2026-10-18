@@ -2,6 +2,53 @@ import type { Auth, MultiFactorConfig, UserRecord } from "firebase-admin/auth";
 import { z } from "zod";
 
 export class AdminSetupError extends Error {}
+const accessFailure = z
+  .object({
+    stage: z.enum(["identity", "policy", "database", "claims", "revocation"]),
+    code: z
+      .string()
+      .regex(/^(?:[0-9A-Z]{5}|auth\/[a-z-]{1,60}|E[A-Z]{2,30}|unknown)$/),
+  })
+  .strict();
+export function accessFailureRecord(
+  stage: z.infer<typeof accessFailure>["stage"],
+  error: unknown,
+) {
+  const code =
+    typeof error === "object" && error && "code" in error
+      ? error.code
+      : "unknown";
+  return accessFailure.parse({
+    stage,
+    code: accessFailure.shape.code.safeParse(code).success ? code : "unknown",
+  });
+}
+export function accessFailureGuidance(output: string) {
+  for (const line of output.split(/\r?\n/)) {
+    if (!line.startsWith("ADMIN_ACCESS_FAILURE ")) continue;
+    try {
+      const { stage, code } = accessFailure.parse(
+        JSON.parse(line.slice("ADMIN_ACCESS_FAILURE ".length)),
+      );
+      const hint =
+        code === "23505"
+          ? "An account already uses a conflicting unique value, possibly this email under an older UID. Review the existing account; do not delete it or change its role automatically."
+          : code === "42P01" || code === "42703"
+            ? "Run the API's pending database migrations."
+            : code === "42501"
+              ? "Check the database role's table permissions."
+              : stage === "database"
+                ? "Check database connectivity, migrations and account constraints."
+                : stage === "policy"
+                  ? "Recheck the approved UID, verified enabled identity and dedicated administrator database role."
+                  : "Check Firebase service-account user/claim permissions and account state.";
+      return `Provisioning failed during ${stage} (code: ${code}). ${hint} Partial changes may exist; inspect state before retrying. No successful provisioning is claimed.`;
+    } catch {
+      /* Never echo arbitrary subprocess output, provider messages or secrets. */
+    }
+  }
+  return "Provisioning did not complete. Run npm run admin:setup -- EMAIL --check to check prerequisites. No successful provisioning is claimed.";
+}
 export function setupArguments(args: string[]) {
   const [address, ...flags] = args;
   const email = z.string().trim().email().max(254).safeParse(address);

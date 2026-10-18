@@ -5,6 +5,8 @@ import {
   setupAdministrator,
   setupArguments,
   withTotpEnabled,
+  accessFailureRecord,
+  accessFailureGuidance,
 } from "../scripts/lib/admin-setup.js";
 import {
   adminAuthError,
@@ -71,6 +73,47 @@ function fixture(
   return { dependencies, changes, granted, reports };
 }
 const email = "owner@example.invalid";
+test("provisioning diagnostics identify safe failure stages without exposing subprocess secrets", () => {
+  const output = (value: unknown) =>
+    "ADMIN_ACCESS_FAILURE " + JSON.stringify(value);
+  assert.match(
+    accessFailureGuidance(
+      output(
+        accessFailureRecord("database", {
+          code: "23505",
+          detail: "private-email-and-secret",
+        }),
+      ),
+    ),
+    /conflicting unique value/,
+  );
+  assert.match(
+    accessFailureGuidance(
+      output(
+        accessFailureRecord("claims", { code: "auth/insufficient-permission" }),
+      ),
+    ),
+    /claims.*auth\/insufficient-permission/,
+  );
+  assert.match(
+    accessFailureGuidance(
+      output(accessFailureRecord("database", { code: "42P01" })),
+    ),
+    /migrations/,
+  );
+  for (const text of [
+    "raw-provider-secret",
+    output({ stage: "private-secret", code: "23505" }),
+    output({ stage: "database", code: "password=private-secret" }),
+    output({ stage: "database", code: "23505", detail: "private-secret" }),
+  ]) {
+    assert.ok(!accessFailureGuidance(text).includes("secret"));
+  }
+  assert.equal(
+    accessFailureRecord("database", { code: "private-secret" }).code,
+    "unknown",
+  );
+});
 test("password recovery does not disclose missing accounts and still reports delivery or configuration failures", async () => {
   await assert.doesNotReject(requestAdminPasswordReset(async () => {}));
   await assert.doesNotReject(

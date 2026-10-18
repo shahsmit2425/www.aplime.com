@@ -7,6 +7,7 @@ import {
   AdminSetupError,
   setupAdministrator,
   setupArguments,
+  accessFailureGuidance,
 } from "./lib/admin-setup.js";
 
 // Operator-only tool. Never import into an HTTP route or frontend bundle.
@@ -54,7 +55,7 @@ try {
       );
       if (result.error || result.status !== 0)
         throw new AdminSetupError(
-          "Provisioning did not complete. No success is claimed. Recheck account verification, owner-approved UID, service-account permissions and database migrations. Run admin:setup -- EMAIL --check before retrying.",
+          accessFailureGuidance(result.stderr?.toString() || ""),
         );
     },
     report: console.log,
