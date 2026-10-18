@@ -1,5 +1,7 @@
 # Common settings reach all application services; backend configuration reaches only API/worker.
 # Add SITE_URL and API_URL to common; DATABASE_URL and credentials to backend manually.
+# Add REDIS_URL (private Render Key Value URL) to backend for live WebSockets/cache.
+# The existing -mail service runs all pg-boss queues; see docs/DEPLOYMENT.md.
 services:
   - type: web
     name: servicetones-development-api

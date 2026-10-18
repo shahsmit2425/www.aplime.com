@@ -1,4 +1,6 @@
 import { projectDrafts } from "./project-drafts.js";
+import { realtimeTicket } from "./realtime.js";
+import { cachedValue, redis } from "./redis.js";
 import {
   preservePublication,
   releasePublication,
@@ -102,6 +104,8 @@ const publicProfileMemo = new Map<
   { at: number; value: Awaited<ReturnType<typeof publicProfiles>> }
 >();
 async function cachedPublicProfiles(id?: string) {
+  // Do not stack local and shared TTLs: publication changes must age out in 30s.
+  if (redis?.isReady) return cachedValue("profiles:" + (id || "all"), 30, () => publicProfiles(id));
   const key = id ?? "";
   const hit = publicProfileMemo.get(key);
   if (hit && Date.now() - hit.at < PUBLIC_PROFILE_TTL_MS) return hit.value;
@@ -210,6 +214,7 @@ api.use((req, _res, next) => {
   next();
 });
 api.get("/notifications/stream", notificationStream);
+api.post("/realtime/ticket", realtimeTicket);
 api.use("/subscription", subscriptions);
 api.use("/support", supportRouter(false));
 api.get("/workspace", async (q, r) =>
@@ -916,6 +921,7 @@ api.use("/admin", (req, _res, next) => {
   next();
 });
 api.get("/admin/notifications/stream", notificationStream);
+api.post("/admin/realtime/ticket", realtimeTicket);
 api.post("/admin/notifications/read", async (req, res) => {
   await pool.query(
     "UPDATE notifications SET read=true WHERE user_id=$1 AND NOT read",

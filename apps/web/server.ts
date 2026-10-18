@@ -95,6 +95,7 @@ app.use(
         connectSrc: [
           "'self'",
           apiUrl,
+          apiUrl.replace(/^http/, "ws"),
           "https://*.googleapis.com",
           "https://*.firebaseapp.com",
           "https://*.sentry.io",

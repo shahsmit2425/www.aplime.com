@@ -1,5 +1,34 @@
 # Deployment and promotion
 
+## pg-boss workers and Redis WebSockets
+
+PostgreSQL remains authoritative for accounts, projects, conversations, notifications and transactional email-outbox records. The Render API commits changes before live delivery. PostgreSQL notification triggers wake API listeners, which relay recipient-only invalidations through Redis Pub/Sub. Customer/pro WebSockets prompt authenticated refreshes of saved data. Repeated signals are coalesced; reconnection and periodic reconciliation recover changes missed during disconnects. Chat writes continue through the authenticated HTTP API, preserving existing ownership, blocking, quotas and idempotency checks.
+
+The existing `-mail` background service now runs six independent pg-boss queues: email delivery, email reminders, meeting lifecycle, estimate expiry, storage cleanup and account cleanup. Each maintenance queue is exclusive across worker replicas, retries failed tasks and has a durable every-minute schedule. Email delivery and time-sensitive lifecycle work also receive a five-second wakeup. Normal queue polling adds latency; these are not exact-time guarantees. Existing transactional outbox claims/retries and reminder receipts remain in use. SMTP cannot guarantee exactly-once delivery if a provider accepts mail immediately before a worker crashes.
+
+Development rollout:
+
+1. Keep the existing PostgreSQL database and its backups. Use Node 22.16+ in the supported Node 22 range. Keep the API's `npm run config:check && npm run db:migrate` pre-deploy command.
+2. Create a Render Key Value instance in the API's region/private network. Disable external access. Copy its **internal connection URL** into `REDIS_URL` in `servicetones-development-backend` only. Do not put it in common or frontend settings. Use a separate instance for each later environment. Render's [Key Value guide](https://render.com/docs/key-value) explains private connectivity; the [WebSocket guide](https://render.com/docs/websocket) covers persistent connections through the existing web service.
+3. Keep the existing Upstash REST variables for distributed API rate limits. They are not replaced by this rollout. Leave `JOBS_ENGINE` unset (defaults to `pg-boss`) or explicitly set it to `pg-boss`. No additional SMTP or Daily settings are needed.
+4. Deploy the API, then deploy the existing background worker with `npm run worker`. Do not create another legacy mail worker. The database role must be able to create/manage the `pgboss` schema; first startup creates its queue tables automatically. Application data migrations stay under the existing migration runner. The queue adapter reuses the application's PostgreSQL pool/TLS policy.
+5. Confirm the worker logs `pg-boss background worker ready` with all six queue names. Then deploy customer web/mobile assets. Their CSP now permits the WebSocket origin derived from `API_URL`. Proxies must allow Upgrade requests to `/api/realtime`. Admin remains on authenticated SSE, including its existing UID/role/TOTP checks.
+6. In two real development accounts, send chat/support messages and change a project. Confirm recipient updates, unread badges and eventual email delivery. Restart the worker with an email pending; verify it is delivered afterward. Temporarily remove Redis connectivity and confirm the client falls back to SSE/reconciliation, then reload after restoring it. Test two API replicas before scaling production.
+
+WebSocket authorization uses a random, single-use ticket stored in Redis for twenty seconds. Tickets are requested through existing authenticated account checks, sent in the first socket frame, and excluded from URLs. Allowed origins, authentication timeouts, payload/buffer bounds and per-user connection limits apply. Connections rotate after fifty-five seconds to re-run HTTP authorization. Redis caches only public profiles for thirty seconds; authorization and private workspace data never use that cache.
+
+Operations: monitor worker restarts, queue failures, database connections, Redis memory/latency and email-outbox age. Inspect queue state without reading customer payloads:
+
+```sql
+SELECT name, state, count(*) FROM pgboss.job GROUP BY name, state ORDER BY name, state;
+SELECT name, min(created_on) AS oldest_waiting
+FROM pgboss.job WHERE state IN ('created', 'retry') GROUP BY name;
+```
+
+Failed pg-boss maintenance runs are visible in the queue tables; recurring schedules continue scheduling later runs. Individual exhausted mail/cleanup records still require the existing administrative/operator workflow. Queue retries do not override these domain retry limits. Redis eviction/restart can lose cache entries and connection tickets, which are replaceable; it must never delete business history because that history lives in PostgreSQL. Redis Pub/Sub itself is not durable.
+
+Rollback: set `JOBS_ENGINE=legacy` and redeploy the same worker service. Do not drop `pgboss` or the email outbox. To disable WebSockets/shared caching, clear `REDIS_URL` and redeploy API; clients use existing SSE and polling. Public profile caching returns to the local thirty-second cache. Existing messages, notifications and queued email records remain intact. Resource creation and live deployment are operator steps; committing this code does not provision a paid Redis service.
+
 ## Branch policy
 
 Always start work on `development` (or a feature branch created from it and merged back into it). Promote with a PR from `development` to `stagging`, then from `stagging` to `main`. The CI promotion check rejects other PR sources into the latter two branches.

@@ -76,12 +76,27 @@ Google OAuth web client configuration is managed in Firebase/Google Cloud. Andro
 
 ## Upstash Redis
 
+The existing Upstash REST configuration continues to protect API rate limits. Keep these values during this release; `REDIS_URL` below serves a different connection protocol and does not replace them.
+
 | Variable                 | Required      | Value or source                |
 | ------------------------ | ------------- | ------------------------------ |
 | UPSTASH_REDIS_REST_URL   | Yes on Render | Upstash database REST endpoint |
 | UPSTASH_REDIS_REST_TOKEN | Yes, secret   | Upstash REST token             |
 
 Use a distinct database per environment. Rate-limit keys are additionally prefixed by APP_ENV. Local development can omit Redis; deployed environments fail config validation if it is missing.
+
+## Durable jobs and live connections
+
+| Variable | Default / requirement | Where to set it |
+| --- | --- | --- |
+| `REDIS_URL` | Empty by default; required to activate WebSockets and shared caching | Backend group only. Copy the internal connection URL from a Render Key Value instance in the API's region/private network. Supports `redis://` and `rediss://`. Use separate instances per environment. |
+| `JOBS_ENGINE` | `pg-boss` | Optional backend setting. `legacy` temporarily restores the previous worker loop during rollback. Never run separate legacy and pg-boss worker services intentionally. |
+
+One new connection value is needed for the full architecture: `REDIS_URL`. `JOBS_ENGINE` can be omitted. Keep existing `DATABASE_URL`, database TLS, SMTP/Microsoft, Firebase and storage settings. No new SMTP credentials, WebSocket URL, browser secret, or pg-boss database URL are required. The browser derives its WebSocket URL from the existing public `API_URL`; it obtains a short-lived ticket through authenticated HTTP. Neither variable is included in public configuration.
+
+When `REDIS_URL` is absent or unavailable, customer/pro clients fall back to the existing SSE connection and periodic reconciliation; public profile queries fall back to PostgreSQL/local caching. Redis never stores the authoritative message history, project state or email outbox. Admin clients continue using their existing authenticated SSE flow. These fallbacks do not replace the existing Upstash rate-limit requirement above.
+
+The existing Render mail worker runs all six pg-boss queues with `npm run worker`. The worker creates/migrates its own `pgboss` schema inside the same PostgreSQL database. It needs schema-creation rights. See [deployment and rollback steps](DEPLOYMENT.md#pg-boss-workers-and-redis-websockets).
 
 ## Stripe membership and identity verification
 

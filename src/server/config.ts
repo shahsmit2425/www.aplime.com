@@ -13,6 +13,8 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().min(1).max(65535).default(5173),
   SITE_URL: z.string().url().default("http://127.0.0.1:5173"),
   DATABASE_URL: z.string().default(""),
+  REDIS_URL: z.string().default(""),
+  JOBS_ENGINE: z.enum(["legacy", "pg-boss"]).default("pg-boss"),
   DATABASE_SSL: z
     .enum(["require", "render-internal", "disable"])
     .default("require"),

@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import type pg from "pg";
 import { pool } from "./db/index.js";
+import { redis, redisChannel } from "./redis.js";
 const listeners = new Map<string, Set<() => void>>();
 let client: pg.PoolClient | undefined;
 let connecting: Promise<void> | undefined;
@@ -16,7 +17,7 @@ export function subscribeNotifications(userId: string, callback: () => void) {
 export function dispatchNotification(userId: string) {
   listeners.get(userId)?.forEach((callback) => callback());
 }
-async function listen() {
+export async function listenNotifications() {
   if (client) return;
   if (connecting) return connecting;
   connecting = (async () => {
@@ -36,8 +37,10 @@ async function listen() {
     try {
       await connection.query("LISTEN aplime_notifications");
       connection.on("notification", (msg) => {
-        if (msg.channel === "aplime_notifications" && msg.payload)
+        if (msg.channel === "aplime_notifications" && msg.payload) {
           dispatchNotification(msg.payload);
+          if (redis?.isReady) void redis.publish(redisChannel, msg.payload).catch(() => {});
+        }
       });
       client = connection;
     } catch (error) {
@@ -57,7 +60,7 @@ export async function notificationStream(req: Request, res: Response) {
       .json({ error: "Too many live connections. Close an unused tab." });
     return;
   }
-  await listen();
+  await listenNotifications();
   if (res.destroyed) return;
   if ((listeners.get(req.account.id)?.size || 0) >= 10) {
     res
