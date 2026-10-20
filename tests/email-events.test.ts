@@ -447,7 +447,7 @@ test("deletion confirmation uses a short-lived address and removes it after send
   );
 });
 
-test("exhausted SMTP retries notify admins in-app without recursively queuing email", async () => {
+test("exhausted email retries notify admins in-app without recursively queuing email", async () => {
   await query("DELETE FROM email_outbox");
   const id = randomUUID();
   await query(
@@ -455,7 +455,7 @@ test("exhausted SMTP retries notify admins in-app without recursively queuing em
     [id],
   );
   await deliverOutbox(async () => {
-    throw new Error("SMTP unavailable");
+    throw new Error("Email provider unavailable");
   });
   assert.equal(
     (await query("SELECT attempts FROM email_outbox WHERE id=$1", [id])).rows[0]
@@ -475,4 +475,59 @@ test("exhausted SMTP retries notify admins in-app without recursively queuing em
     1,
   );
   assert.equal(await deliverOutbox(async () => {}), 0);
+});
+
+test("Resend cutover preserves queued records, retries rejected sends and marks only accepted mail sent", async (t) => {
+  const { env } = await import("../src/server/config.js");
+  const { sendEmail } = await import("../src/server/integrations/email.js");
+  const originalFetch = globalThis.fetch;
+  const oldKey = env.RESEND_API_KEY,
+    oldFrom = env.EMAIL_FROM;
+  env.RESEND_API_KEY = "re_cutover_fixture";
+  env.EMAIL_FROM = "notification@example.invalid";
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+    env.RESEND_API_KEY = oldKey;
+    env.EMAIL_FROM = oldFrom;
+  });
+  await query("DELETE FROM email_outbox");
+  await query("UPDATE email_category_settings SET enabled=true");
+  await query("UPDATE users SET settings='{}' WHERE id='email-customer'");
+  const id = randomUUID();
+  await query(
+    "INSERT INTO email_outbox(id,user_id,subject,body) VALUES($1,'email-customer','New service opportunity','Cleaning request in ZIP 08859.')",
+    [id],
+  );
+  const keys: string[] = [];
+  let accepted = false;
+  globalThis.fetch = (async (_url, init) => {
+    keys.push(new Headers(init?.headers).get("Idempotency-Key")!);
+    return accepted
+      ? Response.json({ id: "provider-accepted" })
+      : Response.json(
+          {
+            name: "rate_limit_exceeded",
+            message: "Do not log private provider details",
+          },
+          { status: 429 },
+        );
+  }) as typeof fetch;
+  await deliverOutbox(sendEmail);
+  let row = (await query("SELECT * FROM email_outbox WHERE id=$1", [id]))
+    .rows[0];
+  assert.equal(row.attempts, 1);
+  assert.equal(row.sent_at, null);
+  assert.ok(new Date(row.next_attempt_at).getTime() > Date.now());
+  accepted = true;
+  await query("UPDATE email_outbox SET next_attempt_at=now() WHERE id=$1", [
+    id,
+  ]);
+  await deliverOutbox(sendEmail);
+  row = (await query("SELECT * FROM email_outbox WHERE id=$1", [id])).rows[0];
+  assert.equal(row.attempts, 2);
+  assert.ok(row.sent_at);
+  assert.equal(keys.length, 2);
+  assert.equal(keys[0], keys[1]);
+  assert.equal(await deliverOutbox(sendEmail), 0);
+  assert.equal(keys.length, 2);
 });

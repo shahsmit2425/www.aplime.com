@@ -54,13 +54,9 @@ const envSchema = z.object({
   GOOGLE_MAPS_SERVER_KEY: z.string().default(""),
   MARKETPLACE_DISCOVERY_MODE: z.enum(["open", "matched"]).default("open"),
   MARKETPLACE_PREVIEW: z.enum(["true", "false"]).optional(),
-  SMTP_HOST: z.string().default("smtp.office365.com"),
-  SMTP_PORT: z.coerce.number().default(587),
-  SMTP_USER: z.string().default(""),
-  SMTP_FROM: z.string().default(""),
-  MICROSOFT_TENANT_ID: z.string().default(""),
-  MICROSOFT_CLIENT_ID: z.string().default(""),
-  MICROSOFT_CLIENT_SECRET: z.string().default(""),
+  RESEND_API_KEY: z.string().trim().default(""),
+  EMAIL_FROM: z.string().trim().default(""),
+  EMAIL_REPLY_TO: z.string().trim().default(""),
   SENTRY_DSN: z.string().default(""),
   PUBLIC_SENTRY_DSN: z.string().default(""),
   SUPPORT_EMAIL: z.string().default(""),
@@ -115,11 +111,8 @@ export function requiredKeys() {
     "R2_SECRET_ACCESS_KEY",
     "R2_BUCKET",
     "GOOGLE_MAPS_SERVER_KEY",
-    "SMTP_USER",
-    "SMTP_FROM",
-    "MICROSOFT_TENANT_ID",
-    "MICROSOFT_CLIENT_ID",
-    "MICROSOFT_CLIENT_SECRET",
+    "RESEND_API_KEY",
+    "EMAIL_FROM",
     "SUPPORT_EMAIL",
   ] as const;
 }
@@ -129,6 +122,7 @@ export function validateDeployment() {
   const missing = requiredKeys().filter((k) => !env[k]);
   if (missing.length)
     throw new Error("Missing deployment configuration: " + missing.join(", "));
+  validateEmailDelivery();
   const membershipPrices = [
     env.STRIPE_PRO_MONTHLY_PRICE_ID,
     env.STRIPE_PRO_SIX_MONTH_PRICE_ID,
@@ -162,27 +156,27 @@ export function validateDeployment() {
 
 // Mail starts independently of optional provider jobs; account cleanup needs
 // Firebase/R2 credentials when such jobs are present.
-export function validateMailWorker(config: typeof env = env) {
-  const keys = [
-    "DATABASE_URL",
-    "SMTP_HOST",
-    "SMTP_USER",
-    "SMTP_FROM",
-    "MICROSOFT_TENANT_ID",
-    "MICROSOFT_CLIENT_ID",
-    "MICROSOFT_CLIENT_SECRET",
-  ] as const;
+export function validateEmailDelivery(config: typeof env = env) {
+  const keys = ["RESEND_API_KEY", "EMAIL_FROM"] as const;
   const missing = keys.filter((key) => !config[key].trim());
   if (missing.length)
+    throw new Error("Missing email configuration: " + missing.join(", "));
+  if (!/^re_[A-Za-z0-9_-]+$/.test(config.RESEND_API_KEY))
+    throw new Error("RESEND_API_KEY must be a Resend API key.");
+  if (!z.string().email().safeParse(config.EMAIL_FROM).success)
     throw new Error(
-      "Missing email-worker configuration: " + missing.join(", "),
+      "EMAIL_FROM must be a plain email address on your verified sending domain.",
     );
   if (
-    !Number.isInteger(config.SMTP_PORT) ||
-    config.SMTP_PORT < 1 ||
-    config.SMTP_PORT > 65535
+    config.EMAIL_REPLY_TO &&
+    !z.string().email().safeParse(config.EMAIL_REPLY_TO).success
   )
-    throw new Error("SMTP_PORT must be a valid port number.");
+    throw new Error("EMAIL_REPLY_TO must be a plain email address.");
+}
+export function validateMailWorker(config: typeof env = env) {
+  if (!config.DATABASE_URL.trim())
+    throw new Error("Missing email-worker configuration: DATABASE_URL");
+  validateEmailDelivery(config);
   if (
     config.NODE_ENV === "production" &&
     (!config.SITE_URL.startsWith("https://") ||

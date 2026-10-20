@@ -126,6 +126,8 @@ test("call meeting contract is shared by marketplace clients and API, while its 
 
 test("meeting expiry and cleanup dependencies deploy both API and worker", () => {
   for (const path of [
+    "scripts/check-email.ts",
+    "src/server/integrations/email.ts",
     "src/server/meeting-lifecycle.ts",
     "src/server/account-cleanup.ts",
     "src/server/email-alerts.ts",

@@ -16,9 +16,9 @@ Create a webhook destination at `https://YOUR_API_DOMAIN/api/webhooks/stripe`. S
 
 Stripe Checkout charges the customer after completion, applies the configured platform fee, and sends the remainder to the professional's connected account. Review the fee and Stripe/platform liability arrangement before launch. Client redirects are informational: the webhook remains authoritative.
 
-## Microsoft 365
+## Resend email delivery
 
-Create an Entra application with the Office 365 Exchange Online application permission `SMTP.SendAsApp`, grant tenant admin consent, register the service principal in Exchange, and grant it access to the sending mailbox. Enable SMTP AUTH for that mailbox under the tenant's policy. Configure SPF, DKIM and DMARC for the sender domain. The worker exchanges client credentials for an OAuth token and submits mail with STARTTLS.
+Verify your sending domain in Resend and create a sending API key. Put RESEND_API_KEY and EMAIL_FROM in the API/worker backend group; EMAIL_REPLY_TO is optional. The worker submits branded HTML/plain text via HTTPS with stable outbox idempotency keys. Preserve Microsoft 365 receiving MX records and existing inboxes. See EMAIL_ALERTS.md for cutover, diagnostics, retry limits and DNS precautions.
 
 Run one or more `npm run worker` processes; row locking prevents normal concurrent double-processing. Failed sends retry with backoff, then remain in `email_outbox` after eight failures for operator investigation. Monitor oldest unsent age and exhausted attempts.
 
@@ -60,6 +60,6 @@ Primary references:
 - [Stripe Identity](https://docs.stripe.com/identity/verify-identity-documents)
 - [Daily room tokens](https://docs.daily.co/reference/rest-api/meeting-tokens/create-meeting-token)
 - [R2 signed URLs](https://developers.cloudflare.com/r2/api/s3/presigned-urls/)
-- [Microsoft SMTP OAuth](https://learn.microsoft.com/en-us/exchange/client-developer/legacy-protocols/how-to-authenticate-an-imap-pop-smtp-application-by-using-oauth)
+- [Resend email API](https://resend.com/docs/api-reference/emails/send-email)
 - [TestFlight automation](https://docs.fastlane.tools/actions/upload_to_testflight/)
 - [Google Play automation](https://docs.fastlane.tools/actions/supply/)

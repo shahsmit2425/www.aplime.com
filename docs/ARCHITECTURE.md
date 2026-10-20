@@ -27,7 +27,7 @@ src/
     webhooks.ts            Signed/idempotent Stripe events
     config.ts              Server config validation and explicit public allowlist
     db/                    Postgres connection, migrations and schema
-    integrations/          Firebase, Stripe, Daily, R2, Upstash, Maps, SMTP
+    integrations/          Firebase, Stripe, Daily, R2, Upstash, Maps, Resend
     worker.ts              Durable email-outbox delivery with retries
 android/                   Android native wrapper and signing configuration
 ios/                       iOS native wrapper, Google/Apple integration and entitlements

@@ -47,7 +47,7 @@ export function EmailAlerts({
         </button>
       </div>
       <p>
-        Automatic alerts use your existing SMTP sender. Direct administrator
+        Automatic alerts are sent through Resend. Direct administrator
         messages appear in the user's support inbox and send an email. Security,
         billing and direct Aplime support notices remain enabled.
       </p>
@@ -120,7 +120,7 @@ export function EmailAlerts({
                       <td>{row.subject}</td>
                       <td>
                         {row.sentAt
-                          ? "Accepted by SMTP"
+                          ? "Accepted by email provider"
                           : row.cancelledAt
                             ? "Skipped"
                             : row.attempts >= 8

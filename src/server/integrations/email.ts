@@ -1,6 +1,30 @@
-import nodemailer from "nodemailer";
-import { env } from "../config.js";
-import { requireValue } from "../errors.js";
+import { createHash, randomUUID } from "node:crypto";
+import { env, validateEmailDelivery } from "../config.js";
+
+const providerCodes = new Set([
+  "validation_error",
+  "missing_api_key",
+  "invalid_api_key",
+  "restricted_api_key",
+  "invalid_from_address",
+  "rate_limit_exceeded",
+  "daily_quota_exceeded",
+  "monthly_quota_exceeded",
+  "application_error",
+  "internal_server_error",
+  "invalid_idempotent_request",
+  "concurrent_idempotent_requests",
+]);
+export class EmailDeliveryError extends Error {
+  constructor(
+    public readonly code: string,
+    public readonly status?: number,
+  ) {
+    super(`Email delivery failed: ${code}${status ? ` (HTTP ${status})` : ""}`);
+  }
+}
+
+// One HTTP attempt; the transactional outbox owns retries and recipient policy.
 export async function sendEmail(
   to: string,
   subject: string,
@@ -8,53 +32,54 @@ export async function sendEmail(
   html?: string,
   messageId?: string,
 ) {
-  requireValue(
-    env.SMTP_USER &&
-      env.SMTP_FROM &&
-      env.MICROSOFT_TENANT_ID &&
-      env.MICROSOFT_CLIENT_ID &&
-      env.MICROSOFT_CLIENT_SECRET,
-    "Email is not configured.",
-  );
-  const response = await fetch(
-    "https://login.microsoftonline.com/" +
-      encodeURIComponent(env.MICROSOFT_TENANT_ID) +
-      "/oauth2/v2.0/token",
-    {
+  validateEmailDelivery();
+  const key =
+    "aplime/" +
+    createHash("sha256")
+      .update(messageId || randomUUID())
+      .digest("hex");
+  let response: Response;
+  try {
+    response = await fetch("https://api.resend.com/emails", {
       method: "POST",
-      body: new URLSearchParams({
-        grant_type: "client_credentials",
-        client_id: env.MICROSOFT_CLIENT_ID,
-        client_secret: env.MICROSOFT_CLIENT_SECRET,
-        scope: "https://outlook.office365.com/.default",
+      headers: {
+        Authorization: "Bearer " + env.RESEND_API_KEY,
+        "Content-Type": "application/json",
+        "User-Agent": "aplime/0.2.0",
+        "Idempotency-Key": key,
+      },
+      body: JSON.stringify({
+        from: env.EMAIL_FROM,
+        to: [to],
+        subject,
+        text,
+        ...(html !== undefined ? { html } : {}),
+        ...(env.EMAIL_REPLY_TO ? { reply_to: env.EMAIL_REPLY_TO } : {}),
+        ...(messageId ? { headers: { "Message-ID": messageId } } : {}),
       }),
       signal: AbortSignal.timeout(15000),
-    },
-  );
-  if (!response.ok) throw new Error("Microsoft OAuth token request failed.");
-  const { access_token } = await response.json();
-  const transport = nodemailer.createTransport({
-    host: env.SMTP_HOST,
-    port: env.SMTP_PORT,
-    secure: false,
-    requireTLS: true,
-    disableFileAccess: true,
-    disableUrlAccess: true,
-    tls: { minVersion: "TLSv1.2" },
-    auth: { type: "OAuth2", user: env.SMTP_USER, accessToken: access_token },
-    connectionTimeout: 15000,
-    socketTimeout: 20000,
-  });
-  try {
-    await transport.sendMail({
-      from: env.SMTP_FROM,
-      to,
-      subject,
-      text,
-      html,
-      messageId,
     });
-  } finally {
-    transport.close();
+  } catch {
+    throw new EmailDeliveryError("network_or_timeout");
   }
+  let result: { id?: unknown; name?: unknown };
+  try {
+    result = await response.json();
+  } catch {
+    throw new EmailDeliveryError("invalid_response", response.status);
+  }
+  if (!response.ok) {
+    const code =
+      typeof result?.name === "string" && providerCodes.has(result.name)
+        ? result.name
+        : "provider_rejected";
+    throw new EmailDeliveryError(code, response.status);
+  }
+  if (
+    !result ||
+    typeof result.id !== "string" ||
+    !/^[a-zA-Z0-9_-]{1,128}$/.test(result.id)
+  )
+    throw new EmailDeliveryError("invalid_response", response.status);
+  return { id: result.id };
 }

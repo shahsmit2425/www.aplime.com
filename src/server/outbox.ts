@@ -3,6 +3,7 @@ import { emailAllowed, emailPolicy } from "../shared/email-alerts.js";
 import { eventEmail } from "./email-template.js";
 import { env } from "./config.js";
 import { reminderStillRelevant } from "./email-reminders.js";
+import { EmailDeliveryError } from "./integrations/email.js";
 
 type Send = (
   to: string,
@@ -13,8 +14,8 @@ type Send = (
 ) => Promise<unknown>;
 
 // Claims a batch with a short lease, then sends outside the transaction so a slow provider never holds row locks
-// A crash after SMTP acceptance but before marking sent can cause a retry;
-// a stable Message-ID helps mail clients recognize it, but SMTP is not exactly-once.
+// The stable Message-ID also derives Resend's 24-hour idempotency key.
+// Beyond that retention window, provider acceptance before a crash can still duplicate mail.
 export async function deliverOutbox(send: Send, batch = 20) {
   await pool.query(
     "UPDATE email_outbox SET recipient_email=NULL,cancelled_at=COALESCE(cancelled_at,now()) WHERE recipient_email IS NOT NULL AND created_at<now()-interval '7 days' AND sent_at IS NULL",
@@ -118,12 +119,18 @@ export async function deliverOutbox(send: Send, batch = 20) {
         "UPDATE email_outbox SET sent_at=now(),recipient_email=NULL WHERE id=$1",
         [mail.id],
       );
-    } catch {
+    } catch (error) {
       await pool.query(
         "UPDATE email_outbox SET next_attempt_at=now()+make_interval(secs=>LEAST(3600,60*power(2,attempts-1)::int)) WHERE id=$1",
         [mail.id],
       );
-      console.error("Email delivery deferred", mail.id);
+      console.error(
+        "Email delivery deferred",
+        mail.id,
+        error instanceof EmailDeliveryError
+          ? { provider: "resend", code: error.code, status: error.status }
+          : { code: "processing_error" },
+      );
       if (mail.attempts === 8)
         await pool.query(
           "INSERT INTO notifications(id,user_id,title,body,target_page) SELECT gen_random_uuid(),id,'Email delivery failed','An email exhausted its retry attempts. Review failed deliveries in Email & alerts.','emails' FROM users WHERE role='admin' AND deleted_at IS NULL",

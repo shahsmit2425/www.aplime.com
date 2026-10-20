@@ -287,10 +287,6 @@ envVarGroups:
     envVars:
       - key: DATABASE_SSL
         value: render-internal
-      - key: SMTP_HOST
-        value: smtp.office365.com
-      - key: SMTP_PORT
-        value: "587"
   - name: servicetones-stagging-common
     envVars:
       - key: NODE_VERSION
@@ -303,10 +299,6 @@ envVarGroups:
     envVars:
       - key: DATABASE_SSL
         value: render-internal
-      - key: SMTP_HOST
-        value: smtp.office365.com
-      - key: SMTP_PORT
-        value: "587"
   - name: servicetones-production-common
     envVars:
       - key: NODE_VERSION
@@ -319,7 +311,3 @@ envVarGroups:
     envVars:
       - key: DATABASE_SSL
         value: render-internal
-      - key: SMTP_HOST
-        value: smtp.office365.com
-      - key: SMTP_PORT
-        value: "587"

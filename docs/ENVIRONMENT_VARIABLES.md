@@ -25,7 +25,7 @@ SITE_URL=https://<customer-domain>
 API_URL=https://<api-domain>
 ```
 
-Put ALLOWED_ORIGINS, SUPPORT_EMAIL, DATABASE_URL, DATABASE_SSL, optional DATABASE_CA_CERT, all FIREBASE_* values, ADMIN_ALLOWED_UIDS, UPSTASH__, STRIPE__, DAILY_API_KEY, R2__, GOOGLE_MAPS_SERVER_KEY, SMTP__, MICROSOFT_*, SENTRY_DSN and PUBLIC_SENTRY_DSN in backend. Some of these are non-secret, but only the backend consumes them directly. Its public-config allowlist intentionally returns the Firebase web configuration, public Sentry DSN and support email to clients.
+Put ALLOWED_ORIGINS, SUPPORT_EMAIL, DATABASE_URL, DATABASE_SSL, optional DATABASE_CA_CERT, all FIREBASE_* values, ADMIN_ALLOWED_UIDS, UPSTASH__, STRIPE__, DAILY_API_KEY, R2__, GOOGLE_MAPS_SERVER_KEY, RESEND_API_KEY, EMAIL_FROM, EMAIL_REPLY_TO, SENTRY_DSN and PUBLIC_SENTRY_DSN in backend. Some of these are non-secret, but only the backend consumes them directly. Its public-config allowlist intentionally returns the Firebase web configuration, public Sentry DSN and support email to clients.
 
 Admin builds derive their public settings from common API_URL and APP_ENV; do not add duplicate VITE variables. Both frontend build configurations disable automatic prefixed-variable exposure. Private values must never appear in browser bundles or public configuration.
 
@@ -92,7 +92,7 @@ Use a distinct database per environment. Rate-limit keys are additionally prefix
 | `REDIS_URL` | Empty by default; required to activate WebSockets and shared caching | Backend group only. Copy the internal connection URL from a Render Key Value instance in the API's region/private network. Supports `redis://` and `rediss://`. Use separate instances per environment. |
 | `JOBS_ENGINE` | `pg-boss` | Optional backend setting. `legacy` temporarily restores the previous worker loop during rollback. Never run separate legacy and pg-boss worker services intentionally. |
 
-One new connection value is needed for the full architecture: `REDIS_URL`. `JOBS_ENGINE` can be omitted. Keep existing `DATABASE_URL`, database TLS, SMTP/Microsoft, Firebase and storage settings. No new SMTP credentials, WebSocket URL, browser secret, or pg-boss database URL are required. The browser derives its WebSocket URL from the existing public `API_URL`; it obtains a short-lived ticket through authenticated HTTP. Neither variable is included in public configuration.
+One new connection value is needed for the full architecture: `REDIS_URL`. `JOBS_ENGINE` can be omitted. Keep existing `DATABASE_URL`, database TLS, Resend email, Firebase and storage settings. No additional email credentials, WebSocket URL, browser secret, or pg-boss database URL are required. The browser derives its WebSocket URL from the existing public `API_URL`; it obtains a short-lived ticket through authenticated HTTP. Neither variable is included in public configuration.
 
 When `REDIS_URL` is absent or unavailable, customer/pro clients fall back to the existing SSE connection and periodic reconciliation; public profile queries fall back to PostgreSQL/local caching. Redis never stores the authoritative message history, project state or email outbox. Admin clients continue using their existing authenticated SSE flow. These fallbacks do not replace the existing Upstash rate-limit requirement above.
 
@@ -217,19 +217,19 @@ This release defaults to `open`, so no new Render variable is required to broade
 
 In the Google Cloud project that owns this key, enable billing and **Places API (New)** as well as **Geocoding API**. Allow both APIs in the key's API restrictions and, where possible, restrict it to Render's outbound IP addresses. Do not use browser-referrer restrictions for this server key. Both the project and business forms now require selecting a full US street address; the server resolves the selected place again before saving. Legacy ZIP lookup still uses Geocoding. No browser Maps key or new Render variable is needed. See Google's [Places API (New) setup](https://developers.google.com/maps/documentation/places/web-service/cloud-setup).
 
-## Microsoft 365 SMTP alerts
+## Resend email alerts
 
 | Variable                | Required / default   | Value or source                                      |
 | ----------------------- | -------------------- | ---------------------------------------------------- |
-| SMTP_HOST               | `smtp.office365.com` | Microsoft 365 SMTP endpoint                          |
-| SMTP_PORT               | `587`                | STARTTLS port                                        |
-| SMTP_USER               | Yes                  | Licensed/authorized sending mailbox                  |
-| SMTP_FROM               | Yes                  | Sender, e.g. `Aplime <notifications@yourdomain.com>` |
-| MICROSOFT_TENANT_ID     | Yes                  | Microsoft Entra tenant ID                            |
-| MICROSOFT_CLIENT_ID     | Yes                  | Entra app client ID                                  |
-| MICROSOFT_CLIENT_SECRET | Yes, secret          | Entra app client secret                              |
+| RESEND_API_KEY          | Yes, secret          | Resend sending API key restricted to the verified domain where possible |
+| EMAIL_FROM              | Yes                  | Plain sender address, e.g. `notification@aplime.com`, on a Resend-verified domain |
+| EMAIL_REPLY_TO          | Optional             | Plain receiving address, e.g. `support@aplime.com`; omitted when empty |
 
-This uses OAuth client credentials, **not SMTP username/password basic authentication**. Configure `SMTP.SendAsApp`, admin consent, Exchange service-principal registration, mailbox permissions, and SMTP AUTH for the sending mailbox. Firebase handles authentication verification/recovery emails; Microsoft 365 sends project/account activity alerts.
+Resend HTTPS API delivery replaces Microsoft SMTP/OAuth for application alerts. No EMAIL_PROVIDER switch is needed: this version uses Resend only. All three settings belong only in the backend group linked to API/worker. They are not returned by the public-config allowlist. Keep SUPPORT_EMAIL for public contact information; it is separate from EMAIL_REPLY_TO and EMAIL_FROM. Firebase still sends its own verification/password-reset emails. No webhook secret is required for sending; delivery/bounce webhooks are not implemented in this release.
+
+Before deployment, create a Resend account, verify `aplime.com` for sending and generate a sending API key. Set RESEND_API_KEY and EMAIL_FROM in the backend group, optionally EMAIL_REPLY_TO, then deploy the API and existing worker followed by admin. Keep old SMTP/Microsoft variables until both API and worker run this version. After acceptance/inbox testing, remove SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_FROM, MICROSOFT_TENANT_ID, MICROSOFT_CLIENT_ID and MICROSOFT_CLIENT_SECRET from Aplime's backend group and service overrides. Do not delete the Microsoft tenant, users or receiving mailboxes; leave existing Microsoft receiving MX records in place. Add only Resend's sending authentication/return-path DNS records, merging SPF at the same hostname instead of creating duplicate SPF records. Disable Resend inbound receiving setup unless intentionally migrating receiving mail. Revoke the old SMTP application's credentials/permissions only after confirming no other application uses them. No Microsoft mailbox password or tenant release is needed.
+
+`npm run email:check` validates local settings without sending or contacting the provider. `npm run email:check -- --to YOUR_EMAIL` explicitly sends one diagnostic email to an inbox you control. This operator command is not exposed through HTTP and is not a substitute for testing a real project event and its outbox record. Keep the API key private. Detailed migration/testing steps: [EMAIL_ALERTS.md](EMAIL_ALERTS.md).
 
 ## Sentry monitoring
 
@@ -256,7 +256,7 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for each signing secret's format. Mobile pack
 
 ## Event email alerts
 
-No new environment-variable names are needed. Reuse existing SMTP/Microsoft settings and attach the existing `SITE_URL` to the worker for account links; production startup requires an exact HTTPS origin. Alert preferences, reminder receipts and admin category settings live in the database. Apply migration 024 before the updated worker/clients. Add `invoice.paid`, `invoice.payment_failed`, `invoice.payment_action_required`, and `invoice.upcoming` to the development Stripe subscription webhook destination using the existing endpoint/signing secret. Details: [EMAIL_ALERTS.md](EMAIL_ALERTS.md).
+Use RESEND_API_KEY and EMAIL_FROM (optional EMAIL_REPLY_TO) and attach the existing `SITE_URL` to the worker for account links; production startup requires an exact HTTPS origin. Alert preferences, reminder receipts and admin category settings live in the database. Apply migration 024 before the updated worker/clients. Add `invoice.paid`, `invoice.payment_failed`, `invoice.payment_action_required`, and `invoice.upcoming` to the development Stripe subscription webhook destination using the existing endpoint/signing secret. Details: [EMAIL_ALERTS.md](EMAIL_ALERTS.md).
 
 ## Validation
 
@@ -264,7 +264,7 @@ Run `npm run config:check` after configuring an environment. It prints missing v
 
 Application values are validated centrally in `src/server/config.ts`; public exposure is an explicit allowlist. Never add a private credential to that public object.
 
-References: [Render environment groups](https://render.com/docs/blueprint-spec#environment-groups), [Render Postgres TLS](https://render.com/docs/postgresql-creating-connecting#ssl-modes-for-internal-connections), [Microsoft SMTP OAuth](https://learn.microsoft.com/en-us/exchange/client-developer/legacy-protocols/how-to-authenticate-an-imap-pop-smtp-application-by-using-oauth).
+References: [Render environment groups](https://render.com/docs/blueprint-spec#environment-groups), [Render Postgres TLS](https://render.com/docs/postgresql-creating-connecting#ssl-modes-for-internal-connections), [Resend API](https://resend.com/docs/api-reference/emails/send-email).
 
 ## Professional subscriptions (current billing model)
 
@@ -280,7 +280,7 @@ Run `npm run db:migrate` before the updated API starts (the existing Render pre-
 
 If API pre-deploy reports `Missing deployment configuration: STRIPE_PRO_PRICE_ID`, create or select the professional membership's recurring USD Price in the Stripe test environment matching the development API key. Copy the actual `price_...` identifier (not a product `prod_...` identifier or the numeric amount) into the development backend Render group. Save and deploy the API, allowing config validation and database migration to complete. For environment groups with automatic deployment disabled, explicitly trigger a new deploy; a restart reuses the previous deployment configuration.
 
-The worker validates database and Microsoft SMTP settings at startup: `DATABASE_URL`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_FROM`, `MICROSOFT_TENANT_ID`, `MICROSOFT_CLIENT_ID`, and `MICROSOFT_CLIENT_SECRET`. Database TLS configuration still applies. Queued account and retired-image cleanup also needs the existing backend group's `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, and `R2_BUCKET`. Failed cleanup jobs retry up to eight times, then require operator attention. No new variable names are introduced. The API's complete deployment checks remain unchanged.
+The worker validates database and Resend settings at startup: `DATABASE_URL`, `RESEND_API_KEY`, `EMAIL_FROM`, and optional `EMAIL_REPLY_TO`. Database TLS configuration still applies. Queued account and retired-image cleanup also needs the existing backend group's `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, and `R2_BUCKET`. Failed cleanup jobs retry up to eight times, then require operator attention. This version requires the Resend settings above instead of Microsoft SMTP credentials. The API validates those same email settings in its deployment check.
 
 ## Separate Stripe subscription and Identity destinations
 

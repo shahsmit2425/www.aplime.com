@@ -25,6 +25,10 @@ export function affected(paths) {
       result.api = true;
       continue;
     }
+    if (file === "scripts/check-email.ts") {
+      result.api = result.worker = true;
+      continue;
+    }
     if (file.startsWith("apps/web/")) {
       result.web = true;
       continue;

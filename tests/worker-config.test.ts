@@ -4,13 +4,8 @@ import { env, validateMailWorker } from "../src/server/config.js";
 const config = {
   ...env,
   DATABASE_URL: "postgresql://localhost/test",
-  SMTP_HOST: "smtp.office365.com",
-  SMTP_PORT: 587,
-  SMTP_USER: "mail@example.invalid",
-  SMTP_FROM: "mail@example.invalid",
-  MICROSOFT_TENANT_ID: "test-tenant",
-  MICROSOFT_CLIENT_ID: "test-client",
-  MICROSOFT_CLIENT_SECRET: "test-secret",
+  RESEND_API_KEY: "re_test_fixture",
+  EMAIL_FROM: "mail@example.invalid",
   STRIPE_PRO_PRICE_ID: "",
   STRIPE_SECRET_KEY: "",
   STRIPE_WEBHOOK_SECRET: "",
@@ -35,23 +30,33 @@ test("mail worker still fails closed on missing mail/database configuration", ()
       SITE_URL: "https://example.invalid",
     }),
   );
-  for (const key of [
-    "DATABASE_URL",
-    "SMTP_HOST",
-    "SMTP_USER",
-    "SMTP_FROM",
-    "MICROSOFT_TENANT_ID",
-    "MICROSOFT_CLIENT_ID",
-    "MICROSOFT_CLIENT_SECRET",
-  ] as const) {
+  for (const key of ["DATABASE_URL", "RESEND_API_KEY", "EMAIL_FROM"] as const) {
     assert.throws(
       () => validateMailWorker({ ...config, [key]: " " }),
       new RegExp(key),
     );
   }
-  for (const port of [0, 65536, 1.5])
+  for (const address of [
+    "not-an-email",
+    "Name <mail@example.invalid>",
+    "mail@example.invalid\r\nBcc: other@example.invalid",
+  ])
     assert.throws(
-      () => validateMailWorker({ ...config, SMTP_PORT: port }),
-      /SMTP_PORT/,
+      () => validateMailWorker({ ...config, EMAIL_FROM: address }),
+      /EMAIL_FROM/,
     );
+  assert.throws(
+    () => validateMailWorker({ ...config, RESEND_API_KEY: "invalid" }),
+    /RESEND_API_KEY/,
+  );
+  assert.throws(
+    () => validateMailWorker({ ...config, EMAIL_REPLY_TO: "invalid" }),
+    /EMAIL_REPLY_TO/,
+  );
+  assert.doesNotThrow(() =>
+    validateMailWorker({
+      ...config,
+      EMAIL_REPLY_TO: "support@example.invalid",
+    }),
+  );
 });
