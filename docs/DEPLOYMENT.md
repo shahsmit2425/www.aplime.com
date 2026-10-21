@@ -1,5 +1,9 @@
 # Deployment and promotion
 
+## Business email providers
+
+Google Workspace hosts staff mailboxes and receives support replies; Resend sends application alerts through the existing background worker. No Google Workspace credentials or new runtime variables are needed. Follow [GOOGLE_WORKSPACE.md](GOOGLE_WORKSPACE.md) for DNS, mailbox setup, acceptance checks and Microsoft retirement. Mail-provider setup is external to a code deployment; keep existing Firebase identities and administrator authorization settings.
+
 ## pg-boss workers and Redis WebSockets
 
 PostgreSQL remains authoritative for accounts, projects, conversations, notifications and transactional email-outbox records. The Render API commits changes before live delivery. PostgreSQL notification triggers wake API listeners, which relay recipient-only invalidations through Redis Pub/Sub. Customer/pro WebSockets prompt authenticated refreshes of saved data. Repeated signals are coalesced; reconnection and periodic reconciliation recover changes missed during disconnects. Chat writes continue through the authenticated HTTP API, preserving existing ownership, blocking, quotas and idempotency checks.

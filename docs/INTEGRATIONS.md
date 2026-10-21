@@ -18,7 +18,7 @@ Stripe Checkout charges the customer after completion, applies the configured pl
 
 ## Resend email delivery
 
-Verify your sending domain in Resend and create a sending API key. Put RESEND_API_KEY and EMAIL_FROM in the API/worker backend group; EMAIL_REPLY_TO is optional. The worker submits branded HTML/plain text via HTTPS with stable outbox idempotency keys. Preserve Microsoft 365 receiving MX records and existing inboxes. See EMAIL_ALERTS.md for cutover, diagnostics, retry limits and DNS precautions.
+Verify your sending domain in Resend and create a sending API key. Put RESEND_API_KEY and EMAIL_FROM in the API/worker backend group; EMAIL_REPLY_TO is optional. The worker submits branded HTML/plain text via HTTPS with stable outbox idempotency keys. Google Workspace hosts staff inboxes and receives replies; it is not the website's outbound transport. No Google SMTP password, app password, OAuth client or Workspace API credential is needed by Aplime. See EMAIL_ALERTS.md for delivery diagnostics and [GOOGLE_WORKSPACE.md](GOOGLE_WORKSPACE.md) for the mailbox/DNS cutover from Microsoft.
 
 Run one or more `npm run worker` processes; row locking prevents normal concurrent double-processing. Failed sends retry with backoff, then remain in `email_outbox` after eight failures for operator investigation. Monitor oldest unsent age and exhausted attempts.
 
@@ -52,7 +52,7 @@ Use an Upstash REST database per environment for distributed rate limiting. Prov
 
 ## External validation required
 
-Provider configuration cannot be proven with dummy keys. After setup, test a real Firebase email verification, Google/Apple login on each platform, Stripe test Identity/Connect/Checkout/webhook/refund, R2 upload/download, two-participant Daily call, Maps lookup and a delivered Microsoft 365 email. Then repeat appropriate smoke tests against the live environment.
+Provider configuration cannot be proven with dummy keys. After setup, test a real Firebase email verification, Google/Apple login on each platform, Stripe test Identity/Connect/Checkout/webhook/refund, R2 upload/download, two-participant Daily call, Maps lookup, a Resend-delivered alert and a reply received in the Google Workspace support inbox. Then repeat appropriate smoke tests against the live environment.
 
 Primary references:
 - [Firebase token verification](https://firebase.google.com/docs/auth/admin/verify-id-tokens)
