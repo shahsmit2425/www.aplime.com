@@ -4167,3 +4167,177 @@ blockquote {
     font-size: 15px;
   }
 }
+
+/* Keep review rows independent of the site's generic two-column definition lists. */
+.project-intake .intake-review dl {
+  display: block;
+  margin: 24px 0;
+}
+.project-intake .intake-review dl > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) auto;
+  align-items: start;
+  gap: 16px;
+  width: 100%;
+  min-width: 0;
+  padding: 18px 0;
+}
+.project-intake .intake-review dt,
+.project-intake .intake-review dd {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+}
+.project-intake .intake-review button {
+  align-self: start;
+  margin: 0;
+  padding: 8px 12px;
+  white-space: nowrap;
+}
+.intake-location-input,
+.address-input {
+  display: block;
+  position: relative;
+  min-width: 0;
+}
+.intake-location-input > svg,
+.address-input > svg {
+  position: absolute;
+  left: 18px;
+  top: 30px;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: #14794f;
+  z-index: 1;
+}
+.project-intake .intake-location-input > input,
+.address-autocomplete .address-input > input,
+.hero-project-start input {
+  appearance: none;
+  box-sizing: border-box;
+  min-height: 60px;
+  width: 100%;
+  border: 2px solid #b6cbb5;
+  border-radius: 14px;
+  background: #fff;
+  color: #153f31;
+  padding: 15px 18px 15px 52px;
+  font: inherit;
+  font-size: 18px;
+  line-height: 1.5;
+  box-shadow: 0 3px 10px #153f3106;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+.hero-project-start input {
+  width: 150px;
+  padding-left: 18px;
+}
+.project-intake .intake-location-input > input {
+  letter-spacing: 0.08em;
+}
+.project-intake .intake-location-input > input:focus,
+.address-autocomplete .address-input > input:focus,
+.hero-project-start input:focus {
+  outline: none;
+  border-color: #08794c;
+  box-shadow: 0 0 0 4px #08794c20;
+}
+.address-input > input::placeholder,
+.intake-location-input > input::placeholder {
+  color: #6c7f72;
+  opacity: 1;
+}
+.intake-field-hint {
+  font-weight: 400;
+  color: #526a58;
+  line-height: 1.5;
+}
+.address-input .address-suggestions {
+  top: calc(100% + 8px);
+  max-height: 280px;
+  overflow-y: auto;
+  border: 2px solid #b6cbb5;
+  border-radius: 14px;
+}
+.address-input .address-suggestions button {
+  min-height: 52px;
+  white-space: normal;
+  line-height: 1.5;
+}
+.intake-account-dialog {
+  box-sizing: border-box;
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: min(560px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  padding: 32px;
+  border: 2px solid #d4b54b;
+  border-radius: 24px;
+  background: #fffef8;
+  color: #153f31;
+  box-shadow: 0 24px 80px #103c3340;
+}
+.intake-account-dialog::backdrop {
+  background: #102c25a6;
+  backdrop-filter: blur(4px);
+}
+.intake-account-dialog .intake-dialog-close {
+  position: absolute;
+  right: 14px;
+  top: 14px;
+  padding: 10px;
+}
+.intake-dialog-icon {
+  display: grid;
+  place-items: center;
+  width: 60px;
+  height: 60px;
+  border-radius: 18px;
+  background: #fff0bd;
+  color: #78570d;
+  margin-bottom: 20px;
+}
+.intake-account-dialog h2 {
+  font-size: clamp(24px, 4vw, 30px);
+  line-height: 1.25;
+  padding-right: 16px;
+  margin: 0 0 16px;
+}
+.intake-account-dialog p {
+  font-size: 17px;
+  line-height: 1.65;
+}
+.intake-dialog-actions {
+  display: grid;
+  gap: 12px;
+  margin-top: 24px;
+}
+.intake-dialog-actions button {
+  white-space: normal;
+  min-height: 52px;
+}
+@media (max-width: 600px) {
+  .project-intake .intake-review dl > div {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px 12px;
+  }
+  .project-intake .intake-review dt {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .project-intake .intake-review dd {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .project-intake .intake-review button {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
+  .intake-account-dialog {
+    padding: 24px;
+  }
+}

@@ -483,21 +483,27 @@ export function ProjectIntake(props: Props) {
         >
           {step === "zip" && (
             <Field label="Project ZIP code">
-              <input
-                autoComplete="postal-code"
-                inputMode="numeric"
-                pattern="[0-9]{5}"
-                maxLength={5}
-                required
-                value={draft.zip}
-                onChange={(e) =>
-                  patch({
-                    zip: e.target.value.replace(/\D/g, ""),
-                    zipLabel: "",
-                  })
-                }
-                placeholder="e.g. 08859"
-              />
+              <span className="intake-location-input">
+                <MapPin size={22} aria-hidden="true" />
+                <input
+                  autoComplete="postal-code"
+                  inputMode="numeric"
+                  pattern="[0-9]{5}"
+                  maxLength={5}
+                  required
+                  value={draft.zip}
+                  onChange={(e) =>
+                    patch({
+                      zip: e.target.value.replace(/\D/g, ""),
+                      zipLabel: "",
+                    })
+                  }
+                  placeholder="e.g. 08859"
+                />
+              </span>
+              <small className="intake-field-hint">
+                Enter the five-digit ZIP where you need the work done.
+              </small>
             </Field>
           )}
           {step === "category" && (

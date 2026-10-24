@@ -1,3 +1,4 @@
+import { IntakeAccountNotice } from "./intake-account-notice.js";
 import { ProjectIntake } from "./project-intake.js";
 import { hasIntakeResume } from "./project-intake-state.js";
 import { NotificationDropdown } from "./notification-dropdown.js";
@@ -1091,10 +1092,15 @@ export default function Workspace() {
                 </p>
               )}
               {data.user.role === "pro" && hasIntakeResume() && (
-                <p className="alert" role="status">
-                  Your unfinished project is saved in this tab. To publish it,
-                  sign out and sign in with a customer account.
-                </p>
+                <IntakeAccountNotice
+                  key={data.user.id}
+                  onSignOut={() => {
+                    void run(async () => {
+                      await logout();
+                      replaceRoute("login");
+                    }, "Sign in with a customer account to finish your saved project.");
+                  }}
+                />
               )}
               <Pages />
             </main>

@@ -168,27 +168,31 @@ export function AddressAutocomplete({
             }
           }}
         />
+        {rows.length > 0 && (
+          <ul className="address-suggestions" id={id + "-list"} role="listbox">
+            {rows.map((row, index) => (
+              <li
+                key={row.placeId}
+                id={id + "-" + index}
+                role="option"
+                aria-selected={index === active}
+              >
+                <button type="button" onClick={() => void select(row)}>
+                  {row.address}
+                </button>
+              </li>
+            ))}
+            <li
+              role="presentation"
+              className="google-attribution"
+              translate="no"
+            >
+              Google Maps
+            </li>
+          </ul>
+        )}
       </div>
       <input type="hidden" name="placeId" value={placeId} />
-      {rows.length > 0 && (
-        <ul className="address-suggestions" id={id + "-list"} role="listbox">
-          {rows.map((row, index) => (
-            <li
-              key={row.placeId}
-              id={id + "-" + index}
-              role="option"
-              aria-selected={index === active}
-            >
-              <button type="button" onClick={() => void select(row)}>
-                {row.address}
-              </button>
-            </li>
-          ))}
-          <li role="presentation" className="google-attribution" translate="no">
-            Google Maps
-          </li>
-        </ul>
-      )}
       <small id={id + "-status"} role="status">
         {loading
           ? "Checking address…"
