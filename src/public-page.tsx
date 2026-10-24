@@ -1,3 +1,4 @@
+import { serviceSlug } from "./shared/service-questionnaires.js";
 import { ArrowUpRight } from "lucide-react";
 import { Menu, MessageCircle, FileText } from "lucide-react";
 import { BusinessDisplay } from "./client/business-display.js";
@@ -19,6 +20,17 @@ export const serviceCopy: Record<string, string> = {
     "Find help with lighting, outlets, fixtures, and electrical projects. Ask about local licensing before booking.",
   Painting:
     "Bring a fresh look to your rooms, trim, or exterior. Compare project details and written estimates.",
+  "Junk Removal":
+    "Arrange pickup for unwanted furniture, appliances, clutter, and debris.",
+  HVAC: "Find help with heating, cooling, maintenance, and system replacement.",
+  Roofing:
+    "Discuss roof repairs, inspections, and replacement with local professionals.",
+  "Tree Services":
+    "Plan tree trimming, removal, stump work, and tree health assessments.",
+  "Appliance Repair":
+    "Get help diagnosing and repairing everyday household appliances.",
+  "Pest Control":
+    "Discuss pest inspections, treatment, and prevention for your property.",
   Landscaping:
     "Arrange garden care, seasonal cleanup, lawn maintenance, and outdoor improvements.",
 };
@@ -49,14 +61,16 @@ function ServicesIndex() {
         {categories.map((category, index) => (
           <a
             className="service-card"
-            href={"/services/" + category.toLowerCase()}
+            href={"/services/" + serviceSlug(category)}
             key={category}
           >
             <span className="service-card-top">
               <span className="service-icon">
                 <ServiceIcon service={category} size={27} />
               </span>
-              <span className="service-number">0{index + 1}</span>
+              <span className="service-number">
+                {String(index + 1).padStart(2, "0")}
+              </span>
             </span>
             <h2>{serviceSeoContent[category].title}</h2>
             <p>{serviceCopy[category]}</p>
@@ -154,7 +168,7 @@ function ServicePage({ category }: { category: (typeof categories)[number] }) {
           ],
         ].map(([title, body], index) => (
           <article key={title}>
-            <span>0{index + 1}</span>
+            <span>{String(index + 1).padStart(2, "0")}</span>
             <h3>{title}</h3>
             <p>{body}</p>
           </article>
@@ -176,7 +190,7 @@ function ServicePage({ category }: { category: (typeof categories)[number] }) {
           {categories
             .filter((item) => item !== category)
             .map((item) => (
-              <a href={"/services/" + item.toLowerCase()} key={item}>
+              <a href={"/services/" + serviceSlug(item)} key={item}>
                 <ServiceIcon service={item} size={18} />
                 {item}
               </a>
@@ -410,7 +424,7 @@ function NotFoundPage() {
         <h2>Popular services</h2>
         <nav aria-label="Services">
           {categories.map((item) => (
-            <a href={"/services/" + item.toLowerCase()} key={item}>
+            <a href={"/services/" + serviceSlug(item)} key={item}>
               <ServiceIcon service={item} size={18} />
               {item}
             </a>
@@ -439,7 +453,7 @@ export function PublicPage({
   supportEmail?: string;
 }) {
   const slug = decodeURIComponent(path.split("/")[2] || "");
-  const category = categories.find((c) => c.toLowerCase() === slug);
+  const category = categories.find((c) => serviceSlug(c) === slug);
   const information =
     informationalPages[path as keyof typeof informationalPages];
   const servicesIndex = path === "/services";
@@ -610,28 +624,26 @@ export function PublicPage({
             </section>
             <section id="services">
               <div className="section-heading">
-                <p className="eyebrow">EVERYDAY HELP, THOUGHTFULLY CONNECTED</p>
+                <p className="eyebrow">SERVICES FOR YOUR HOME</p>
                 <h2>What can we help you with?</h2>
               </div>
-              <div className="service-grid">
-                {categories.map((c, i) => (
+              <div className="home-service-grid">
+                {categories.map((c) => (
                   <a
-                    href={"/services/" + c.toLowerCase()}
-                    className="service-card"
+                    href={"/app/projects/new?category=" + encodeURIComponent(c)}
+                    className="home-service-tile"
                     key={c}
                   >
-                    <span className="service-card-top">
-                      <span className="service-icon">
-                        <ServiceIcon service={c} size={27} />
-                      </span>
-                      <span className="service-number">0{i + 1}</span>
+                    <span className="home-service-symbol">
+                      <ServiceIcon service={c} size={36} />
                     </span>
-                    <h3>{c}</h3>
-                    <p>{serviceCopy[c]}</p>
-                    <strong>Explore {c.toLowerCase()} →</strong>
+                    <span>{c === "HVAC" ? "Heating & cooling" : c}</span>
                   </a>
                 ))}
               </div>
+              <a className="service-guide-link" href="/services">
+                Explore service guides <ArrowUpRight size={17} />
+              </a>
             </section>
             <section className="how">
               <div>

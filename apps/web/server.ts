@@ -1,3 +1,4 @@
+import { serviceSlug } from "../../src/shared/service-questionnaires.js";
 import { canonicalRedirect } from "./redirects.js";
 import "dotenv/config";
 import { randomBytes } from "node:crypto";
@@ -172,7 +173,7 @@ app.get("/sitemap.xml", async (_q, r) => {
       ? [
           "/",
           ...seoStaticPaths,
-          ...categories.map((c) => "/services/" + c.toLowerCase()),
+          ...categories.map((c) => "/services/" + serviceSlug(c)),
           ...professionalPaths,
         ]
       : [];

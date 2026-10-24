@@ -238,6 +238,170 @@ export const serviceSeoContent: Record<ServiceCategory, ServiceSeoContent> = {
       },
     ],
   },
+  "Junk Removal": {
+    title: "Junk Removal and Hauling",
+    description:
+      "Arrange pickup for unwanted furniture, appliances, clutter, and debris. Share your New Jersey project and compare estimates on Aplime.",
+    introduction:
+      "Arrange pickup for unwanted furniture, appliances, clutter, and debris. Share photos, item sizes, stairs, and parking access. Confirm disposal fees and which materials the professional accepts.",
+    commonJobs: [
+      "Furniture and appliance pickup",
+      "Garage and basement cleanouts",
+      "Yard and renovation debris removal",
+    ],
+    projectTips: [
+      "Share photos, item sizes, stairs, and parking access. Confirm disposal fees and which materials the professional accepts.",
+      "Confirm the scope, price, and expected timing before agreeing to the work.",
+    ],
+    faqs: [
+      {
+        question: "What should I include in my request?",
+        answer:
+          "Share photos, item sizes, stairs, and parking access. Confirm disposal fees and which materials the professional accepts.",
+      },
+      {
+        question: "Does posting a project book a service?",
+        answer:
+          "No. Posting lets you discuss your project with matching professionals. Availability varies by location. Agree on the work and timing before booking.",
+      },
+    ],
+  },
+  HVAC: {
+    title: "Heating and Air Conditioning Services",
+    description:
+      "Find help with heating, cooling, maintenance, and system replacement. Share your New Jersey project and compare estimates on Aplime.",
+    introduction:
+      "Find help with heating, cooling, maintenance, and system replacement. Share the system type, symptoms, and model if known. Ask whether diagnosis, parts, permits, and installation are included.",
+    commonJobs: [
+      "Air conditioning repair",
+      "Heating system maintenance",
+      "Heat pump and furnace replacement",
+    ],
+    projectTips: [
+      "Share the system type, symptoms, and model if known. Ask whether diagnosis, parts, permits, and installation are included.",
+      "Confirm the scope, price, and expected timing before agreeing to the work.",
+    ],
+    faqs: [
+      {
+        question: "What should I include in my request?",
+        answer:
+          "Share the system type, symptoms, and model if known. Ask whether diagnosis, parts, permits, and installation are included.",
+      },
+      {
+        question: "Does posting a project book a service?",
+        answer:
+          "No. Posting lets you discuss your project with matching professionals. Availability varies by location. Agree on the work and timing before booking.",
+      },
+    ],
+  },
+  Roofing: {
+    title: "Roofing Services",
+    description:
+      "Discuss roof repairs, inspections, and replacement with local professionals. Share your New Jersey project and compare estimates on Aplime.",
+    introduction:
+      "Discuss roof repairs, inspections, and replacement with local professionals. Include the roof type, building height, and visible damage. Take photos from a safe location and ask about materials and cleanup.",
+    commonJobs: [
+      "Roof leak assessment",
+      "Shingle and flashing repair",
+      "Roof replacement",
+    ],
+    projectTips: [
+      "Include the roof type, building height, and visible damage. Take photos from a safe location and ask about materials and cleanup.",
+      "Confirm the scope, price, and expected timing before agreeing to the work.",
+    ],
+    faqs: [
+      {
+        question: "What should I include in my request?",
+        answer:
+          "Include the roof type, building height, and visible damage. Take photos from a safe location and ask about materials and cleanup.",
+      },
+      {
+        question: "Does posting a project book a service?",
+        answer:
+          "No. Posting lets you discuss your project with matching professionals. Availability varies by location. Agree on the work and timing before booking.",
+      },
+    ],
+  },
+  "Tree Services": {
+    title: "Tree Care and Removal",
+    description:
+      "Plan tree trimming, removal, stump work, and tree health assessments. Share your New Jersey project and compare estimates on Aplime.",
+    introduction:
+      "Plan tree trimming, removal, stump work, and tree health assessments. Describe the number and size of trees, nearby structures, and access. Mention power lines and ask about debris removal.",
+    commonJobs: ["Tree trimming and pruning", "Tree removal", "Stump removal"],
+    projectTips: [
+      "Describe the number and size of trees, nearby structures, and access. Mention power lines and ask about debris removal.",
+      "Confirm the scope, price, and expected timing before agreeing to the work.",
+    ],
+    faqs: [
+      {
+        question: "What should I include in my request?",
+        answer:
+          "Describe the number and size of trees, nearby structures, and access. Mention power lines and ask about debris removal.",
+      },
+      {
+        question: "Does posting a project book a service?",
+        answer:
+          "No. Posting lets you discuss your project with matching professionals. Availability varies by location. Agree on the work and timing before booking.",
+      },
+    ],
+  },
+  "Appliance Repair": {
+    title: "Home Appliance Repair",
+    description:
+      "Get help diagnosing and repairing everyday household appliances. Share your New Jersey project and compare estimates on Aplime.",
+    introduction:
+      "Get help diagnosing and repairing everyday household appliances. Share the appliance brand, model, symptoms, and any error codes. Ask about diagnostic fees, parts, and repair warranties.",
+    commonJobs: [
+      "Refrigerator and dishwasher repair",
+      "Washer and dryer repair",
+      "Oven and range repair",
+    ],
+    projectTips: [
+      "Share the appliance brand, model, symptoms, and any error codes. Ask about diagnostic fees, parts, and repair warranties.",
+      "Confirm the scope, price, and expected timing before agreeing to the work.",
+    ],
+    faqs: [
+      {
+        question: "What should I include in my request?",
+        answer:
+          "Share the appliance brand, model, symptoms, and any error codes. Ask about diagnostic fees, parts, and repair warranties.",
+      },
+      {
+        question: "Does posting a project book a service?",
+        answer:
+          "No. Posting lets you discuss your project with matching professionals. Availability varies by location. Agree on the work and timing before booking.",
+      },
+    ],
+  },
+  "Pest Control": {
+    title: "Pest Control Services",
+    description:
+      "Discuss pest inspections, treatment, and prevention for your property. Share your New Jersey project and compare estimates on Aplime.",
+    introduction:
+      "Discuss pest inspections, treatment, and prevention for your property. Describe where and when you noticed activity. Mention pets and children, and ask about preparation and follow-up visits.",
+    commonJobs: [
+      "Pest inspection",
+      "Targeted pest treatment",
+      "Recurring prevention",
+    ],
+    projectTips: [
+      "Describe where and when you noticed activity. Mention pets and children, and ask about preparation and follow-up visits.",
+      "Confirm the scope, price, and expected timing before agreeing to the work.",
+    ],
+    faqs: [
+      {
+        question: "What should I include in my request?",
+        answer:
+          "Describe where and when you noticed activity. Mention pets and children, and ask about preparation and follow-up visits.",
+      },
+      {
+        question: "Does posting a project book a service?",
+        answer:
+          "No. Posting lets you discuss your project with matching professionals. Availability varies by location. Agree on the work and timing before booking.",
+      },
+    ],
+  },
 };
 
 export const informationalPages = {

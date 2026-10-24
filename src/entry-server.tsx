@@ -1,3 +1,4 @@
+import { serviceSlug } from "./shared/service-questionnaires.js";
 import { renderToString } from "react-dom/server";
 import { PublicPage } from "./public-page.js";
 import { categories, type Profile } from "./shared/domain.js";
@@ -46,7 +47,7 @@ export function renderPage(
   profile?: Profile,
 ) {
   const category = categories.find(
-    (item) => path === "/services/" + item.toLowerCase(),
+    (item) => path === "/services/" + serviceSlug(item),
   );
   const information =
     informationalPages[path as keyof typeof informationalPages];
@@ -179,7 +180,7 @@ export function renderPage(
           "@type": "ListItem",
           position: index + 1,
           name: item,
-          url: siteUrl + "/services/" + item.toLowerCase(),
+          url: siteUrl + "/services/" + serviceSlug(item),
         })),
       },
     });

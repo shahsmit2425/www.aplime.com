@@ -4341,3 +4341,98 @@ blockquote {
     padding: 24px;
   }
 }
+
+/* Compact, icon-first homepage service picker. */
+.home-service-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 14px;
+}
+.home-service-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  min-width: 0;
+  min-height: 148px;
+  padding: 20px 10px;
+  border: 1px solid #b5d2b6;
+  border-radius: 18px;
+  background: #fffef8;
+  color: #123f31;
+  text-align: center;
+  text-decoration: none;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.35;
+  transition:
+    transform 0.15s,
+    background 0.15s;
+}
+.home-service-symbol {
+  display: grid;
+  place-items: center;
+  width: 66px;
+  height: 66px;
+  border-radius: 50%;
+  background: #e4f2dc;
+  color: #087744;
+}
+.home-service-tile:nth-child(3n + 2) .home-service-symbol {
+  background: #fff0bb;
+  color: #826116;
+}
+.home-service-tile:nth-child(3n) .home-service-symbol {
+  background: #e1eeef;
+  color: #21646c;
+}
+.home-service-tile:hover {
+  transform: translateY(-3px);
+  background: #f0f8e9;
+}
+.home-service-tile:focus-visible {
+  outline: 3px solid #f4cf35;
+  outline-offset: 4px;
+}
+.service-guide-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 24px;
+  color: white;
+  font-weight: 600;
+}
+@media (max-width: 1000px) {
+  .home-service-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+@media (max-width: 640px) {
+  .home-service-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .home-service-tile {
+    font-size: 15px;
+    padding: 14px 7px;
+    min-height: 135px;
+  }
+  .home-service-symbol {
+    width: 54px;
+    height: 54px;
+  }
+}
+@media (max-width: 360px) {
+  .home-service-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .home-service-tile {
+    transition: none;
+  }
+  .home-service-tile:hover {
+    transform: none;
+  }
+}

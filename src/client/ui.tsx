@@ -8,6 +8,12 @@ import {
   Zap,
   Paintbrush,
   TreePine,
+  Truck,
+  Fan,
+  House,
+  Trees,
+  Refrigerator,
+  Bug,
 } from "lucide-react";
 export function Brand({
   href = "/",
@@ -81,6 +87,18 @@ export function ServiceIcon({
       return <Paintbrush {...props} />;
     case "Landscaping":
       return <TreePine {...props} />;
+    case "Junk Removal":
+      return <Truck {...props} />;
+    case "HVAC":
+      return <Fan {...props} />;
+    case "Roofing":
+      return <House {...props} />;
+    case "Tree Services":
+      return <Trees {...props} />;
+    case "Appliance Repair":
+      return <Refrigerator {...props} />;
+    case "Pest Control":
+      return <Bug {...props} />;
     default:
       return <Wrench {...props} />;
   }

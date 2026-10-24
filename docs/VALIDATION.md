@@ -1,3 +1,9 @@
+## 2026-10-24 — Expanded services and compact homepage icons
+
+Added Junk Removal, HVAC, Roofing, Tree Services, Appliance Repair and Pest Control to the shared category catalog, with service-specific intake questions, icons and public service content. Homepage tiles now show icons and labels and preselect the category in project intake. Hyphenated service slugs are used consistently in links, server rendering and sitemap generation; existing single-word URLs remain unchanged.
+
+Validation: all 210 tests, TypeScript and customer client/SSR plus admin production builds passed. Capacitor sync completed for Android/iOS; CocoaPods and Xcode were unavailable on Windows, so signed native builds and device testing were not performed. Browser visual verification could not be completed: the in-app preview timed out, and Windows Computer Use stopped because it could not confidently identify Edge's URL. No live provider preferences, projects, deployment or marketplace data were modified.
+
 ## 2026-10-24 — Redirect and request-abuse hardening
 
 Replaced customer-web trailing-slash/canonical redirects with validated redirect middleware; authority-like and encoded backslash/control paths are rejected. HTTP and WebSocket limits now share configurable proxy trust and IPv6 network grouping. Added bounded local plus Upstash-shared account/project creation budgets and a daily public-intake lookup budget; shared checks fail closed on timeouts/outages. Added an audit-logged admin-only network diagnostic. WebSocket capacity now applies per detected client network, with a process-wide ceiling and hard termination of unauthenticated sockets after five seconds.

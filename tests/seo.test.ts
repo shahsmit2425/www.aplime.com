@@ -1,3 +1,4 @@
+import { serviceSlug } from "../src/shared/service-questionnaires.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { renderPage } from "../src/entry-server.js";
@@ -27,7 +28,7 @@ test("every SEO landing page has unique metadata, useful copy, and valid structu
   const paths = [
     "/",
     "/services",
-    ...categories.map((category) => "/services/" + category.toLowerCase()),
+    ...categories.map((category) => "/services/" + serviceSlug(category)),
     ...Object.keys(informationalPages),
   ];
   const titles = new Set<string>();
@@ -183,4 +184,22 @@ test("unknown pages return a helpful noindex 404", () => {
   assert.match(page.head, /noindex,nofollow/);
   assert.match(page.html, /href="\/services"/);
   assert.match(page.html, /href="\/faq"/);
+});
+
+test("homepage uses twelve compact icon links that preselect intake categories", () => {
+  const page = renderPage("/", production);
+  assert.equal(
+    (page.html.match(/class="home-service-tile"/g) || []).length,
+    12,
+  );
+  for (const category of categories) {
+    assert.ok(
+      page.html.includes(
+        "/app/projects/new?category=" + encodeURIComponent(category),
+      ),
+      category,
+    );
+  }
+  assert.ok(!page.html.includes('class="service-number"'));
+  assert.equal(new Set(categories.map(serviceSlug)).size, categories.length);
 });
