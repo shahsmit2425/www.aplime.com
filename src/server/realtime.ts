@@ -1,3 +1,4 @@
+import { clientNetwork, type TrustProxy } from "./client-ip.js";
 import { randomBytes } from "node:crypto";
 import type { Server } from "node:http";
 import type { Request, Response } from "express";
@@ -18,7 +19,11 @@ export async function realtimeTicket(req: Request, res: Response) {
   await redis.set(redisKey(`ticket:${ticket}`), req.account.id, { EX: 20 });
   res.set("Cache-Control", "no-store").json({ ticket });
 }
-export function attachRealtime(server: Server, origins: Set<string>) {
+export function attachRealtime(
+  server: Server,
+  origins: Set<string>,
+  trust?: TrustProxy,
+) {
   let stopped = false;
   const sockets = new WebSocketServer({
     noServer: true,
@@ -55,8 +60,8 @@ export function attachRealtime(server: Server, origins: Set<string>) {
       socket.destroy();
       return;
     }
-    const ip = req.socket.remoteAddress || "unknown";
-    if ((connections.get(ip) || 0) >= 1000) {
+    const ip = clientNetwork(req, trust);
+    if ((connections.get(ip) || 0) >= 30 || sockets.clients.size >= 5000) {
       socket.destroy();
       return;
     }
@@ -69,7 +74,7 @@ export function attachRealtime(server: Server, origins: Set<string>) {
     sockets.handleUpgrade(req, socket, head, (ws) => {
       let unsubscribe: (() => void) | undefined;
       let connectedUser: string | undefined;
-      const deadline = setTimeout(() => ws.close(1008), 5000);
+      const deadline = setTimeout(() => ws.terminate(), 5000);
       const expiry = setTimeout(
         () => ws.close(1000, "Refresh authorization"),
         55000,

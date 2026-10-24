@@ -331,3 +331,13 @@ The professional Subscription screen offers billing-period selection, full upfro
 The API accepts only a known plan key (`monthly`, `six_month`, `yearly`; `legacy` only in fallback mode). Stripe Price IDs and amounts are selected on the server; browser-supplied prices/amounts have no authority. Catalog prices are fetched from Stripe and cached for up to one minute. Wrong currency, amount, interval, mode, or inactive/metered pricing blocks new enrollment. Existing archived prices remain recognized for their memberships. Subscription webhooks require one recognized recurring item with quantity one and verify the stored Stripe customer relationship.
 
 An open checkout for the same price is resumed. Selecting another plan expires the older session before creating a replacement; a completed session waits for webhook confirmation. Session creation keys include the chosen price and URLs so retries cannot conflict with a prior plan. Successful checkout/return never grants membership; only the signed subscription webhook does. Keep the same three subscription lifecycle events; no per-plan webhook is needed. Keep portal plan switching off until its timing/proration policy is deliberately configured and tested. Rebuild the customer web/native bundles and deploy the API together for this release.
+
+## API proxy and abuse controls
+
+- `TRUST_PROXY_HOPS`: optional integer 0–5; defaults to 1 when Render sets `RENDER=true`, otherwise 0. Applies to HTTP limits and WebSocket upgrades. Verify the ingress path before overriding.
+- `TRUSTED_PROXY_CIDRS`: optional comma-separated trusted proxy IPs/CIDRs; takes precedence over the hop count. Use only known ingress ranges, never a blanket trust-all range.
+- `PUBLIC_LOOKUP_DAILY_LIMIT`: optional, defaults to 3000 public intake lookup requests per day per environment across API replicas. All public ZIP, autocomplete and address-detail requests count, including cached/invalid requests. This is not a dollar limit or a cap on authenticated lookups.
+
+These are backend-only settings. Existing `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` provide shared abuse limits; `REDIS_URL` continues to provide live transport/cache and does not replace those REST settings. With `NODE_ENV=production`, protected creation/public lookup requests return 503 if shared limits cannot be checked. Development/test without REST Redis use bounded local limits.
+
+See [Request security operations](REQUEST_SECURITY.md) for deployment checks and provider-side protections.

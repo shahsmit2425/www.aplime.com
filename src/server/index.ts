@@ -1,3 +1,4 @@
+import { proxyTrustSetting, clientNetwork } from "./client-ip.js";
 import { closeNotificationStream } from "./notification-stream.js";
 import { attachRealtime } from "./realtime.js";
 import express from "express";
@@ -30,7 +31,7 @@ if (env.SENTRY_DSN)
   });
 const app = express();
 app.disable("x-powered-by");
-app.set("trust proxy", 1);
+app.set("trust proxy", proxyTrustSetting);
 const origins = new Set([
   ...env.ALLOWED_ORIGINS.split(",").map((s) => s.trim()),
   env.SITE_URL,
@@ -90,6 +91,7 @@ const isBusinessImage = (path: string) => path.startsWith("/business-images/");
 app.use(
   "/api",
   rateLimit({
+    keyGenerator: (req) => clientNetwork(req, app.get("trust proxy fn")),
     windowMs: 60000,
     limit: 240,
     standardHeaders: "draft-8",
@@ -100,6 +102,7 @@ app.use(
 app.use(
   "/api",
   rateLimit({
+    keyGenerator: (req) => clientNetwork(req, app.get("trust proxy fn")),
     windowMs: 60000,
     limit: 1200,
     standardHeaders: "draft-8",
@@ -144,7 +147,7 @@ app.use(
 const http = app.listen(env.PORT, "0.0.0.0", () =>
   console.log("Aplime API: " + env.API_URL),
 );
-const closeRealtime = attachRealtime(http, origins);
+const closeRealtime = attachRealtime(http, origins, app.get("trust proxy fn"));
 for (const signal of ["SIGTERM", "SIGINT"])
   process.on(signal, () => {
     closeNotificationStream();

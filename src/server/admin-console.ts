@@ -1,3 +1,4 @@
+import { clientIp, proxyTrustSetting } from "./client-ip.js";
 import { Router } from "express";
 import { z } from "zod";
 import { pool, camel, transaction } from "./db/index.js";
@@ -32,6 +33,18 @@ const rows = async (sql: string, params: unknown[] = []) =>
 async function logRead(actor: string, action: string, entity: string) {
   await transaction((c) => audit(c, actor, action, entity));
 }
+adminConsole.get("/network-check", async (req, res) => {
+  await logRead(
+    req.account.id,
+    "network_configuration_checked",
+    req.account.id,
+  );
+  res.json({
+    clientIp: clientIp(req, req.app.get("trust proxy fn")),
+    peerIp: req.socket.remoteAddress,
+    proxyTrust: proxyTrustSetting,
+  });
+});
 adminConsole.get("/session", async (req, res) => {
   const notices = await rows(
     "SELECT * FROM notifications WHERE user_id=$1 ORDER BY created_at DESC LIMIT 30",

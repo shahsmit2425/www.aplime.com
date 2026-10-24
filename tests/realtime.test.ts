@@ -80,13 +80,18 @@ test(
     const stop = attachRealtime(
       server,
       new Set(["https://app.example.invalid"]),
+      (_ip, hop) => hop < 1,
     );
     await once(server, "listening");
     const port = (server.address() as { port: number }).port;
     const clients: WebSocket[] = [];
-    const open = async (origin = "https://app.example.invalid") => {
+    const open = async (
+      origin = "https://app.example.invalid",
+      forwarded = "203.0.113.1",
+    ) => {
       const socket = new WebSocket(`ws://127.0.0.1:${port}/api/realtime`, {
         origin,
+        headers: { "X-Forwarded-For": forwarded },
       });
       clients.push(socket);
       await once(socket, "open");
@@ -122,6 +127,17 @@ test(
       missing.send(JSON.stringify({ ticket: "a".repeat(64) }));
       assert.equal((await missingClose)[0], 1008);
       await assert.rejects(() => open("https://attacker.example.invalid"));
+      // A saturated client cannot consume another client's allowance behind the same proxy.
+      for (let i = 0; i < 30; i++)
+        await open("https://app.example.invalid", "203.0.113.20");
+      await assert.rejects(() =>
+        open("https://app.example.invalid", "spoofed, 203.0.113.20"),
+      );
+      const independent = await open(
+        "https://app.example.invalid",
+        "203.0.113.21",
+      );
+      assert.equal(independent.readyState, WebSocket.OPEN);
       let loads = 0;
       const load = async () => ({ count: ++loads });
       assert.deepEqual(await cachedValue("public", 30, load), { count: 1 });

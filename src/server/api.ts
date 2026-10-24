@@ -1,3 +1,4 @@
+import { guardCreation } from "./abuse-limits.js";
 import { publicIntake } from "./public-intake.js";
 import { projectDrafts } from "./project-drafts.js";
 import { realtimeTicket } from "./realtime.js";
@@ -196,6 +197,7 @@ api.post("/account", async (req, res) => {
   const q = req as AuthRequest;
   const data = signupSchema.parse(q.body);
   if (q.account) return res.json(q.account);
+  await guardCreation("signup", req);
   await transaction(async (c) => {
     const created = await c.query(
       "INSERT INTO users(id,email,name,role) VALUES($1,$2,$3,$4) ON CONFLICT(id) DO NOTHING RETURNING id",
@@ -491,6 +493,7 @@ api.post("/projects", async (req, res) => {
     .passthrough()
     .parse(q.body);
   const p = projectSchema.parse(payload);
+  await guardCreation("project", req);
   const fingerprint = createHash("sha256").update(canonical(p)).digest("hex");
   assertFuture(p.scheduledAt);
   const location = await locateAddress(p.placeId);

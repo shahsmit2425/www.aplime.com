@@ -10,6 +10,19 @@ const envSchema = z.object({
   NODE_ENV: z
     .enum(["development", "production", "test"])
     .default("development"),
+  TRUST_PROXY_HOPS: z.coerce
+    .number()
+    .int()
+    .min(0)
+    .max(5)
+    .default(process.env.RENDER === "true" ? 1 : 0),
+  TRUSTED_PROXY_CIDRS: z.string().default(""),
+  PUBLIC_LOOKUP_DAILY_LIMIT: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(1000000)
+    .default(3000),
   PORT: z.coerce.number().int().min(1).max(65535).default(5173),
   SITE_URL: z.string().url().default("http://127.0.0.1:5173"),
   DATABASE_URL: z.string().default(""),

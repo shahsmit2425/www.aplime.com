@@ -1,3 +1,4 @@
+import { canonicalRedirect } from "./redirects.js";
 import "dotenv/config";
 import { randomBytes } from "node:crypto";
 import { readFile } from "node:fs/promises";
@@ -133,19 +134,7 @@ app.get("/health", (_q, r) =>
     release: process.env.RENDER_GIT_COMMIT || "local",
   }),
 );
-app.use((req, res, next) => {
-  if (
-    env.APP_ENV === "production" &&
-    req.method === "GET" &&
-    req.get("host") !== siteUrl.host
-  )
-    return res.redirect(308, siteUrl.origin + req.originalUrl);
-  if (req.path.length > 1 && req.path.endsWith("/")) {
-    const suffix = req.originalUrl.slice(req.path.length);
-    return res.redirect(308, req.path.slice(0, -1) + suffix);
-  }
-  next();
-});
+app.use(canonicalRedirect(siteUrl, env.APP_ENV === "production"));
 app.use("/api", (_q, r) =>
   r.status(404).json({ error: "Use the API domain." }),
 );

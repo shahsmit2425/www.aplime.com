@@ -1,5 +1,7 @@
+import { consumeBudget, checkSharedLimit } from "./abuse-limits.js";
+import { clientNetwork } from "./client-ip.js";
 import { Router } from "express";
-import rateLimit, { ipKeyGenerator } from "express-rate-limit";
+import rateLimit from "express-rate-limit";
 import { z } from "zod";
 import { createHash } from "node:crypto";
 import { redis as rateLimitRedis } from "./integrations/redis.js";
@@ -27,6 +29,7 @@ const lookupLimiter = rateLimitRedis
 export const publicIntake = Router();
 publicIntake.use(
   rateLimit({
+    keyGenerator: (req) => clientNetwork(req, req.app.get("trust proxy fn")),
     windowMs: 10 * 60_000,
     limit: 90,
     standardHeaders: true,
@@ -40,12 +43,11 @@ publicIntake.use(async (req, res, next) => {
   res.set("Cache-Control", "no-store");
   if (lookupLimiter) {
     const ip = createHash("sha256")
-      .update(ipKeyGenerator(req.ip || "unknown"))
+      .update(clientNetwork(req, req.app.get("trust proxy fn")))
       .digest("hex");
-    const result = await lookupLimiter.limit("public-intake:" + ip);
-    if (!result.success)
-      fail(429, "Too many address lookups. Please try again shortly.");
+    await checkSharedLimit(lookupLimiter, "public-intake:" + ip);
   }
+  await consumeBudget("publicLookup", "all-public-lookups");
   next();
 });
 publicIntake.get("/zip", async (req, res) => {
