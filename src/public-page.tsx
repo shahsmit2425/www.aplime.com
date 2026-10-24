@@ -1,3 +1,4 @@
+import { ArrowUpRight } from "lucide-react";
 import { Menu, MessageCircle, FileText } from "lucide-react";
 import { BusinessDisplay } from "./client/business-display.js";
 import { categories, type Profile } from "./shared/domain.js";
@@ -69,7 +70,7 @@ function ServicesIndex() {
           Create a request with photos and project details. You can discuss the
           work and compare estimates before selecting a professional.
         </p>
-        <LinkButton href="/app/projects">Start a project</LinkButton>
+        <LinkButton href="/app/projects/new">Start a project</LinkButton>
       </section>
     </>
   );
@@ -286,7 +287,7 @@ function InformationPage({ path }: { path: string }) {
           href={
             path === "/for-professionals"
               ? "/app/register?role=pro"
-              : "/app/projects"
+              : "/app/projects/new"
           }
         >
           {path === "/for-professionals"
@@ -553,12 +554,34 @@ export function PublicPage({
                   Find the right professional, compare clear estimates, and keep
                   every conversation in one place.
                 </p>
-                <div className="actions">
-                  <LinkButton href={"/app/projects/new"}>
-                    Start a project
-                  </LinkButton>
-                  <a href="/app/register?role=pro">Grow your business →</a>
-                </div>
+                <form
+                  className="hero-project-start"
+                  action="/app/projects/new"
+                  method="get"
+                >
+                  <label htmlFor="hero-project-zip">
+                    Where is your project?
+                  </label>
+                  <div>
+                    <input
+                      id="hero-project-zip"
+                      name="zip"
+                      inputMode="numeric"
+                      autoComplete="postal-code"
+                      pattern="[0-9]{5}"
+                      maxLength={5}
+                      required
+                      placeholder="ZIP code"
+                    />
+                    <button type="submit">
+                      Find my pros <ArrowUpRight size={18} />
+                    </button>
+                  </div>
+                  <small>
+                    Serving New Jersey · Start now, sign in at the last step.
+                  </small>
+                </form>
+                <a href="/app/register?role=pro">Grow your business →</a>
                 <div className="trust-row" aria-label="Project tools">
                   <span>
                     <MessageCircle size={17} />

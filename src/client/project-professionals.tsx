@@ -23,7 +23,7 @@ export function ProjectProfessionals({
     p,
     data.profiles,
     quotes,
-    data.discoveryMode === "open",
+    false,
   );
   for (const response of responses) {
     const profile = data.profiles.find((f) => f.id === response.proId);
@@ -75,7 +75,7 @@ export function ProjectProfessionals({
       <div id="project-professionals" className="pro-grid">
         {!ids.length && (
           <p>
-            No professionals yet. New matches and estimates will appear here.
+            No eligible professionals match your service and area yet. Your project is saved. New matches and estimates will appear here; you can return from your dashboard.
           </p>
         )}
         {ordered.map((proId) => {

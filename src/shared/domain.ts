@@ -267,7 +267,12 @@ export const projectSchema = z
           path: ["intake", question.id],
           message: `Answer “${question.label}”`,
         });
-      if (answer && question.options && !question.options.includes(answer))
+      if (
+        answer &&
+        question.options &&
+        !question.options.includes(answer) &&
+        !/^Other: .{2,1493}$/s.test(answer)
+      )
         context.addIssue({
           code: z.ZodIssueCode.custom,
           path: ["intake", question.id],

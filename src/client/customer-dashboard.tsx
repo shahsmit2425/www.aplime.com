@@ -1,3 +1,9 @@
+import {
+  INTAKE_KEY,
+  INTAKE_RESUME,
+  parseIntakeSession,
+} from "./project-intake-state.js";
+import { saveIntakePhotos } from "./intake-photo-storage.js";
 import { useState } from "react";
 import { Plus, FilePenLine, Trash2 } from "lucide-react";
 import { request } from "./api.js";
@@ -90,6 +96,19 @@ export function CustomerDashboard() {
                         { updatedAt: draft.updatedAt },
                         "DELETE",
                       );
+                      try {
+                        const local = parseIntakeSession(
+                          sessionStorage.getItem(INTAKE_KEY),
+                          data.user.id,
+                        );
+                        if (local?.draftUpdatedAt === draft.updatedAt) {
+                          sessionStorage.removeItem(INTAKE_KEY);
+                          sessionStorage.removeItem(INTAKE_RESUME);
+                          await saveIntakePhotos(local.photoKey, []).catch(
+                            () => {},
+                          );
+                        }
+                      } catch {}
                       setDiscard(false);
                     }, "Draft discarded.")
                   }

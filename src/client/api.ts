@@ -13,7 +13,9 @@ export async function request<T = any>(
   body?: unknown,
   method?: string,
 ): Promise<T> {
-  const token = await auth().currentUser?.getIdToken();
+  const token = path.startsWith("/intake/locations/")
+    ? undefined
+    : await auth().currentUser?.getIdToken();
   const base = (window.__CONFIG__ || fallbackConfig).apiUrl;
   const response = await fetch(base + "/api" + path, {
     method: method || (body === undefined ? "GET" : "POST"),

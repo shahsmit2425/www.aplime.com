@@ -1,3 +1,4 @@
+import { publicIntake } from "./public-intake.js";
 import { projectDrafts } from "./project-drafts.js";
 import { realtimeTicket } from "./realtime.js";
 import { cachedValue, redis } from "./redis.js";
@@ -97,6 +98,7 @@ declare global {
 type AuthRequest = Request;
 export const api = Router();
 api.use(publicBusinessImages);
+api.use("/intake/locations", publicIntake);
 api.get("/config", (_q, r) => r.json(publicConfig));
 const PUBLIC_PROFILE_TTL_MS = 30_000;
 const publicProfileMemo = new Map<
@@ -105,7 +107,10 @@ const publicProfileMemo = new Map<
 >();
 async function cachedPublicProfiles(id?: string) {
   // Do not stack local and shared TTLs: publication changes must age out in 30s.
-  if (redis?.isReady) return cachedValue("profiles:" + (id || "all"), 30, () => publicProfiles(id));
+  if (redis?.isReady)
+    return cachedValue("profiles:" + (id || "all"), 30, () =>
+      publicProfiles(id),
+    );
   const key = id ?? "";
   const hit = publicProfileMemo.get(key);
   if (hit && Date.now() - hit.at < PUBLIC_PROFILE_TTL_MS) return hit.value;
@@ -475,8 +480,14 @@ api.use(projectDrafts);
 api.post("/projects", async (req, res) => {
   const q = req as AuthRequest;
   if (q.account.role !== "customer") fail(403, "Customer account required.");
-  const { clientKey, ...payload } = z
-    .object({ clientKey: z.string().uuid().optional() })
+  const { clientKey, expectedZip, ...payload } = z
+    .object({
+      clientKey: z.string().uuid().optional(),
+      expectedZip: z
+        .string()
+        .regex(/^\d{5}$/)
+        .optional(),
+    })
     .passthrough()
     .parse(q.body);
   const p = projectSchema.parse(payload);
@@ -485,6 +496,11 @@ api.post("/projects", async (req, res) => {
   const location = await locateAddress(p.placeId);
   if (!location) fail(400, "Select a complete street address.");
   assertServiceArea(location);
+  if (expectedZip && expectedZip !== location.zip)
+    fail(
+      400,
+      "The service address does not match your starting ZIP. Update your ZIP or address before publishing.",
+    );
   let id: string = randomUUID();
   await transaction(async (c) => {
     const previous = await previousProjectRequest(

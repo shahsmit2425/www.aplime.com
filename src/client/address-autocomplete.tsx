@@ -6,10 +6,18 @@ export function AddressAutocomplete({
   label,
   defaultAddress = "",
   defaultPlaceId = "",
+  publicIntake = false,
+  onSelect,
 }: {
   label: string;
   defaultAddress?: string;
   defaultPlaceId?: string;
+  publicIntake?: boolean;
+  onSelect?: (value: {
+    address: string;
+    placeId: string;
+    zip?: string;
+  }) => void;
 }) {
   const id = useId(),
     input = useRef<HTMLInputElement>(null);
@@ -40,7 +48,8 @@ export function AddressAutocomplete({
       setProblem("");
       setCanRetry(false);
       void request<Suggestion[]>(
-        "/locations/autocomplete?q=" +
+        (publicIntake ? "/intake/locations" : "/locations") +
+          "/autocomplete?q=" +
           encodeURIComponent(value.trim()) +
           "&sessionToken=" +
           session.current,
@@ -79,8 +88,13 @@ export function AddressAutocomplete({
     setProblem("");
     setCanRetry(false);
     try {
-      const selected = await request<{ label: string; placeId: string }>(
-        "/locations/details?placeId=" +
+      const selected = await request<{
+        label: string;
+        placeId: string;
+        zip: string;
+      }>(
+        (publicIntake ? "/intake/locations" : "/locations") +
+          "/details?placeId=" +
           encodeURIComponent(row.placeId) +
           "&sessionToken=" +
           session.current,
@@ -88,6 +102,11 @@ export function AddressAutocomplete({
       if (current !== version.current) return;
       setValue(selected.label);
       setPlaceId(selected.placeId);
+      onSelect?.({
+        address: selected.label,
+        placeId: selected.placeId,
+        zip: selected.zip,
+      });
       session.current = crypto.randomUUID();
     } catch (error) {
       if (current === version.current) {
@@ -123,6 +142,7 @@ export function AddressAutocomplete({
             version.current++;
             setValue(event.target.value);
             setPlaceId("");
+            onSelect?.({ address: event.target.value, placeId: "" });
             setRows([]);
             setActive(-1);
             setProblem("");

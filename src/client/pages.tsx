@@ -1,3 +1,4 @@
+import { ProjectIntake } from "./project-intake.js";
 import { OpportunityResponse } from "./opportunity-response.js";
 import { EstimateForm } from "./estimate-form.js";
 import { emailCategories } from "../shared/email-alerts.js";
@@ -13,17 +14,12 @@ import { CustomerDashboard } from "./customer-dashboard.js";
 import { ProDashboard } from "./pro-dashboard.js";
 import { ProjectProfessionals } from "./project-professionals.js";
 import { SetupNotice } from "./setup-notice.js";
-import {
-  ProjectCard,
-  ProfessionalCard,
-  CollectionHeading,
-} from "./marketplace-cards.js";
+import { ProjectCard, ProfessionalCard } from "./marketplace-cards.js";
 import { Subscription } from "./subscription.js";
 import { MessagesInbox } from "./messages.js";
 import { BusinessNavigation } from "./business-navigation.js";
 import { AwardResponse } from "./award-response.js";
 import { ProjectControls } from "./project-controls.js";
-import { AddressAutocomplete } from "./address-autocomplete.js";
 import { Preferences } from "./preferences.js";
 import { AccountData } from "./account-data.js";
 import { Availability } from "./availability.js";
@@ -37,12 +33,7 @@ import {
   ChatWithPro,
   jumpTo,
 } from "./project-actions.js";
-import {
-  ProjectPhotos,
-  publishProjectPhotos,
-  useProjectPhotos,
-} from "./project-photos.js";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import {
   CalendarDays,
   ChevronDown,
@@ -62,13 +53,12 @@ import {
   type Profile,
 } from "../shared/domain.js";
 import {
-  questionsFor,
   questionLabel,
   type ServiceCategory,
 } from "../shared/service-questionnaires.js";
 import { request, openExternal } from "./api.js";
 import { useWorkspace } from "./workspace.js";
-import { Empty, Head, Panel, Badge, Field, Form, ServiceIcon } from "./ui.js";
+import { Empty, Head, Panel, Badge, Field, Form } from "./ui.js";
 const date = (s: string | null) =>
   s
     ? new Date(s).toLocaleString(undefined, {
@@ -409,538 +399,22 @@ function ProProfile() {
   );
 }
 function Projects() {
-  const { data, page, id, run, busy, go } = useWorkspace();
-  const selectedProfessional = data.profiles.find(
-    (p) => p.id === (id === "draft" ? data.projectDraft?.payload.proId : id),
-  );
-  const requestedCategory = new URLSearchParams(window.location.search).get(
-    "category",
-  );
-  const initialCategory = (selectedProfessional?.category ||
-    (categories.includes(requestedCategory as ServiceCategory)
-      ? requestedCategory
-      : null) ||
-    (categories.includes(data.projectDraft?.payload.category as ServiceCategory)
-      ? data.projectDraft?.payload.category
-      : null) ||
-    categories[0]) as ServiceCategory;
-  const [creating, setCreating] = useState(!!id),
-    [projectCategory, setProjectCategory] =
-      useState<ServiceCategory>(initialCategory);
-  const [photos, setPhotos] = useProjectPhotos(true);
-  const [savedProjectId, setSavedProjectId] = useState<string | null>(null);
-  const publishRetry = useRef({ signature: "", key: "" });
-  const [uploadProgress, setUploadProgress] = useState("");
-  const [draft, setDraft] = useState<Record<string, any> | null>(
-    data.projectDraft?.payload || null,
-  );
-  const [draftUpdatedAt, setDraftUpdatedAt] = useState(
-    data.projectDraft?.updatedAt,
-  );
-  const [formValues, setFormValues] = useState<Record<string, any> | null>(
-    null,
-  );
-  const initial = formValues || draft;
-  const [pendingProject, setPendingProject] = useState<Record<
-    string,
-    any
-  > | null>(null);
-  const source = page === "leads" ? data.leads : data.projects;
-  const payloadFrom = (f: FormData) => ({
-    title: String(f.get("title") || ""),
-    description: String(f.get("description") || ""),
-    category: projectCategory,
-    intake: Object.fromEntries(
-      questionsFor(projectCategory).map((question) => [
-        question.id,
-        String(f.get("intake_" + question.id) || "").trim(),
-      ]),
-    ),
-    address: String(f.get("address") || ""),
-    placeId: String(f.get("placeId") || ""),
-    addressUnit: String(f.get("addressUnit") || ""),
-    urgency: String(f.get("urgency") || "flexible"),
-    propertyType: String(f.get("propertyType") || "home"),
-    budgetMin: f.get("budgetMin")
-      ? Math.round(Number(f.get("budgetMin")) * 100)
-      : null,
-    budgetMax: f.get("budgetMax")
-      ? Math.round(Number(f.get("budgetMax")) * 100)
-      : null,
-    proId: selectedProfessional?.id || null,
-    scheduledAt: f.get("scheduledAt")
-      ? new Date(String(f.get("scheduledAt"))).toISOString()
-      : null,
-  });
-  const publish = (payload: Record<string, any>) => {
-    let createdId = "";
-    return run(
-      async () => {
-        const signature = JSON.stringify(payload);
-        if (publishRetry.current.signature !== signature)
-          publishRetry.current = { signature, key: crypto.randomUUID() };
-        const result = savedProjectId
-          ? { id: savedProjectId }
-          : await request("/projects", {
-              ...payload,
-              clientKey: publishRetry.current.key,
-            });
-        setSavedProjectId(result.id);
-        createdId = result.id;
-        try {
-          await publishProjectPhotos(result.id, photos, setUploadProgress);
-        } catch (error) {
-          setUploadProgress(
-            "Your project is saved. Some photos could not be uploaded. Retry below, or open your project to continue later.",
-          );
-          throw error;
-        }
-        if (draftUpdatedAt)
-          await request(
-            "/project-draft",
-            { updatedAt: draftUpdatedAt },
-            "DELETE",
-          ).catch(() => undefined);
-        setDraft(null);
-        setUploadProgress("");
-        setCreating(false);
-        setPendingProject(null);
-        setFormValues(null);
-        setSavedProjectId(null);
-        setPhotos([]);
-      },
-      "Project published. Matching professionals have been notified.",
-      () => go("project", createdId),
-    );
-  };
-  if (data.user.role === "customer" && !creating) return <CustomerDashboard />;
+  const { data, id, run, go } = useWorkspace();
+  if (!id) return <CustomerDashboard />;
   return (
-    <>
-      {!creating && (
-        <Head
-          title={
-            page === "leads"
-              ? data.discoveryMode === "open"
-                ? "Open projects"
-                : "Projects matched for you"
-              : data.user.role === "pro"
-                ? "Manage your projects"
-                : "Your home projects"
-          }
-          action={
-            data.user.role === "customer" ? (
-              <button
-                disabled={busy || !!savedProjectId}
-                onClick={() => {
-                  setPhotos([]);
-                  setCreating(!creating);
-                }}
-              >
-                <Plus size={17} />
-                New project
-              </button>
-            ) : undefined
-          }
-        >
-          {page === "leads"
-            ? data.discoveryMode === "open"
-              ? "Explore open requests and find your next job."
-              : "New requests matched to your services and area."
-            : "Requests, estimates, and updates stay together."}
-        </Head>
-      )}
-      {creating && data.user.role === "customer" && (
-        <Panel title="Tell us about your project">
-          <h1 className="sr-only">Post a project</h1>
-          <p className="project-form-intro">
-            Tell professionals what you need for a more accurate estimate.
-            {selectedProfessional && (
-              <strong>
-                {" "}
-                This request will be sent to {selectedProfessional.business}.
-              </strong>
-            )}
-          </p>
-          {pendingProject ? (
-            <section
-              className="intake-summary"
-              aria-label="Review project request"
-            >
-              <h3>Review before publishing</h3>
-              <p>
-                Eligible professionals can view your request and respond in
-                Aplime. We alert up to five matching pros first, then contact
-                more if there are too few responses. Your exact street address
-                is shared only with your selected professional.
-              </p>
-              <h4>{pendingProject.title}</h4>
-              <p>{pendingProject.description}</p>
-              <dl>
-                <div>
-                  <dt>Service</dt>
-                  <dd>{pendingProject.category}</dd>
-                </div>
-                <div>
-                  <dt>Location</dt>
-                  <dd>
-                    {pendingProject.address} {pendingProject.addressUnit}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Timing</dt>
-                  <dd>{pendingProject.urgency.replace("_", " ")}</dd>
-                </div>
-                <div>
-                  <dt>Property</dt>
-                  <dd>{pendingProject.propertyType}</dd>
-                </div>
-                <div>
-                  <dt>Budget</dt>
-                  <dd>
-                    {pendingProject.budgetMin === null &&
-                    pendingProject.budgetMax === null
-                      ? "Not specified"
-                      : `${pendingProject.budgetMin === null ? "Any" : money(pendingProject.budgetMin)} – ${pendingProject.budgetMax === null ? "Any" : money(pendingProject.budgetMax)}`}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Photos</dt>
-                  <dd>{photos.length} selected</dd>
-                </div>
-                {Object.entries(pendingProject.intake).map(([key, value]) => (
-                  <div key={key}>
-                    <dt>{questionLabel(pendingProject.category, key)}</dt>
-                    <dd>{String(value)}</dd>
-                  </div>
-                ))}
-              </dl>
-              <p role="status" aria-live="polite">
-                {busy && !uploadProgress
-                  ? "Publishing your project…"
-                  : uploadProgress}
-              </p>
-              <div className="actions">
-                <button
-                  disabled={busy}
-                  onClick={() => void publish(pendingProject)}
-                >
-                  {savedProjectId
-                    ? "Retry remaining photos"
-                    : "Publish project request"}
-                </button>
-                {savedProjectId ? (
-                  <button
-                    className="secondary"
-                    disabled={busy}
-                    onClick={() => go("project", savedProjectId)}
-                  >
-                    Open saved project
-                  </button>
-                ) : (
-                  <button
-                    className="secondary"
-                    disabled={busy}
-                    onClick={() => setPendingProject(null)}
-                  >
-                    Back to edit
-                  </button>
-                )}
-              </div>
-            </section>
-          ) : (
-            <Form
-              key={initial ? JSON.stringify(initial) : "new-project"}
-              busy={busy}
-              onSubmit={(f) => {
-                const payload = payloadFrom(f);
-                if (f.get("intent") === "draft")
-                  return run(
-                    async () => {
-                      const saved = await request<{ updatedAt: string }>(
-                        "/project-draft",
-                        payload,
-                        "PUT",
-                      );
-                      setDraftUpdatedAt(saved.updatedAt);
-                      setFormValues(null);
-                      setDraft(payload);
-                    },
-                    photos.length
-                      ? "Draft details saved to your dashboard. Select photos again if you leave this page before publishing."
-                      : "Draft saved to your dashboard. Continue it from any signed-in device.",
-                  );
-                setFormValues(payload);
-                setPendingProject(payload);
-                return Promise.resolve();
-              }}
-            >
-              <fieldset
-                disabled={!!savedProjectId}
-                className="project-details-fields"
-              >
-                <h3>1. Describe your project</h3>
-                <p>Fields are required unless marked optional.</p>
-                <div className="form-grid">
-                  <Field label="Project title">
-                    <input
-                      name="title"
-                      defaultValue={initial?.title || ""}
-                      placeholder="For example, repair a leaking kitchen faucet"
-                      required
-                      minLength={5}
-                      maxLength={120}
-                    />
-                  </Field>
-                  <Field label="Service">
-                    <select
-                      name="category"
-                      value={projectCategory}
-                      disabled={!!selectedProfessional}
-                      onChange={(event) =>
-                        setProjectCategory(
-                          event.target.value as ServiceCategory,
-                        )
-                      }
-                    >
-                      {categories.map((c) => (
-                        <option key={c}>{c}</option>
-                      ))}
-                    </select>
-                  </Field>
-                  <AddressAutocomplete
-                    label="Full service address"
-                    defaultAddress={initial?.address || ""}
-                    defaultPlaceId={initial?.placeId || ""}
-                  />
-                  <Field label="Apartment / unit (optional)">
-                    <input
-                      name="addressUnit"
-                      maxLength={100}
-                      defaultValue={initial?.addressUnit || ""}
-                    />
-                  </Field>
-                  <Field label="How soon do you need help?">
-                    <select
-                      name="urgency"
-                      defaultValue={initial?.urgency || "flexible"}
-                    >
-                      <option value="urgent">As soon as possible</option>
-                      <option value="this_week">This week</option>
-                      <option value="this_month">This month</option>
-                      <option value="flexible">Flexible</option>
-                    </select>
-                  </Field>
-                  <Field label="Property type">
-                    <select
-                      name="propertyType"
-                      defaultValue={initial?.propertyType || "home"}
-                    >
-                      <option value="home">House</option>
-                      <option value="apartment">Apartment</option>
-                      <option value="condo">Condo</option>
-                      <option value="commercial">Commercial property</option>
-                      <option value="other">Other</option>
-                    </select>
-                  </Field>
-                  <Field label="Budget minimum (optional)">
-                    <input
-                      name="budgetMin"
-                      type="number"
-                      min="0"
-                      max="100000"
-                      step="1"
-                      defaultValue={
-                        initial?.budgetMin == null
-                          ? ""
-                          : initial.budgetMin / 100
-                      }
-                    />
-                  </Field>
-                  <Field label="Budget maximum (optional)">
-                    <input
-                      name="budgetMax"
-                      type="number"
-                      min="0"
-                      max="100000"
-                      step="1"
-                      defaultValue={
-                        initial?.budgetMax == null
-                          ? ""
-                          : initial.budgetMax / 100
-                      }
-                    />
-                  </Field>
-                </div>
-                <Field label="What needs to be done?">
-                  <textarea
-                    name="description"
-                    defaultValue={initial?.description || ""}
-                    required
-                    minLength={20}
-                    maxLength={4000}
-                    rows={4}
-                    placeholder="Describe the problem, where it is, and what you would like done (at least 20 characters)."
-                  />
-                </Field>
-                <section className="project-questionnaire">
-                  <div className="questionnaire-heading">
-                    <span className="category-icon">
-                      <ServiceIcon service={projectCategory} size={21} />
-                    </span>
-                    <div>
-                      <h3>2. {projectCategory} details</h3>
-                      <p>
-                        These answers help professionals assess the job before
-                        contacting you.
-                      </p>
-                    </div>
-                  </div>
-                  {(projectCategory === "Plumbing" ||
-                    projectCategory === "Electrical") && (
-                    <p className="safety-note" role="note">
-                      If there is immediate danger, fire, flooding, gas, or
-                      exposed live wiring, leave the area and contact emergency
-                      services or the appropriate utility. Aplime is not an
-                      emergency service.
-                    </p>
-                  )}
-                  <div className="questionnaire-grid">
-                    {questionsFor(projectCategory).map((question) => (
-                      <Field
-                        label={question.label}
-                        key={projectCategory + ":" + question.id}
-                      >
-                        {question.type === "select" ? (
-                          <select
-                            name={"intake_" + question.id}
-                            required={question.required}
-                            defaultValue={initial?.intake?.[question.id] || ""}
-                          >
-                            <option value="" disabled>
-                              Select an answer
-                            </option>
-                            {question.options?.map((option) => (
-                              <option key={option}>{option}</option>
-                            ))}
-                          </select>
-                        ) : question.type === "textarea" ? (
-                          <textarea
-                            name={"intake_" + question.id}
-                            required={question.required}
-                            minLength={question.required ? 3 : undefined}
-                            maxLength={1500}
-                            rows={3}
-                            placeholder={question.placeholder}
-                            defaultValue={initial?.intake?.[question.id] || ""}
-                          />
-                        ) : (
-                          <input
-                            name={"intake_" + question.id}
-                            required={question.required}
-                            minLength={question.required ? 2 : undefined}
-                            maxLength={1500}
-                            placeholder={question.placeholder}
-                            defaultValue={initial?.intake?.[question.id] || ""}
-                          />
-                        )}
-                      </Field>
-                    ))}
-                  </div>
-                </section>
-              </fieldset>
-              <ProjectPhotos
-                photos={photos}
-                onChange={setPhotos}
-                disabled={busy || !!savedProjectId}
-              />
-              <div className="project-submit">
-                <p>
-                  Review your request before publishing. Publishing does not
-                  confirm an appointment or make a payment.
-                </p>
-                <p role="status" aria-live="polite">
-                  {uploadProgress}
-                </p>
-                <div className="actions">
-                  <button name="intent" value="review">
-                    {busy
-                      ? "Saving your project…"
-                      : savedProjectId
-                        ? "Retry remaining photos"
-                        : "Review project request"}
-                  </button>
-                  {!savedProjectId && (
-                    <button
-                      name="intent"
-                      value="draft"
-                      formNoValidate
-                      className="secondary"
-                    >
-                      Save draft
-                    </button>
-                  )}
-                  {savedProjectId && (
-                    <button
-                      type="button"
-                      className="secondary"
-                      onClick={() => go("project", savedProjectId)}
-                    >
-                      Open saved project
-                    </button>
-                  )}
-                  {!savedProjectId && (
-                    <button
-                      type="button"
-                      className="secondary"
-                      onClick={() => {
-                        setPhotos([]);
-                        setFormValues(null);
-                        setCreating(false);
-                        go("dashboard");
-                      }}
-                    >
-                      Cancel
-                    </button>
-                  )}
-                </div>
-              </div>
-            </Form>
-          )}
-        </Panel>
-      )}
-      {page === "leads" && (
-        <button className="secondary" onClick={() => go("availability")}>
-          Edit project preferences
-        </button>
-      )}
-      {page === "leads" && !!data.discoveryRequirements?.length && (
-        <SetupNotice
-          requirements={data.discoveryRequirements}
-          onContinue={() => go("profile")}
-        />
-      )}
-      {!creating && (
-        <section className="project-collection" aria-label="Projects">
-          <CollectionHeading
-            title={page === "leads" ? "Available projects" : "Your projects"}
-            count={source.length}
-          />
-          {page === "leads" && !source.length ? (
-            <Empty title="No open projects to show">
-              {data.marketplacePreview
-                ? "New customer requests will appear here."
-                : data.discoveryRequirements?.length
-                  ? "Complete the steps above to receive new opportunities."
-                  : data.discoveryMode === "open"
-                    ? "New customer requests will appear here."
-                    : "New matches will appear here. You can adjust your project preferences anytime."}
-            </Empty>
-          ) : (
-            <ProjectList projects={source} />
-          )}
-        </section>
-      )}
-    </>
+    <ProjectIntake
+      data={data}
+      draftMode={id === "draft"}
+      proId={id}
+      onAuthenticate={() => go("login")}
+      onPublished={async (projectId) => {
+        await run(
+          async () => {},
+          "Project published. Review your matching professionals below.",
+          () => go("project", projectId),
+        );
+      }}
+    />
   );
 }
 function ProjectDetail() {

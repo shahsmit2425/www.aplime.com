@@ -1,3 +1,5 @@
+import { ProjectIntake } from "./project-intake.js";
+import { hasIntakeResume } from "./project-intake-state.js";
 import { NotificationDropdown } from "./notification-dropdown.js";
 import { MeetingProvider } from "./meeting-state.js";
 import { watchNotifications } from "./live-notifications.js";
@@ -163,6 +165,7 @@ function RoleChoice({
 export default function Workspace() {
   const [route, setRoute] = useState(readRoute),
     [signupRole, setSignupRole] = useState<"customer" | "pro">(() =>
+      !hasIntakeResume() &&
       new URLSearchParams(location.search).get("role") === "pro"
         ? "pro"
         : "customer",
@@ -325,7 +328,13 @@ export default function Workspace() {
         result.user.role,
         result.profiles.some((p) => p.id === result.user.id),
       );
-      if (next !== current) replaceRoute(next);
+      if (
+        hasIntakeResume() &&
+        result.user.role === "customer" &&
+        ["login", "register", "recovery"].includes(current)
+      )
+        replaceRoute("projects/resume");
+      else if (next !== current) replaceRoute(next);
     } catch (e) {
       if (auth().currentUser !== owner || sequence !== loadSequence.current)
         return;
@@ -506,12 +515,49 @@ export default function Workspace() {
         </div>
       </div>
     );
+  if (!data && route.page === "projects")
+    return (
+      <div className="guest-intake-page">
+        <header className="guest-intake-header">
+          <Brand />
+          <span>Plan your project · Sign in at the final step</span>
+        </header>
+        <main>
+          <ProjectIntake
+            onAuthenticate={() => {
+              setSignupRole("customer");
+              go("login");
+            }}
+            onPublished={async () => {}}
+          />
+        </main>
+        <footer>
+          <a href="/privacy">Privacy</a>
+          <a href="/terms">Service information</a>
+        </footer>
+      </div>
+    );
   if (!data)
     return (
       <div className="auth-page">
         <Brand />
         <section className="auth-card">
           <p className="eyebrow">WELCOME TO APLIME</p>
+          {hasIntakeResume() && (
+            <div className="intake-auth-notice">
+              <strong>Your project is ready.</strong>
+              <p>
+                Sign in to review and publish it. Your answers and photos are
+                saved in this tab.
+              </p>
+              <button
+                className="text-button"
+                onClick={() => go("projects", "resume")}
+              >
+                Back to project answers
+              </button>
+            </div>
+          )}
           <h1>
             {needsAccount
               ? `Finish setting up your ${signupRole === "pro" ? "professional" : "customer"} account.`
@@ -621,7 +667,11 @@ export default function Workspace() {
               <fieldset className="role-field">
                 <legend>I’m here to</legend>
                 <input type="hidden" name="role" value={signupRole} />
-                <RoleChoice value={signupRole} onChange={chooseSignupRole} />
+                {hasIntakeResume() ? (
+                  <p>Customer account · Find help for your project</p>
+                ) : (
+                  <RoleChoice value={signupRole} onChange={chooseSignupRole} />
+                )}
               </fieldset>
               <p className="muted">
                 Professionals complete a business profile and identity
@@ -656,7 +706,14 @@ export default function Workspace() {
                     Choose how you plan to use Aplime. You can’t change the
                     account type after finishing registration.
                   </p>
-                  <RoleChoice value={signupRole} onChange={chooseSignupRole} />
+                  {hasIntakeResume() ? (
+                    <p>Customer account · Find help for your project</p>
+                  ) : (
+                    <RoleChoice
+                      value={signupRole}
+                      onChange={chooseSignupRole}
+                    />
+                  )}
                 </>
               )}
               {route.page === "login" && (
@@ -1031,6 +1088,12 @@ export default function Workspace() {
               {busy && (
                 <p className="busy" role="status">
                   Saving changes…
+                </p>
+              )}
+              {data.user.role === "pro" && hasIntakeResume() && (
+                <p className="alert" role="status">
+                  Your unfinished project is saved in this tab. To publish it,
+                  sign out and sign in with a customer account.
                 </p>
               )}
               <Pages />
