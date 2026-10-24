@@ -9,6 +9,8 @@ import {
 } from "lucide-react";
 import {
   money,
+  responseLabels,
+  type ProjectResponse,
   type Project,
   type Profile,
   type Quote,
@@ -34,10 +36,12 @@ export function ProjectCard({
   project: p,
   onOpen,
   quotes = [],
+  responseLabel,
 }: {
   project: Project;
   onOpen: () => void;
   quotes?: Quote[];
+  responseLabel?: ProjectResponse["status"];
 }) {
   const pendingEstimates = quotes.filter(
     (q) =>
@@ -111,6 +115,7 @@ export function ProjectCard({
       </span>
       <span className="project-card-updates">
         <span>{pendingEstimates} pending estimates</span>
+        {responseLabel && <strong>{responseLabels[responseLabel]}</strong>}
         {p.archived && <strong>Archived</strong>}
         {p.completionRequested && <strong>Completion requested</strong>}
         {p.cancellationRequestedBy && <strong>Cancellation requested</strong>}

@@ -3897,3 +3897,7 @@ blockquote {
     max-width: 95%;
   }
 }
+
+.opportunity-response { padding: 1.25rem; margin-block: 1rem; border: 1px solid #9cbda4; border-radius: 1rem; background: #f5f8ed; }
+.opportunity-response p { margin: .5rem 0 1rem; }
+.opportunity-response button[aria-pressed="true"], .pro-dashboard button[aria-pressed="true"] { background: #e0efda; border-color: #087443; color: #064d31; }

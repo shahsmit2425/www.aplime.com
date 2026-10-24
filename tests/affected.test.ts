@@ -133,6 +133,8 @@ test("meeting expiry and cleanup dependencies deploy both API and worker", () =>
     "src/server/email-alerts.ts",
     "src/server/email-template.ts",
     "src/server/email-reminders.ts",
+    "src/server/project-events.ts",
+    "src/server/matching.ts",
     "src/server/outbox.ts",
     "src/server/job-worker.ts",
     "src/server/job-queue.ts",

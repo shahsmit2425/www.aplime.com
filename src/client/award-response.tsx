@@ -27,7 +27,9 @@ export function AwardResponse({
         <p>
           You selected {proName || "a professional"}
           {amount ? " at " + money(amount) : ""}. Work cannot start until they
-          confirm. Your other estimates stay on hold meanwhile.
+          confirm. Your other estimates stay on hold meanwhile. We send a
+          reminder after 24 hours; you can withdraw your selection at any time
+          before confirmation.
         </p>
         <button
           disabled={busy}
@@ -40,7 +42,7 @@ export function AwardResponse({
               withdraw();
           }}
         >
-          Withdraw selection
+          Withdraw and compare other estimates
         </button>
       </Panel>
     );

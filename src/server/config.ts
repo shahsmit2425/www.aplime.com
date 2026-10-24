@@ -52,7 +52,7 @@ const envSchema = z.object({
   R2_SECRET_ACCESS_KEY: z.string().default(""),
   R2_BUCKET: z.string().default(""),
   GOOGLE_MAPS_SERVER_KEY: z.string().default(""),
-  MARKETPLACE_DISCOVERY_MODE: z.enum(["open", "matched"]).default("open"),
+  MARKETPLACE_DISCOVERY_MODE: z.enum(["open", "matched"]).default("matched"),
   MARKETPLACE_PREVIEW: z.enum(["true", "false"]).optional(),
   RESEND_API_KEY: z.string().trim().default(""),
   EMAIL_FROM: z.string().trim().default(""),

@@ -64,7 +64,7 @@ export function affected(paths) {
     if (/^(src\/server\/|apps\/api\/)/.test(file)) {
       result.api = true;
       if (
-        /(\/db\/|\/config\.|\/repository\.|\/(?:job-|legacy-)?worker\.|\/job-queue\.|\/redis\.|\/outbox\.|\/email-(alerts|template|reminders)\.|\/account-cleanup\.|\/business-publication\.|\/estimates\.|\/meeting-lifecycle\.|\/integrations\/(email|firebase|storage|storage-error)\.|\/errors\.)/.test(
+        /(\/db\/|\/config\.|\/repository\.|\/project-events\.|\/matching\.|\/(?:job-|legacy-)?worker\.|\/job-queue\.|\/redis\.|\/outbox\.|\/email-(alerts|template|reminders)\.|\/account-cleanup\.|\/business-publication\.|\/estimates\.|\/meeting-lifecycle\.|\/integrations\/(email|firebase|storage|storage-error)\.|\/errors\.)/.test(
           file,
         )
       )

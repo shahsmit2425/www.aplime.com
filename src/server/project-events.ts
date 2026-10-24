@@ -37,21 +37,72 @@ export async function recordProjectActivity(
 }
 
 // The best-ranked eligible professionals are alerted (capped so one request cannot flood the outbox).
-export const ALERT_LIMIT = 50;
+export const ALERT_LIMIT = 5;
+export const OUTREACH_LIMIT = 15;
 export async function notifyMatchingProfessionals(
   c: pg.PoolClient,
   projectId: string,
   title = "New service opportunity",
 ) {
+  // Serialize API and worker batches with the same project lock used by hiring.
+  const project = await c.query(
+    "SELECT id FROM projects WHERE id=$1 AND pro_id IS NULL AND status IN ('requested','quoted') FOR UPDATE",
+    [projectId],
+  );
+  if (!project.rowCount) return [];
+  await c.query("UPDATE projects SET outreach_checked_at=now() WHERE id=$1", [
+    projectId,
+  ]);
+  const history = (
+    await c.query(
+      "SELECT count(*)::int AS count,max(created_at) AS latest FROM project_outreach WHERE project_id=$1",
+      [projectId],
+    )
+  ).rows[0];
+  // Reopening updates previous recipients without enlarging the outreach batch.
+  if (title !== "New service opportunity" && history.count) {
+    const previous = await c.query(
+      `SELECT f.id FROM project_outreach o JOIN profiles f ON f.id=o.pro_id
+      JOIN projects p ON p.id=o.project_id WHERE p.id=$1 AND ${matchSql()}
+      AND NOT EXISTS(SELECT 1 FROM project_responses r WHERE r.project_id=p.id AND r.pro_id=f.id AND r.status='unavailable')`,
+      [projectId],
+    );
+    await notifyMany(
+      c,
+      previous.rows.map((r) => r.id),
+      title,
+      "This request is open again. Review the project before responding.",
+      { page: "project", id: projectId },
+    );
+  }
+  if (
+    history.count >= OUTREACH_LIMIT ||
+    (history.latest &&
+      Date.now() - new Date(history.latest).getTime() < 24 * 60 * 60 * 1000)
+  )
+    return [];
+  const responses = await c.query(
+    `SELECT pro_id FROM project_responses WHERE project_id=$1 AND status IN ('interested','needs_details')
+    UNION SELECT pro_id FROM quotes WHERE project_id=$1 AND status='pending'`,
+    [projectId],
+  );
+  if (responses.rows.length >= 3) return [];
   const matches = (
     await c.query(
       `SELECT f.id,p.category,p.zip FROM profiles f JOIN projects p ON p.id=$1 WHERE p.pro_id IS NULL AND p.status IN ('requested','quoted') AND ${matchSql()}
        AND NOT EXISTS (SELECT 1 FROM quotes q WHERE q.project_id=p.id AND q.pro_id=f.id)
+       AND NOT EXISTS (SELECT 1 FROM project_outreach o WHERE o.project_id=p.id AND o.pro_id=f.id)
+       AND NOT EXISTS (SELECT 1 FROM project_responses r WHERE r.project_id=p.id AND r.pro_id=f.id)
        AND NOT EXISTS (SELECT 1 FROM notifications n WHERE n.user_id=f.id AND n.target_page='project' AND n.target_id=p.id::text AND n.title=$2 AND n.created_at>now()-interval '12 hours')
-       ORDER BY ${rankSql()} LIMIT ${ALERT_LIMIT}`,
+       ORDER BY ${rankSql()} LIMIT ${Math.min(ALERT_LIMIT, OUTREACH_LIMIT - history.count)}`,
       [projectId, title],
     )
   ).rows;
+  for (const match of matches)
+    await c.query(
+      "INSERT INTO project_outreach(project_id,pro_id) VALUES($1,$2)",
+      [projectId, match.id],
+    );
   if (matches.length)
     await notifyMany(
       c,

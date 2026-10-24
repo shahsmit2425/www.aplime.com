@@ -35,7 +35,36 @@ export async function projectAction(
       return { ok: true };
     }
     let extraRecipient: string | undefined;
-    if (action.type === "quote") {
+    if (action.type === "respond_opportunity") {
+      await assertIndependentParties(c, p.customerId, user.id);
+      await assertMatch(c, user.id, id);
+      if (
+        action.status === "unavailable" &&
+        (
+          await c.query(
+            "SELECT 1 FROM quotes WHERE project_id=$1 AND pro_id=$2 AND status='pending'",
+            [id, user.id],
+          )
+        ).rowCount
+      )
+        fail(
+          409,
+          "Withdraw your pending estimate before marking this project unavailable.",
+        );
+      const changed = await c.query(
+        `INSERT INTO project_responses(project_id,pro_id,status) VALUES($1,$2,$3)
+         ON CONFLICT(project_id,pro_id) DO UPDATE SET status=EXCLUDED.status,updated_at=now()
+         WHERE project_responses.status<>EXCLUDED.status RETURNING pro_id`,
+        [id, user.id, action.status],
+      );
+      if (!changed.rowCount) return { ok: true };
+      if (action.status !== "unavailable")
+        await c.query(
+          "INSERT INTO project_discussions(id,project_id,pro_id) VALUES($1,$2,$3) ON CONFLICT(project_id,pro_id) DO NOTHING",
+          [randomUUID(), id, user.id],
+        );
+      extraRecipient = user.id;
+    } else if (action.type === "quote") {
       extraRecipient = user.id;
       await assertIndependentParties(c, p.customerId, user.id);
       await assertMatch(c, user.id, id);
@@ -70,6 +99,10 @@ export async function projectAction(
         !["pending", "withdrawn", "expired"].includes(existing.status)
       )
         fail(409, "This estimate is closed.");
+      await c.query(
+        "DELETE FROM project_responses WHERE project_id=$1 AND pro_id=$2 AND status='unavailable'",
+        [id, user.id],
+      );
       const amount = action.assessmentRequired
         ? null
         : action.laborAmount + action.materialsAmount;
@@ -145,7 +178,7 @@ export async function projectAction(
           quote.id,
         ]);
         await c.query(
-          "UPDATE projects SET status='booked',pro_id=$2,amount=$3,award_accepted=false WHERE id=$1",
+          "UPDATE projects SET status='booked',pro_id=$2,amount=$3,award_accepted=false,award_selected_at=now() WHERE id=$1",
           [id, quote.pro_id, quote.amount],
         );
       } else {
@@ -243,6 +276,14 @@ export async function projectAction(
     } else fail(400, "Unsupported project action.");
     await c.query("UPDATE projects SET version=version+1 WHERE id=$1", [id]);
     const titles: Record<string, string> = {
+      respond_opportunity:
+        action.type === "respond_opportunity"
+          ? {
+              interested: "Professional interested in your project",
+              needs_details: "Professional needs more project details",
+              unavailable: "Professional unavailable for this project",
+            }[action.status]
+          : "Project response",
       quote:
         action.type === "quote" && action.assessmentRequired
           ? "Assessment requested before pricing"

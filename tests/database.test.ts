@@ -170,6 +170,10 @@ await db.exec(
   ),
 );
 
+await db.exec(
+  await readFile("src/server/db/migrations/026_project_responses.sql", "utf8"),
+);
+
 test.after(async () => {
   await db.close();
   await pool.end();
@@ -2086,7 +2090,7 @@ test("archive is personal and removal cancels only the customer's unassigned req
   assert.equal((await projectRow(open)).status, "cancelled");
 });
 
-test("publication alerts every matching pro and pause/resume refreshes the opportunity audience", async () => {
+test("publication alerts the first matching batch and pause/resume updates only its audience", async () => {
   const { notifyMatchingProfessionals } =
     await import("../src/server/project-events.js");
   const { transaction } = await import("../src/server/db/index.js");
@@ -2134,8 +2138,12 @@ test("publication alerts every matching pro and pause/resume refreshes the oppor
       }),
     );
     assert.equal(events.length, 0);
-    await transaction((c) => notifyMatchingProfessionals(c, id));
-    assert.deepEqual(new Set(events), new Set(proIds.slice(0, 6)));
+    const initial = await transaction((c) =>
+      notifyMatchingProfessionals(c, id),
+    );
+    assert.equal(initial.length, 5);
+    assert.ok(initial.every((uid) => proIds.slice(0, 6).includes(uid)));
+    assert.deepEqual(new Set(events), new Set(initial));
     assert.equal(
       (await workspace(customer)).profiles.filter((p) =>
         p.matchedProjectIds?.includes(id),
@@ -2159,8 +2167,9 @@ test("publication alerts every matching pro and pause/resume refreshes the oppor
           [uid],
         )
       ).rows as any[];
-      assert.equal(alerts.length, 1);
-      assert.equal(alerts[0].body.includes("Private reason"), false);
+      assert.equal(alerts.length, initial.includes(uid) ? 1 : 0);
+      if (alerts.length)
+        assert.equal(alerts[0].body.includes("Private reason"), false);
     }
     await projectAction(id, customer, { type: "resume" });
     const alerts = (
@@ -2169,10 +2178,7 @@ test("publication alerts every matching pro and pause/resume refreshes the oppor
         [id],
       )
     ).rows as any[];
-    assert.deepEqual(
-      new Set(alerts.map((a) => a.user_id)),
-      new Set(proIds.slice(0, 6)),
-    );
+    assert.deepEqual(new Set(alerts.map((a) => a.user_id)), new Set(initial));
     assert.equal(
       (await workspace({ ...professional, id: proIds[0] })).leads.some(
         (p) => p.id === id,
@@ -2426,9 +2432,9 @@ test("a directly requested professional cannot hold the request hostage and the 
     )
   ).rows as any[];
   assert.equal(
-    alerts.filter((row) => row.user_id === other.id).length,
-    1,
-    "matching professionals hear about the reopened request once",
+    new Set(alerts.map((row) => row.user_id)).size,
+    5,
+    "the first five matching professionals hear about the reopened request once",
   );
 });
 
@@ -4315,5 +4321,173 @@ test("project publish retry keys are scoped to the account and reject changed de
   assert.equal(
     await previousProjectRequest(c, outsider.id, key, "first"),
     undefined,
+  );
+});
+
+test("opportunity responses enforce eligibility, deduplicate and stay private", async () => {
+  const pro = await approvedPro("responder");
+  const other = await approvedPro("other-responder");
+  const id = await lifecycleProject("requested", false);
+  await assert.rejects(
+    projectAction(id, customer, {
+      type: "respond_opportunity",
+      status: "interested",
+    }),
+    { status: 403 },
+  );
+  await query("UPDATE profiles SET zip='99999' WHERE id=$1", [pro.id]);
+  await assert.rejects(
+    projectAction(id, pro, {
+      type: "respond_opportunity",
+      status: "interested",
+    }),
+    { status: 403 },
+  );
+  await query("UPDATE profiles SET zip='10001' WHERE id=$1", [pro.id]);
+  await projectAction(id, pro, {
+    type: "respond_opportunity",
+    status: "needs_details",
+  });
+  const version = (await projectRow(id)).version;
+  await projectAction(id, pro, {
+    type: "respond_opportunity",
+    status: "needs_details",
+  });
+  assert.equal((await projectRow(id)).version, version);
+  assert.equal(
+    (await workspace(customer)).projectResponses?.filter(
+      (r) => r.projectId === id,
+    ).length,
+    1,
+  );
+  assert.equal(
+    (await workspace(other)).projectResponses?.filter((r) => r.projectId === id)
+      .length,
+    0,
+  );
+  assert.equal(
+    (await workspace(outsider)).projectResponses?.filter(
+      (r) => r.projectId === id,
+    ).length,
+    0,
+  );
+  await assert.rejects(
+    projectAction(
+      id,
+      pro,
+      { type: "respond_opportunity", status: "interested" },
+      version - 1,
+    ),
+    { status: 409 },
+  );
+  await projectAction(id, pro, {
+    type: "respond_opportunity",
+    status: "unavailable",
+  });
+  await projectAction(id, pro, estimate);
+  assert.equal(
+    (await query("SELECT * FROM project_responses WHERE project_id=$1", [id]))
+      .rows.length,
+    0,
+  );
+  await assert.rejects(
+    projectAction(id, pro, {
+      type: "respond_opportunity",
+      status: "unavailable",
+    }),
+    { status: 409 },
+  );
+  await query("UPDATE projects SET status='cancelled' WHERE id=$1", [id]);
+  await assert.rejects(
+    projectAction(id, pro, {
+      type: "respond_opportunity",
+      status: "interested",
+    }),
+    { status: 403 },
+  );
+});
+
+test("staged outreach expands once after a day and stops at three responders", async () => {
+  const { notifyMatchingProfessionals } =
+    await import("../src/server/project-events.js");
+  const { queueEmailReminders } =
+    await import("../src/server/email-reminders.js");
+  for (let i = 0; i < 11; i++) await approvedPro("outreach" + i);
+  const id = await lifecycleProject("requested", false);
+  const c = await pool.connect();
+  const first = await notifyMatchingProfessionals(c, id);
+  assert.equal(first.length, 5);
+  assert.equal((await notifyMatchingProfessionals(c, id)).length, 0);
+  await query(
+    "UPDATE project_outreach SET created_at=now()-interval '25 hours' WHERE project_id=$1",
+    [id],
+  );
+  await query(
+    "UPDATE projects SET outreach_checked_at=now()-interval '25 hours' WHERE id=$1",
+    [id],
+  );
+  await queueEmailReminders();
+  assert.equal(
+    (await query("SELECT * FROM project_outreach WHERE project_id=$1", [id]))
+      .rows.length,
+    10,
+  );
+  await queueEmailReminders();
+  assert.equal(
+    (await query("SELECT * FROM project_outreach WHERE project_id=$1", [id]))
+      .rows.length,
+    10,
+  );
+  for (const pro of first.slice(0, 3))
+    await query(
+      "INSERT INTO project_responses(project_id,pro_id,status) VALUES($1,$2,'interested')",
+      [id, pro],
+    );
+  await query(
+    "UPDATE project_outreach SET created_at=now()-interval '25 hours' WHERE project_id=$1",
+    [id],
+  );
+  assert.equal((await notifyMatchingProfessionals(c, id)).length, 0);
+  await query("DELETE FROM project_responses WHERE project_id=$1", [id]);
+  assert.equal((await notifyMatchingProfessionals(c, id)).length, 5);
+  await query(
+    "UPDATE project_outreach SET created_at=now()-interval '25 hours' WHERE project_id=$1",
+    [id],
+  );
+  assert.equal((await notifyMatchingProfessionals(c, id)).length, 0);
+  c.release();
+});
+
+test("pending award reminders are deduplicated and invalidated by confirmation", async () => {
+  const { queueEmailReminders, reminderStillRelevant } =
+    await import("../src/server/email-reminders.js");
+  const pro = await approvedPro("award-reminder");
+  const id = await lifecycleProject("requested", false);
+  await projectAction(id, pro, estimate);
+  const q = (await query("SELECT * FROM quotes WHERE project_id=$1", [id]))
+    .rows[0];
+  await projectAction(id, customer, {
+    type: "accept",
+    quoteId: q.id,
+    revision: q.revision,
+  });
+  await query(
+    "UPDATE projects SET award_selected_at=now()-interval '25 hours' WHERE id=$1",
+    [id],
+  );
+  await queueEmailReminders();
+  await queueEmailReminders();
+  const rows = (
+    await query(
+      "SELECT event_key FROM email_outbox WHERE target_id=$1 AND event_key LIKE 'award-reminder:%'",
+      [id],
+    )
+  ).rows;
+  assert.equal(rows.length, 2);
+  assert.equal(await reminderStillRelevant(rows[0].event_key, { query }), true);
+  await projectAction(id, pro, { type: "accept_award" });
+  assert.equal(
+    await reminderStillRelevant(rows[0].event_key, { query }),
+    false,
   );
 });

@@ -1,9 +1,38 @@
+import { notifyMatchingProfessionals } from "./project-events.js";
 import { transaction } from "./db/index.js";
 import { notifyOnce } from "./email-alerts.js";
 
 // Bounded scans and unique receipts deduplicate multiple workers; delivery rechecks state.
 export async function queueEmailReminders() {
   await transaction(async (c) => {
+    // Only expand projects already enrolled in staged outreach; do not replay historical projects.
+    const expand =
+      await c.query(`SELECT p.id FROM projects p WHERE p.pro_id IS NULL AND p.status IN ('requested','quoted')
+      AND EXISTS(SELECT 1 FROM project_outreach o WHERE o.project_id=p.id)
+      AND (SELECT max(created_at) FROM project_outreach o WHERE o.project_id=p.id)<now()-interval '24 hours'
+      AND (SELECT count(*) FROM project_outreach o WHERE o.project_id=p.id)<15
+      AND (SELECT count(*) FROM (SELECT pro_id FROM project_responses r WHERE r.project_id=p.id AND r.status IN ('interested','needs_details')
+        UNION SELECT pro_id FROM quotes q WHERE q.project_id=p.id AND q.status='pending') responders)<3
+      AND (p.outreach_checked_at IS NULL OR p.outreach_checked_at<now()-interval '24 hours')
+      ORDER BY p.outreach_checked_at NULLS FIRST,p.created_at LIMIT 50 FOR UPDATE SKIP LOCKED`);
+    for (const p of expand.rows) await notifyMatchingProfessionals(c, p.id);
+    const awards =
+      await c.query(`SELECT p.id,p.title,p.pro_id,p.customer_id,p.award_selected_at::text AS selection FROM projects p
+      WHERE p.status='booked' AND NOT p.award_accepted AND p.award_selected_at<now()-interval '24 hours'
+      AND NOT EXISTS(SELECT 1 FROM alert_event_receipts a WHERE a.user_id=p.pro_id AND a.event_key='award-reminder:'||p.id||':'||p.award_selected_at::text)
+      ORDER BY p.award_selected_at LIMIT 50`);
+    for (const p of awards.rows)
+      for (const uid of [p.pro_id, p.customer_id])
+        await notifyOnce(
+          c,
+          uid,
+          `award-reminder:${p.id}:${p.selection}`,
+          "Job selection awaiting confirmation",
+          uid === p.pro_id
+            ? `${p.title}: confirm or decline the customer's selection. Work cannot start before you confirm.`
+            : `${p.title}: the professional has not confirmed yet. You can keep waiting or withdraw your selection and compare other estimates.`,
+          { page: "project", id: p.id },
+        );
     const calls = (
       await c.query(`SELECT m.*,p.title FROM scheduled_calls m JOIN projects p ON p.id=m.project_id JOIN profiles f ON f.id=m.pro_id
       WHERE m.status='confirmed' AND m.starts_at>now() AND m.starts_at<=now()+interval '10 minutes'
@@ -98,6 +127,13 @@ export async function reminderStillRelevant(
 ) {
   if (!key) return true;
   const [kind, id, ...rest] = key.split(":");
+  if (kind === "award-reminder")
+    return !!(
+      await c.query(
+        "SELECT 1 FROM projects WHERE id=$1 AND status='booked' AND NOT award_accepted AND award_selected_at::text=$2",
+        [id, rest.join(":")],
+      )
+    ).rowCount;
   if (kind === "call-reminder")
     return !!(
       await c.query(

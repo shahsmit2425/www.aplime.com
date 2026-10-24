@@ -1,3 +1,4 @@
+import { OpportunityResponse } from "./opportunity-response.js";
 import { EstimateForm } from "./estimate-form.js";
 import { emailCategories } from "../shared/email-alerts.js";
 import { quotePrice, quoteTiming } from "../shared/estimates.js";
@@ -566,6 +567,12 @@ function Projects() {
               aria-label="Review project request"
             >
               <h3>Review before publishing</h3>
+              <p>
+                Eligible professionals can view your request and respond in
+                Aplime. We alert up to five matching pros first, then contact
+                more if there are too few responses. Your exact street address
+                is shared only with your selected professional.
+              </p>
               <h4>{pendingProject.title}</h4>
               <p>{pendingProject.description}</p>
               <dl>
@@ -1020,6 +1027,12 @@ function ProjectDetail() {
           onEdit={() => setEditing(true)}
         />
       )}
+      {!customer &&
+        data.user.role === "pro" &&
+        open &&
+        !p.proId &&
+        canQuote &&
+        !previewBlocked && <OpportunityResponse project={p} />}
       {editing && customer && (
         <section id="project-edit" aria-label="Edit project details">
           <EditDetails
