@@ -1,3 +1,4 @@
+import { T } from "../shared/language.js";
 import { useEffect, useRef, useState } from "react";
 import { ImagePlus, Upload, X, Eye, Trash2, RefreshCw } from "lucide-react";
 import type { Profile } from "../shared/domain.js";
@@ -289,7 +290,7 @@ export function BusinessMedia({
                     onClick={() => setConfirmDelete({ slot, id: image.id })}
                   >
                     <Trash2 size={16} />
-                    Delete
+                    <T>{"Delete"}</T>{" "}
                   </button>
                 )}
               </div>
@@ -437,7 +438,7 @@ export function BusinessMedia({
               autoFocus
             >
               <X size={20} />
-              Close
+              <T>{"Close"}</T>{" "}
             </button>
           </div>
           <img src={view.url} alt={view.label} />

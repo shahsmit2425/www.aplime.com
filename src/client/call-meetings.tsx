@@ -1,3 +1,4 @@
+import { T } from "../shared/language.js";
 import { useEffect, useRef, useState } from "react";
 import {
   CalendarPlus,
@@ -362,7 +363,7 @@ export function CallScheduler({
                     : "Request meeting"}
               </button>
               <button type="button" className="secondary" onClick={onClose}>
-                Cancel
+                <T>{"Cancel"}</T>{" "}
               </button>
             </div>
           </fieldset>
@@ -532,7 +533,7 @@ export function CallMeetings({
                       }
                     >
                       <Check size={16} />
-                      Confirm{" "}
+                      <T>{"Confirm"}</T>{" "}
                       {m.status === "confirmed" ? "new time" : "meeting"}
                     </button>
                     <button
@@ -542,7 +543,7 @@ export function CallMeetings({
                         void act(m, { type: "respond", accept: false })
                       }
                     >
-                      Decline{" "}
+                      <T>{"Decline"}</T>{" "}
                       {m.status === "confirmed" ? "new time" : "request"}
                     </button>
                   </>

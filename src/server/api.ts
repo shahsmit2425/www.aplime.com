@@ -272,6 +272,17 @@ api.put("/profile/preferences", async (req, res) => {
   });
   res.json({ ok: true });
 });
+api.put("/account/language", async (req, res) => {
+  const { language } = z
+    .object({ language: z.enum(["en", "es"]) })
+    .strict()
+    .parse(req.body);
+  await pool.query(
+    "UPDATE users SET settings=settings || jsonb_build_object('language',$2::text) WHERE id=$1",
+    [req.account.id, language],
+  );
+  res.json({ ok: true });
+});
 api.put("/account", async (req, res) => {
   const q = req as AuthRequest;
   const data = z

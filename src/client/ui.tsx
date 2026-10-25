@@ -1,3 +1,4 @@
+import { useT } from "../shared/language.js";
 import type { ReactNode, FormEvent, MouseEventHandler } from "react";
 import {
   ArrowUpRight,
@@ -149,9 +150,10 @@ export function Panel({
   title?: string;
   children: ReactNode;
 }) {
+  const t = useT();
   return (
     <section className="panel">
-      {title && <h2>{title}</h2>}
+      {title && <h2>{t(title)}</h2>}
       {children}
     </section>
   );
@@ -163,9 +165,10 @@ export function Field({
   label: string;
   children: ReactNode;
 }) {
+  const t = useT();
   return (
     <label className="field">
-      <span>{label}</span>
+      <span>{t(label)}</span>
       {children}
     </label>
   );

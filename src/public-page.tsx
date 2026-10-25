@@ -1,3 +1,4 @@
+import { T, LanguageSelect } from "./shared/language.js";
 import { serviceSlug } from "./shared/service-questionnaires.js";
 import { ArrowUpRight } from "lucide-react";
 import { Menu, MessageCircle, FileText } from "lucide-react";
@@ -38,7 +39,9 @@ export const serviceCopy: Record<string, string> = {
 function Breadcrumbs({ current }: { current: string }) {
   return (
     <nav className="breadcrumbs" aria-label="Breadcrumb">
-      <a href="/">Home</a>
+      <a href="/">
+        <T>{"Home"}</T>
+      </a>
       <span aria-hidden="true">/</span>
       <span aria-current="page">{current}</span>
     </nav>
@@ -84,7 +87,9 @@ function ServicesIndex() {
           Create a request with photos and project details. You can discuss the
           work and compare estimates before selecting a professional.
         </p>
-        <LinkButton href="/app/projects/new">Start a project</LinkButton>
+        <LinkButton href="/app/projects/new">
+          <T>{"Start a project"}</T>
+        </LinkButton>
       </section>
     </>
   );
@@ -95,9 +100,13 @@ function ServicePage({ category }: { category: (typeof categories)[number] }) {
   return (
     <>
       <nav className="breadcrumbs" aria-label="Breadcrumb">
-        <a href="/">Home</a>
+        <a href="/">
+          <T>{"Home"}</T>
+        </a>
         <span aria-hidden="true">/</span>
-        <a href="/services">Services</a>
+        <a href="/services">
+          <T>{"Services"}</T>
+        </a>
         <span aria-hidden="true">/</span>
         <span aria-current="page">{category}</span>
       </nav>
@@ -416,7 +425,9 @@ function NotFoundPage() {
           The link may be out of date or mistyped. Try one of these instead.
         </p>
         <div className="actions">
-          <LinkButton href="/">Back to home</LinkButton>
+          <LinkButton href="/">
+            <T>{"Back to home"}</T>
+          </LinkButton>
           <a href="/services">Browse all services →</a>
         </div>
       </section>
@@ -436,7 +447,9 @@ function NotFoundPage() {
         <nav aria-label="Help">
           <a href="/faq">Frequently asked questions</a>
           <a href="/contact">Contact Aplime</a>
-          <a href="/app/login">Sign in</a>
+          <a href="/app/login">
+            <T>{"Sign in"}</T>
+          </a>
         </nav>
       </section>
     </>
@@ -468,16 +481,23 @@ export function PublicPage({
   return (
     <>
       <a className="skip-link" href="#main-content">
-        Skip to content
+        <T>{"Skip to content"}</T>{" "}
       </a>
       <header className="public-header">
+        <LanguageSelect />
         <Brand />
         <nav aria-label="Main navigation">
-          <a href="/#services">Explore services</a>
-          <a href="/how-it-works">How it works</a>
-          <a href="/for-professionals">For professionals</a>
+          <a href="/#services">
+            <T>{"Explore services"}</T>
+          </a>
+          <a href="/how-it-works">
+            <T>{"How it works"}</T>
+          </a>
+          <a href="/for-professionals">
+            <T>{"For professionals"}</T>
+          </a>
           <a className="button" href="/app/login">
-            Sign in
+            <T>{"Sign in"}</T>{" "}
           </a>
         </nav>
         <details className="public-mobile-nav">
@@ -485,11 +505,21 @@ export function PublicPage({
             <Menu />
           </summary>
           <div>
-            <a href="/services">Explore services</a>
-            <a href="/how-it-works">How it works</a>
-            <a href="/for-professionals">For professionals</a>
-            <a href="/trust-and-safety">Trust &amp; safety</a>
-            <a href="/app/projects/new">Start a project</a>
+            <a href="/services">
+              <T>{"Explore services"}</T>
+            </a>
+            <a href="/how-it-works">
+              <T>{"How it works"}</T>
+            </a>
+            <a href="/for-professionals">
+              <T>{"For professionals"}</T>
+            </a>
+            <a href="/trust-and-safety">
+              <T>{"Trust & safety"}</T>
+            </a>
+            <a href="/app/projects/new">
+              <T>{"Start a project"}</T>
+            </a>
           </div>
         </details>
       </header>
@@ -558,15 +588,21 @@ export function PublicPage({
           <>
             <section className="hero">
               <div>
-                <p className="eyebrow">A LITTLE HELP. A HAPPIER HOME.</p>
+                <p className="eyebrow">
+                  <T>{"A LITTLE HELP. A HAPPIER HOME."}</T>
+                </p>
                 <h1>
-                  Your next home project.
-                  <br />
-                  <em>In good hands.</em>
+                  <T>{"Your next home project."}</T> <br />
+                  <em>
+                    <T>{"In good hands."}</T>
+                  </em>
                 </h1>
                 <p className="lede">
-                  Find the right professional, compare clear estimates, and keep
-                  every conversation in one place.
+                  <T>
+                    {
+                      "Find the right professional, compare clear estimates, and keep every conversation in one place."
+                    }
+                  </T>{" "}
                 </p>
                 <form
                   className="hero-project-start"
@@ -574,7 +610,7 @@ export function PublicPage({
                   method="get"
                 >
                   <label htmlFor="hero-project-zip">
-                    Where is your project?
+                    <T>{"Where is your project?"}</T>{" "}
                   </label>
                   <div>
                     <input
@@ -588,22 +624,32 @@ export function PublicPage({
                       placeholder="ZIP code"
                     />
                     <button type="submit">
-                      Find my pros <ArrowUpRight size={18} />
+                      <T>{"Find my pros"}</T> <ArrowUpRight size={18} />
                     </button>
                   </div>
                   <small>
-                    Serving New Jersey · Start now, sign in at the last step.
+                    <T>
+                      {
+                        "Serving New Jersey · Start now, sign in at the last step."
+                      }
+                    </T>{" "}
                   </small>
                 </form>
-                <a href="/app/register?role=pro">Grow your business →</a>
+                <a href="/app/register?role=pro">
+                  <T>{"Grow your business →"}</T>
+                </a>
                 <div className="trust-row" aria-label="Project tools">
                   <span>
                     <MessageCircle size={17} />
-                    <strong>Direct conversations</strong>
+                    <strong>
+                      <T>{"Direct conversations"}</T>
+                    </strong>
                   </span>
                   <span>
                     <FileText size={17} />
-                    <strong>Clear estimates</strong>
+                    <strong>
+                      <T>{"Clear estimates"}</T>
+                    </strong>
                   </span>
                 </div>
               </div>
@@ -617,15 +663,23 @@ export function PublicPage({
                   fetchPriority="high"
                 />
                 <div>
-                  <strong>Less on your to-do list.</strong>
-                  <span>More room for what matters.</span>
+                  <strong>
+                    <T>{"Less on your to-do list."}</T>
+                  </strong>
+                  <span>
+                    <T>{"More room for what matters."}</T>
+                  </span>
                 </div>
               </div>
             </section>
             <section id="services">
               <div className="section-heading">
-                <p className="eyebrow">SERVICES FOR YOUR HOME</p>
-                <h2>What can we help you with?</h2>
+                <p className="eyebrow">
+                  <T>{"SERVICES FOR YOUR HOME"}</T>
+                </p>
+                <h2>
+                  <T>{"What can we help you with?"}</T>
+                </h2>
               </div>
               <div className="home-service-grid">
                 {categories.map((c) => (
@@ -637,18 +691,24 @@ export function PublicPage({
                     <span className="home-service-symbol">
                       <ServiceIcon service={c} size={36} />
                     </span>
-                    <span>{c === "HVAC" ? "Heating & cooling" : c}</span>
+                    <span>
+                      <T>{c === "HVAC" ? "Heating & cooling" : c}</T>
+                    </span>
                   </a>
                 ))}
               </div>
               <a className="service-guide-link" href="/services">
-                Explore service guides <ArrowUpRight size={17} />
+                <T>{"Explore service guides"}</T> <ArrowUpRight size={17} />
               </a>
             </section>
             <section className="how">
               <div>
-                <p className="eyebrow">FROM IDEA TO DONE</p>
-                <h2>A simpler way to care for your home.</h2>
+                <p className="eyebrow">
+                  <T>{"FROM IDEA TO DONE"}</T>
+                </p>
+                <h2>
+                  <T>{"A simpler way to care for your home."}</T>
+                </h2>
               </div>
               {[
                 "Tell us what you need",
@@ -657,7 +717,9 @@ export function PublicPage({
               ].map((s, i) => (
                 <article key={s}>
                   <span>0{i + 1}</span>
-                  <h3>{s}</h3>
+                  <h3>
+                    <T>{s}</T>
+                  </h3>
                   <p>
                     {
                       [
@@ -675,15 +737,31 @@ export function PublicPage({
       </main>
       <footer className="public-footer">
         <Brand />
-        <p>Built around your home.</p>
+        <p>
+          <T>{"Built around your home."}</T>
+        </p>
         <nav>
-          <a href="/privacy">Privacy</a>
-          <a href="/terms">Service information</a>
-          <a href="/trust-and-safety">Trust &amp; safety</a>
-          <a href="/about">About</a>
-          <a href="/faq">FAQ</a>
-          <a href="/contact">Contact</a>
-          <a href="/app/help">Get help</a>
+          <a href="/privacy">
+            <T>{"Privacy"}</T>
+          </a>
+          <a href="/terms">
+            <T>{"Service information"}</T>
+          </a>
+          <a href="/trust-and-safety">
+            <T>{"Trust & safety"}</T>
+          </a>
+          <a href="/about">
+            <T>{"About"}</T>
+          </a>
+          <a href="/faq">
+            <T>{"FAQ"}</T>
+          </a>
+          <a href="/contact">
+            <T>{"Contact"}</T>
+          </a>
+          <a href="/app/help">
+            <T>{"Get help"}</T>
+          </a>
         </nav>
       </footer>
     </>

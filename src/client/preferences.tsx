@@ -1,3 +1,4 @@
+import { T } from "../shared/language.js";
 import { useState } from "react";
 import { CalendarDays, MapPin, Check } from "lucide-react";
 import { weekdays, type WeeklyHours } from "../shared/preferences.js";
@@ -12,12 +13,14 @@ export function Preferences() {
   if (!profile)
     return (
       <Empty title="Save your business profile first.">
-        <button onClick={() => go("profile")}>Business profile</button>
+        <button onClick={() => go("profile")}>
+          <T>{"Business profile"}</T>
+        </button>
       </Empty>
     );
   return (
     <>
-      <Head title="Your services, area and availability.">
+      <Head title={<T>{"Your services, area and availability."}</T>}>
         Choose the work you want and publish the hours customers can request.
       </Head>
       <PreferencesForm
@@ -85,7 +88,9 @@ export function PreferencesForm({
         ) : (
           <>
             <fieldset>
-              <legend>Services you want to receive</legend>
+              <legend>
+                <T>{"Services you want to receive"}</T>
+              </legend>
               <div className="preference-grid">
                 {categories.map((category) => (
                   <label key={category}>
@@ -212,7 +217,9 @@ export function PreferencesForm({
                   </label>
                 </>
               ) : (
-                <span>Not available</span>
+                <span>
+                  <T>{"Not available"}</T>
+                </span>
               )}
             </div>
           ))}

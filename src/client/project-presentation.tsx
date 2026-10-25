@@ -1,3 +1,4 @@
+import { T } from "../shared/language.js";
 import {
   ArrowLeft,
   CalendarDays,
@@ -152,7 +153,9 @@ export function CustomerProjectDetails({ project: p }: { project: Project }) {
   return (
     <>
       <div className="project-section-heading">
-        <h2>Project details</h2>
+        <h2>
+          <T>{"Project details"}</T>
+        </h2>
       </div>
       <dl className="project-detail-rows">
         {rows.map((r, i) => (

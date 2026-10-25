@@ -1,3 +1,4 @@
+import { T } from "../shared/language.js";
 import { useEffect, useRef } from "react";
 import { X } from "lucide-react";
 export function ImagePreview({
@@ -32,7 +33,7 @@ export function ImagePreview({
           autoFocus
         >
           <X size={18} />
-          Close
+          <T>{"Close"}</T>{" "}
         </button>
       </div>
       <img src={image.url} alt={image.name} />

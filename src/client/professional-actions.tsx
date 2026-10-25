@@ -1,3 +1,4 @@
+import { T } from "../shared/language.js";
 import { useWorkspace } from "./workspace.js";
 import { ChatWithPro } from "./project-actions.js";
 import { CallScheduler, ScheduleCallButton } from "./call-meetings.js";
@@ -39,7 +40,7 @@ export function ProfessionalActions({
         <ScheduleCallButton projectId={projectId} proId={proId} />
       )}
       <button type="button" onClick={() => go("pro", proId)}>
-        View profile
+        <T>{"View profile"}</T>{" "}
       </button>
     </>
   );
@@ -104,7 +105,7 @@ function SavedProfessionalActions({ proId }: { proId: string }) {
           }, "")
         }
       >
-        <MessageCircle size={17} /> Chat
+        <MessageCircle size={17} /> <T>{"Chat"}</T>{" "}
       </button>
       <button
         className="secondary"
@@ -125,7 +126,7 @@ function SavedProfessionalActions({ proId }: { proId: string }) {
               : "Schedule call"}
       </button>
       <button type="button" onClick={() => go("pro", proId)}>
-        View profile
+        <T>{"View profile"}</T>{" "}
       </button>
       {intent && (
         <dialog

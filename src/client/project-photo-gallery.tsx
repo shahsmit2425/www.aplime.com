@@ -1,3 +1,4 @@
+import { T } from "../shared/language.js";
 import { useEffect, useState, type ReactNode } from "react";
 import { Eye, ImageOff, RefreshCw } from "lucide-react";
 import type { Upload } from "../shared/domain.js";
@@ -80,7 +81,7 @@ export function SavedPhoto({
             onClick={() => setAttempt((n) => n + 1)}
           >
             <RefreshCw size={14} />
-            Retry
+            <T>{"Retry"}</T>{" "}
           </button>
         </>
       ) : (
@@ -104,7 +105,9 @@ export function ProjectPhotoGallery({ files }: { files: Upload[] }) {
   return (
     <section className="panel project-photo-panel" aria-label="Project photos">
       <div className="project-section-heading">
-        <h2>Project photos</h2>
+        <h2>
+          <T>{"Project photos"}</T>
+        </h2>
         <span>
           {files.length} {files.length === 1 ? "photo" : "photos"}
         </span>

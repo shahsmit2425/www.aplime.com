@@ -1,3 +1,4 @@
+import { T, useT } from "../shared/language.js";
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
@@ -105,7 +106,9 @@ function Choices({
           }
           onClick={() => onChange(option)}
         >
-          <span>{option}</span>
+          <span>
+            <T>{option}</T>
+          </span>
           <span className="choice-check" aria-hidden="true">
             {value === option && <Check size={18} />}
           </span>
@@ -392,6 +395,7 @@ export function ProjectIntake(props: Props) {
         "Saved in this browser tab for 24 hours. Nothing has been published or sent to professionals.",
       );
   }
+  const t = useT();
   const title =
     question?.label ||
     (
@@ -421,11 +425,18 @@ export function ProjectIntake(props: Props) {
     : intakeBudgetChoice(draft);
   const changeAnswer = (value: string) =>
     patch({ intake: { ...draft.intake, [question!.id]: value } });
-  if (!ready) return <p role="status">Restoring your project…</p>;
+  if (!ready)
+    return (
+      <p role="status">
+        <T>{"Restoring your project…"}</T>
+      </p>
+    );
   return (
     <section className="project-intake" aria-label="Project request">
       <div className="intake-topline">
-        <span>YOUR HOME. YOUR NEXT PROJECT.</span>
+        <span>
+          <T>{"YOUR HOME. YOUR NEXT PROJECT."}</T>
+        </span>
         <span>
           {index + 1} / {steps.length}
         </span>
@@ -441,27 +452,36 @@ export function ProjectIntake(props: Props) {
           <MapPin size={16} />
           {draft.zipLabel || "New Jersey"}
         </span>
-        <span>{step !== "zip" && draft.category}</span>
+        <span>{step !== "zip" && <T>{draft.category}</T>}</span>
       </div>
       <h1 ref={heading} tabIndex={-1}>
-        {title}
+        <T>{title}</T>
       </h1>
       {step === "zip" && (
         <p>
-          Start with your ZIP. Tell us about the job, then sign in to publish
-          and meet matching pros.
+          <T>
+            {
+              "Start with your ZIP. Tell us about the job, then sign in to publish and meet matching pros."
+            }
+          </T>{" "}
         </p>
       )}
       {step === "category" && (
         <p>
-          Choose the main service. Your next questions will fit the work you
-          need.
+          <T>
+            {
+              "Choose the main service. Your next questions will fit the work you need."
+            }
+          </T>{" "}
         </p>
       )}
       {step === "address" && (
         <p>
-          Your exact address is shared only with your selected professional.
-          Other matching pros see your ZIP.
+          <T>
+            {
+              "Your exact address is shared only with your selected professional. Other matching pros see your ZIP."
+            }
+          </T>{" "}
         </p>
       )}
       {step === "review" && (
@@ -502,7 +522,9 @@ export function ProjectIntake(props: Props) {
                 />
               </span>
               <small className="intake-field-hint">
-                Enter the five-digit ZIP where you need the work done.
+                <T>
+                  {"Enter the five-digit ZIP where you need the work done."}
+                </T>{" "}
               </small>
             </Field>
           )}
@@ -524,7 +546,9 @@ export function ProjectIntake(props: Props) {
                   }
                 >
                   <ServiceIcon service={category} />
-                  <span>{category}</span>
+                  <span>
+                    <T>{category}</T>
+                  </span>
                   {draft.category === category && <Check size={18} />}
                 </button>
               ))}
@@ -562,9 +586,9 @@ export function ProjectIntake(props: Props) {
                         ? answer.replace(/^Other: ?/, "").replace(/^Other$/, "")
                         : answer
                     }
-                    placeholder={
-                      question.placeholder || "Describe what you need"
-                    }
+                    placeholder={t(
+                      question.placeholder || "Describe what you need",
+                    )}
                     onChange={(e) =>
                       changeAnswer(
                         (customAnswer ? "Other: " : "") + e.target.value,
@@ -576,8 +600,11 @@ export function ProjectIntake(props: Props) {
               {(draft.category === "Electrical" ||
                 draft.category === "Plumbing") && (
                 <small>
-                  Aplime is not an emergency service. For immediate danger,
-                  contact emergency services or your utility.
+                  <T>
+                    {
+                      "Aplime is not an emergency service. For immediate danger, contact emergency services or your utility."
+                    }
+                  </T>{" "}
                 </small>
               )}
             </>
@@ -668,7 +695,9 @@ export function ProjectIntake(props: Props) {
                 </div>
               )}
               <p className="muted">
-                This helps pros prepare estimates. No payment is taken.
+                <T>
+                  {"This helps pros prepare estimates. No payment is taken."}
+                </T>{" "}
               </p>
             </>
           )}
@@ -759,15 +788,25 @@ export function ProjectIntake(props: Props) {
                   ["Photos", `${photos.length} selected`, "photos"],
                 ].map(([label, value, target]) => (
                   <div key={label}>
-                    <dt>{label}</dt>
-                    <dd>{value}</dd>
+                    <dt>
+                      <T>{label}</T>
+                    </dt>
+                    <dd>
+                      {target === "category" ||
+                      (target.startsWith("question:") &&
+                        intakeQuestions(draft.category)
+                          .find((q) => "question:" + q.id === target)
+                          ?.options?.includes(value))
+                        ? t(value)
+                        : value}
+                    </dd>
                     <button
                       type="button"
                       className="text-button"
-                      aria-label={"Edit " + label}
+                      aria-label={t("Edit") + " " + t(label)}
                       onClick={() => move(target)}
                     >
-                      Edit
+                      <T>{"Edit"}</T>{" "}
                     </button>
                   </div>
                 ))}
@@ -775,10 +814,11 @@ export function ProjectIntake(props: Props) {
               <div className="intake-assurance">
                 <ShieldCheck size={24} />
                 <p>
-                  We match your service and location with professionals’
-                  preferences, service radius and current eligibility. We alert
-                  up to five matches first. You choose who to contact and hire;
-                  publishing does not book a service.
+                  <T>
+                    {
+                      "We match your service and location with professionals’ preferences, service radius and current eligibility. We alert up to five matches first. You choose who to contact and hire; publishing does not book a service."
+                    }
+                  </T>{" "}
                 </p>
               </div>
             </div>
@@ -802,19 +842,21 @@ export function ProjectIntake(props: Props) {
               disabled={busy}
               onClick={() => move(steps[index - 1])}
             >
-              <ArrowLeft size={18} /> Back
+              <ArrowLeft size={18} /> <T>{"Back"}</T>{" "}
             </button>
           )}
           <button disabled={busy} type="submit">
-            {busy
-              ? "Please wait…"
-              : step === "review"
-                ? session.savedProjectId
-                  ? "Retry remaining photos"
-                  : props.data
-                    ? "Publish & see matching pros"
-                    : "Sign in to finish"
-                : "Continue"}
+            {t(
+              busy
+                ? "Please wait…"
+                : step === "review"
+                  ? session.savedProjectId
+                    ? "Retry remaining photos"
+                    : props.data
+                      ? "Publish & see matching pros"
+                      : "Sign in to finish"
+                  : "Continue",
+            )}
             <ArrowRight size={18} />
           </button>
         </div>
@@ -840,7 +882,7 @@ export function ProjectIntake(props: Props) {
               })
             }
           >
-            Open published project & matches
+            <T>{"Open published project & matches"}</T>{" "}
           </button>
         ) : (
           <button
@@ -849,12 +891,15 @@ export function ProjectIntake(props: Props) {
             disabled={busy}
             onClick={() => void perform(saveDraft)}
           >
-            Save for later
+            <T>{"Save for later"}</T>{" "}
           </button>
         )}
         <small className="intake-storage-note">
-          Before publishing, answers and selected photos are kept temporarily in
-          this browser tab for up to 24 hours.{" "}
+          <T>
+            {
+              "Before publishing, answers and selected photos are kept temporarily in this browser tab for up to 24 hours."
+            }
+          </T>{" "}
           {props.data
             ? "Use Save for later to keep draft details on your dashboard."
             : "No account is needed until the final step."}

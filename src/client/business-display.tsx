@@ -1,3 +1,4 @@
+import { T } from "../shared/language.js";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   MapPin,
@@ -106,7 +107,9 @@ export function BusinessDisplay({
           />
           <section className="profile-content-card">
             <p className="eyebrow">GET TO KNOW US</p>
-            <h2>About {profile.business}</h2>
+            <h2>
+              <T>{"About"}</T> {profile.business}
+            </h2>
             <p className="business-description">{profile.bio}</p>
             <div className="profile-service-tags">
               {services.map((service) => (
@@ -190,7 +193,9 @@ export function BusinessDisplay({
         >
           {actions && (
             <section className="profile-content-card profile-contact-actions">
-              <h2>Discuss your project</h2>
+              <h2>
+                <T>{"Discuss your project"}</T>
+              </h2>
               <p>Share your needs and agree on the next step.</p>
               {actions}
             </section>
@@ -286,7 +291,7 @@ export function BusinessDisplay({
               aria-label="Close image preview"
               autoFocus
             >
-              <X size={18} /> Close
+              <X size={18} /> <T>{"Close"}</T>{" "}
             </button>
           </div>
           <img src={view.url} alt={view.label} />

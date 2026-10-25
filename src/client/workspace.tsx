@@ -1,3 +1,9 @@
+import {
+  T,
+  LanguageSelect,
+  useLanguage,
+  languageOf,
+} from "../shared/language.js";
 import { IntakeAccountNotice } from "./intake-account-notice.js";
 import { ProjectIntake } from "./project-intake.js";
 import { hasIntakeResume } from "./project-intake-state.js";
@@ -143,8 +149,12 @@ function RoleChoice({
       >
         <House size={22} />
         <span>
-          <strong>Customer</strong>
-          <small>Find and manage help for your home</small>
+          <strong>
+            <T>{"Customer"}</T>
+          </strong>
+          <small>
+            <T>{"Find and manage help for your home"}</T>
+          </small>
         </span>
       </button>
       <button
@@ -156,14 +166,19 @@ function RoleChoice({
       >
         <BriefcaseBusiness size={22} />
         <span>
-          <strong>Professional</strong>
-          <small>Offer services and manage your work</small>
+          <strong>
+            <T>{"Professional"}</T>
+          </strong>
+          <small>
+            <T>{"Offer services and manage your work"}</T>
+          </small>
         </span>
       </button>
     </div>
   );
 }
 export default function Workspace() {
+  const { setLanguage } = useLanguage();
   const [route, setRoute] = useState(readRoute),
     [signupRole, setSignupRole] = useState<"customer" | "pro">(() =>
       !hasIntakeResume() &&
@@ -322,6 +337,8 @@ export default function Workspace() {
       if (result.user.role === "admin")
         throw new Error("Use the separate administrator application.");
       setData(result);
+      if (result.user.settings.language)
+        setLanguage(languageOf(result.user.settings.language));
       setNeedsAccount(false);
       const current = readRoute().page;
       const next = pageAfterAuthentication(
@@ -509,10 +526,15 @@ export default function Workspace() {
     return (
       <div className="auth-page auth-loading-page" role="status">
         <Brand />
+        <LanguageSelect />
         <div className="auth-loader" aria-hidden="true" />
         <div>
-          <h1>Opening your Aplime account…</h1>
-          <p>Checking your secure session.</p>
+          <h1>
+            <T>{"Opening your Aplime account…"}</T>
+          </h1>
+          <p>
+            <T>{"Checking your secure session."}</T>
+          </p>
         </div>
       </div>
     );
@@ -521,7 +543,10 @@ export default function Workspace() {
       <div className="guest-intake-page">
         <header className="guest-intake-header">
           <Brand />
-          <span>Plan your project · Sign in at the final step</span>
+          <LanguageSelect />
+          <span>
+            <T>{"Plan your project · Sign in at the final step"}</T>
+          </span>
         </header>
         <main>
           <ProjectIntake
@@ -533,8 +558,12 @@ export default function Workspace() {
           />
         </main>
         <footer>
-          <a href="/privacy">Privacy</a>
-          <a href="/terms">Service information</a>
+          <a href="/privacy">
+            <T>{"Privacy"}</T>
+          </a>
+          <a href="/terms">
+            <T>{"Service information"}</T>
+          </a>
         </footer>
       </div>
     );
@@ -542,20 +571,28 @@ export default function Workspace() {
     return (
       <div className="auth-page">
         <Brand />
+        <LanguageSelect />
         <section className="auth-card">
-          <p className="eyebrow">WELCOME TO APLIME</p>
+          <p className="eyebrow">
+            <T>{"WELCOME TO APLIME"}</T>
+          </p>
           {hasIntakeResume() && (
             <div className="intake-auth-notice">
-              <strong>Your project is ready.</strong>
+              <strong>
+                <T>{"Your project is ready."}</T>
+              </strong>
               <p>
-                Sign in to review and publish it. Your answers and photos are
-                saved in this tab.
+                <T>
+                  {
+                    "Sign in to review and publish it. Your answers and photos are saved in this tab."
+                  }
+                </T>{" "}
               </p>
               <button
                 className="text-button"
                 onClick={() => go("projects", "resume")}
               >
-                Back to project answers
+                <T>{"Back to project answers"}</T>{" "}
               </button>
             </div>
           )}
@@ -581,7 +618,7 @@ export default function Workspace() {
                     : "complete"
                 }
               >
-                <span>1</span> Account
+                <span>1</span> <T>{"Account"}</T>{" "}
               </li>
               <li
                 className={
@@ -592,19 +629,19 @@ export default function Workspace() {
                       : ""
                 }
               >
-                <span>2</span> Verify
+                <span>2</span> <T>{"Verify"}</T>{" "}
               </li>
               <li className={needsAccount ? "current" : ""}>
-                <span>3</span> Profile
+                <span>3</span> <T>{"Profile"}</T>{" "}
               </li>
             </ol>
           )}
           {firebaseUser && !firebaseUser.emailVerified ? (
             <>
               <p>
-                Verify your email using the link we sent to {firebaseUser.email}
-                . We’ll continue automatically when verification is confirmed.
-                You can also check below.
+                <T>{"Verify your email using the link we sent to"}</T>{" "}
+                {firebaseUser.email}. We’ll continue automatically when
+                verification is confirmed. You can also check below.
               </p>
               <button
                 disabled={busy}
@@ -618,7 +655,7 @@ export default function Workspace() {
                   }, "")
                 }
               >
-                I’ve verified my email
+                <T>{"I’ve verified my email"}</T>{" "}
               </button>
               <button
                 className="secondary"
@@ -639,7 +676,7 @@ export default function Workspace() {
                 disabled={busy}
                 onClick={signOutToLogin}
               >
-                Use a different account
+                <T>{"Use a different account"}</T>{" "}
               </button>
             </>
           ) : needsAccount ? (
@@ -666,37 +703,51 @@ export default function Workspace() {
                 />
               </Field>
               <fieldset className="role-field">
-                <legend>I’m here to</legend>
+                <legend>
+                  <T>{"I’m here to"}</T>
+                </legend>
                 <input type="hidden" name="role" value={signupRole} />
                 {hasIntakeResume() ? (
-                  <p>Customer account · Find help for your project</p>
+                  <p>
+                    <T>{"Customer account · Find help for your project"}</T>
+                  </p>
                 ) : (
                   <RoleChoice value={signupRole} onChange={chooseSignupRole} />
                 )}
               </fieldset>
               <p className="muted">
-                Professionals complete a business profile and identity
-                verification before their listing appears.
+                <T>
+                  {
+                    "Professionals complete a business profile and identity verification before their listing appears."
+                  }
+                </T>{" "}
               </p>
-              <button>Create account</button>
+              <button>
+                <T>{"Create account"}</T>
+              </button>
               <button
                 type="button"
                 className="text-button"
                 disabled={busy}
                 onClick={signOutToLogin}
               >
-                Sign out
+                <T>{"Sign out"}</T>{" "}
               </button>
             </Form>
           ) : firebaseUser ? (
             <>
               <p>
-                Your account could not be loaded. Check the connection and
-                retry.
+                <T>
+                  {
+                    "Your account could not be loaded. Check the connection and retry."
+                  }
+                </T>{" "}
               </p>
-              <button onClick={() => void run(load, "")}>Retry</button>
+              <button onClick={() => void run(load, "")}>
+                <T>{"Retry"}</T>
+              </button>
               <button className="text-button" onClick={signOutToLogin}>
-                Sign out
+                <T>{"Sign out"}</T>{" "}
               </button>
             </>
           ) : (
@@ -704,11 +755,16 @@ export default function Workspace() {
               {route.page === "register" && (
                 <>
                   <p className="auth-intro">
-                    Choose how you plan to use Aplime. You can’t change the
-                    account type after finishing registration.
+                    <T>
+                      {
+                        "Choose how you plan to use Aplime. You can’t change the account type after finishing registration."
+                      }
+                    </T>{" "}
                   </p>
                   {hasIntakeResume() ? (
-                    <p>Customer account · Find help for your project</p>
+                    <p>
+                      <T>{"Customer account · Find help for your project"}</T>
+                    </p>
                   ) : (
                     <RoleChoice
                       value={signupRole}
@@ -719,8 +775,11 @@ export default function Workspace() {
               )}
               {route.page === "login" && (
                 <p className="auth-intro">
-                  Pick up where you left off. We’ll open your account or help
-                  you finish verification automatically.
+                  <T>
+                    {
+                      "Pick up where you left off. We’ll open your account or help you finish verification automatically."
+                    }
+                  </T>{" "}
                 </p>
               )}
               <Form
@@ -777,9 +836,11 @@ export default function Workspace() {
                       onChange={(e) => setRemember(e.target.checked)}
                     />
                     <span>
-                      Keep me signed in
+                      <T>{"Keep me signed in"}</T>{" "}
                       <small>
-                        Uncheck on a shared device to use this tab only.
+                        <T>
+                          {"Uncheck on a shared device to use this tab only."}
+                        </T>{" "}
                       </small>
                     </span>
                   </label>
@@ -804,7 +865,7 @@ export default function Workspace() {
                       }, "")
                     }
                   >
-                    Continue with Google
+                    <T>{"Continue with Google"}</T>{" "}
                   </button>
                   <button
                     className="secondary"
@@ -816,7 +877,7 @@ export default function Workspace() {
                       }, "")
                     }
                   >
-                    Continue with Apple
+                    <T>{"Continue with Apple"}</T>{" "}
                   </button>
                 </div>
               )}
@@ -832,7 +893,7 @@ export default function Workspace() {
                     : "New here? Create an account"}
                 </button>
                 <button className="text-button" onClick={() => go("recovery")}>
-                  Forgot password?
+                  <T>{"Forgot password?"}</T>{" "}
                 </button>
               </div>
             </>
@@ -848,10 +909,12 @@ export default function Workspace() {
             </p>
           )}
           <p className="auth-foot">
-            Your projects. Your conversations. All together.
+            <T>{"Your projects. Your conversations. All together."}</T>{" "}
           </p>
         </section>
-        <a href="/">Back to home</a>
+        <a href="/">
+          <T>{"Back to home"}</T>
+        </a>
       </div>
     );
   const links = [
@@ -903,7 +966,7 @@ export default function Workspace() {
           }
         >
           <Icon size={19} />
-          {label}
+          <T>{label}</T>
           {p === "messages" && !!data.unreadMessageCount && (
             <span
               className="notification-count"
@@ -971,7 +1034,7 @@ export default function Workspace() {
           }
         >
           <a className="skip-link" href="#workspace-content">
-            Skip to content
+            <T>{"Skip to content"}</T>{" "}
           </a>
           <div className="workspace-body">
             {config.environment !== "production" && (
@@ -988,6 +1051,22 @@ export default function Workspace() {
               ref={headerRef}
             >
               {dashboardBrand}
+              <LanguageSelect
+                onChange={async (language) => {
+                  await request("/account/language", { language }, "PUT");
+                  setData((current) =>
+                    current
+                      ? {
+                          ...current,
+                          user: {
+                            ...current.user,
+                            settings: { ...current.user.settings, language },
+                          },
+                        }
+                      : current,
+                  );
+                }}
+              />
               <nav
                 className="workspace-primary-nav"
                 aria-label="Main navigation"
@@ -1022,7 +1101,9 @@ export default function Workspace() {
                   aria-label="Sign out"
                 >
                   <LogOut size={17} />
-                  <span>Sign out</span>
+                  <span>
+                    <T>{"Sign out"}</T>
+                  </span>
                 </button>
                 <button
                   className="avatar"
@@ -1064,7 +1145,7 @@ export default function Workspace() {
                         );
                       }}
                     >
-                      View update
+                      <T>{"View update"}</T>{" "}
                     </button>
                   </div>
                   <button
@@ -1088,7 +1169,7 @@ export default function Workspace() {
               )}
               {busy && (
                 <p className="busy" role="status">
-                  Saving changes…
+                  <T>{"Saving changes…"}</T>{" "}
                 </p>
               )}
               {data.user.role === "pro" && hasIntakeResume() && (
@@ -1105,8 +1186,13 @@ export default function Workspace() {
               <Pages />
             </main>
             <footer className="workspace-footer">
-              © {new Date().getFullYear()} Aplime <a href="/privacy">Privacy</a>
-              <a href="/terms">Service information</a>
+              © {new Date().getFullYear()} Aplime{" "}
+              <a href="/privacy">
+                <T>{"Privacy"}</T>
+              </a>
+              <a href="/terms">
+                <T>{"Service information"}</T>
+              </a>
             </footer>
           </div>
           <nav className="mobile-bottom-nav" aria-label="Quick navigation">
@@ -1126,7 +1212,9 @@ export default function Workspace() {
               onClick={() => go("dashboard")}
             >
               <House size={21} />
-              <span>Dashboard</span>
+              <span>
+                <T>{"Dashboard"}</T>
+              </span>
             </button>
             {data.user.role === "customer" ? (
               <>
@@ -1137,14 +1225,18 @@ export default function Workspace() {
                   }
                 >
                   <BriefcaseBusiness size={21} />
-                  <span>Post project</span>
+                  <span>
+                    <T>{"Post project"}</T>
+                  </span>
                 </button>
                 <button
                   onClick={() => go("schedule")}
                   aria-current={route.page === "schedule" ? "page" : undefined}
                 >
                   <CalendarDays size={21} />
-                  <span>Schedule</span>
+                  <span>
+                    <T>{"Schedule"}</T>
+                  </span>
                 </button>
               </>
             ) : (
@@ -1154,14 +1246,18 @@ export default function Workspace() {
                   aria-current={route.page === "schedule" ? "page" : undefined}
                 >
                   <CalendarDays size={21} />
-                  <span>Schedule</span>
+                  <span>
+                    <T>{"Schedule"}</T>
+                  </span>
                 </button>
                 <button
                   onClick={() => go("profile")}
                   aria-current={route.page === "profile" ? "page" : undefined}
                 >
                   <UserRound size={21} />
-                  <span>My business</span>
+                  <span>
+                    <T>{"My business"}</T>
+                  </span>
                 </button>
               </>
             )}
@@ -1170,7 +1266,9 @@ export default function Workspace() {
               onClick={() => go("messages")}
             >
               <MessageCircle size={21} />
-              <span>Messages</span>
+              <span>
+                <T>{"Messages"}</T>
+              </span>
               {!!data.unreadMessageCount && (
                 <span className="notification-count">
                   {data.unreadMessageCount > 99
@@ -1185,7 +1283,9 @@ export default function Workspace() {
               onClick={() => setMenu(true)}
             >
               <Menu size={21} />
-              <span>More</span>
+              <span>
+                <T>{"More"}</T>
+              </span>
             </button>
           </nav>
           {menu && (

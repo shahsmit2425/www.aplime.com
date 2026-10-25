@@ -1,3 +1,4 @@
+import { T } from "../shared/language.js";
 import { useState } from "react";
 import { money } from "../shared/domain.js";
 import { Panel } from "./ui.js";
@@ -76,7 +77,7 @@ export function AwardResponse({
               disabled={busy}
               onClick={() => setDeclining(false)}
             >
-              Back
+              <T>{"Back"}</T>{" "}
             </button>
           </div>
         </>

@@ -1,3 +1,4 @@
+import { T, useT, useLanguage } from "./language.js";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   ArrowDown,
@@ -66,8 +67,12 @@ export function ChatInbox({
       <aside className="chat-sidebar" aria-label="Conversations">
         <div className="chat-sidebar-heading">
           <div>
-            <small>STAY CONNECTED</small>
-            <h2>Messages</h2>
+            <small>
+              <T>{"STAY CONNECTED"}</T>
+            </small>
+            <h2>
+              <T>{"Messages"}</T>
+            </h2>
           </div>
           {tools}
         </div>
@@ -84,7 +89,7 @@ export function ChatInbox({
         )}
         {loading && (
           <p className="chat-status" role="status">
-            Loading conversations…
+            <T>{"Loading conversations…"}</T>{" "}
           </p>
         )}
         {error && (
@@ -146,14 +151,22 @@ export function ChatInbox({
             <span>
               <MessageCircle size={38} />
             </span>
-            <h2>A good conversation starts here</h2>
+            <h2>
+              <T>{"A good conversation starts here"}</T>
+            </h2>
             <p>
-              Choose a project chat or contact Aplime support. Your messages
-              stay connected to your account.
+              <T>
+                {
+                  "Choose a project chat or contact Aplime support. Your messages stay connected to your account."
+                }
+              </T>{" "}
             </p>
             <small>
-              Chatting does not book a job. Never share passwords or identity
-              documents.
+              <T>
+                {
+                  "Chatting does not book a job. Never share passwords or identity documents."
+                }
+              </T>{" "}
             </small>
           </div>
         )}
@@ -210,6 +223,8 @@ export function ChatLog({
   before?: ReactNode;
   ownLabel?: string;
 }) {
+  const t = useT();
+  const { language } = useLanguage();
   const log = useRef<HTMLDivElement>(null),
     nearBottom = useRef(true),
     previous = useRef("");
@@ -243,11 +258,16 @@ export function ChatLog({
       >
         {before}
         <p className="chat-privacy">
-          Private account conversation · Aplime may review messages for support
-          and safety.
+          <T>
+            {
+              "Private account conversation · Aplime may review messages for support and safety."
+            }
+          </T>{" "}
         </p>
         {!messages.length && (
-          <p className="chat-status">No messages yet. Say hello.</p>
+          <p className="chat-status">
+            <T>{"No messages yet. Say hello."}</T>
+          </p>
         )}
         {messages.map((m, i) => (
           <div key={m.id}>
@@ -255,7 +275,7 @@ export function ChatLog({
               new Date(messages[i - 1].time).toDateString() !==
                 new Date(m.time).toDateString()) && (
               <div className="chat-day">
-                {new Date(m.time).toLocaleDateString([], {
+                {new Date(m.time).toLocaleDateString(language === "es" ? "es-US" : "en-US", {
                   month: "short",
                   day: "numeric",
                   year: "numeric",
@@ -263,7 +283,7 @@ export function ChatLog({
               </div>
             )}
             <article className={"chat-bubble" + (m.mine ? " mine" : "")}>
-              <strong>{m.mine ? ownLabel : m.name}</strong>
+              <strong>{m.mine ? t(ownLabel) : m.name}</strong>
               <p>{m.body}</p>
               <time dateTime={m.time} title={new Date(m.time).toLocaleString()}>
                 {chatTime(m.time)}
@@ -274,7 +294,7 @@ export function ChatLog({
       </div>
       {more && (
         <button className="chat-new-messages" onClick={bottom}>
-          <ArrowDown size={16} /> New messages
+          <ArrowDown size={16} /> <T>{"New messages"}</T>{" "}
         </button>
       )}
     </div>
@@ -293,6 +313,7 @@ export function ChatComposer({
   disabled?: boolean;
   placeholder?: string;
 }) {
+  const t = useT();
   return (
     <form
       className="chat-composer"
@@ -303,7 +324,7 @@ export function ChatComposer({
     >
       <div>
         <label className="sr-only" htmlFor="chat-message-input">
-          Message
+          <T>{"Message"}</T>{" "}
         </label>
         <textarea
           id="chat-message-input"
@@ -312,7 +333,7 @@ export function ChatComposer({
           onChange={(e) => onChange(e.target.value)}
           maxLength={4000}
           disabled={disabled}
-          placeholder={placeholder}
+          placeholder={t(placeholder)}
           onKeyDown={(e) => {
             if (
               e.key === "Enter" &&
@@ -325,7 +346,9 @@ export function ChatComposer({
             }
           }}
         />
-        <small>Shift + Enter for a new line · {value.length}/4,000</small>
+        <small>
+          <T>{"Shift + Enter for a new line ·"}</T> {value.length}/4,000
+        </small>
       </div>
       <button
         type="submit"
@@ -333,7 +356,9 @@ export function ChatComposer({
         aria-label="Send message"
       >
         <Send size={19} />
-        <span>Send</span>
+        <span>
+          <T>{"Send"}</T>
+        </span>
       </button>
     </form>
   );

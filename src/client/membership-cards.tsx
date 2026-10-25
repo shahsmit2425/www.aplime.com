@@ -1,3 +1,4 @@
+import { T } from "../shared/language.js";
 import type {
   MembershipPlan,
   MembershipPlanId,
@@ -53,7 +54,7 @@ export function MembershipCards({
               )}
               {saving > 0 && (
                 <span className="membership-saving">
-                  Save {saving}% compared with monthly
+                  <T>{"Save"}</T> {saving}% compared with monthly
                 </span>
               )}
               <span className="membership-upfront">

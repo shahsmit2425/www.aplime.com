@@ -1,3 +1,4 @@
+import { T } from "../shared/language.js";
 import { ScheduleCallButton } from "./call-meetings.js";
 import { ProjectQuickView } from "./project-quick-view.js";
 import { useEffect, useState, useRef } from "react";
@@ -213,7 +214,9 @@ export function Discussions({
                       disabled={!context}
                     >
                       <FileText size={17} />
-                      <span>Project details</span>
+                      <span>
+                        <T>{"Project details"}</T>
+                      </span>
                     </button>
                     {context && (
                       <ScheduleCallButton
@@ -234,7 +237,9 @@ export function Discussions({
                       }}
                     >
                       <CalendarPlus size={17} />
-                      <span>Suggest a time</span>
+                      <span>
+                        <T>{"Suggest a time"}</T>
+                      </span>
                     </button>
                     <button
                       className="chat-block-action"
@@ -485,7 +490,9 @@ function SuggestTimeDialog({
           <X size={18} />
         </button>
       </header>
-      <h2 id="suggest-time-title">Suggest a time</h2>
+      <h2 id="suggest-time-title">
+        <T>{"Suggest a time"}</T>
+      </h2>
       {projectTitle && <p className="chat-schedule-project">{projectTitle}</p>}
       <p>
         Send a time to discuss a visit. Your appointment is confirmed separately
@@ -531,7 +538,7 @@ function SuggestTimeDialog({
             disabled={busy}
             onClick={onClose}
           >
-            Cancel
+            <T>{"Cancel"}</T>{" "}
           </button>
         </div>
       </form>

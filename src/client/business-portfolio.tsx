@@ -1,3 +1,4 @@
+import { T } from "../shared/language.js";
 import { useEffect, useRef, useState } from "react";
 import { Images, Expand, ChevronLeft, ChevronRight, X } from "lucide-react";
 import {
@@ -126,7 +127,7 @@ export function BusinessPortfolio({
               onClick={() => dialog.current?.close()}
               autoFocus
             >
-              <X size={18} /> Close
+              <X size={18} /> <T>{"Close"}</T>{" "}
             </button>
           </div>
           <div className="business-work-stage">
@@ -152,7 +153,7 @@ export function BusinessPortfolio({
                   onClick={() => move(1)}
                   aria-label="Next portfolio photo"
                 >
-                  Next <ChevronRight size={20} />
+                  <T>{"Next"}</T> <ChevronRight size={20} />
                 </button>
               </div>
               <div

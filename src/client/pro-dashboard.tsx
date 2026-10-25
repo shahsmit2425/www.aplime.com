@@ -1,3 +1,4 @@
+import { T } from "../shared/language.js";
 import { useState } from "react";
 import { responseLabels } from "../shared/domain.js";
 import { quotePrice, quoteTiming } from "../shared/estimates.js";
@@ -41,10 +42,10 @@ export function ProDashboard() {
   return (
     <section className="pro-dashboard" aria-label="Professional dashboard">
       <Head
-        title="Dashboard"
+        title={<T>{"Dashboard"}</T>}
         action={
           <button className="secondary" onClick={() => go("availability")}>
-            <SlidersHorizontal size={18} /> Project preferences
+            <SlidersHorizontal size={18} /> <T>{"Project preferences"}</T>{" "}
           </button>
         }
       >
@@ -135,7 +136,7 @@ export function ProDashboard() {
       {estimates.length > 0 && (
         <details className="pro-estimate-history">
           <summary>
-            Estimate history <span>{estimates.length}</span>
+            <T>{"Estimate history"}</T> <span>{estimates.length}</span>
           </summary>
           <div className="pro-estimate-list">
             {estimates.map((q) => {

@@ -1,3 +1,4 @@
+import { T } from "../shared/language.js";
 import type { ReactNode } from "react";
 import {
   ArrowUpRight,
@@ -109,14 +110,17 @@ export function ProjectCard({
           <strong>{budget}</strong>
         </span>
         <span className="card-open">
-          View project
-          <ArrowUpRight size={18} />
+          <T>{"View project"}</T> <ArrowUpRight size={18} />
         </span>
       </span>
       <span className="project-card-updates">
         <span>{pendingEstimates} pending estimates</span>
         {responseLabel && <strong>{responseLabels[responseLabel]}</strong>}
-        {p.archived && <strong>Archived</strong>}
+        {p.archived && (
+          <strong>
+            <T>{"Archived"}</T>
+          </strong>
+        )}
         {p.completionRequested && <strong>Completion requested</strong>}
         {p.cancellationRequestedBy && <strong>Cancellation requested</strong>}
         {p.proposedAt && <strong>Appointment proposed</strong>}

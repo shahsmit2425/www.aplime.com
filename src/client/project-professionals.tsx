@@ -1,3 +1,4 @@
+import { T } from "../shared/language.js";
 import { quotePrice, quoteTiming } from "../shared/estimates.js";
 import { ProfessionalCard } from "./marketplace-cards.js";
 import { ProfessionalActions } from "./professional-actions.js";
@@ -19,12 +20,7 @@ export function ProjectProfessionals({
   const responses = (data.projectResponses || []).filter(
     (r) => r.projectId === p.id,
   );
-  const profiles = projectProfessionals(
-    p,
-    data.profiles,
-    quotes,
-    false,
-  );
+  const profiles = projectProfessionals(p, data.profiles, quotes, false);
   for (const response of responses) {
     const profile = data.profiles.find((f) => f.id === response.proId);
     if (profile && !profiles.some((f) => f.id === profile.id))
@@ -75,7 +71,9 @@ export function ProjectProfessionals({
       <div id="project-professionals" className="pro-grid">
         {!ids.length && (
           <p>
-            No eligible professionals match your service and area yet. Your project is saved. New matches and estimates will appear here; you can return from your dashboard.
+            No eligible professionals match your service and area yet. Your
+            project is saved. New matches and estimates will appear here; you
+            can return from your dashboard.
           </p>
         )}
         {ordered.map((proId) => {
@@ -131,11 +129,15 @@ export function ProjectProfessionals({
                     <dl>
                       {q.exclusions && (
                         <>
-                          <dt>Exclusions</dt>
+                          <dt>
+                            <T>{"Exclusions"}</T>
+                          </dt>
                           <dd>{q.exclusions}</dd>
                         </>
                       )}
-                      <dt>Valid until</dt>
+                      <dt>
+                        <T>{"Valid until"}</T>
+                      </dt>
                       <dd>
                         {q.expiresAt
                           ? new Date(q.expiresAt).toLocaleString()
@@ -150,7 +152,7 @@ export function ProjectProfessionals({
                           disabled={busy}
                           onClick={() => accept(q, business)}
                         >
-                          Accept estimate
+                          <T>{"Accept estimate"}</T>{" "}
                         </button>
                       )}
                       <button
@@ -163,7 +165,7 @@ export function ProjectProfessionals({
                           )
                         }
                       >
-                        Decline
+                        <T>{"Decline"}</T>{" "}
                       </button>
                     </div>
                   )}

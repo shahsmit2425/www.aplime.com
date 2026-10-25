@@ -1,3 +1,4 @@
+import { T } from "../shared/language.js";
 import { useEffect, useState, type ReactNode } from "react";
 import {
   Play,
@@ -278,7 +279,7 @@ export function ProjectControls({
             p.customerId === data.user.id &&
             ["requested", "quoted"].includes(p.status) && (
               <button className="secondary" disabled={busy} onClick={onEdit}>
-                <Pencil size={17} /> Edit details
+                <Pencil size={17} /> <T>{"Edit details"}</T>{" "}
               </button>
             )}
           {(Object.keys(icons) as (keyof typeof icons)[])
@@ -331,7 +332,7 @@ export function ProjectControls({
             )}
             <div className="actions">
               <button disabled={busy}>
-                Confirm {descriptions[intent][0].toLowerCase()}
+                <T>{"Confirm"}</T> {descriptions[intent][0].toLowerCase()}
               </button>
               <button
                 disabled={busy}

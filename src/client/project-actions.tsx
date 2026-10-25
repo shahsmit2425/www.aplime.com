@@ -1,3 +1,4 @@
+import { T } from "../shared/language.js";
 import { discussionRoute } from "../shared/chat.js";
 import {
   useProjectPhotos,
@@ -160,7 +161,7 @@ export function ProjectActionBar({
     add(
       "chat",
       <button className="secondary" onClick={() => go("messages", p.id)}>
-        <MessageCircle size={17} /> Messages
+        <MessageCircle size={17} /> <T>{"Messages"}</T>{" "}
       </button>,
     );
     if (p.proId && !p.cancellationRequestedBy)
@@ -173,7 +174,7 @@ export function ProjectActionBar({
     add(
       "edit",
       <button className="secondary" onClick={onEdit}>
-        <Pencil size={17} /> Edit details
+        <Pencil size={17} /> <T>{"Edit details"}</T>{" "}
       </button>,
     );
   }
@@ -212,7 +213,7 @@ export function ProjectActionBar({
     add(
       "open-chat",
       <button className="secondary" onClick={() => go("messages", p.id)}>
-        <MessageCircle size={17} /> Message
+        <MessageCircle size={17} /> <T>{"Message"}</T>{" "}
       </button>,
     );
   }
@@ -375,9 +376,15 @@ export function EditDetails({
         <Field label="Timing">
           <select name="urgency" defaultValue={p.urgency}>
             <option value="urgent">Urgent</option>
-            <option value="this_week">This week</option>
-            <option value="this_month">This month</option>
-            <option value="flexible">Flexible</option>
+            <option value="this_week">
+              <T>{"This week"}</T>
+            </option>
+            <option value="this_month">
+              <T>{"This month"}</T>
+            </option>
+            <option value="flexible">
+              <T>{"Flexible"}</T>
+            </option>
           </select>
         </Field>
         <Field label="Minimum budget (USD, optional)">
@@ -450,7 +457,7 @@ export function EditDetails({
           disabled={busy}
           onClick={onDone}
         >
-          Cancel
+          <T>{"Cancel"}</T>{" "}
         </button>
       </Form>
     </Panel>

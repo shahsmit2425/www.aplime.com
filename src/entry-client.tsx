@@ -1,3 +1,4 @@
+import { LanguageProvider } from "./shared/language.js";
 import React, { Suspense, lazy } from "react";
 import { createRoot, hydrateRoot } from "react-dom/client";
 import { Capacitor } from "@capacitor/core";
@@ -43,23 +44,29 @@ const privatePage =
 if (privatePage) {
   createRoot(root).render(
     <React.StrictMode>
-      <Suspense
-        fallback={
-          <div className="loading" role="status">
-            Opening your workspace…
-          </div>
-        }
-      >
-        <Workspace />
-      </Suspense>
+      <LanguageProvider>
+        <Suspense
+          fallback={
+            <div className="loading" role="status">
+              Opening your workspace…
+            </div>
+          }
+        >
+          <Workspace />
+        </Suspense>
+      </LanguageProvider>
     </React.StrictMode>,
   );
 } else if (root.hasChildNodes() && window.__PAGE__) {
   hydrateRoot(
     root,
-    <PublicPage {...window.__PAGE__} supportEmail={config.supportEmail} />,
+    <LanguageProvider>
+      <PublicPage {...window.__PAGE__} supportEmail={config.supportEmail} />
+    </LanguageProvider>,
   );
 } else
   createRoot(root).render(
-    <PublicPage path={location.pathname} supportEmail={config.supportEmail} />,
+    <LanguageProvider>
+      <PublicPage path={location.pathname} supportEmail={config.supportEmail} />
+    </LanguageProvider>,
   );

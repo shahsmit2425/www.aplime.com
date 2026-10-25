@@ -1,3 +1,4 @@
+import { T, LanguageSelect } from "../shared/language.js";
 import { ProjectIntake } from "./project-intake.js";
 import { OpportunityResponse } from "./opportunity-response.js";
 import { EstimateForm } from "./estimate-form.js";
@@ -132,7 +133,7 @@ function PageContent() {
     default:
       return (
         <>
-          <Head title="Page not found." />
+          <Head title={<T>{"Page not found."}</T>} />
           <Empty>Choose a page from your navigation.</Empty>
         </>
       );
@@ -195,7 +196,10 @@ function Directory() {
               "Your saved professionals"
             ) : openDiscovery ? (
               <>
-                Find professionals <em>for your home.</em>
+                <T>{"Find professionals"}</T>{" "}
+                <em>
+                  <T>{"for your home."}</T>
+                </em>
               </>
             ) : (
               "Your project matches"
@@ -237,10 +241,12 @@ function Directory() {
         <div className="inline-next-action">
           <p>
             Have a project in mind?{" "}
-            <strong>Start a request to chat with a pro.</strong>
+            <strong>
+              <T>{"Start a request to chat with a pro."}</T>
+            </strong>
           </p>
           <button onClick={() => go("projects", "new")}>
-            <Plus size={17} /> Start a project
+            <Plus size={17} /> <T>{"Start a project"}</T>{" "}
           </button>
         </div>
       )}
@@ -295,7 +301,7 @@ function Directory() {
                 : "Tell us what you need and where. We'll help you find a pro."}
           <button onClick={() => go("projects", "new")}>
             <Plus size={17} />
-            Start a project
+            <T>{"Start a project"}</T>{" "}
           </button>
         </Empty>
       )}
@@ -310,7 +316,7 @@ function ProProfile() {
   if (!p)
     return (
       <>
-        <Head title="Professional profile" />
+        <Head title={<T>{"Professional profile"}</T>} />
         <Empty title="This professional is not available.">
           The profile may have been removed or is not visible to your account
           right now.
@@ -341,7 +347,7 @@ function ProProfile() {
     <>
       <div className="profile-page-toolbar">
         <button className="secondary" onClick={() => go("discover")}>
-          <Search size={17} /> Back to professionals
+          <Search size={17} /> <T>{"Back to professionals"}</T>{" "}
         </button>
         <SavePro proId={p.id} label />
       </div>
@@ -383,7 +389,7 @@ function ProProfile() {
                     Start a project to discuss the work with this professional.
                   </p>
                   <button onClick={() => go("projects", "new")}>
-                    <Plus size={17} /> Start a project
+                    <Plus size={17} /> <T>{"Start a project"}</T>{" "}
                   </button>
                 </>
               )}
@@ -622,7 +628,9 @@ function ProjectDetail() {
             <summary>
               <FileText size={20} />
               <span>
-                <strong>Project details</strong>
+                <strong>
+                  <T>{"Project details"}</T>
+                </strong>
                 <small>
                   {p.category} · {p.zip} · {p.propertyType.replaceAll("_", " ")}
                 </small>
@@ -635,8 +643,12 @@ function ProjectDetail() {
                   ))}
               </span>
               <span className="project-expand-label">
-                <span className="expand-copy">Expand details</span>
-                <span className="collapse-copy">Collapse details</span>
+                <span className="expand-copy">
+                  <T>{"Expand details"}</T>
+                </span>
+                <span className="collapse-copy">
+                  <T>{"Collapse details"}</T>
+                </span>
               </span>
               <ChevronDown size={20} className="disclosure-chevron" />
             </summary>
@@ -652,7 +664,9 @@ function ProjectDetail() {
                     className="intake-summary"
                     aria-labelledby="intake-title"
                   >
-                    <h3 id="intake-title">Service questionnaire</h3>
+                    <h3 id="intake-title">
+                      <T>{"Service questionnaire"}</T>
+                    </h3>
                     <dl>
                       {Object.entries(p.intake).map(([key, value]) => (
                         <div key={key}>
@@ -666,25 +680,39 @@ function ProjectDetail() {
                   </section>
                 )}
                 <dl>
-                  <dt>Customer</dt>
+                  <dt>
+                    <T>{"Customer"}</T>
+                  </dt>
                   <dd>{p.customerName || "Private until booked"}</dd>
-                  <dt>Professional</dt>
+                  <dt>
+                    <T>{"Professional"}</T>
+                  </dt>
                   <dd>{p.proName || "Choosing the right fit"}</dd>
                   {own && p.address && (
                     <>
-                      <dt>Service address</dt>
+                      <dt>
+                        <T>{"Service address"}</T>
+                      </dt>
                       <dd>
                         {p.address} {p.addressUnit}
                       </dd>
                     </>
                   )}
-                  <dt>Appointment</dt>
+                  <dt>
+                    <T>{"Appointment"}</T>
+                  </dt>
                   <dd>{date(p.scheduledAt)}</dd>
-                  <dt>Timing</dt>
+                  <dt>
+                    <T>{"Timing"}</T>
+                  </dt>
                   <dd>{p.urgency.replace("_", " ")}</dd>
-                  <dt>Property type</dt>
+                  <dt>
+                    <T>{"Property type"}</T>
+                  </dt>
                   <dd>{p.propertyType}</dd>
-                  <dt>Customer budget</dt>
+                  <dt>
+                    <T>{"Customer budget"}</T>
+                  </dt>
                   <dd>
                     {p.budgetMin === null && p.budgetMax === null
                       ? "Not specified"
@@ -755,13 +783,15 @@ function ProjectDetail() {
                     />
                   </Field>
                 )}
-                <button>Confirm {action}</button>
+                <button>
+                  <T>{"Confirm"}</T> {action}
+                </button>
                 <button
                   type="button"
                   className="text-button"
                   onClick={() => setAction("")}
                 >
-                  Keep current details
+                  <T>{"Keep current details"}</T>{" "}
                 </button>
               </Form>
             )}
@@ -839,15 +869,21 @@ function ProjectDetail() {
                     </p>
                     <p>{q.description}</p>
                     <dl>
-                      <dt>Estimated completion</dt>
+                      <dt>
+                        <T>{"Estimated completion"}</T>
+                      </dt>
                       <dd>{quoteTiming(q)}</dd>
                       {q.exclusions && (
                         <>
-                          <dt>Exclusions</dt>
+                          <dt>
+                            <T>{"Exclusions"}</T>
+                          </dt>
                           <dd>{q.exclusions}</dd>
                         </>
                       )}
-                      <dt>Valid until</dt>
+                      <dt>
+                        <T>{"Valid until"}</T>
+                      </dt>
                       <dd>
                         {q.expiresAt ? date(q.expiresAt) : "No expiration"}
                       </dd>
@@ -861,7 +897,7 @@ function ProjectDetail() {
                           className="secondary"
                           onClick={() => go("pro", q.proId)}
                         >
-                          View profile
+                          <T>{"View profile"}</T>{" "}
                         </button>
                         <SavePro proId={q.proId} label />
                       </div>
@@ -897,7 +933,7 @@ function ProjectDetail() {
                                 );
                               }}
                             >
-                              Accept estimate
+                              <T>{"Accept estimate"}</T>{" "}
                             </button>
                           )}
                         <button
@@ -910,7 +946,7 @@ function ProjectDetail() {
                             )
                           }
                         >
-                          Decline
+                          <T>{"Decline"}</T>{" "}
                         </button>
                       </div>
                     )}
@@ -969,7 +1005,7 @@ function ProjectDetail() {
                       className="text-button"
                       onClick={() => go("profile")}
                     >
-                      Review your profile
+                      <T>{"Review your profile"}</T>{" "}
                     </button>
                   </p>
                 )}
@@ -1007,7 +1043,7 @@ function Quotes() {
   const { data, go } = useWorkspace();
   return (
     <>
-      <Head title="Estimates">Review scope and price before booking.</Head>
+      <Head title={<T>{"Estimates"}</T>}>Review scope and price before booking.</Head>
       <Panel>
         {data.quotes.length ? (
           data.quotes.map((q) => (
@@ -1048,7 +1084,7 @@ function Schedule() {
   const { data } = useWorkspace();
   return (
     <>
-      <Head title="Schedule">
+      <Head title={<T>{"Schedule"}</T>}>
         Appointment times are shown in your current device timezone.
       </Head>
       <CallMeetings />
@@ -1070,7 +1106,9 @@ function Schedule() {
 function Messages() {
   return (
     <>
-      <h1 className="sr-only">Messages</h1>
+      <h1 className="sr-only">
+        <T>{"Messages"}</T>
+      </h1>
       <MessagesInbox />
     </>
   );
@@ -1085,7 +1123,7 @@ function Reviews() {
   );
   return (
     <>
-      <Head title="Reviews">
+      <Head title={<T>{"Reviews"}</T>}>
         Thoughtful feedback helps the community make better choices.
       </Head>
       {ready.map((p) => (
@@ -1115,7 +1153,9 @@ function Reviews() {
             <Field label="How did it go?">
               <textarea name="body" minLength={10} maxLength={2000} required />
             </Field>
-            <button>Publish review</button>
+            <button>
+              <T>{"Publish review"}</T>
+            </button>
           </Form>
         </Panel>
       ))}
@@ -1149,7 +1189,9 @@ function Reviews() {
                         required
                       />
                     </Field>
-                    <button>Reply</button>
+                    <button>
+                      <T>{"Reply"}</T>
+                    </button>
                   </Form>
                 )
               )}
@@ -1157,7 +1199,7 @@ function Reviews() {
           ))
         ) : (
           <Empty title="No reviews yet.">
-            Reviews are available after completed projects.
+            <T>{"Reviews are available after completed projects."}</T>{" "}
           </Empty>
         )}
       </Panel>
@@ -1174,7 +1216,22 @@ function Settings() {
   const { data, run, busy } = useWorkspace();
   return (
     <>
-      <Head title="Settings">Manage your account preferences.</Head>
+      <Head title={<T>{"Settings"}</T>}>
+        <T>{"Manage your account preferences."}</T>
+      </Head>
+      <Panel title="Preferred language">
+        <LanguageSelect
+          onChange={(language) =>
+            request("/account/language", { language }, "PUT")
+          }
+        />
+        <p>
+          <T>
+            Automatic chat translation is not enabled. Messages stay in their
+            original language.
+          </T>
+        </p>
+      </Panel>
       <Panel title="Account details">
         <Form
           busy={busy}
@@ -1215,7 +1272,7 @@ function Settings() {
               type="checkbox"
               defaultChecked={data.user.settings.emailAlerts !== false}
             />
-            Enable optional email alerts
+            <T>{"Enable optional email alerts"}</T>{" "}
           </label>
           {Object.entries(emailCategories).map(([key, label]) => (
             <label className="checkbox" key={key}>
@@ -1233,11 +1290,15 @@ function Settings() {
             </label>
           ))}
           <p>
-            Essential security, billing, account restrictions and direct Aplime
-            support messages may still be sent. In-app notifications stay
-            available.
+            <T>
+              {
+                "Essential security, billing, account restrictions and direct Aplime support messages may still be sent. In-app notifications stay available."
+              }
+            </T>{" "}
           </p>
-          <button>Save preferences</button>
+          <button>
+            <T>{"Save preferences"}</T>
+          </button>
         </Form>
       </Panel>
       <Panel title="Blocked conversations">
@@ -1254,12 +1315,14 @@ function Settings() {
                   void run(() => request("/blocked/" + id, { blocked: false }))
                 }
               >
-                Unblock
+                <T>{"Unblock"}</T>{" "}
               </button>
             </div>
           ))
         ) : (
-          <p>No blocked conversations.</p>
+          <p>
+            <T>{"No blocked conversations."}</T>
+          </p>
         )}
       </Panel>
       <AccountData />
@@ -1270,7 +1333,7 @@ function Support() {
   const { id } = useWorkspace();
   return (
     <>
-      <Head title="Help & safety">
+      <Head title={<T>{"Help & safety"}</T>}>
         Contact Aplime about your account or a project. For emergencies, contact
         local emergency services.
       </Head>

@@ -1,3 +1,4 @@
+import { T } from "../shared/language.js";
 import type { Upload as SavedUpload } from "../shared/domain.js";
 import { SavedPhoto } from "./project-photo-gallery.js";
 import { ImagePreview } from "./image-preview.js";
@@ -243,7 +244,7 @@ export function ProjectPhotos({
                       setError("");
                     }}
                   >
-                    <Trash2 size={15} /> Remove
+                    <Trash2 size={15} /> <T>{"Remove"}</T>{" "}
                   </button>
                 </div>
               )
@@ -329,7 +330,7 @@ export function ProjectPhotos({
                 }}
               >
                 <Trash2 size={15} />
-                Remove
+                <T>{"Remove"}</T>{" "}
               </button>
             </div>
           </section>

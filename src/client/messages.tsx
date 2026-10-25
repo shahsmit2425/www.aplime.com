@@ -1,3 +1,4 @@
+import { T } from "../shared/language.js";
 import { useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 import { ChatInbox, type ChatItem } from "../shared/chat-ui.js";
@@ -108,7 +109,7 @@ export function MessagesInbox({
           aria-label="New support conversation"
           onClick={() => go("messages", "new-support")}
         >
-          <Plus size={19} /> Support
+          <Plus size={19} /> <T>{"Support"}</T>{" "}
         </button>
       }
       footer={
@@ -129,7 +130,7 @@ export function MessagesInbox({
                 disabled={page * 25 >= total}
                 onClick={() => setPage((p) => p + 1)}
               >
-                Next
+                <T>{"Next"}</T>{" "}
               </button>
             </div>
           )}

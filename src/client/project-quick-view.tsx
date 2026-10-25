@@ -1,3 +1,4 @@
+import { T } from "../shared/language.js";
 import { useEffect, useRef, useState } from "react";
 import { X, ExternalLink } from "lucide-react";
 import type { Project, Upload } from "../shared/domain.js";
@@ -63,7 +64,9 @@ export function ProjectQuickView({
       }}
     >
       <header>
-        <h2 id="project-quick-title">Project details</h2>
+        <h2 id="project-quick-title">
+          <T>{"Project details"}</T>
+        </h2>
         <button
           type="button"
           className="secondary"
@@ -71,13 +74,15 @@ export function ProjectQuickView({
           autoFocus
           onClick={onClose}
         >
-          <X size={18} /> Close
+          <X size={18} /> <T>{"Close"}</T>{" "}
         </button>
       </header>
       {error ? (
         <div role="alert">
           <p>{error}</p>
-          <button onClick={() => setAttempt((n) => n + 1)}>Retry</button>
+          <button onClick={() => setAttempt((n) => n + 1)}>
+            <T>{"Retry"}</T>
+          </button>
         </div>
       ) : !p ? (
         <p role="status">Loading project…</p>
@@ -90,11 +95,15 @@ export function ProjectQuickView({
           <p>{p.description}</p>
           <dl className="project-quick-facts">
             <div>
-              <dt>Service</dt>
+              <dt>
+                <T>{"Service"}</T>
+              </dt>
               <dd>{p.category}</dd>
             </div>
             <div>
-              <dt>Customer</dt>
+              <dt>
+                <T>{"Customer"}</T>
+              </dt>
               <dd>{p.customerName}</dd>
             </div>
             <div>
@@ -104,11 +113,15 @@ export function ProjectQuickView({
               </dd>
             </div>
             <div>
-              <dt>Timing</dt>
+              <dt>
+                <T>{"Timing"}</T>
+              </dt>
               <dd>{p.urgency.replaceAll("_", " ")}</dd>
             </div>
             <div>
-              <dt>Appointment</dt>
+              <dt>
+                <T>{"Appointment"}</T>
+              </dt>
               <dd>
                 {p.scheduledAt
                   ? new Date(p.scheduledAt).toLocaleString()
@@ -116,7 +129,9 @@ export function ProjectQuickView({
               </dd>
             </div>
             <div>
-              <dt>Budget</dt>
+              <dt>
+                <T>{"Budget"}</T>
+              </dt>
               <dd>
                 {p.budgetMin != null || p.budgetMax != null
                   ? [p.budgetMin, p.budgetMax]
