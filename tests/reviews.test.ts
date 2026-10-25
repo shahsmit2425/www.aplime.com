@@ -6,7 +6,7 @@ import { publicReviews } from "../src/server/reviews.js";
 import { reviewInput } from "../src/shared/reviews.js";
 const db = new PGlite();
 await db.exec(`CREATE TABLE projects(id text PRIMARY KEY,category text,status text,pro_id text,customer_id text,address text);
-CREATE TABLE reviews(id text,project_id text,pro_id text,rating int,body text,reply text,created_at timestamptz);`);
+CREATE TABLE reviews(id text,project_id text,pro_id text,rating int,body text,reply text,created_at timestamptz); CREATE TABLE review_images(project_id text,slot int,object_key text);`);
 pool.query = (async (sql: string, values?: unknown[]) =>
   db.query(sql, values)) as typeof pool.query;
 test.after(async () => {
@@ -75,6 +75,7 @@ test("public reviews preserve negative feedback, paginate deterministically and 
         "createdAt",
         "category",
         "completedProject",
+        "photos",
       ].sort(),
     );
   const empty = await publicReviews("other", 0);

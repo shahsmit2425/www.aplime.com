@@ -1,6 +1,5 @@
 import { T } from "../shared/language.js";
 import { useEffect, useState } from "react";
-import { Plus } from "lucide-react";
 import { ChatInbox, type ChatItem } from "../shared/chat-ui.js";
 import {
   selectedDiscussion,
@@ -104,14 +103,6 @@ export function MessagesInbox({
       loading={loading}
       error={error}
       onSelect={(key) => go("messages", key)}
-      tools={
-        <button
-          aria-label="New support conversation"
-          onClick={() => go("messages", "new-support")}
-        >
-          <Plus size={19} /> <T>{"Support"}</T>{" "}
-        </button>
-      }
       footer={
         <>
           <span>

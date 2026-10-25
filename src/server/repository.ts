@@ -32,7 +32,7 @@ async function mappedProfile(
   if (row.id === ownerId) {
     const workIds = (images: any[]) =>
       images
-        .filter((image) => /^work-(?:[1-9]|1\d|20)$/.test(image.slot))
+        .filter((image) => /^work-(?:[1-9]|[12]\d|30)$/.test(image.slot))
         .map((image) => String(image.id))
         .sort();
     const current = workIds(row.images || []);

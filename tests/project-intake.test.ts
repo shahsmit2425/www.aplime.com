@@ -26,6 +26,8 @@ function complete(category: (typeof categories)[number]) {
     address: "1 Test Street, Parlin, NJ 08859",
     placeId: "test-place",
     urgency: "flexible",
+    contactPhone: "(201) 555-0123",
+    contactConsent: true,
   });
   for (const q of intakeQuestions(category))
     draft.intake[q.id] =
@@ -143,4 +145,15 @@ test("restored custom budgets remain editable even with one bound or a preset ma
     intakeBudgetChoice({ budgetMin: null, budgetMax: null }),
     "I’d like advice / Not sure",
   );
+});
+
+test("publishing requires a valid phone and explicit consent", () => {
+  const draft = complete("Cleaning");
+  draft.contactConsent = false;
+  assert.equal(firstInvalidStep(draft), "contact");
+  draft.contactConsent = true;
+  draft.contactPhone = "123";
+  assert.equal(firstInvalidStep(draft), "contact");
+  draft.contactPhone = "2015550123";
+  assert.equal(firstInvalidStep(draft), null);
 });

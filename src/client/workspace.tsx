@@ -1064,6 +1064,16 @@ export default function Workspace() {
               </nav>
               <div className="actions">
                 <button
+                  className="secondary workspace-support"
+                  aria-label="Support"
+                  onClick={() => go("messages", "new-support")}
+                >
+                  <HelpCircle size={19} />
+                  <span>
+                    <T>Support</T>
+                  </span>
+                </button>
+                <button
                   className="icon-button workspace-menu"
                   aria-label="Open navigation"
                   aria-expanded={menu}

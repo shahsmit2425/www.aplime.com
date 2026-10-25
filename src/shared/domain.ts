@@ -231,6 +231,8 @@ export const profileSchema = z
   .strict();
 export const projectSchema = z
   .object({
+    contactPhone: z.string().max(40).optional(),
+    contactConsent: z.boolean().optional(),
     title: text(5, 120),
     description: text(20, 4000),
     category: z.enum(categories),

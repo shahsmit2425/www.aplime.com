@@ -1,3 +1,4 @@
+import { CONTACT_CONSENT } from "../shared/project-contact.js";
 import { T, useT } from "../shared/language.js";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -405,6 +406,7 @@ export function ProjectIntake(props: Props) {
         timing: "When would you like help?",
         budget: "Do you have a budget in mind?",
         notes: "Anything else your professional should know?",
+        contact: "How can matching professionals reach you?",
         address: "What is the service address?",
         unit: "Is there an apartment or unit number?",
         photos: "Want to show us the project?",
@@ -738,6 +740,36 @@ export function ProjectIntake(props: Props) {
               />
             </Field>
           )}
+          {step === "contact" && (
+            <div>
+              <Field label="Phone number">
+                <input
+                  type="tel"
+                  autoComplete="tel"
+                  inputMode="tel"
+                  maxLength={40}
+                  value={draft.contactPhone}
+                  placeholder="(201) 555-0123"
+                  onChange={(e) =>
+                    patch({
+                      contactPhone: e.target.value,
+                      contactConsent: false,
+                    })
+                  }
+                />
+              </Field>
+              <label className="project-contact-consent">
+                <input
+                  type="checkbox"
+                  checked={draft.contactConsent}
+                  onChange={(e) => patch({ contactConsent: e.target.checked })}
+                />
+                <span>
+                  <T>{CONTACT_CONSENT}</T>
+                </span>
+              </label>
+            </div>
+          )}
           {step === "photos" && (
             <ProjectPhotos
               photos={photos}
@@ -761,6 +793,7 @@ export function ProjectIntake(props: Props) {
                 {[
                   ["ZIP / town", draft.zipLabel, "zip"],
                   ["Service", draft.category, "category"],
+                  ["Phone number", draft.contactPhone, "contact"],
                   ...intakeQuestions(draft.category).map((q) => [
                     q.label,
                     draft.intake[q.id],

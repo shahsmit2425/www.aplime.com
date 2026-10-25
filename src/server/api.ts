@@ -1,3 +1,6 @@
+import { reviewImages } from "./review-images.js";
+import { projectContacts } from "./project-contacts.js";
+import { contactInput } from "../shared/project-contact.js";
 import { reviewInput } from "../shared/reviews.js";
 import { publicReviews } from "./reviews.js";
 import { guardCreation } from "./abuse-limits.js";
@@ -237,6 +240,8 @@ api.use((req, _res, next) => {
 });
 api.get("/notifications/stream", notificationStream);
 api.post("/realtime/ticket", realtimeTicket);
+api.use(reviewImages);
+api.use(projectContacts);
 api.use("/subscription", subscriptions);
 api.use("/support", supportRouter(false));
 api.get("/workspace", async (q, r) =>
@@ -519,6 +524,7 @@ api.post("/projects", async (req, res) => {
     .passthrough()
     .parse(q.body);
   const p = projectSchema.parse(payload);
+  const contact = contactInput.parse(p);
   await guardCreation("project", req);
   const fingerprint = createHash("sha256").update(canonical(p)).digest("hex");
   assertFuture(p.scheduledAt);
@@ -565,6 +571,10 @@ api.post("/projects", async (req, res) => {
         location.placeId,
         p.addressUnit,
       ],
+    );
+    await c.query(
+      "INSERT INTO project_contacts(project_id,phone) VALUES($1,$2)",
+      [id, contact.contactPhone],
     );
     if (clientKey)
       await c.query(

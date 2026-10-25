@@ -22,13 +22,13 @@ test("business images allow only bounded image slots and supported image files",
     size: 1024,
   };
   assert.equal(businessImageSchema.safeParse(valid).success, true);
-  for (let index = 1; index <= 20; index++)
+  for (let index = 1; index <= 30; index++)
     assert.equal(
       businessImageSchema.safeParse({ ...valid, slot: `work-${index}` }).success,
       true,
     );
   for (const extra of [
-    { slot: "work-21" },
+    { slot: "work-31" },
     { slot: "work-0" },
     { slot: "work-01" },
     { contentType: "image/svg+xml" },

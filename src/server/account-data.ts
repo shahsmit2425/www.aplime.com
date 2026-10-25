@@ -74,6 +74,14 @@ export async function exportAccountData(userId: string) {
       )
     ).rows[0],
     projects,
+    projectContacts: await rows(
+      "SELECT c.project_id,c.phone,c.consent_at,c.consent_version FROM project_contacts c JOIN projects p ON p.id=c.project_id WHERE p.customer_id=$1 ORDER BY c.consent_at DESC",
+      [userId],
+    ),
+    reviewPhotos: await rows(
+      "SELECT i.project_id,i.slot,i.created_at FROM review_images i JOIN projects p ON p.id=i.project_id WHERE p.customer_id=$1 ORDER BY i.created_at DESC",
+      [userId],
+    ),
     projectFiles: await rows(
       "SELECT id,project_id,name,content_type,size,status,created_at FROM uploads WHERE user_id=$1 ORDER BY created_at DESC",
       [userId],
@@ -255,6 +263,12 @@ export async function deleteAccountData(userId: string) {
           [userId],
         )
       ).rows,
+      ...(
+        await c.query(
+          "SELECT i.object_key FROM review_images i JOIN projects p ON p.id=i.project_id WHERE p.customer_id=$1",
+          [userId],
+        )
+      ).rows,
     ].map((r) => String(r.object_key));
     const published = (
       await c.query("SELECT published_profile FROM profiles WHERE id=$1", [
@@ -262,6 +276,14 @@ export async function deleteAccountData(userId: string) {
       ])
     ).rows[0]?.published_profile;
     for (const image of published?.images || []) keys.push(image.key);
+    await c.query(
+      "DELETE FROM review_images i USING projects p WHERE i.project_id=p.id AND p.customer_id=$1",
+      [userId],
+    );
+    await c.query(
+      "DELETE FROM project_contacts c USING projects p WHERE c.project_id=p.id AND p.customer_id=$1",
+      [userId],
+    );
     await c.query("DELETE FROM uploads WHERE user_id=$1", [userId]);
     await c.query("DELETE FROM business_images WHERE profile_id=$1", [userId]);
     await c.query("DELETE FROM project_drafts WHERE user_id=$1", [userId]);

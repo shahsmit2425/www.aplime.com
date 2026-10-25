@@ -1,3 +1,4 @@
+import { reviewPhotos } from "./review-images.js";
 import { pool } from "./db/index.js";
 import type { ReviewPage } from "../shared/reviews.js";
 // Explicit public projection: never return customer IDs, addresses or project titles.
@@ -14,14 +15,19 @@ export async function publicReviews(
   ).rows[0];
   const rows = (
     await pool.query(
-      `SELECT r.id,r.rating,r.body,r.reply,r.created_at AS "createdAt",p.category,
+      `SELECT r.project_id,r.id,r.rating,r.body,r.reply,r.created_at AS "createdAt",p.category,
  (p.status='completed' AND p.pro_id=r.pro_id AND p.customer_id<>r.pro_id) AS "completedProject"
  FROM reviews r JOIN projects p ON p.id=r.project_id WHERE r.pro_id=$1 ORDER BY r.created_at DESC,r.id DESC LIMIT 10 OFFSET $2`,
       [proId, offset],
     )
   ).rows;
   return {
-    reviews: rows,
+    reviews: await Promise.all(
+      rows.map(async ({ project_id, ...row }) => ({
+        ...row,
+        photos: await reviewPhotos(project_id),
+      })),
+    ),
     total: summary.total,
     average: summary.average,
     distribution: [

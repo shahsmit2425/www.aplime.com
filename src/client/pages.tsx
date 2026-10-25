@@ -1,3 +1,5 @@
+import { ReviewPhotoEditor } from "./review-photos.js";
+import { ProjectContact } from "./project-contact.js";
 import { RatingPicker, ReviewCard } from "./reviews.js";
 import { T, LanguageSelect } from "../shared/language.js";
 import { ProjectIntake } from "./project-intake.js";
@@ -485,6 +487,7 @@ function ProjectDetail() {
           {p.category} · {p.zip}
         </Head>
       )}
+      <ProjectContact key={p.id} projectId={p.id} />
       {data.marketplacePreview &&
         data.user.role === "pro" &&
         !!data.discoveryRequirements?.length && (
@@ -1118,6 +1121,7 @@ function Messages() {
 }
 function Reviews() {
   const { data, run, busy } = useWorkspace();
+  const [photosBusy, setPhotosBusy] = useState(false);
   const ready = data.projects.filter(
     (p) =>
       p.status === "completed" &&
@@ -1152,7 +1156,7 @@ function Reviews() {
       {ready.map((p) => (
         <Panel title={"Review " + p.title} key={p.id}>
           <Form
-            busy={busy}
+            busy={busy || photosBusy}
             onSubmit={(f) =>
               run(
                 () =>
@@ -1164,6 +1168,11 @@ function Reviews() {
               )
             }
           >
+            <ReviewPhotoEditor
+              projectId={p.id}
+              editable
+              onBusy={setPhotosBusy}
+            />
             <RatingPicker />
             <Field label="How did it go?">
               <textarea
@@ -1202,6 +1211,10 @@ function Reviews() {
                   ),
                 }}
                 context={data.projects.find((p) => p.id === r.projectId)?.title}
+              />
+              <ReviewPhotoEditor
+                projectId={r.projectId}
+                editable={data.user.role === "customer"}
               />
               {!r.reply && r.proId === data.user.id && (
                 <Form

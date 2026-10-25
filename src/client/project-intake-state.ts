@@ -1,3 +1,4 @@
+import { contactInput } from "../shared/project-contact.js";
 import { z } from "zod";
 import {
   categories,
@@ -9,6 +10,8 @@ export const INTAKE_TTL = 24 * 60 * 60_000;
 export const INTAKE_KEY = "aplime-project-intake-v1";
 export const INTAKE_RESUME = "aplime-project-intake-resume";
 const draftSchema = z.object({
+  contactPhone: z.string().max(40).default(""),
+  contactConsent: z.boolean().default(false),
   zip: z.string().max(5).default(""),
   zipLabel: z.string().max(300).default(""),
   addressZip: z.string().max(5).default(""),
@@ -62,6 +65,7 @@ export function intakeSteps(draft: IntakeDraft) {
     "notes",
     "address",
     "unit",
+    "contact",
     "photos",
     "review",
   ];
@@ -76,6 +80,8 @@ export function projectPayload(draft: IntakeDraft) {
         .map((q) => `${q.label}: ${draft.intake[q.id] || "Not specified"}.`)
         .join(" ");
   return {
+    contactPhone: draft.contactPhone,
+    contactConsent: draft.contactConsent,
     title: draft.title.trim() || `${draft.category} project`,
     description: description.slice(0, 4000),
     category: draft.category,
@@ -136,6 +142,8 @@ export function stepProblem(step: string, draft: IntakeDraft): string {
     draft.description.trim().length < 20
   )
     return "Please enter at least 20 characters, or leave the notes blank.";
+  if (step === "contact" && !contactInput.safeParse(draft).success)
+    return "Enter a valid US phone number and agree to project-related contact.";
   if (step === "address" && (!draft.placeId || !draft.addressZip))
     return "Select a complete address from the suggestions.";
   if (step === "address" && draft.addressZip !== draft.zip)

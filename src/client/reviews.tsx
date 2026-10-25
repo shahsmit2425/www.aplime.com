@@ -1,3 +1,4 @@
+import {ReviewPhotoGallery} from "./review-photos.js";
 import { useEffect, useState } from "react";
 import { Star, ShieldCheck } from "lucide-react";
 import { request } from "./api.js";
@@ -83,6 +84,7 @@ export function ReviewCard({
         )}
       </div>
       <p className="review-written-text">{review.body}</p>
+      {!!review.photos?.length && <ReviewPhotoGallery photos={review.photos}/>}
       {review.reply && (
         <blockquote>
           <strong>

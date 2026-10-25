@@ -417,7 +417,7 @@ export function BusinessMedia({
       )}
       {portfolio && !nextSlot && (
         <p className="business-tip">
-          All 20 spaces are in use. Replace or delete an existing photo to add
+          All 30 spaces are in use. Replace or delete an existing photo to add
           another.
         </p>
       )}

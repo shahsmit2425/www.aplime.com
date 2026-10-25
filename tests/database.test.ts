@@ -174,6 +174,13 @@ await db.exec(
   await readFile("src/server/db/migrations/026_project_responses.sql", "utf8"),
 );
 
+await db.exec(
+  await readFile(
+    "src/server/db/migrations/027_contact_and_photo_limits.sql",
+    "utf8",
+  ),
+);
+
 test.after(async () => {
   await db.close();
   await pool.end();
@@ -1300,7 +1307,7 @@ test("API image uploads enforce ownership and file limits and preserve saved ima
       [owner.id],
     );
     const portfolioIds: string[] = [];
-    for (let i = 1; i <= 20; i++) {
+    for (let i = 1; i <= 30; i++) {
       const result = await fetch(base + "/profile/images", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1342,7 +1349,7 @@ test("API image uploads enforce ownership and file limits and preserve saved ima
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            slot: "work-21",
+            slot: "work-31",
             name: "extra.png",
             size: bytes.length,
             contentType: "image/png",
@@ -1359,7 +1366,7 @@ test("API image uploads enforce ownership and file limits and preserve saved ima
     const pendingOwner = (await workspace(owner)).profiles.find(
       (p) => p.id === owner.id,
     )!;
-    assert.equal(pendingOwner.images!.length, 20);
+    assert.equal(pendingOwner.images!.length, 30);
     assert.deepEqual(pendingOwner.portfolioPublication, {
       approvedImageIds: [],
       hasUnpublishedChanges: true,
@@ -1397,12 +1404,12 @@ test("API image uploads enforce ownership and file limits and preserve saved ima
     );
     assert.equal(
       visiblePortfolio.length,
-      20,
+      30,
       "customers receive every saved past-work photo",
     );
     assert.deepEqual(
       new Set(visiblePortfolio.map((p) => p.slot)),
-      new Set(Array.from({ length: 20 }, (_, i) => `work-${i + 1}`)),
+      new Set(Array.from({ length: 30 }, (_, i) => `work-${i + 1}`)),
     );
     for (const image of visiblePortfolio) {
       assert.equal("key" in image, false);
@@ -1421,7 +1428,7 @@ test("API image uploads enforce ownership and file limits and preserve saved ima
     assert.equal(
       (await workspace(customer)).profiles.find((p) => p.id === owner.id)!
         .images!.length,
-      20,
+      30,
     );
     assert.equal(
       (
@@ -1436,7 +1443,7 @@ test("API image uploads enforce ownership and file limits and preserve saved ima
     assert.equal(
       (await workspace(customer)).profiles.find((p) => p.id === owner.id)!
         .images!.length,
-      20,
+      30,
       "Pending deletions preserve the approved public gallery",
     );
     const { releasePublication } =
@@ -1448,7 +1455,7 @@ test("API image uploads enforce ownership and file limits and preserve saved ima
     assert.equal(
       (await workspace(customer)).profiles.find((p) => p.id === owner.id)!
         .images!.length,
-      19,
+      29,
     );
   } finally {
     await new Promise<void>((resolve) => server.close(() => resolve()));
@@ -4490,4 +4497,134 @@ test("pending award reminders are deduplicated and invalidated by confirmation",
     await reminderStillRelevant(rows[0].event_key, { query }),
     false,
   );
+});
+
+test("project contact and review photos enforce ownership, publication and ten-photo bounds", async () => {
+  const express = (await import("express")).default;
+  const { projectContacts } = await import("../src/server/project-contacts.js");
+  const { reviewImages } = await import("../src/server/review-images.js");
+  const { errorResponse } = await import("../src/server/error-response.js");
+  const id = await lifecycleProject("completed");
+  await query(
+    "INSERT INTO project_contacts(project_id,phone) VALUES($1,'+12015550123')",
+    [id],
+  );
+  await query("UPDATE profiles SET suspended=false WHERE id=$1", [
+    professional.id,
+  ]);
+  await query("DELETE FROM blocked WHERE user_id=$1 OR other_id=$1", [
+    professional.id,
+  ]);
+  const app = express();
+  app.use((req, _res, next) => {
+    req.account =
+      req.headers["x-actor"] === "other"
+        ? outsider
+        : req.headers["x-actor"] === "pro"
+          ? professional
+          : customer;
+    next();
+  });
+  app.use(projectContacts);
+  app.use(reviewImages);
+  app.use((error: unknown, _req: any, res: any, _next: any) => {
+    const out = errorResponse(error);
+    res.status(out.status).json(out.body);
+  });
+  const server = app.listen(0, "127.0.0.1");
+  await new Promise<void>((r) => server.once("listening", r));
+  const base =
+    "http://127.0.0.1:" + (server.address() as any).port + `/projects/${id}`;
+  const get = (path: string, actor = "customer") =>
+    fetch(base + path, { headers: { "x-actor": actor } });
+  const { S3Client } = await import("@aws-sdk/client-s3");
+  const originalSend = S3Client.prototype.send;
+  const stored = new Set<string>();
+  S3Client.prototype.send = (async (command: any) => {
+    if (command.constructor.name === "PutObjectCommand")
+      stored.add(command.input.Key);
+    if (command.constructor.name === "DeleteObjectCommand")
+      stored.delete(command.input.Key);
+    return {};
+  }) as typeof originalSend;
+  try {
+    assert.equal((await (await get("/contact")).json()).phone, "+12015550123");
+    assert.equal(await (await get("/contact", "other")).json(), null);
+    assert.equal((await get("/review-photos", "other")).status, 404);
+    assert.equal((await get("/review-photos", "pro")).status, 404);
+    assert.equal(
+      (await fetch(base + "/review-photos/11", { method: "PUT" })).status,
+      400,
+    );
+    assert.equal(
+      (
+        await fetch(base + "/review-photos/1", {
+          method: "PUT",
+          headers: { "x-actor": "other", "Content-Type": "image/png" },
+          body: "fake",
+        })
+      ).status,
+      403,
+    );
+    const sharp = (await import("sharp")).default;
+    const image = await sharp({
+      create: { width: 8, height: 8, channels: 3, background: "white" },
+    })
+      .png()
+      .toBuffer();
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const response = await fetch(base + "/review-photos/1", {
+        method: "PUT",
+        headers: { "Content-Type": "image/png" },
+        body: new Uint8Array(image),
+      });
+      assert.equal(response.status, 200);
+      assert.equal((await (await get("/review-photos")).json()).length, 1);
+    }
+    assert.equal(
+      stored.size,
+      1,
+      "replacement removes the previous storage object",
+    );
+    assert.equal(
+      (await fetch(base + "/review-photos/1", { method: "DELETE" })).status,
+      200,
+    );
+    assert.equal((await (await get("/review-photos")).json()).length, 0);
+    assert.equal(stored.size, 0);
+    for (let slot = 1; slot <= 10; slot++)
+      await query(
+        "INSERT INTO review_images(project_id,slot,object_key) VALUES($1,$2,$3)",
+        [id, slot, `review-fixture/${id}/${slot}`],
+      );
+    await assert.rejects(() =>
+      query(
+        "INSERT INTO review_images(project_id,slot,object_key) VALUES($1,11,'overflow')",
+        [id],
+      ),
+    );
+    assert.equal((await (await get("/review-photos")).json()).length, 10);
+    await query(
+      "INSERT INTO reviews(id,project_id,pro_id,rating,body) VALUES($1,$2,$3,5,'Completed work review')",
+      [randomUUID(), id, professional.id],
+    );
+    assert.equal(
+      (await (await get("/review-photos", "pro")).json()).length,
+      10,
+    );
+    assert.equal(
+      (
+        await fetch(base + "/review-photos/1", {
+          method: "DELETE",
+          headers: { "x-actor": "other" },
+        })
+      ).status,
+      403,
+    );
+  } finally {
+    S3Client.prototype.send = originalSend;
+    await new Promise<void>((resolve, reject) =>
+      server.close((e) => (e ? reject(e) : resolve())),
+    );
+  }
 });

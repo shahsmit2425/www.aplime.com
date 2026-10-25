@@ -10,11 +10,11 @@ import {
 } from "../src/shared/business-images.js";
 import type { Profile } from "../src/shared/domain.js";
 
-test("customer profile presents approved portfolio photos before business details and exposes all twenty", () => {
-  const images: BusinessImage[] = Array.from({ length: 20 }, (_, i) => ({
-    id: `work-${20 - i}`,
-    slot: `work-${20 - i}` as BusinessImage["slot"],
-    url: `https://example.invalid/work-${20 - i}.jpg`,
+test("customer profile presents approved portfolio photos before business details and exposes all thirty", () => {
+  const images: BusinessImage[] = Array.from({ length: 30 }, (_, i) => ({
+    id: `work-${30 - i}`,
+    slot: `work-${30 - i}` as BusinessImage["slot"],
+    url: `https://example.invalid/work-${30 - i}.jpg`,
   }));
   const profile: Profile = {
     id: "fixture",
@@ -47,13 +47,13 @@ test("customer profile presents approved portfolio photos before business detail
     html.indexOf('aria-label="Past work portfolio"') <
       html.indexOf("About Fixture business"),
   );
-  assert.match(html, /20 photos/);
+  assert.match(html, /30 photos/);
   assert.match(html, /View all photos/);
-  assert.match(html, /\+15 more photos/);
+  assert.match(html, /\+25 more photos/);
   assert.ok(html.indexOf("work-1.jpg") < html.indexOf("work-2.jpg"));
   assert.ok(!html.includes("PRIVATE ADDRESS"));
-  assert.equal(portfolioImages(images).length, 20);
-  assert.equal(portfolioImages(images)[19].slot, "work-20");
+  assert.equal(portfolioImages(images).length, 30);
+  assert.equal(portfolioImages(images)[29].slot, "work-30");
 });
 test("branding is separate from past work and an empty portfolio is explicit without invented photos", () => {
   const images: BusinessImage[] = [

@@ -23,8 +23,18 @@ export const businessImageSlots = [
   "work-18",
   "work-19",
   "work-20",
+  "work-21",
+  "work-22",
+  "work-23",
+  "work-24",
+  "work-25",
+  "work-26",
+  "work-27",
+  "work-28",
+  "work-29",
+  "work-30",
 ] as const;
-export const MAX_BUSINESS_PORTFOLIO_IMAGES = 20;
+export const MAX_BUSINESS_PORTFOLIO_IMAGES = 30;
 export function hasBusinessBranding(readySlots: readonly string[]) {
   return readySlots.includes("logo") && readySlots.includes("cover");
 }
@@ -43,7 +53,7 @@ export type BusinessImage = {
 };
 export function portfolioImages(images: readonly BusinessImage[] = []) {
   return images
-    .filter((image) => /^work-(?:[1-9]|1\d|20)$/.test(image.slot))
+    .filter((image) => /^work-(?:[1-9]|[12]\d|30)$/.test(image.slot))
     .sort((a, b) => Number(a.slot.slice(5)) - Number(b.slot.slice(5)))
     .slice(0, MAX_BUSINESS_PORTFOLIO_IMAGES);
 }

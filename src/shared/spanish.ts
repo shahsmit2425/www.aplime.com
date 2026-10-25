@@ -1,4 +1,15 @@
 export const spanish: Record<string, string> = {
+  "How can matching professionals reach you?":
+    "¿Cómo pueden contactarte los profesionales compatibles?",
+  "I agree that professionals matched to this project may call or text me about this project after I submit it. This permission is not for unrelated marketing.":
+    "Acepto que los profesionales compatibles con este proyecto me llamen o envíen mensajes sobre este proyecto después de publicarlo. Este permiso no incluye publicidad no relacionada.",
+  "Project contact": "Contacto del proyecto",
+  "Customer permission: calls or texts about this project only.":
+    "Permiso del cliente: llamadas o mensajes solo sobre este proyecto.",
+  "Review photos": "Fotos de la reseña",
+  "Optional: show the completed work. These photos become public with your review. Avoid people, addresses and private information.":
+    "Opcional: muestra el trabajo terminado. Estas fotos serán públicas junto con tu reseña. Evita personas, direcciones e información privada.",
+  "Saving photos…": "Guardando fotos…",
   Home: "Inicio",
   Dashboard: "Panel",
   "Post project": "Publicar proyecto",

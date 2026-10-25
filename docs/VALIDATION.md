@@ -646,3 +646,15 @@ An isolated local preview fixture was prepared outside the repository. Headless 
 - Review history is scoped to the signed-in customer or professional independently of project archival. Existing professional replies and review email/reminder flows remain in place. No review incentives, external review imports or automated quality/fraud claims were added.
 - Validation: 215 tests passed, TypeScript and client/SSR/admin builds passed, Capacitor sync completed. CocoaPods/Xcode unavailable on Windows. Live authenticated browser UX, native signed builds and production integrations not verified. Remaining trust improvements include a dedicated review-report/moderation workflow with audit history and appeal handling; current support remains the escalation channel.
 - Reference practices consulted: https://www.thumbtack.com/safetyguidelines/ and https://intercom.help/angi/en/articles/11390652-reviews-frequently-asked-questions . Aplime uses its own narrower completed-project eligibility, not competitor branding or guarantees.
+
+
+## 2026-10-25: support navigation, contact consent and photos
+
+- Moved Support creation to the shared authenticated navbar; existing support conversations remain in Messages.
+- Portfolio accepts 30 work images, separately from logo/advertisement. Review photos accept ten slots, use authenticated owner-only uploads for completed projects, and reuse image sanitization. Published review galleries expose signed URLs rather than storage keys.
+- New project creation requires a US phone number and unchecked explicit project-related call/text consent. Consent time/version are recorded in a separate table. Phone access is restricted to the customer, the assigned professional or currently eligible matching professionals; no public lead payload contains the phone. Format validation is not SMS ownership verification.
+- Account exports include contact consent and review image metadata. Account deletion removes contact data and queues review image storage cleanup.
+- Requires forward migration `027_contact_and_photo_limits.sql` before API rollout. No new environment variables.
+- Live R2, production deployment, device photo pickers, and signed iOS/Android builds have not been exercised in this turn. Browser visual verification is still needed.
+
+- Local verification: 217 tests passed; web/admin production builds and typecheck passed; Capacitor sync completed. CocoaPods/Xcode checks were skipped on Windows.
