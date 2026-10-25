@@ -525,4 +525,28 @@ export const spanish: Record<string, string> = {
     "Los mensajes esenciales de seguridad, facturación, restricciones de cuenta y soporte directo de Aplime seguirán enviándose. Las notificaciones de la aplicación permanecerán disponibles.",
   "We match your service and location with professionals’ preferences, service radius and current eligibility. We alert up to five matches first. You choose who to contact and hire; publishing does not book a service.":
     "Buscamos profesionales según el servicio, la ubicación, sus preferencias, el radio de servicio y su elegibilidad actual. Primero avisamos a un máximo de cinco profesionales compatibles. Tú eliges a quién contactar y contratar; publicar no reserva un servicio.",
+  "Choose your rating": "Elige tu calificación",
+  "Select a rating": "Selecciona una calificación",
+  Poor: "Malo",
+  Fair: "Regular",
+  Good: "Bueno",
+  "Very good": "Muy bueno",
+  Excellent: "Excelente",
+  "Completed Aplime project": "Proyecto completado en Aplime",
+  "Business response": "Respuesta del negocio",
+  "Customer reviews": "Reseñas de clientes",
+  reviews: "reseñas",
+  "Newest first": "Más recientes primero",
+  "Loading reviews…": "Cargando reseñas…",
+  "Reviews could not be loaded.": "No se pudieron cargar las reseñas.",
+  "Try again": "Intentar de nuevo",
+  "Load more reviews": "Cargar más reseñas",
+  "No customer reviews yet. Completed projects can be reviewed by their customers.":
+    "Aún no hay reseñas de clientes. Los clientes pueden reseñar sus proyectos completados.",
+  "Reviews come from customers with a completed project on Aplime. This verifies the project connection, not payment or the quality of the work. Both positive and negative feedback are welcome.":
+    "Las reseñas provienen de clientes con un proyecto completado en Aplime. Esto verifica la relación con el proyecto, no el pago ni la calidad del trabajo. Aceptamos comentarios positivos y negativos.",
+  "Describe the work, communication and results. Keep addresses, phone numbers and other private information out of your review.":
+    "Describe el trabajo, la comunicación y los resultados. No incluyas direcciones, teléfonos ni otros datos privados.",
+  "One review per project, and one review per professional every 30 days.":
+    "Una reseña por proyecto y una reseña por profesional cada 30 días.",
 };

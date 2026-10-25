@@ -219,8 +219,8 @@ export async function workspace(user: User): Promise<Workspace> {
       [ids],
     ),
     pool.query(
-      "SELECT * FROM reviews WHERE project_id=ANY($1::uuid[]) ORDER BY created_at DESC",
-      [ids],
+      "SELECT r.* FROM reviews r JOIN projects p ON p.id=r.project_id WHERE r.pro_id=$1 OR p.customer_id=$1 ORDER BY r.created_at DESC LIMIT 500",
+      [user.id],
     ),
     pool.query(
       admin

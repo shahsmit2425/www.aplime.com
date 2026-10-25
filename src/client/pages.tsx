@@ -1,3 +1,4 @@
+import { RatingPicker, ReviewCard } from "./reviews.js";
 import { T, LanguageSelect } from "../shared/language.js";
 import { ProjectIntake } from "./project-intake.js";
 import { OpportunityResponse } from "./opportunity-response.js";
@@ -1043,7 +1044,9 @@ function Quotes() {
   const { data, go } = useWorkspace();
   return (
     <>
-      <Head title={<T>{"Estimates"}</T>}>Review scope and price before booking.</Head>
+      <Head title={<T>{"Estimates"}</T>}>
+        Review scope and price before booking.
+      </Head>
       <Panel>
         {data.quotes.length ? (
           data.quotes.map((q) => (
@@ -1119,13 +1122,33 @@ function Reviews() {
     (p) =>
       p.status === "completed" &&
       data.user.id === p.customerId &&
-      !data.reviews.some((x) => x.projectId === p.id),
+      !data.reviews.some(
+        (x) =>
+          x.projectId === p.id ||
+          (x.proId === p.proId &&
+            Date.now() - new Date(x.createdAt).getTime() < 30 * 86400000),
+      ),
   );
   return (
     <>
       <Head title={<T>{"Reviews"}</T>}>
         Thoughtful feedback helps the community make better choices.
       </Head>
+      <p className="review-trust-note">
+        <T>
+          Reviews come from customers with a completed project on Aplime. This
+          verifies the project connection, not payment or the quality of the
+          work. Both positive and negative feedback are welcome.
+        </T>
+      </p>
+      {data.user.role === "customer" && (
+        <p className="muted">
+          <T>
+            One review per project, and one review per professional every 30
+            days.
+          </T>
+        </p>
+      )}
       {ready.map((p) => (
         <Panel title={"Review " + p.title} key={p.id}>
           <Form
@@ -1141,17 +1164,22 @@ function Reviews() {
               )
             }
           >
-            <Field label="Rating">
-              <select name="rating">
-                {[5, 4, 3, 2, 1].map((n) => (
-                  <option value={n} key={n}>
-                    {n} stars
-                  </option>
-                ))}
-              </select>
-            </Field>
+            <RatingPicker />
             <Field label="How did it go?">
-              <textarea name="body" minLength={10} maxLength={2000} required />
+              <textarea
+                name="body"
+                minLength={10}
+                maxLength={2000}
+                rows={5}
+                required
+              />
+              <small>
+                <T>
+                  Describe the work, communication and results. Keep addresses,
+                  phone numbers and other private information out of your
+                  review.
+                </T>
+              </small>
             </Field>
             <button>
               <T>{"Publish review"}</T>
@@ -1163,37 +1191,43 @@ function Reviews() {
         {data.reviews.length ? (
           data.reviews.map((r) => (
             <article className="review" key={r.id}>
-              <strong>{r.rating} / 5 stars</strong>
-              <p>{r.body}</p>
-              {r.reply ? (
-                <blockquote>{r.reply}</blockquote>
-              ) : (
-                r.proId === data.user.id && (
-                  <Form
-                    busy={busy}
-                    onSubmit={(f) =>
-                      run(
-                        () =>
-                          request("/reviews/" + r.id + "/reply", {
-                            reply: f.get("reply"),
-                          }),
-                        "Reply published.",
-                      )
-                    }
-                  >
-                    <Field label="Your reply">
-                      <textarea
-                        name="reply"
-                        minLength={2}
-                        maxLength={1500}
-                        required
-                      />
-                    </Field>
-                    <button>
-                      <T>{"Reply"}</T>
-                    </button>
-                  </Form>
-                )
+              <ReviewCard
+                review={{
+                  ...r,
+                  completedProject: data.projects.some(
+                    (p) =>
+                      p.id === r.projectId &&
+                      p.status === "completed" &&
+                      p.proId === r.proId,
+                  ),
+                }}
+                context={data.projects.find((p) => p.id === r.projectId)?.title}
+              />
+              {!r.reply && r.proId === data.user.id && (
+                <Form
+                  busy={busy}
+                  onSubmit={(f) =>
+                    run(
+                      () =>
+                        request("/reviews/" + r.id + "/reply", {
+                          reply: f.get("reply"),
+                        }),
+                      "Reply published.",
+                    )
+                  }
+                >
+                  <Field label="Your reply">
+                    <textarea
+                      name="reply"
+                      minLength={2}
+                      maxLength={1500}
+                      required
+                    />
+                  </Field>
+                  <button>
+                    <T>{"Reply"}</T>
+                  </button>
+                </Form>
               )}
             </article>
           ))

@@ -1,3 +1,5 @@
+import { reviewInput } from "../shared/reviews.js";
+import { publicReviews } from "./reviews.js";
 import { guardCreation } from "./abuse-limits.js";
 import { publicIntake } from "./public-intake.js";
 import { projectDrafts } from "./project-drafts.js";
@@ -121,6 +123,19 @@ async function cachedPublicProfiles(id?: string) {
   return value;
 }
 const publicListCache = "public, max-age=15, stale-while-revalidate=30";
+api.get("/professionals/:id/reviews", async (q, r) => {
+  const id = z.string().min(1).max(128).parse(q.params.id);
+  const offset = z.coerce
+    .number()
+    .int()
+    .min(0)
+    .max(10000)
+    .default(0)
+    .parse(q.query.offset);
+  if (!(await cachedPublicProfiles(id)).length)
+    fail(404, "Business profile not available.");
+  r.set("Cache-Control", "no-store").json(await publicReviews(id, offset));
+});
 api.get("/professionals/:id", async (q, r) => {
   const value = await cachedPublicProfiles(String(q.params.id));
   r.set("Cache-Control", publicListCache).json(value);
@@ -681,16 +696,32 @@ api.post("/projects/:id/call", (_req, _res) => {
 api.post("/projects/:id/review", async (req, res) => {
   const q = req as AuthRequest;
   const p = await memberProject(String(q.params.id), q.account);
-  const data = z
-    .object({
-      rating: z.number().int().min(1).max(5),
-      body: z.string().trim().min(10).max(2000),
-    })
-    .strict()
-    .parse(q.body);
+  const data = reviewInput.parse(q.body);
   if (q.account.id !== p.customerId || p.status !== "completed" || !p.proId)
     fail(403, "Only the customer can review completed work.");
   await transaction(async (c) => {
+    // Serialize this customer/pro pair so concurrent submissions cannot bypass the cooldown.
+    await c.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [
+      p.customerId + ":" + p.proId,
+    ]);
+    const current = (
+      await c.query(
+        "SELECT status,customer_id,pro_id FROM projects WHERE id=$1 FOR UPDATE",
+        [p.id],
+      )
+    ).rows[0];
+    if (
+      !current ||
+      current.status !== "completed" ||
+      current.customer_id !== q.account.id ||
+      current.pro_id !== p.proId
+    )
+      fail(409, "This project changed. Refresh before reviewing.");
+    if (
+      (await c.query("SELECT 1 FROM reviews WHERE project_id=$1", [p.id]))
+        .rowCount
+    )
+      fail(409, "You already reviewed this project.");
     await assertIndependentParties(c, p.customerId, p.proId!);
     if (
       (

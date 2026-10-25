@@ -1,3 +1,4 @@
+import { BusinessReviews } from "./reviews.js";
 import { T } from "../shared/language.js";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
@@ -140,6 +141,7 @@ export function BusinessDisplay({
               )}
             </div>
           </section>
+          {!preview && <BusinessReviews key={profile.id} proId={profile.id} />}
           <section className="profile-content-card">
             <Availability profile={profile} />
           </section>
