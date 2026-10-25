@@ -113,17 +113,17 @@ export function stepProblem(step: string, draft: IntakeDraft): string {
       (q) => q.id === step.slice(9),
     );
     const answer = draft.intake[q?.id || ""]?.trim() || "";
-    if (q?.required && answer.length < 2)
+    if (q?.required && answer.length < 1)
       return "Choose an answer or enter a few details.";
     if (
       answer === "Other" ||
-      (answer.startsWith("Other:") && answer.slice(6).trim().length < 2)
+      (answer.startsWith("Other:") && answer.slice(6).trim().length < 1)
     )
       return "Tell us a little more about your answer.";
     if (
       q?.options &&
       !q.options.includes(answer) &&
-      !/^Other: .{2,1493}$/s.test(answer)
+      !/^Other: .{1,1493}$/s.test(answer)
     )
       return "Choose an answer or use Other to describe it.";
   }
@@ -136,12 +136,6 @@ export function stepProblem(step: string, draft: IntakeDraft): string {
     draft.budgetMin > draft.budgetMax
   )
     return "Your maximum budget must be at least your minimum.";
-  if (
-    step === "notes" &&
-    draft.description.trim() &&
-    draft.description.trim().length < 20
-  )
-    return "Please enter at least 20 characters, or leave the notes blank.";
   if (step === "contact" && !contactInput.safeParse(draft).success)
     return "Enter a valid US phone number and agree to project-related contact.";
   if (step === "address" && (!draft.placeId || !draft.addressZip))

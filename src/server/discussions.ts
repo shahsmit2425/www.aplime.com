@@ -200,7 +200,7 @@ discussions.post("/projects/:id/discussions/:proId", async (req, res) => {
 
 discussions.post("/projects/:id/discussions", async (req, res) => {
   const { body } = z
-    .object({ body: z.string().trim().min(10).max(4000).optional() })
+    .object({ body: z.string().trim().min(1).max(4000).optional() })
     .strict()
     .parse(req.body);
   if (req.account.role !== "pro") fail(403, "Professional account required.");

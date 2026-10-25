@@ -673,3 +673,11 @@ An isolated local preview fixture was prepared outside the repository. Headless 
 - Shared public/customer/pro presentation retains real uploaded photos, red favorites, status indicators, focus outlines and existing responsive layouts. Intake and chat use plain backgrounds; no business workflows changed.
 - 215 tests passed. Typecheck, web/admin builds and Capacitor sync passed. Windows cannot run CocoaPods or Xcode. In-app browser preview attempts to both localhost and 127.0.0.1 timed out, so rendered visual verification and physical-device testing remain unverified.
 - No environment variables or database migration required. Not deployed.
+
+
+## 2026-10-25: shorter text inputs and estimate-focused homepage
+
+- Removed arbitrary minimum character counts from customer/pro names, business descriptions, project titles/details, questionnaire Other answers, action reasons, reviews/replies and support requests. Required text remains nonblank; maximum lengths, valid address/phone checks and password strength remain enforced. Backend validation agrees with the client.
+- Homepage uses a generated illustrative consultation photograph, optimized as a 1200px WebP, with free-estimate copy and a responsive two-column layout. Fictional people are not presented as customer testimonials.
+- 216 tests passed, including short review input acceptance and short project notes. Build/typecheck and Capacitor sync passed. Live/browser visual checks and signed native builds are unverified; CocoaPods/Xcode are unavailable on Windows.
+- No new environment variables or migration. Not deployed.

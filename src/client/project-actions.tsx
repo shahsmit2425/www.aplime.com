@@ -359,7 +359,6 @@ export function EditDetails({
           <input
             name="title"
             defaultValue={p.title}
-            minLength={5}
             maxLength={120}
             required
           />
@@ -368,7 +367,6 @@ export function EditDetails({
           <textarea
             name="description"
             defaultValue={p.description}
-            minLength={20}
             maxLength={4000}
             required
           />

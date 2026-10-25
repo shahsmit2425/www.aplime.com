@@ -585,10 +585,10 @@ export function PublicPage({
           <ServicePage category={category} />
         ) : (
           <>
-            <section className="hero">
+            <section className="hero hero-with-photo">
               <div>
                 <p className="eyebrow">
-                  <T>{"A LITTLE HELP. A HAPPIER HOME."}</T>
+                  <T>{"FREE ESTIMATES. LOCAL PROFESSIONALS."}</T>
                 </p>
                 <h1>
                   <T>{"Your next home project."}</T> <br />
@@ -652,6 +652,10 @@ export function PublicPage({
                   </span>
                 </div>
               </div>
+              <figure className="estimate-hero-photo">
+                <img src="/free-estimate-consultation.webp" alt="Illustrative scene of a homeowner discussing a project estimate with a home-service professional" width="1200" height="800" decoding="async" fetchPriority="high" />
+                <figcaption><strong>Start with a free estimate.</strong><span>Share your project, compare options, and choose your professional.</span></figcaption>
+              </figure>
             </section>
             <section id="services">
               <div className="section-heading">

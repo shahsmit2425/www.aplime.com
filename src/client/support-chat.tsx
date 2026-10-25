@@ -91,7 +91,6 @@ export function SupportChat({
             <input
               name="subject"
               required
-              minLength={5}
               maxLength={120}
               placeholder="What would you like help with?"
             />
@@ -101,7 +100,6 @@ export function SupportChat({
             <textarea
               name="body"
               required
-              minLength={10}
               maxLength={4000}
               rows={5}
               placeholder="Tell us what happened and how we can help."

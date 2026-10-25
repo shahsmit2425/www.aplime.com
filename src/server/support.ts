@@ -59,8 +59,8 @@ export function supportRouter(admin: boolean) {
   router.post("/conversations", async (req, res) => {
     const input = z
       .object({
-        subject: z.string().trim().min(5).max(120),
-        body: z.string().trim().min(10).max(4000),
+        subject: z.string().trim().min(1).max(120),
+        body: z.string().trim().min(1).max(4000),
         ...(admin ? { userId: z.string().min(1).max(128) } : {}),
       })
       .strict()

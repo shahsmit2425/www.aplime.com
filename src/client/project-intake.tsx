@@ -580,7 +580,6 @@ export function ProjectIntake(props: Props) {
                 <Field label={customAnswer ? "Tell us more" : "Your answer"}>
                   <textarea
                     required
-                    minLength={2}
                     maxLength={1490}
                     rows={3}
                     value={
@@ -708,7 +707,6 @@ export function ProjectIntake(props: Props) {
               <textarea
                 value={draft.description}
                 maxLength={4000}
-                minLength={20}
                 rows={4}
                 placeholder="Measurements, access instructions, or anything your answers haven’t covered…"
                 onChange={(e) => patch({ description: e.target.value })}
@@ -783,7 +781,6 @@ export function ProjectIntake(props: Props) {
               <Field label="Project title">
                 <input
                   required
-                  minLength={5}
                   maxLength={120}
                   value={draft.title || `${draft.category} project`}
                   onChange={(e) => patch({ title: e.target.value })}

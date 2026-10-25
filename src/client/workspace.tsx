@@ -686,7 +686,6 @@ export default function Workspace() {
               <Field label="Your name">
                 <input
                   name="name"
-                  minLength={2}
                   maxLength={80}
                   required
                   autoComplete="name"

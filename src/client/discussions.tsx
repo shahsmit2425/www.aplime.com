@@ -426,7 +426,6 @@ export function Discussions({
             <textarea
               name="body"
               required
-              minLength={10}
               maxLength={4000}
               placeholder="Introduce your business and ask a clear question about the scope, measurements, access, or timing."
             />

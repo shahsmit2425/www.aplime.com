@@ -60,7 +60,6 @@ export function AwardResponse({
             Reason for declining (the customer can see this)
             <textarea
               value={reason}
-              minLength={5}
               maxLength={1000}
               onChange={(event) => setReason(event.target.value)}
             />

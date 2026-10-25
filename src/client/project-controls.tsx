@@ -325,7 +325,6 @@ export function ProjectControls({
                 <textarea
                   name="reason"
                   required
-                  minLength={intent === "dispute" ? 10 : 5}
                   maxLength={intent === "dispute" ? 2000 : 1000}
                 />
               </Field>

@@ -307,7 +307,7 @@ api.put("/account", async (req, res) => {
   const q = req as AuthRequest;
   const data = z
     .object({
-      name: z.string().trim().min(2).max(80),
+      name: z.string().trim().min(1).max(80),
       emailAlerts: z.boolean(),
       emailCategories: z
         .object({
@@ -762,7 +762,7 @@ api.post("/projects/:id/review", async (req, res) => {
 api.post("/reviews/:id/reply", async (req, res) => {
   const q = req as AuthRequest;
   const { reply } = z
-    .object({ reply: z.string().trim().min(2).max(1500) })
+    .object({ reply: z.string().trim().min(1).max(1500) })
     .strict()
     .parse(q.body);
   await transaction(async (c) => {
@@ -857,8 +857,8 @@ api.post("/support", async (req, res) => {
   const q = req as AuthRequest;
   const data = z
     .object({
-      subject: z.string().trim().min(5).max(120),
-      body: z.string().trim().min(10).max(3000),
+      subject: z.string().trim().min(1).max(120),
+      body: z.string().trim().min(1).max(3000),
     })
     .strict()
     .parse(q.body);

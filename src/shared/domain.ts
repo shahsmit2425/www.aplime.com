@@ -211,16 +211,16 @@ export type Workspace = {
 };
 const text = (min: number, max: number) => z.string().trim().min(min).max(max);
 export const signupSchema = z
-  .object({ name: text(2, 80), role: z.enum(["customer", "pro"]) })
+  .object({ name: text(1, 80), role: z.enum(["customer", "pro"]) })
   .strict();
 export const profileSchema = z
   .object({
-    business: text(2, 100),
+    business: text(1, 100),
     details: businessDetailsSchema,
     category: z.enum(categories),
-    bio: text(20, 2000),
+    bio: text(1, 2000),
     placeId: text(3, 300),
-    address: text(5, 300),
+    address: text(1, 300),
     rate: z.number().min(1).max(10000),
     serviceRadiusMiles: z.number().int().min(1).max(100),
     available: z.boolean(),
@@ -233,12 +233,12 @@ export const projectSchema = z
   .object({
     contactPhone: z.string().max(40).optional(),
     contactConsent: z.boolean().optional(),
-    title: text(5, 120),
-    description: text(20, 4000),
+    title: text(1, 120),
+    description: text(1, 4000),
     category: z.enum(categories),
     intake: z.record(z.string().max(64), text(1, 1500)),
     placeId: text(3, 300),
-    address: text(5, 300),
+    address: text(1, 300),
     addressUnit: z.string().trim().max(100).default(""),
     urgency: z.enum(["urgent", "this_week", "this_month", "flexible"]),
     propertyType: z.enum(["home", "apartment", "condo", "commercial", "other"]),
@@ -273,7 +273,7 @@ export const projectSchema = z
         answer &&
         question.options &&
         !question.options.includes(answer) &&
-        !/^Other: .{2,1493}$/s.test(answer)
+        !/^Other: .{1,1493}$/s.test(answer)
       )
         context.addIssue({
           code: z.ZodIssueCode.custom,
@@ -331,8 +331,8 @@ export const actionSchema = z
           })
           .strict()
           .optional(),
-        title: text(5, 120),
-        description: text(20, 4000),
+        title: text(1, 120),
+        description: text(1, 4000),
         urgency: z.enum(["urgent", "this_week", "this_month", "flexible"]),
         budgetMin: z.number().int().min(0).max(10000000).nullable(),
         budgetMax: z.number().int().min(0).max(10000000).nullable(),
@@ -340,23 +340,23 @@ export const actionSchema = z
       .strict(),
     z.object({ type: z.literal("accept_award") }).strict(),
     z
-      .object({ type: z.literal("decline_award"), reason: text(5, 1000) })
+      .object({ type: z.literal("decline_award"), reason: text(1, 1000) })
       .strict(),
     z.object({ type: z.literal("withdraw_award") }).strict(),
     z.object({ type: z.literal("start") }).strict(),
     z
-      .object({ type: z.literal("withdraw_quote"), reason: text(5, 1000) })
+      .object({ type: z.literal("withdraw_quote"), reason: text(1, 1000) })
       .strict(),
     z.object({ type: z.literal("complete") }).strict(),
     z.object({ type: z.literal("confirm_completion") }).strict(),
     z
-      .object({ type: z.literal("reject_completion"), reason: text(5, 1000) })
+      .object({ type: z.literal("reject_completion"), reason: text(1, 1000) })
       .strict(),
-    z.object({ type: z.literal("pause"), reason: text(5, 1000) }).strict(),
+    z.object({ type: z.literal("pause"), reason: text(1, 1000) }).strict(),
     z.object({ type: z.literal("resume") }).strict(),
     z.object({ type: z.literal("archive") }).strict(),
     z.object({ type: z.literal("restore") }).strict(),
-    z.object({ type: z.literal("delete"), reason: text(5, 1000) }).strict(),
+    z.object({ type: z.literal("delete"), reason: text(1, 1000) }).strict(),
     z
       .object({
         type: z.literal("respond_cancellation"),
@@ -372,14 +372,14 @@ export const actionSchema = z
         accept: z.boolean(),
       })
       .strict(),
-    z.object({ type: z.literal("cancel"), reason: text(5, 1000) }).strict(),
+    z.object({ type: z.literal("cancel"), reason: text(1, 1000) }).strict(),
     z
       .object({
         type: z.literal("reschedule"),
         scheduledAt: z.string().datetime(),
       })
       .strict(),
-    z.object({ type: z.literal("dispute"), reason: text(10, 2000) }).strict(),
+    z.object({ type: z.literal("dispute"), reason: text(1, 2000) }).strict(),
   ])
   .superRefine((action, context) => {
     if (
@@ -396,7 +396,7 @@ export const actionSchema = z
       if (
         !action.assessmentRequired &&
         !action.estimatedDays &&
-        action.timeline.length < 3
+        action.timeline.trim().length < 1
       )
         context.addIssue({
           code: z.ZodIssueCode.custom,

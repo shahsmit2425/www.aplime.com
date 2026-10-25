@@ -773,7 +773,6 @@ function ProjectDetail() {
                   <Field label="Reason">
                     <textarea
                       name="reason"
-                      minLength={action === "cancel" ? 5 : 10}
                       maxLength={2000}
                       required
                     />
@@ -974,7 +973,6 @@ function ProjectDetail() {
                               <textarea
                                 name="reason"
                                 required
-                                minLength={5}
                                 maxLength={1000}
                               />
                             </Field>
@@ -1169,7 +1167,6 @@ function Reviews() {
             <Field label="How did it go?">
               <textarea
                 name="body"
-                minLength={10}
                 maxLength={2000}
                 rows={5}
                 required
@@ -1224,7 +1221,6 @@ function Reviews() {
                   <Field label="Your reply">
                     <textarea
                       name="reply"
-                      minLength={2}
                       maxLength={1500}
                       required
                     />
@@ -1284,7 +1280,6 @@ function Settings() {
             <input
               name="name"
               defaultValue={data.user.name}
-              minLength={2}
               maxLength={80}
               required
             />

@@ -6516,3 +6516,15 @@ summary:focus-visible {
   background: #f7f8fa;
   border-color: #bfc9cf;
 }
+
+/* A real-world consultation visual, within the restrained homepage layout. */
+.hero.hero-with-photo {display:grid;grid-template-columns:1fr 1fr;max-width:none;gap:48px;text-align:left;align-items:center;}
+.hero-with-photo h1 {font-size:clamp(36px,4.3vw,58px);margin-left:0;}
+.hero-with-photo .lede,.hero-with-photo .hero-project-start {margin-left:0;}
+.hero-with-photo .trust-row {justify-content:flex-start;}
+.estimate-hero-photo {margin:0;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#fff;}
+.estimate-hero-photo img {display:block;width:100%;height:auto;aspect-ratio:3/2;object-fit:cover;}
+.estimate-hero-photo figcaption {padding:20px 24px;display:grid;gap:6px;}
+.estimate-hero-photo strong {font-size:20px;color:var(--ink);}
+.estimate-hero-photo span {font-size:16px;color:var(--muted);line-height:1.6;}
+@media(max-width:850px){.hero.hero-with-photo{grid-template-columns:1fr;gap:28px;padding-top:32px;}.hero-with-photo h1{font-size:clamp(36px,6vw,52px);}.estimate-hero-photo{max-width:640px;}}

@@ -88,7 +88,7 @@ test("review requires verified ZIP, matching address ZIP, timing and sensible bu
   assert.equal(firstInvalidStep(draft), "budget");
   draft.budgetMin = null;
   draft.description = "Too short";
-  assert.equal(firstInvalidStep(draft), "notes");
+  assert.equal(firstInvalidStep(draft), null);
 });
 test("restored guest details survive sign-in but account-owned drafts never cross users and expire", () => {
   const now = Date.now();

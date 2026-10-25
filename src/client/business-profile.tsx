@@ -185,7 +185,6 @@ export function BusinessProfile() {
                   name="business"
                   defaultValue={p?.business}
                   required
-                  minLength={2}
                   maxLength={100}
                   autoComplete="organization"
                 />
@@ -203,7 +202,6 @@ export function BusinessProfile() {
                 name="bio"
                 defaultValue={p?.bio}
                 required
-                minLength={20}
                 maxLength={2000}
                 rows={3}
                 placeholder="What do you do, and how can you help customers?"

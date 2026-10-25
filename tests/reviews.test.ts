@@ -13,7 +13,7 @@ test.after(async () => {
   await db.close();
   await pool.end();
 });
-test("review inputs require an intentional valid rating and substantive bounded text", () => {
+test("review inputs require an intentional valid rating and nonblank bounded text", () => {
   for (const rating of [undefined, 0, 6, 2.5, "5"])
     assert.equal(
       reviewInput.safeParse({ rating, body: "Detailed feedback" }).success,
@@ -86,4 +86,8 @@ test("public reviews preserve negative feedback, paginate deterministically and 
   assert.ok(
     (await publicReviews("pro", 0)).reviews.every((r) => !r.completedProject),
   );
+});
+
+test("short review text is accepted without a minimum character count",()=>{
+ assert.equal(reviewInput.safeParse({rating:5,body:"OK"}).success,true);
 });
