@@ -41,6 +41,7 @@ import {
   Menu,
   X,
   LogOut,
+  ChevronDown,
   Heart,
 } from "lucide-react";
 import type { Workspace as Data } from "../shared/domain.js";
@@ -1051,28 +1052,14 @@ export default function Workspace() {
               ref={headerRef}
             >
               {dashboardBrand}
-              <LanguageSelect
-                onChange={async (language) => {
-                  await request("/account/language", { language }, "PUT");
-                  setData((current) =>
-                    current
-                      ? {
-                          ...current,
-                          user: {
-                            ...current.user,
-                            settings: { ...current.user.settings, language },
-                          },
-                        }
-                      : current,
-                  );
-                }}
-              />
               <nav
                 className="workspace-primary-nav"
                 aria-label="Main navigation"
               >
                 {renderLinks(
-                  links.filter(([p]) => !["notifications", "help"].includes(p)),
+                  links.filter(
+                    ([p]) => !["notifications", "help", "settings"].includes(p),
+                  ),
                 )}
               </nav>
               <div className="actions">
@@ -1094,24 +1081,81 @@ export default function Workspace() {
                   run={run}
                   go={go}
                 />
-                <button
-                  type="button"
-                  className="workspace-signout secondary"
-                  onClick={signOutToLogin}
-                  aria-label="Sign out"
+                <details
+                  className="workspace-account-menu"
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                      event.currentTarget.open = false;
+                      event.currentTarget.querySelector("summary")?.focus();
+                    }
+                  }}
                 >
-                  <LogOut size={17} />
-                  <span>
-                    <T>{"Sign out"}</T>
-                  </span>
-                </button>
-                <button
-                  className="avatar"
-                  aria-label="Account settings"
-                  onClick={() => go("settings")}
-                >
-                  {data.user.name.slice(0, 1)}
-                </button>
+                  <summary aria-label="Account menu">
+                    <span className="avatar" aria-hidden="true">
+                      {data.user.name.slice(0, 1)}
+                    </span>
+                    <ChevronDown size={16} aria-hidden="true" />
+                  </summary>
+                  <div className="workspace-account-panel">
+                    <div className="workspace-account-heading">
+                      <strong>{data.user.name}</strong>
+                      <small>
+                        <T>
+                          {data.user.role === "pro"
+                            ? "Professional"
+                            : "Customer"}
+                        </T>
+                      </small>
+                    </div>
+                    <div className="workspace-account-language">
+                      <span>Language / Idioma</span>
+                      <LanguageSelect
+                        onChange={async (language) => {
+                          await request(
+                            "/account/language",
+                            { language },
+                            "PUT",
+                          );
+                          setData((current) =>
+                            current
+                              ? {
+                                  ...current,
+                                  user: {
+                                    ...current.user,
+                                    settings: {
+                                      ...current.user.settings,
+                                      language,
+                                    },
+                                  },
+                                }
+                              : current,
+                          );
+                        }}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      className="workspace-account-action"
+                      onClick={(event) => {
+                        event.currentTarget
+                          .closest("details")
+                          ?.removeAttribute("open");
+                        go("settings");
+                      }}
+                    >
+                      <Settings size={18} />
+                      <T>{"Settings"}</T>
+                    </button>
+                    <button
+                      type="button"
+                      className="workspace-account-action"
+                      onClick={signOutToLogin}
+                    >
+                      <LogOut size={18} />
+                      <T>{"Sign out"}</T>
+                    </button>
+                  </div>
+                </details>
               </div>
             </header>
             <main

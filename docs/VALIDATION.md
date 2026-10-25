@@ -634,3 +634,7 @@ An isolated local preview fixture was prepared outside the repository. Headless 
 - Original messages, project descriptions, names and addresses are not machine-translated. Automatic chat translation is intentionally disabled at the user's request. No new provider, API key, environment variable, database migration or translation charge is introduced.
 - This is an initial interface localization release, not complete translation coverage: longer public informational/legal content, server-generated notices, emails, some dynamic labels/placeholders and the separate admin application remain English. Unknown interface strings fall back to English.
 - Validation: TypeScript, 213 automated tests, client/SSR/admin production builds passed. Language tests cover every service question/choice, fallback, and preservation of unmarked user content. Live account persistence, browser/device layout and signed native runtime have not been exercised.
+
+## Workspace navigation refresh — 2026-10-24
+- Grouped primary destinations together and moved language, Settings and Sign out into an avatar account panel. Kept notifications directly accessible and mobile navigation intact. Added consistent spacing, focus styles, borders and active-tab treatment; Escape closes the account panel.
+- TypeScript and production client/SSR/admin builds passed; all 213 tests passed with localhost networking enabled. Capacitor sync completed; CocoaPods/Xcode unavailable on Windows. Live signed-in browser layout and signed native builds have not been verified.

@@ -6551,3 +6551,148 @@ body {
     min-height: 200px;
   }
 }
+
+/* Keep destinations together; account utilities have their own compact menu. */
+.workspace-header.topbar {
+  gap: clamp(16px, 2vw, 32px);
+  padding: 12px 2.8%;
+  min-height: 84px;
+  border-bottom: 1px solid #d2dfd1;
+  box-shadow: 0 3px 14px #173d2610;
+}
+.workspace-header .workspace-primary-nav {
+  justify-content: center;
+  gap: 5px;
+}
+.workspace-header .workspace-primary-nav .nav-link {
+  padding: 12px 13px;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+}
+.workspace-header .workspace-primary-nav .nav-link.active {
+  background: #e4f1df;
+  color: #075b38;
+  box-shadow: inset 0 -3px #dfbd30;
+}
+.workspace-header > .actions {
+  padding-left: 18px;
+  border-left: 1px solid #dce5d9;
+  gap: 12px;
+  flex-wrap: nowrap;
+}
+.workspace-account-menu {
+  position: relative;
+}
+.workspace-account-menu > summary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 3px 7px 3px 3px;
+  border: 1px solid transparent;
+  border-radius: 28px;
+  cursor: pointer;
+  list-style: none;
+  color: #174e35;
+}
+.workspace-account-menu > summary::-webkit-details-marker {
+  display: none;
+}
+.workspace-account-menu > summary:hover,
+.workspace-account-menu[open] > summary {
+  background: #eff5eb;
+  border-color: #c7d8c3;
+}
+.workspace-account-menu > summary:focus-visible {
+  outline: 3px solid #15804e;
+  outline-offset: 3px;
+}
+.workspace-account-menu[open] > summary > svg {
+  transform: rotate(180deg);
+}
+.workspace-account-panel {
+  position: absolute;
+  top: calc(100% + 14px);
+  right: 0;
+  z-index: 90;
+  width: min(300px, calc(100vw - 32px));
+  padding: 12px;
+  border: 1px solid #b8cdb3;
+  border-radius: 18px;
+  background: #fffef9;
+  box-shadow: 0 16px 44px #173d2626;
+}
+.workspace-account-heading {
+  display: grid;
+  gap: 4px;
+  padding: 8px 10px 14px;
+  border-bottom: 1px solid #dce5d9;
+}
+.workspace-account-heading strong {
+  font-size: 17px;
+  overflow-wrap: anywhere;
+}
+.workspace-account-heading small {
+  color: #647969;
+  font-size: 14px;
+}
+.workspace-account-language {
+  display: grid;
+  gap: 8px;
+  padding: 14px 10px;
+  font-size: 14px;
+  color: #536851;
+}
+.workspace-account-language .language-picker,
+.workspace-account-language select {
+  width: 100%;
+  max-width: none;
+}
+.workspace-account-panel .workspace-account-action {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 46px;
+  padding: 10px;
+  border: 0;
+  background: transparent;
+  color: #174e35;
+  box-shadow: none;
+  font-size: 16px;
+  justify-content: flex-start;
+  border-radius: 9px;
+}
+.workspace-account-panel .workspace-account-action:hover {
+  background: #edf4e8;
+}
+@media (min-width: 851px) and (max-width: 1250px) {
+  .workspace-header.topbar {
+    gap: 12px;
+    padding-inline: 20px;
+  }
+  .workspace-header .workspace-primary-nav {
+    justify-content: flex-start;
+  }
+  .workspace-header .workspace-primary-nav .nav-link {
+    padding: 10px;
+    gap: 5px;
+  }
+}
+@media (max-width: 850px) {
+  .workspace-header.topbar {
+    min-height: 74px;
+    padding: 10px 18px;
+    gap: 10px;
+  }
+  .workspace-header > .actions {
+    border-left: 0;
+    padding-left: 0;
+    gap: 7px;
+  }
+  .workspace-header .workspace-menu {
+    display: inline-flex;
+  }
+}
