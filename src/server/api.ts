@@ -294,7 +294,7 @@ api.put("/profile/preferences", async (req, res) => {
 });
 api.put("/account/language", async (req, res) => {
   const { language } = z
-    .object({ language: z.enum(["en", "es"]) })
+    .object({ language: z.literal("en") })
     .strict()
     .parse(req.body);
   await pool.query(

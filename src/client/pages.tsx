@@ -1,7 +1,7 @@
 import { ReviewPhotoEditor } from "./review-photos.js";
 import { ProjectContact } from "./project-contact.js";
 import { RatingPicker, ReviewCard } from "./reviews.js";
-import { T, LanguageSelect } from "../shared/language.js";
+import { T } from "../shared/language.js";
 import { ProjectIntake } from "./project-intake.js";
 import { OpportunityResponse } from "./opportunity-response.js";
 import { EstimateForm } from "./estimate-form.js";
@@ -1266,19 +1266,6 @@ function Settings() {
       <Head title={<T>{"Settings"}</T>}>
         <T>{"Manage your account preferences."}</T>
       </Head>
-      <Panel title="Preferred language">
-        <LanguageSelect
-          onChange={(language) =>
-            request("/account/language", { language }, "PUT")
-          }
-        />
-        <p>
-          <T>
-            Automatic chat translation is not enabled. Messages stay in their
-            original language.
-          </T>
-        </p>
-      </Panel>
       <Panel title="Account details">
         <Form
           busy={busy}

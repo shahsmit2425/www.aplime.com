@@ -1,4 +1,4 @@
-import { T, useT, useLanguage } from "./language.js";
+import { T, useT } from "./language.js";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   ArrowDown,
@@ -224,7 +224,6 @@ export function ChatLog({
   ownLabel?: string;
 }) {
   const t = useT();
-  const { language } = useLanguage();
   const log = useRef<HTMLDivElement>(null),
     nearBottom = useRef(true),
     previous = useRef("");
@@ -275,7 +274,7 @@ export function ChatLog({
               new Date(messages[i - 1].time).toDateString() !==
                 new Date(m.time).toDateString()) && (
               <div className="chat-day">
-                {new Date(m.time).toLocaleDateString(language === "es" ? "es-US" : "en-US", {
+                {new Date(m.time).toLocaleDateString("en-US", {
                   month: "short",
                   day: "numeric",
                   year: "numeric",

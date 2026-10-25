@@ -1,4 +1,4 @@
-import { T, LanguageSelect } from "./shared/language.js";
+import { T } from "./shared/language.js";
 import { serviceSlug } from "./shared/service-questionnaires.js";
 import { ArrowUpRight } from "lucide-react";
 import { Menu, MessageCircle, FileText } from "lucide-react";
@@ -484,7 +484,6 @@ export function PublicPage({
         <T>{"Skip to content"}</T>{" "}
       </a>
       <header className="public-header">
-        <LanguageSelect />
         <Brand />
         <nav aria-label="Main navigation">
           <a href="/#services">

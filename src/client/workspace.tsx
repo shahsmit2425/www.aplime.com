@@ -1,9 +1,4 @@
-import {
-  T,
-  LanguageSelect,
-  useLanguage,
-  languageOf,
-} from "../shared/language.js";
+import { T } from "../shared/language.js";
 import { IntakeAccountNotice } from "./intake-account-notice.js";
 import { ProjectIntake } from "./project-intake.js";
 import { hasIntakeResume } from "./project-intake-state.js";
@@ -179,7 +174,6 @@ function RoleChoice({
   );
 }
 export default function Workspace() {
-  const { setLanguage } = useLanguage();
   const [route, setRoute] = useState(readRoute),
     [signupRole, setSignupRole] = useState<"customer" | "pro">(() =>
       !hasIntakeResume() &&
@@ -338,8 +332,6 @@ export default function Workspace() {
       if (result.user.role === "admin")
         throw new Error("Use the separate administrator application.");
       setData(result);
-      if (result.user.settings.language)
-        setLanguage(languageOf(result.user.settings.language));
       setNeedsAccount(false);
       const current = readRoute().page;
       const next = pageAfterAuthentication(
@@ -527,7 +519,6 @@ export default function Workspace() {
     return (
       <div className="auth-page auth-loading-page" role="status">
         <Brand />
-        <LanguageSelect />
         <div className="auth-loader" aria-hidden="true" />
         <div>
           <h1>
@@ -544,8 +535,7 @@ export default function Workspace() {
       <div className="guest-intake-page">
         <header className="guest-intake-header">
           <Brand />
-          <LanguageSelect />
-          <span>
+            <span>
             <T>{"Plan your project · Sign in at the final step"}</T>
           </span>
         </header>
@@ -572,7 +562,6 @@ export default function Workspace() {
     return (
       <div className="auth-page">
         <Brand />
-        <LanguageSelect />
         <section className="auth-card">
           <p className="eyebrow">
             <T>{"WELCOME TO APLIME"}</T>
@@ -1116,32 +1105,6 @@ export default function Workspace() {
                             : "Customer"}
                         </T>
                       </small>
-                    </div>
-                    <div className="workspace-account-language">
-                      <span>Language / Idioma</span>
-                      <LanguageSelect
-                        onChange={async (language) => {
-                          await request(
-                            "/account/language",
-                            { language },
-                            "PUT",
-                          );
-                          setData((current) =>
-                            current
-                              ? {
-                                  ...current,
-                                  user: {
-                                    ...current.user,
-                                    settings: {
-                                      ...current.user.settings,
-                                      language,
-                                    },
-                                  },
-                                }
-                              : current,
-                          );
-                        }}
-                      />
                     </div>
                     <button
                       type="button"

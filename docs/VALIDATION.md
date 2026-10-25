@@ -658,3 +658,10 @@ An isolated local preview fixture was prepared outside the repository. Headless 
 - Live R2, production deployment, device photo pickers, and signed iOS/Android builds have not been exercised in this turn. Browser visual verification is still needed.
 
 - Local verification: 217 tests passed; web/admin production builds and typecheck passed; Capacitor sync completed. CocoaPods/Xcode checks were skipped on Windows.
+
+
+## 2026-10-25: English-only interface
+
+- Removed language selectors from public pages, login/intake headers, account menu and Settings. Removed the Spanish translation bundle.
+- Shared text helpers now preserve English UI and original user-written content. Legacy browser language storage is cleared on mount; saved account Spanish preferences are ignored. The compatibility language endpoint accepts English only.
+- Validation: 215 tests passed, typecheck and web/admin builds passed. Capacitor sync completed; signed native builds and browser visual checks were not performed. No new migration or environment variables required.

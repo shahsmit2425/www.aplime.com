@@ -2,7 +2,7 @@ import {ReviewPhotoGallery} from "./review-photos.js";
 import { useEffect, useState } from "react";
 import { Star, ShieldCheck } from "lucide-react";
 import { request } from "./api.js";
-import { T, useT, useLanguage } from "../shared/language.js";
+import { T, useT } from "../shared/language.js";
 import type { ReviewPage, PublicReview } from "../shared/reviews.js";
 export function RatingPicker() {
   const [rating, setRating] = useState(0);
@@ -46,7 +46,6 @@ export function ReviewCard({
     Partial<PublicReview>;
   context?: string;
 }) {
-  const { language } = useLanguage();
   return (
     <article className="trusted-review">
       <header>
@@ -62,7 +61,7 @@ export function ReviewCard({
           <strong>{review.rating}/5</strong>
         </div>
         <time dateTime={review.createdAt}>
-          {new Date(review.createdAt).toLocaleDateString(language, {
+          {new Date(review.createdAt).toLocaleDateString("en-US", {
             month: "short",
             day: "numeric",
             year: "numeric",
