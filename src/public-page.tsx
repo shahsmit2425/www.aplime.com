@@ -652,24 +652,6 @@ export function PublicPage({
                   </span>
                 </div>
               </div>
-              <div className="hero-image">
-                <img
-                  src="/aplime-garden.webp"
-                  alt="Illustration of a welcoming home surrounded by a lush, sunlit garden"
-                  width="1536"
-                  height="1024"
-                  decoding="async"
-                  fetchPriority="high"
-                />
-                <div>
-                  <strong>
-                    <T>{"Less on your to-do list."}</T>
-                  </strong>
-                  <span>
-                    <T>{"More room for what matters."}</T>
-                  </span>
-                </div>
-              </div>
             </section>
             <section id="services">
               <div className="section-heading">

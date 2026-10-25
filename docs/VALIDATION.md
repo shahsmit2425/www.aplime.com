@@ -665,3 +665,11 @@ An isolated local preview fixture was prepared outside the repository. Headless 
 - Removed language selectors from public pages, login/intake headers, account menu and Settings. Removed the Spanish translation bundle.
 - Shared text helpers now preserve English UI and original user-written content. Legacy browser language storage is cleared on mount; saved account Spanish preferences are ignored. The compatibility language endpoint accepts English only.
 - Validation: 215 tests passed, typecheck and web/admin builds passed. Capacitor sync completed; signed native builds and browser visual checks were not performed. No new migration or environment variables required.
+
+
+## 2026-10-25: minimalist shared website theme
+
+- Removed the garden theme block and decorative garden markup from homepage and saved-professional pages. Neutral canvas, white surfaces, thin gray borders, sans-serif headings and restrained green actions replace botanical backgrounds, multicolored cards, hand-drawn accents and decorative hero banners.
+- Shared public/customer/pro presentation retains real uploaded photos, red favorites, status indicators, focus outlines and existing responsive layouts. Intake and chat use plain backgrounds; no business workflows changed.
+- 215 tests passed. Typecheck, web/admin builds and Capacitor sync passed. Windows cannot run CocoaPods or Xcode. In-app browser preview attempts to both localhost and 127.0.0.1 timed out, so rendered visual verification and physical-device testing remain unverified.
+- No environment variables or database migration required. Not deployed.

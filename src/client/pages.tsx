@@ -215,14 +215,6 @@ function Directory() {
               ? "Find a business for your next home project."
               : "Professionals matched to your project and location."}
         </Head>
-        <div className="directory-art" aria-hidden="true">
-          <img src="/aplime-garden.webp" alt="" width="1536" height="1024" />
-          <span>
-            Better homes.
-            <br />
-            Brighter days.
-          </span>
-        </div>
       </div>
       {page !== "saved" && openProjects.length > 0 && (
         <div className="directory-project-context">
