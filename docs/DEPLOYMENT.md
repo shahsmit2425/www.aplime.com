@@ -111,7 +111,7 @@ Use separate app records and Firebase native applications for:
 - `com.servicetones.app.staging`
 - `com.servicetones.app`
 
-The Firebase files must match the selected application's package/bundle ID and Firebase project. The mobile preparation script validates those relationships. Enable Google and Apple sign-in, register the Android certificate fingerprints, and enable the iOS Sign In with Apple capability on the provisioning profiles.
+The Firebase files must match the selected application's package/bundle ID and Firebase project. The mobile preparation script validates those relationships. Enable Google sign-in and register the Android certificate fingerprints.
 
 Google Play typically requires first-time console/app setup before API uploads. Create each app listing, configure Play App Signing, grant the service account release access, and finish the initial upload/required forms in Play Console. Android testing uploads use internal testing; production uploads are **drafts**, awaiting your release review.
 

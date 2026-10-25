@@ -681,3 +681,7 @@ An isolated local preview fixture was prepared outside the repository. Headless 
 - Homepage uses a generated illustrative consultation photograph, optimized as a 1200px WebP, with free-estimate copy and a responsive two-column layout. Fictional people are not presented as customer testimonials.
 - 216 tests passed, including short review input acceptance and short project notes. Build/typecheck and Capacitor sync passed. Live/browser visual checks and signed native builds are unverified; CocoaPods/Xcode are unavailable on Windows.
 - No new environment variables or migration. Not deployed.
+
+## Apple sign-in removal (2026-10-25)
+Removed Apple login/reauthentication, native provider registration, iOS sign-in entitlement and Apple auth CSP entries. Email/password and Google paths remain. Firebase console provider settings were not changed; disable Apple there separately for each environment without deleting user accounts. No new environment variables.
+Typecheck and production builds passed. Capacitor sync completed; signed native builds and live Firebase login were not tested. Test suite: 167 passed, 49 failed with local fetch errors; full integration validation remains outstanding.

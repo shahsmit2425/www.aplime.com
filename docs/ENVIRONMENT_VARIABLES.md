@@ -56,9 +56,9 @@ If migrating from the previous single group: create/populate both new groups fir
 
 The Blueprint disables external database access. Internal TLS uses Render's documented self-signed-certificate behavior; the special mode is rejected outside Render or for an unrelated hostname. Do not set `NODE_TLS_REJECT_UNAUTHORIZED=0`.
 
-## Firebase and Google/Apple authentication
+## Firebase and Google authentication
 
-Use a **separate Firebase project per environment**. Enable Email/Password, Google, and Apple in Firebase Authentication.
+Use a **separate Firebase project per environment**. Enable Email/Password and Google in Firebase Authentication.
 
 | Variable                     | Visibility                        | Value or source                                                                      |
 | ---------------------------- | --------------------------------- | ------------------------------------------------------------------------------------ |
@@ -341,3 +341,5 @@ An open checkout for the same price is resumed. Selecting another plan expires t
 These are backend-only settings. Existing `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` provide shared abuse limits; `REDIS_URL` continues to provide live transport/cache and does not replace those REST settings. With `NODE_ENV=production`, protected creation/public lookup requests return 503 if shared limits cannot be checked. Development/test without REST Redis use bounded local limits.
 
 See [Request security operations](REQUEST_SECURITY.md) for deployment checks and provider-side protections.
+
+Apple sign-in is no longer offered. Disable the Apple provider in Firebase Authentication for each environment separately; no environment variable changes are required. Do not delete existing user accounts.

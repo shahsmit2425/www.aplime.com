@@ -113,7 +113,6 @@ app.use(
         frameSrc: [
           "https://*.firebaseapp.com",
           "https://*.google.com",
-          "https://appleid.apple.com",
           "https://js.stripe.com",
           "https://*.js.stripe.com",
           "https://verify.stripe.com",

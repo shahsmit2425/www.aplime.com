@@ -2,7 +2,6 @@ import { initializeApp, getApps } from "firebase/app";
 import {
   getAuth,
   GoogleAuthProvider,
-  OAuthProvider,
   signInWithPopup,
   signInWithCredential,
   signInWithEmailAndPassword,
@@ -55,18 +54,6 @@ export async function google() {
     GoogleAuthProvider.credential(r.credential?.idToken),
   );
 }
-export async function apple() {
-  if (!Capacitor.isNativePlatform())
-    return signInWithPopup(auth(), new OAuthProvider("apple.com"));
-  const r = await FirebaseAuthentication.signInWithApple();
-  return signInWithCredential(
-    auth(),
-    new OAuthProvider("apple.com").credential({
-      idToken: r.credential?.idToken,
-      rawNonce: r.credential?.nonce,
-    }),
-  );
-}
 export async function logout() {
   await signOut(auth());
   if (Capacitor.isNativePlatform()) await FirebaseAuthentication.signOut();
@@ -86,28 +73,14 @@ export async function reauthenticate(password?: string) {
       user,
       EmailAuthProvider.credential(user.email || "", password),
     );
-  } else if (provider === "google.com" || provider === "apple.com") {
-    if (!Capacitor.isNativePlatform())
-      await reauthenticateWithPopup(
-        user,
-        provider === "google.com"
-          ? new GoogleAuthProvider()
-          : new OAuthProvider("apple.com"),
-      );
-    else if (provider === "google.com") {
+  } else if (provider === "google.com") {
+    if (!Capacitor.isNativePlatform()) {
+      await reauthenticateWithPopup(user, new GoogleAuthProvider());
+    } else {
       const r = await FirebaseAuthentication.signInWithGoogle();
       await reauthenticateWithCredential(
         user,
         GoogleAuthProvider.credential(r.credential?.idToken),
-      );
-    } else {
-      const r = await FirebaseAuthentication.signInWithApple();
-      await reauthenticateWithCredential(
-        user,
-        new OAuthProvider("apple.com").credential({
-          idToken: r.credential?.idToken,
-          rawNonce: r.credential?.nonce,
-        }),
       );
     }
   } else throw new Error("Sign out and sign in again, then retry.");

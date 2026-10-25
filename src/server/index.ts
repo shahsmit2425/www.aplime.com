@@ -58,7 +58,6 @@ app.use(
         frameSrc: [
           "https://*.firebaseapp.com",
           "https://*.google.com",
-          "https://appleid.apple.com",
         ],
         styleSrc: ["'self'", "'unsafe-inline'"],
         upgradeInsecureRequests: env.NODE_ENV === "production" ? [] : null,

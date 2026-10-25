@@ -46,7 +46,6 @@ import {
   login,
   register,
   google,
-  apple,
   logout,
   recover,
   verifyEmail,
@@ -856,18 +855,7 @@ export default function Workspace() {
                   >
                     <T>{"Continue with Google"}</T>{" "}
                   </button>
-                  <button
-                    className="secondary"
-                    disabled={busy}
-                    onClick={() =>
-                      void run(async () => {
-                        await configureSession(remember);
-                        await apple();
-                      }, "")
-                    }
-                  >
-                    <T>{"Continue with Apple"}</T>{" "}
-                  </button>
+
                 </div>
               )}
               <div className="auth-links">

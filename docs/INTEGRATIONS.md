@@ -2,9 +2,9 @@
 
 ## Firebase
 
-Create separate development, staging and production Firebase projects. Register a web app plus the matching iOS and Android IDs from `config/environments.json`. Enable email/password, Google and Apple sign-in. Add website domains under Authentication → Authorized domains. Keep service-account credentials only in Render.
+Create separate development, staging and production Firebase projects. Register a web app plus the matching iOS and Android IDs from `config/environments.json`. Enable email/password and Google sign-in. Add website domains under Authentication → Authorized domains. Keep service-account credentials only in Render.
 
-Native Google configuration uses the Capacitor Firebase Authentication plugin, native provider credentials and the Firebase JavaScript SDK. For Android, register upload and Play App Signing certificate SHA-1/SHA-256 fingerprints. For iOS, use a Firebase plist containing REVERSED_CLIENT_ID; the mobile script adds that callback scheme. Provisioning profiles must allow Sign In with Apple. Complete Apple's service/key configuration in Firebase for Apple authentication.
+Native Google configuration uses the Capacitor Firebase Authentication plugin, native provider credentials and the Firebase JavaScript SDK. For Android, register upload and Play App Signing certificate SHA-1/SHA-256 fingerprints. For iOS, use a Firebase plist containing REVERSED_CLIENT_ID; the mobile script adds that callback scheme.
 
 New profiles choose customer or professional once; the API stores the role. To create an administrator, an operator must set a Firebase custom claim `admin: true` and update that user's database role to `admin`. Never expose this operation as a public signup option. Both are checked on every admin request.
 
@@ -52,7 +52,7 @@ Use an Upstash REST database per environment for distributed rate limiting. Prov
 
 ## External validation required
 
-Provider configuration cannot be proven with dummy keys. After setup, test a real Firebase email verification, Google/Apple login on each platform, Stripe test Identity/Connect/Checkout/webhook/refund, R2 upload/download, two-participant Daily call, Maps lookup and a delivered Microsoft 365 email. Then repeat appropriate smoke tests against the live environment.
+Provider configuration cannot be proven with dummy keys. After setup, test a real Firebase email verification, Google login on each platform, Stripe test Identity/Connect/Checkout/webhook/refund, R2 upload/download, two-participant Daily call, Maps lookup and a delivered Microsoft 365 email. Then repeat appropriate smoke tests against the live environment.
 
 Primary references:
 - [Firebase token verification](https://firebase.google.com/docs/auth/admin/verify-id-tokens)

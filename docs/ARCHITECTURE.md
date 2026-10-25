@@ -12,7 +12,7 @@ src/
   client/
     workspace.tsx          Authenticated shell, routing, account lifecycle, refresh/error handling
     pages.tsx              Customer/provider workspace screens
-    auth.ts                Firebase web auth + native Google/Apple credentials
+    auth.ts                Firebase web auth + native Google credentials
     api.ts                 Bearer-token API client and native external-browser handling
     ui.tsx                 Shared accessible UI primitives
   public-page.tsx           Public landing, service, and professional pages
@@ -30,7 +30,7 @@ src/
     integrations/          Firebase, Stripe, Daily, R2, Upstash, Maps, Resend
     worker.ts              Durable email-outbox delivery with retries
 android/                   Android native wrapper and signing configuration
-ios/                       iOS native wrapper, Google/Apple integration and entitlements
+ios/                       iOS native wrapper, Google integration and entitlements
 config/environments.json   Branch → environment → mobile app identity
 scripts/                   Deployment, configuration and mobile packaging
 fastlane/                  TestFlight and Play distribution
