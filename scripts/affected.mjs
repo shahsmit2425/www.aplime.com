@@ -33,13 +33,7 @@ export function affected(paths) {
       result.web = true;
       continue;
     }
-    if (
-      [
-        "src/shared/seo-content.ts",
-        "src/shared/articles.ts",
-        "src/home-guides.tsx",
-      ].includes(file)
-    ) {
+    if (file === "src/shared/seo-content.ts") {
       result.web = true;
       continue;
     }

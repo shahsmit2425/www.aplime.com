@@ -1,5 +1,3 @@
-import { HomeGuides, GuideCards } from "./home-guides.js";
-import { findGuide, homeGuides } from "./shared/articles.js";
 import { T } from "./shared/language.js";
 import { serviceSlug } from "./shared/service-questionnaires.js";
 import { ArrowUpRight } from "lucide-react";
@@ -128,7 +126,6 @@ function ServicePage({ category }: { category: (typeof categories)[number] }) {
             >
               Find {category.toLowerCase()} professionals
             </LinkButton>
-            <a href="/blog">Homeowner guides</a>
             <a href="/how-it-works">See how Aplime works →</a>
           </div>
         </div>
@@ -468,11 +465,7 @@ export function PublicPage({
   profile?: Profile;
   supportEmail?: string;
 }) {
-  const guide = findGuide(path);
-  const guidesIndex = path === "/blog";
-  const slug = path.startsWith("/services/")
-    ? decodeURIComponent(path.split("/")[2] || "")
-    : "";
+  const slug = decodeURIComponent(path.split("/")[2] || "");
   const category = categories.find((c) => serviceSlug(c) === slug);
   const information =
     informationalPages[path as keyof typeof informationalPages];
@@ -484,9 +477,7 @@ export function PublicPage({
     !profile &&
     !legal &&
     !information &&
-    !servicesIndex &&
-    !guide &&
-    !guidesIndex;
+    !servicesIndex;
   return (
     <>
       <a className="skip-link" href="#main-content">
@@ -498,7 +489,6 @@ export function PublicPage({
           <a href="/#services">
             <T>{"Explore services"}</T>
           </a>
-          <a href="/blog">Homeowner guides</a>
           <a href="/how-it-works">
             <T>{"How it works"}</T>
           </a>
@@ -517,7 +507,6 @@ export function PublicPage({
             <a href="/services">
               <T>{"Explore services"}</T>
             </a>
-            <a href="/blog">Homeowner guides</a>
             <a href="/how-it-works">
               <T>{"How it works"}</T>
             </a>
@@ -534,9 +523,7 @@ export function PublicPage({
         </details>
       </header>
       <main className="public-main" id="main-content">
-        {guide || guidesIndex ? (
-          <HomeGuides guide={guide} />
-        ) : legal ? (
+        {legal ? (
           <article className="panel">
             <p className="eyebrow">APLIME</p>
             <h1>
@@ -666,21 +653,8 @@ export function PublicPage({
                 </div>
               </div>
               <figure className="estimate-hero-photo">
-                <img
-                  src="/free-estimate-consultation.webp"
-                  alt="Illustrative scene of a homeowner discussing a project estimate with a home-service professional"
-                  width="1200"
-                  height="800"
-                  decoding="async"
-                  fetchPriority="high"
-                />
-                <figcaption>
-                  <strong>Start with a free estimate.</strong>
-                  <span>
-                    Share your project, compare options, and choose your
-                    professional.
-                  </span>
-                </figcaption>
+                <img src="/free-estimate-consultation.webp" alt="Illustrative scene of a homeowner discussing a project estimate with a home-service professional" width="1200" height="800" decoding="async" fetchPriority="high" />
+                <figcaption><strong>Start with a free estimate.</strong><span>Share your project, compare options, and choose your professional.</span></figcaption>
               </figure>
             </section>
             <section id="services">
@@ -711,14 +685,6 @@ export function PublicPage({
               <a className="service-guide-link" href="/services">
                 <T>{"Explore service guides"}</T> <ArrowUpRight size={17} />
               </a>
-            </section>
-            <section className="guide-home">
-              <div className="section-heading">
-                <p className="eyebrow">PLAN WITH CONFIDENCE</p>
-                <h2>Good projects start with good questions.</h2>
-                <a href="/blog">Explore homeowner guides →</a>
-              </div>
-              <GuideCards guides={homeGuides.slice(0, 3)} />
             </section>
             <section className="how">
               <div>
@@ -760,7 +726,6 @@ export function PublicPage({
           <T>{"Built around your home."}</T>
         </p>
         <nav>
-          <a href="/blog">Homeowner guides</a>
           <a href="/privacy">
             <T>{"Privacy"}</T>
           </a>
