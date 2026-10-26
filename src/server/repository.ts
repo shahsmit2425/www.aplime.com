@@ -101,11 +101,6 @@ export async function workspace(user: User): Promise<Workspace> {
     )
   ).rows.map((r) => camel<Project>(r));
   const ids = projects.map((p) => p.id);
-  const responseRows = await pool.query(
-    `SELECT r.* FROM project_responses r JOIN projects p ON p.id=r.project_id
-     WHERE p.customer_id=$1 OR r.pro_id=$1 ORDER BY r.updated_at DESC LIMIT 1000`,
-    [user.id],
-  );
   const matchRows =
     user.role === "customer"
       ? (
@@ -131,7 +126,7 @@ export async function workspace(user: User): Promise<Workspace> {
           ? ""
           : user.role === "pro"
             ? " WHERE p.id=$1"
-            : ` WHERE (${openDiscovery ? `(${visiblePro} AND ${unblockedSql("p", "$1")}) OR ` : ""}p.id=ANY($2::text[]) OR p.id IN (SELECT r.pro_id FROM project_responses r JOIN projects rp ON rp.id=r.project_id WHERE rp.customer_id=$1) OR p.id IN (SELECT pro_id FROM projects WHERE customer_id=$1) OR p.id IN (SELECT d.pro_id FROM project_discussions d JOIN projects pj ON pj.id=d.project_id WHERE pj.customer_id=$1) OR p.id IN (SELECT q.pro_id FROM quotes q JOIN projects pj ON pj.id=q.project_id WHERE pj.customer_id=$1) OR (NOT p.suspended AND ${unblockedSql("p", "$1")} AND p.id IN (SELECT pro_id FROM saved WHERE user_id=$1)))`) +
+            : ` WHERE (${openDiscovery ? `(${visiblePro} AND ${unblockedSql("p", "$1")}) OR ` : ""}p.id=ANY($2::text[]) OR p.id IN (SELECT pro_id FROM projects WHERE customer_id=$1) OR p.id IN (SELECT d.pro_id FROM project_discussions d JOIN projects pj ON pj.id=d.project_id WHERE pj.customer_id=$1) OR p.id IN (SELECT q.pro_id FROM quotes q JOIN projects pj ON pj.id=q.project_id WHERE pj.customer_id=$1) OR (NOT p.suspended AND ${unblockedSql("p", "$1")} AND p.id IN (SELECT pro_id FROM saved WHERE user_id=$1)))`) +
         (preview && user.role === "customer"
           ? " ORDER BY p.business,p.id"
           : " ORDER BY p.business LIMIT 500"),
@@ -247,7 +242,6 @@ export async function workspace(user: User): Promise<Workspace> {
   ]);
   return {
     user,
-    projectResponses: responseRows.rows.map((r) => camel(r)),
     projectDraft: projectDraft.rows[0] ? camel(projectDraft.rows[0]) : null,
     discoveryMode: preview ? "open" : env.MARKETPLACE_DISCOVERY_MODE,
     marketplacePreview: preview,

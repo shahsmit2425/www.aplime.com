@@ -5,9 +5,10 @@ import {
   categories,
   questionsFor,
 } from "../src/shared/service-questionnaires.js";
-import { projectSchema } from "../src/shared/domain.js";
+import { projectSchema, actionSchema } from "../src/shared/domain.js";
 import {
   initialIntake,
+  freshIntakeSession,
   intakeBudgetChoice,
   intakeQuestions,
   intakeSteps,
@@ -156,4 +157,30 @@ test("publishing requires a valid phone and explicit consent", () => {
   assert.equal(firstInvalidStep(draft), "contact");
   draft.contactPhone = "2015550123";
   assert.equal(firstInvalidStep(draft), null);
+});
+
+test("starting over resets answers, consent, photos and publication identifiers", () => {
+  const first = freshIntakeSession("customer-1");
+  first.draft.zip = "08859";
+  first.draft.contactConsent = true;
+  first.draft.intake = { rooms: "Kitchen" };
+  first.photoCount = 3;
+  first.savedProjectId = "old-project";
+  const restarted = freshIntakeSession("customer-1");
+  assert.deepEqual(restarted.draft, initialIntake());
+  assert.equal(restarted.owner, "customer-1");
+  assert.equal(restarted.step, "zip");
+  assert.equal(restarted.savedProjectId, null);
+  assert.equal(restarted.draftUpdatedAt, undefined);
+  assert.equal(restarted.photoCount, 0);
+  assert.notEqual(restarted.photoKey, first.photoKey);
+  assert.notEqual(restarted.clientKey, first.clientKey);
+  assert.equal(freshIntakeSession(null).owner, null);
+});
+test("retired opportunity response actions cannot enter the project workflow", () => {
+  for (const status of ["interested", "needs_details", "unavailable"])
+    assert.equal(
+      actionSchema.safeParse({ type: "respond_opportunity", status }).success,
+      false,
+    );
 });

@@ -4331,90 +4331,7 @@ test("project publish retry keys are scoped to the account and reject changed de
   );
 });
 
-test("opportunity responses enforce eligibility, deduplicate and stay private", async () => {
-  const pro = await approvedPro("responder");
-  const other = await approvedPro("other-responder");
-  const id = await lifecycleProject("requested", false);
-  await assert.rejects(
-    projectAction(id, customer, {
-      type: "respond_opportunity",
-      status: "interested",
-    }),
-    { status: 403 },
-  );
-  await query("UPDATE profiles SET zip='99999' WHERE id=$1", [pro.id]);
-  await assert.rejects(
-    projectAction(id, pro, {
-      type: "respond_opportunity",
-      status: "interested",
-    }),
-    { status: 403 },
-  );
-  await query("UPDATE profiles SET zip='10001' WHERE id=$1", [pro.id]);
-  await projectAction(id, pro, {
-    type: "respond_opportunity",
-    status: "needs_details",
-  });
-  const version = (await projectRow(id)).version;
-  await projectAction(id, pro, {
-    type: "respond_opportunity",
-    status: "needs_details",
-  });
-  assert.equal((await projectRow(id)).version, version);
-  assert.equal(
-    (await workspace(customer)).projectResponses?.filter(
-      (r) => r.projectId === id,
-    ).length,
-    1,
-  );
-  assert.equal(
-    (await workspace(other)).projectResponses?.filter((r) => r.projectId === id)
-      .length,
-    0,
-  );
-  assert.equal(
-    (await workspace(outsider)).projectResponses?.filter(
-      (r) => r.projectId === id,
-    ).length,
-    0,
-  );
-  await assert.rejects(
-    projectAction(
-      id,
-      pro,
-      { type: "respond_opportunity", status: "interested" },
-      version - 1,
-    ),
-    { status: 409 },
-  );
-  await projectAction(id, pro, {
-    type: "respond_opportunity",
-    status: "unavailable",
-  });
-  await projectAction(id, pro, estimate);
-  assert.equal(
-    (await query("SELECT * FROM project_responses WHERE project_id=$1", [id]))
-      .rows.length,
-    0,
-  );
-  await assert.rejects(
-    projectAction(id, pro, {
-      type: "respond_opportunity",
-      status: "unavailable",
-    }),
-    { status: 409 },
-  );
-  await query("UPDATE projects SET status='cancelled' WHERE id=$1", [id]);
-  await assert.rejects(
-    projectAction(id, pro, {
-      type: "respond_opportunity",
-      status: "interested",
-    }),
-    { status: 403 },
-  );
-});
-
-test("staged outreach expands once after a day and stops at three responders", async () => {
+test("staged outreach expands once after a day and stops at three pending estimates", async () => {
   const { notifyMatchingProfessionals } =
     await import("../src/server/project-events.js");
   const { queueEmailReminders } =
@@ -4447,15 +4364,15 @@ test("staged outreach expands once after a day and stops at three responders", a
   );
   for (const pro of first.slice(0, 3))
     await query(
-      "INSERT INTO project_responses(project_id,pro_id,status) VALUES($1,$2,'interested')",
-      [id, pro],
+      "INSERT INTO quotes(id,project_id,pro_id,amount,description) VALUES($1,$2,$3,10000,'Estimate')",
+      [randomUUID(), id, pro],
     );
   await query(
     "UPDATE project_outreach SET created_at=now()-interval '25 hours' WHERE project_id=$1",
     [id],
   );
   assert.equal((await notifyMatchingProfessionals(c, id)).length, 0);
-  await query("DELETE FROM project_responses WHERE project_id=$1", [id]);
+  await query("DELETE FROM quotes WHERE project_id=$1", [id]);
   assert.equal((await notifyMatchingProfessionals(c, id)).length, 5);
   await query(
     "UPDATE project_outreach SET created_at=now()-interval '25 hours' WHERE project_id=$1",

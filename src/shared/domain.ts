@@ -173,19 +173,7 @@ export type Upload = {
   size: number;
   status: string;
 };
-export type ProjectResponse = {
-  projectId: string;
-  proId: string;
-  status: "interested" | "needs_details" | "unavailable";
-  updatedAt: string;
-};
-export const responseLabels = {
-  interested: "Interested",
-  needs_details: "Needs more details",
-  unavailable: "Not available",
-};
 export type Workspace = {
-  projectResponses?: ProjectResponse[];
   projectDraft?: {
     payload: Record<string, any>;
     updatedAt: string;
@@ -313,12 +301,6 @@ export const actionSchema = z
       .strict(),
     z
       .object({ type: z.literal("decline"), quoteId: z.string().uuid() })
-      .strict(),
-    z
-      .object({
-        type: z.literal("respond_opportunity"),
-        status: z.enum(["interested", "needs_details", "unavailable"]),
-      })
       .strict(),
     z.object({ type: z.literal("open_request") }).strict(),
     z
@@ -448,12 +430,6 @@ export function allowedTransition(
 ) {
   const customer = user.role === "customer" && project.customerId === user.id,
     pro = user.role === "pro" && project.proId === user.id;
-  if (action === "respond_opportunity")
-    return (
-      user.role === "pro" &&
-      !project.proId &&
-      ["requested", "quoted"].includes(project.status)
-    );
   if (action === "quote")
     return (
       user.role === "pro" &&

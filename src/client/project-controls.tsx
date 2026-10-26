@@ -51,7 +51,7 @@ const descriptions = {
   ],
   delete: [
     "Remove project",
-    "Cancel this unassigned request and archive it from your list. Interested professionals will be notified; conversation and support history remain available.",
+    "Cancel this unassigned request and archive it from your list. Professionals involved in the project will be notified; conversation and support history remain available.",
   ],
   archive: [
     "Archive project",

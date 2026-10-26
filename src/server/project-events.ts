@@ -63,8 +63,7 @@ export async function notifyMatchingProfessionals(
   if (title !== "New service opportunity" && history.count) {
     const previous = await c.query(
       `SELECT f.id FROM project_outreach o JOIN profiles f ON f.id=o.pro_id
-      JOIN projects p ON p.id=o.project_id WHERE p.id=$1 AND ${matchSql()}
-      AND NOT EXISTS(SELECT 1 FROM project_responses r WHERE r.project_id=p.id AND r.pro_id=f.id AND r.status='unavailable')`,
+      JOIN projects p ON p.id=o.project_id WHERE p.id=$1 AND ${matchSql()}`,
       [projectId],
     );
     await notifyMany(
@@ -82,8 +81,7 @@ export async function notifyMatchingProfessionals(
   )
     return [];
   const responses = await c.query(
-    `SELECT pro_id FROM project_responses WHERE project_id=$1 AND status IN ('interested','needs_details')
-    UNION SELECT pro_id FROM quotes WHERE project_id=$1 AND status='pending'`,
+    `SELECT pro_id FROM quotes WHERE project_id=$1 AND status='pending'`,
     [projectId],
   );
   if (responses.rows.length >= 3) return [];
@@ -92,7 +90,6 @@ export async function notifyMatchingProfessionals(
       `SELECT f.id,p.category,p.zip FROM profiles f JOIN projects p ON p.id=$1 WHERE p.pro_id IS NULL AND p.status IN ('requested','quoted') AND ${matchSql()}
        AND NOT EXISTS (SELECT 1 FROM quotes q WHERE q.project_id=p.id AND q.pro_id=f.id)
        AND NOT EXISTS (SELECT 1 FROM project_outreach o WHERE o.project_id=p.id AND o.pro_id=f.id)
-       AND NOT EXISTS (SELECT 1 FROM project_responses r WHERE r.project_id=p.id AND r.pro_id=f.id)
        AND NOT EXISTS (SELECT 1 FROM notifications n WHERE n.user_id=f.id AND n.target_page='project' AND n.target_id=p.id::text AND n.title=$2 AND n.created_at>now()-interval '12 hours')
        ORDER BY ${rankSql()} LIMIT ${Math.min(ALERT_LIMIT, OUTREACH_LIMIT - history.count)}`,
       [projectId, title],

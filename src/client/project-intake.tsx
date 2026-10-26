@@ -28,6 +28,7 @@ import {
   INTAKE_KEY,
   INTAKE_RESUME,
   initialIntake,
+  freshIntakeSession,
   parseIntakeSession,
   intakeQuestions,
   intakeSteps,
@@ -257,6 +258,41 @@ export function ProjectIntake(props: Props) {
       setBusy(false);
     }
   }
+  async function startOver() {
+    if (session.savedProjectId) return;
+    if (
+      !window.confirm(
+        "Start over? This clears your answers, selected photos, and saved draft. Published projects are not affected.",
+      )
+    )
+      return;
+    // Keep pending photo writes from restoring discarded images during reset.
+    finished.current = true;
+    try {
+      await photoWrites.current.catch(() => {});
+      if (session.draftUpdatedAt && props.data?.user.role === "customer")
+        await request(
+          "/project-draft",
+          { updatedAt: session.draftUpdatedAt },
+          "DELETE",
+        );
+      await saveIntakePhotos(session.photoKey, []);
+      sessionStorage.removeItem(INTAKE_RESUME);
+      const fresh = freshIntakeSession(props.data?.user.id || null);
+      sessionStorage.setItem(INTAKE_KEY, JSON.stringify(fresh));
+      photoSnapshot.current = [];
+      setPhotos([]);
+      setSession(fresh);
+      setOther(false);
+      setCustomBudget(false);
+      setError("");
+      setProgress("");
+      setNotice("Started a new project. Enter your ZIP code to begin.");
+      heading.current?.focus();
+    } finally {
+      finished.current = false;
+    }
+  }
   async function persistPhotos() {
     if (photos.length || session.photoCount) await persistPhotoSnapshot();
     sessionStorage.setItem(
@@ -443,6 +479,16 @@ export function ProjectIntake(props: Props) {
           {index + 1} / {steps.length}
         </span>
       </div>
+      {!session.savedProjectId && (
+        <button
+          type="button"
+          className="text-button intake-restart"
+          disabled={busy}
+          onClick={() => void perform(startOver)}
+        >
+          Start over
+        </button>
+      )}
       <progress
         className="intake-progress"
         aria-label="Project request progress"

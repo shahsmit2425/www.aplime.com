@@ -11,8 +11,7 @@ export async function queueEmailReminders() {
       AND EXISTS(SELECT 1 FROM project_outreach o WHERE o.project_id=p.id)
       AND (SELECT max(created_at) FROM project_outreach o WHERE o.project_id=p.id)<now()-interval '24 hours'
       AND (SELECT count(*) FROM project_outreach o WHERE o.project_id=p.id)<15
-      AND (SELECT count(*) FROM (SELECT pro_id FROM project_responses r WHERE r.project_id=p.id AND r.status IN ('interested','needs_details')
-        UNION SELECT pro_id FROM quotes q WHERE q.project_id=p.id AND q.status='pending') responders)<3
+      AND (SELECT count(*) FROM (SELECT pro_id FROM quotes q WHERE q.project_id=p.id AND q.status='pending') responders)<3
       AND (p.outreach_checked_at IS NULL OR p.outreach_checked_at<now()-interval '24 hours')
       ORDER BY p.outreach_checked_at NULLS FIRST,p.created_at LIMIT 50 FOR UPDATE SKIP LOCKED`);
     for (const p of expand.rows) await notifyMatchingProfessionals(c, p.id);

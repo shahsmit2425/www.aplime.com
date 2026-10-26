@@ -1,6 +1,5 @@
 import { T } from "../shared/language.js";
 import { useState } from "react";
-import { responseLabels } from "../shared/domain.js";
 import { quotePrice, quoteTiming } from "../shared/estimates.js";
 import { SlidersHorizontal, ArrowUpRight } from "lucide-react";
 import { useWorkspace } from "./workspace.js";
@@ -10,7 +9,6 @@ import { SetupNotice } from "./setup-notice.js";
 
 export function ProDashboard() {
   const { data, go } = useWorkspace();
-  const [responseFilter, setResponseFilter] = useState("all");
   const [archived, setArchived] = useState(false);
   const projects = [
     ...new Map(
@@ -28,15 +26,7 @@ export function ProDashboard() {
   const availableMatches = [
     ...new Map(data.leads.map((p) => [p.id, p])).values(),
   ].filter((p) => !projectIds.has(p.id));
-  const responses = data.projectResponses || [];
-  const matches = availableMatches.filter((p) => {
-    const response = responses.find(
-      (r) => r.projectId === p.id && r.proId === data.user.id,
-    );
-    return responseFilter === "all"
-      ? response?.status !== "unavailable"
-      : response?.status === responseFilter;
-  });
+  const matches = availableMatches;
   const allProjects = [...data.projects, ...availableMatches];
   const estimates = data.quotes.filter((q) => q.proId === data.user.id);
   return (
@@ -76,11 +66,6 @@ export function ProDashboard() {
                 key={p.id}
                 project={p}
                 quotes={estimates}
-                responseLabel={
-                  responses.find(
-                    (r) => r.projectId === p.id && r.proId === data.user.id,
-                  )?.status
-                }
                 onOpen={() => go("project", p.id)}
               />
             ))}
@@ -96,20 +81,6 @@ export function ProDashboard() {
           }
           count={matches.length}
         />
-        <div className="actions" aria-label="Project responses">
-          {[["all", "Available"], ...Object.entries(responseLabels)].map(
-            ([value, label]) => (
-              <button
-                key={value}
-                className="secondary"
-                aria-pressed={responseFilter === value}
-                onClick={() => setResponseFilter(value)}
-              >
-                {label}
-              </button>
-            ),
-          )}
-        </div>
         {matches.length ? (
           <div className="project-card-grid">
             {matches.map((p) => (
@@ -117,11 +88,6 @@ export function ProDashboard() {
                 key={p.id}
                 project={p}
                 quotes={estimates}
-                responseLabel={
-                  responses.find(
-                    (r) => r.projectId === p.id && r.proId === data.user.id,
-                  )?.status
-                }
                 onOpen={() => go("project", p.id)}
               />
             ))}

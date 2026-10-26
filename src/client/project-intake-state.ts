@@ -213,3 +213,19 @@ export function intakeBudgetChoice(
     return "$2,000–$5,000";
   return "Set my own budget";
 }
+
+// A restart must not retain location, contact consent, photo or publishing identity.
+export function freshIntakeSession(owner: string | null): IntakeSession {
+  return {
+    version: 1,
+    updatedAt: Date.now(),
+    owner,
+    draft: initialIntake(),
+    step: "zip",
+    photoKey: crypto.randomUUID(),
+    clientKey: crypto.randomUUID(),
+    signature: "",
+    savedProjectId: null,
+    photoCount: 0,
+  };
+}

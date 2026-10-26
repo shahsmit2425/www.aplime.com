@@ -3,7 +3,7 @@ import { quotePrice, quoteTiming } from "../shared/estimates.js";
 import { ProfessionalCard } from "./marketplace-cards.js";
 import { ProfessionalActions } from "./professional-actions.js";
 import { CalendarDays, Users } from "lucide-react";
-import { responseLabels, type Project, type Quote } from "../shared/domain.js";
+import { type Project, type Quote } from "../shared/domain.js";
 import { useWorkspace } from "./workspace.js";
 import { Badge } from "./ui.js";
 import { SavePro } from "./project-actions.js";
@@ -17,15 +17,7 @@ export function ProjectProfessionals({
 }) {
   const { data, run, busy } = useWorkspace();
   const quotes = data.quotes.filter((q) => q.projectId === p.id);
-  const responses = (data.projectResponses || []).filter(
-    (r) => r.projectId === p.id,
-  );
   const profiles = projectProfessionals(p, data.profiles, quotes, false);
-  for (const response of responses) {
-    const profile = data.profiles.find((f) => f.id === response.proId);
-    if (profile && !profiles.some((f) => f.id === profile.id))
-      profiles.push(profile);
-  }
   // Retain estimate records even if a professional's profile is no longer available.
   const ids = [
     ...new Set([
@@ -84,14 +76,9 @@ export function ProjectProfessionals({
             profile?.business ||
             (assigned ? p.proName : null) ||
             "Professional";
-          const response = responses.find((r) => r.proId === proId);
           const matched = profile?.matchedProjectIds?.includes(p.id);
           const canContact =
             assigned ||
-            (!!response &&
-              response.status !== "unavailable" &&
-              !!profile &&
-              !profile.suspended) ||
             estimates.some((q) => ["pending", "accepted"].includes(q.status)) ||
             (open &&
               !p.proId &&
@@ -202,11 +189,6 @@ export function ProjectProfessionals({
                   {assigned
                     ? "Selected professional"
                     : `${p.category} · Covers your project area`}
-                </p>
-              )}
-              {response && (
-                <p className="professional-relationship">
-                  <Badge>{responseLabels[response.status]}</Badge>
                 </p>
               )}
               {estimatesContent}

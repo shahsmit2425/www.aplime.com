@@ -3,7 +3,6 @@ import { ProjectContact } from "./project-contact.js";
 import { RatingPicker, ReviewCard } from "./reviews.js";
 import { T } from "../shared/language.js";
 import { ProjectIntake } from "./project-intake.js";
-import { OpportunityResponse } from "./opportunity-response.js";
 import { EstimateForm } from "./estimate-form.js";
 import { emailCategories } from "../shared/email-alerts.js";
 import { quotePrice, quoteTiming } from "../shared/estimates.js";
@@ -503,12 +502,6 @@ function ProjectDetail() {
           onEdit={() => setEditing(true)}
         />
       )}
-      {!customer &&
-        data.user.role === "pro" &&
-        open &&
-        !p.proId &&
-        canQuote &&
-        !previewBlocked && <OpportunityResponse project={p} />}
       {editing && customer && (
         <section id="project-edit" aria-label="Edit project details">
           <EditDetails
@@ -771,11 +764,7 @@ function ProjectDetail() {
                   </Field>
                 ) : (
                   <Field label="Reason">
-                    <textarea
-                      name="reason"
-                      maxLength={2000}
-                      required
-                    />
+                    <textarea name="reason" maxLength={2000} required />
                   </Field>
                 )}
                 <button>
@@ -1165,12 +1154,7 @@ function Reviews() {
             />
             <RatingPicker />
             <Field label="How did it go?">
-              <textarea
-                name="body"
-                maxLength={2000}
-                rows={5}
-                required
-              />
+              <textarea name="body" maxLength={2000} rows={5} required />
               <small>
                 <T>
                   Describe the work, communication and results. Keep addresses,
@@ -1219,11 +1203,7 @@ function Reviews() {
                   }
                 >
                   <Field label="Your reply">
-                    <textarea
-                      name="reply"
-                      maxLength={1500}
-                      required
-                    />
+                    <textarea name="reply" maxLength={1500} required />
                   </Field>
                   <button>
                     <T>{"Reply"}</T>
