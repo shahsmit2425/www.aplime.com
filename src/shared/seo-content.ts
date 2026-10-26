@@ -1,3 +1,4 @@
+import { homeGuides, guidePath } from "./articles.js";
 import type { ServiceCategory } from "./service-questionnaires.js";
 
 export type ServiceSeoContent = {
@@ -515,6 +516,8 @@ export const generalFaqs: {
 ];
 
 export const seoStaticPaths = [
+  "/blog",
+  ...homeGuides.map(guidePath),
   "/services",
   ...Object.keys(informationalPages),
 ] as string[];

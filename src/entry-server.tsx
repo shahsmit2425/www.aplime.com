@@ -1,3 +1,9 @@
+import {
+  findGuide,
+  homeGuides,
+  guidePath,
+  guideDate,
+} from "./shared/articles.js";
 import { serviceSlug } from "./shared/service-questionnaires.js";
 import { renderToString } from "react-dom/server";
 import { PublicPage } from "./public-page.js";
@@ -46,6 +52,8 @@ export function renderPage(
   config: PublicConfig,
   profile?: Profile,
 ) {
+  const guide = findGuide(path);
+  const guidesIndex = path === "/blog";
   const category = categories.find(
     (item) => path === "/services/" + serviceSlug(item),
   );
@@ -55,6 +63,8 @@ export function renderPage(
   const privatePage = path.startsWith("/app");
   const legalPage = ["/privacy", "/terms"].includes(path);
   const valid =
+    !!guide ||
+    guidesIndex ||
     privatePage ||
     path === "/" ||
     servicesIndex ||
@@ -64,32 +74,40 @@ export function renderPage(
     legalPage;
   const homeDescription =
     "Find home-service professionals, compare itemized estimates, and manage project messages, calls, scheduling, and updates with Aplime.";
-  const title = profile
-    ? `${profile.business} | ${profile.category}${profile.details?.city ? ` in ${profile.details.city}, ${profile.details.state}` : ""} | Aplime`
-    : category
-      ? withBrand(serviceSeoContent[category].title)
-      : information
-        ? withBrand(information.title)
-        : servicesIndex
-          ? "Home Services Directory | Aplime"
-          : privatePage
-            ? "Your workspace | Aplime"
-            : !valid
-              ? "Page not found | Aplime"
-              : path === "/"
-                ? "Home Services Made Simple | Aplime"
-                : path === "/privacy"
-                  ? "Privacy Information | Aplime"
-                  : "Service Information | Aplime";
-  const description = profile
-    ? profile.bio.slice(0, 160)
-    : category
-      ? serviceSeoContent[category].description
-      : information
-        ? information.description
-        : servicesIndex
-          ? "Explore home-service categories, prepare a useful project request, and compare approved professional profiles and written estimates on Aplime."
-          : homeDescription;
+  const title = guide
+    ? withBrand(guide.title)
+    : guidesIndex
+      ? "New Jersey Homeowner Guides & Project Advice | Aplime"
+      : profile
+        ? `${profile.business} | ${profile.category}${profile.details?.city ? ` in ${profile.details.city}, ${profile.details.state}` : ""} | Aplime`
+        : category
+          ? withBrand(serviceSeoContent[category].title)
+          : information
+            ? withBrand(information.title)
+            : servicesIndex
+              ? "Home Services Directory | Aplime"
+              : privatePage
+                ? "Your workspace | Aplime"
+                : !valid
+                  ? "Page not found | Aplime"
+                  : path === "/"
+                    ? "Home Services Made Simple | Aplime"
+                    : path === "/privacy"
+                      ? "Privacy Information | Aplime"
+                      : "Service Information | Aplime";
+  const description = guide
+    ? guide.description
+    : guidesIndex
+      ? "Original guides for New Jersey homeowners: compare estimates, prepare for cleaning, plan junk removal, and ask better questions before hiring a professional."
+      : profile
+        ? profile.bio.slice(0, 160)
+        : category
+          ? serviceSeoContent[category].description
+          : information
+            ? information.description
+            : servicesIndex
+              ? "Explore home-service categories, prepare a useful project request, and compare approved professional profiles and written estimates on Aplime."
+              : homeDescription;
   const siteUrl = config.siteUrl.replace(/\/$/, "");
   const canonical = siteUrl + path;
   const indexable =
@@ -111,7 +129,48 @@ export function renderPage(
       : {}),
   };
   const graph: Record<string, unknown>[] = [organization];
-  if (profile) {
+  if (guide || guidesIndex) {
+    graph.push(
+      guide
+        ? {
+            "@type": "BlogPosting",
+            "@id": canonical + "#article",
+            headline: guide.title,
+            description,
+            url: canonical,
+            mainEntityOfPage: canonical,
+            datePublished: guideDate,
+            dateModified: guideDate,
+            author: { "@id": organization["@id"] },
+            publisher: { "@id": organization["@id"] },
+            articleSection: guide.category,
+            inLanguage: "en-US",
+          }
+        : {
+            "@type": "CollectionPage",
+            "@id": canonical + "#page",
+            name: title,
+            description,
+            url: canonical,
+            mainEntity: {
+              "@type": "ItemList",
+              itemListElement: homeGuides.map((item, index) => ({
+                "@type": "ListItem",
+                position: index + 1,
+                name: item.title,
+                url: siteUrl + guidePath(item),
+              })),
+            },
+          },
+    );
+    graph.push(
+      breadcrumbSchema(siteUrl, [
+        { name: "Home", path: "/" },
+        { name: "Homeowner guides", path: "/blog" },
+        ...(guide ? [{ name: guide.title, path }] : []),
+      ]),
+    );
+  } else if (profile) {
     graph.push({
       "@type": "ProfessionalService",
       "@id": canonical + "#business",
@@ -265,7 +324,9 @@ export function renderPage(
       escapeHtml(description) +
       '"/><meta property="og:url" content="' +
       escapeHtml(canonical) +
-      '"/><meta property="og:type" content="website"/><meta property="og:image" content="' +
+      '"/><meta property="og:type" content="' +
+      (guide ? "article" : "website") +
+      '"/><meta property="og:image" content="' +
       escapeHtml(socialImage) +
       '"/><meta property="og:image:width" content="1400"/><meta property="og:image:height" content="933"/><meta property="og:image:alt" content="A bright, welcoming home interior"/><meta name="twitter:card" content="summary_large_image"/><meta name="twitter:title" content="' +
       escapeHtml(title) +
