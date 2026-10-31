@@ -6,6 +6,7 @@ import { PublicPage } from "./public-page.js";
 import { fallbackConfig } from "./shared/config.js";
 import "./styles.css";
 import "./design-system.css";
+import "./mobile-workspace.css";
 // Retire the legacy preview's browser-only fictional data.
 try {
   localStorage.removeItem("servicetones-preview-v1");

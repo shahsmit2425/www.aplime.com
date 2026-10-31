@@ -50,7 +50,7 @@ export function affected(paths) {
       continue;
     }
     if (
-      /^(src\/client\/|src\/entry-client|src\/styles|src\/design-system\.css|public\/|index\.html|vite\.config)/.test(
+      /^(src\/client\/|src\/entry-client|src\/styles|src\/design-system\.css|src\/mobile-workspace\.css|public\/|index\.html|vite\.config)/.test(
         file,
       )
     ) {

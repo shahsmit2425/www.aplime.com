@@ -196,6 +196,22 @@ export default function Workspace() {
     [headerHeight, setHeaderHeight] = useState(110);
   const headerRef = useRef<HTMLElement>(null);
   useEffect(() => {
+    const viewport = window.visualViewport;
+    const updateViewport = () => {
+      document.documentElement.style.setProperty("--app-viewport-height", `${viewport?.height || window.innerHeight}px`);
+      document.documentElement.classList.toggle("app-keyboard-open", window.innerHeight - (viewport?.height || window.innerHeight) > 150);
+    };
+    updateViewport();
+    viewport?.addEventListener("resize", updateViewport);
+    window.addEventListener("resize", updateViewport);
+    return () => {
+      viewport?.removeEventListener("resize", updateViewport);
+      window.removeEventListener("resize", updateViewport);
+      document.documentElement.classList.remove("app-keyboard-open");
+      document.documentElement.style.removeProperty("--app-viewport-height");
+    };
+  }, []);
+  useEffect(() => {
     setSessionDelayed(false);
     if (!loading) return;
     const timer = setTimeout(() => setSessionDelayed(true), 20000);
@@ -1229,7 +1245,7 @@ export default function Workspace() {
             >
               <House size={21} />
               <span>
-                <T>{"Dashboard"}</T>
+                <T>{"Home"}</T>
               </span>
             </button>
             {data.user.role === "customer" ? (
@@ -1242,7 +1258,7 @@ export default function Workspace() {
                 >
                   <BriefcaseBusiness size={21} />
                   <span>
-                    <T>{"Post project"}</T>
+                    <T>{"Post"}</T>
                   </span>
                 </button>
                 <button

@@ -70,7 +70,11 @@ export function CustomerProjectHeader({
             })}
           </span>
         </div>
-        <p>{p.description}</p>
+        <p className="project-description-desktop">{p.description}</p>
+        <details className="project-description-mobile">
+          <summary>Project description</summary>
+          <p>{p.description}</p>
+        </details>
       </div>
     </header>
   );
