@@ -186,6 +186,7 @@ export default function Workspace() {
     [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null),
     [data, setData] = useState<Data | null>(null),
     [loading, setLoading] = useState(true),
+    [sessionDelayed, setSessionDelayed] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
@@ -194,6 +195,12 @@ export default function Workspace() {
     [notificationsOpen, setNotificationsOpen] = useState(false),
     [headerHeight, setHeaderHeight] = useState(110);
   const headerRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    setSessionDelayed(false);
+    if (!loading) return;
+    const timer = setTimeout(() => setSessionDelayed(true), 20000);
+    return () => clearTimeout(timer);
+  }, [loading]);
   useEffect(() => {
     const header = headerRef.current;
     if (!header) return;
@@ -518,14 +525,19 @@ export default function Workspace() {
     return (
       <div className="auth-page auth-loading-page" role="status">
         <Brand />
-        <div className="auth-loader" aria-hidden="true" />
+        {!sessionDelayed && <div className="auth-loader" aria-hidden="true" />}
         <div>
           <h1>
-            <T>{"Opening your Aplime account…"}</T>
+            <T>{sessionDelayed ? "Your session is taking longer than expected" : "Opening your Aplime account…"}</T>
           </h1>
           <p>
-            <T>{"Checking your secure session."}</T>
+            <T>{sessionDelayed ? "Check your internet connection and try again. Your saved account and projects will not be removed." : "Checking your secure session."}</T>
           </p>
+          {sessionDelayed && (
+            <button type="button" className="button primary" onClick={() => window.location.reload()}>
+              Try again
+            </button>
+          )}
         </div>
       </div>
     );

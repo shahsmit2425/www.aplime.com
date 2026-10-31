@@ -1,6 +1,8 @@
 import { initializeApp, getApps } from "firebase/app";
 import {
   getAuth,
+  initializeAuth,
+  indexedDBLocalPersistence,
   GoogleAuthProvider,
   signInWithPopup,
   signInWithCredential,
@@ -16,23 +18,34 @@ import {
   browserLocalPersistence,
   browserSessionPersistence,
   type User,
+  type Auth,
 } from "firebase/auth";
 import { Capacitor } from "@capacitor/core";
 import { FirebaseAuthentication } from "@capacitor-firebase/authentication";
 import { fallbackConfig } from "../shared/config.js";
 import { createOrResume } from "./registration.js";
+let clientAuth: Auth | undefined;
 export async function configureSession(remember: boolean) {
   await setPersistence(
     auth(),
-    remember || Capacitor.isNativePlatform()
-      ? browserLocalPersistence
-      : browserSessionPersistence,
+    Capacitor.isNativePlatform()
+      ? indexedDBLocalPersistence
+      : remember ? browserLocalPersistence : browserSessionPersistence,
   );
 }
 export function auth() {
+  if (clientAuth) return clientAuth;
   const c = window.__CONFIG__ || fallbackConfig;
   if (!c.firebase.apiKey) throw new Error("Sign-in is not configured yet.");
-  return getAuth(getApps()[0] || initializeApp(c.firebase));
+  const app = getApps()[0] || initializeApp(c.firebase);
+  // Native Google login supplies credentials through the plugin. Do not load
+  // the browser popup/redirect resolver (and its iframe) inside WKWebView.
+  clientAuth = Capacitor.isNativePlatform()
+    ? initializeAuth(app, {
+        persistence: [indexedDBLocalPersistence, browserLocalPersistence],
+      })
+    : getAuth(app);
+  return clientAuth;
 }
 export async function login(email: string, password: string) {
   return signInWithEmailAndPassword(auth(), email, password);
