@@ -1,3 +1,4 @@
+import { ZoomableImage } from "./zoomable-image.js";
 import { T } from "../shared/language.js";
 import { useEffect, useRef, useState } from "react";
 import { ImagePlus, Upload, X, Eye, Trash2, RefreshCw } from "lucide-react";
@@ -441,7 +442,7 @@ export function BusinessMedia({
               <T>{"Close"}</T>{" "}
             </button>
           </div>
-          <img src={view.url} alt={view.label} />
+          <ZoomableImage key={view.url} src={view.url} alt={view.label} />
         </dialog>
       )}
     </Panel>

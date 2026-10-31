@@ -136,6 +136,27 @@ async function assertSlot(
   if (!available(Date.parse(value), profile, busy))
     fail(409, "That time is no longer available. Choose another slot.");
 }
+async function assertInstant(
+  c: pg.PoolClient,
+  p: Project,
+  proId: string,
+  exclude?: string,
+) {
+  const { profile, busy } = await calendar(
+    c,
+    proId,
+    p.customerId,
+    exclude,
+    true,
+  );
+  const startsAt = new Date(Date.now()).toISOString();
+  if (!available(Date.parse(startsAt), profile, busy))
+    fail(
+      409,
+      "An instant call is not available now. Choose a scheduled time or send a message.",
+    );
+  return startsAt;
+}
 callMeetings.get("/call-meetings", async (req, res) => {
   await closeDueMeetings(req.account.id);
   res.setHeader("Cache-Control", "no-store");
@@ -192,6 +213,8 @@ callMeetings.post("/call-meetings", async (req, res) => {
   const result = await transaction(async (c) => {
     const p = await getProject(c, b.projectId);
     await maySchedule(c, p, b.proId, req.account);
+    if (b.instant && req.account.id !== p.customerId)
+      fail(403, "Only the customer can request an urgent video call.");
     const existing = (
       await c.query("SELECT * FROM scheduled_calls WHERE id=$1", [b.id])
     ).rows[0];
@@ -201,13 +224,17 @@ callMeetings.post("/call-meetings", async (req, res) => {
       if (
         m.projectId !== p.id ||
         m.proId !== b.proId ||
-        Date.parse(m.startsAt) !== Date.parse(b.startsAt) ||
+        !!m.instant !== b.instant ||
+        (!b.instant && Date.parse(m.startsAt) !== Date.parse(b.startsAt!)) ||
         m.mode !== b.mode
       )
         fail(409, "This meeting request changed. Please reopen scheduling.");
       return m;
     }
-    await assertSlot(c, p, b.proId, b.startsAt);
+    const startsAt = b.instant
+      ? await assertInstant(c, p, b.proId)
+      : b.startsAt!;
+    if (!b.instant) await assertSlot(c, p, b.proId, startsAt);
     if (
       (
         await c.query(
@@ -220,18 +247,43 @@ callMeetings.post("/call-meetings", async (req, res) => {
         409,
         "You already have an active meeting with this person. Manage it in Schedule before creating another.",
       );
+    if (
+      b.instant &&
+      (
+        await c.query(
+          "SELECT 1 FROM scheduled_calls WHERE customer_id=$1 AND instant AND created_at > now()-interval '5 minutes' LIMIT 1",
+          [p.customerId],
+        )
+      ).rowCount
+    )
+      fail(
+        429,
+        "Please wait five minutes before sending another urgent call request.",
+      );
     const thread = await ensurePairConversation(c, p.id, p.customerId, b.proId);
     const m = (
       await c.query(
-        "INSERT INTO scheduled_calls(id,project_id,customer_id,pro_id,starts_at,mode,proposed_at,proposed_by) VALUES($1,$2,$3,$4,$5,$6,$5,$7) RETURNING *",
-        [b.id, p.id, p.customerId, b.proId, b.startsAt, b.mode, req.account.id],
+        "INSERT INTO scheduled_calls(id,project_id,customer_id,pro_id,starts_at,mode,proposed_at,proposed_by,instant) VALUES($1,$2,$3,$4,$5,$6,$5,$7,$8) RETURNING *",
+        [
+          b.id,
+          p.id,
+          p.customerId,
+          b.proId,
+          startsAt,
+          b.mode,
+          req.account.id,
+          b.instant,
+        ],
       )
     ).rows[0];
     await notify(
       c,
       req.account.id === p.customerId ? b.proId : p.customerId,
       "Call meeting requested",
-      p.title + ": review the proposed time in Schedule.",
+      p.title +
+        (b.instant
+          ? ": urgent video call requested. Accept in Schedule when you are ready; the 10-minute call starts when accepted."
+          : ": review the proposed time in Schedule."),
       { page: "schedule", id: b.id },
     );
     await recordProjectActivity(
@@ -239,7 +291,9 @@ callMeetings.post("/call-meetings", async (req, res) => {
       p.id,
       req.account.id,
       "call_requested",
-      `A ${b.mode} call was requested.`,
+      b.instant
+        ? "An urgent video call was requested."
+        : `A ${b.mode} call was requested.`,
     );
     return { ...camel(m), conversationId: thread.id };
   });
@@ -297,7 +351,7 @@ callMeetings.post("/call-meetings/:id/actions", async (req, res) => {
         if (Date.parse(a.startsAt) === Date.parse(m.proposedAt || m.startsAt))
           fail(409, "Choose a different time.");
         await c.query(
-          "UPDATE scheduled_calls SET proposed_at=$2,proposed_by=$3 WHERE id=$1",
+          "UPDATE scheduled_calls SET proposed_at=$2,proposed_by=$3,instant=false WHERE id=$1",
           [id, a.startsAt, req.account.id],
         );
         title = "New call time proposed";
@@ -305,11 +359,19 @@ callMeetings.post("/call-meetings/:id/actions", async (req, res) => {
         if (!m.proposedAt || m.proposedBy === req.account.id)
           fail(403, "Only the other participant can respond to this proposal.");
         if (a.accept) {
-          await assertSlot(c, p, m.proId, m.proposedAt, id, 0);
-          await c.query(
-            "UPDATE scheduled_calls SET starts_at=proposed_at,status='confirmed',proposed_at=NULL,proposed_by=NULL WHERE id=$1",
-            [id],
-          );
+          if (m.instant) {
+            const start = await assertInstant(c, p, m.proId, id);
+            await c.query(
+              "UPDATE scheduled_calls SET starts_at=$2,status='confirmed',proposed_at=NULL,proposed_by=NULL WHERE id=$1",
+              [id, start],
+            );
+          } else {
+            await assertSlot(c, p, m.proId, m.proposedAt, id, 0);
+            await c.query(
+              "UPDATE scheduled_calls SET starts_at=proposed_at,status='confirmed',proposed_at=NULL,proposed_by=NULL WHERE id=$1",
+              [id],
+            );
+          }
           title = "Call meeting confirmed";
         } else {
           await c.query(
@@ -407,5 +469,9 @@ callMeetings.post("/call-meetings/:id/join", async (req, res) => {
       { page: "schedule", id },
     );
   });
-  res.json(room);
+  res.json({
+    ...room,
+    endsAt: Date.parse(result.m.startsAt) + CALL_MINUTES * 60000,
+    mode: result.m.mode,
+  });
 });

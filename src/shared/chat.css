@@ -630,3 +630,9 @@
 .chat-search {
   background: #f0f4e5;
 }
+
+.chat-actions-disclosure { position: relative; flex-shrink: 0; }
+.chat-actions-disclosure > summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 8px; padding: 10px 14px; min-height: 44px; border: 1px solid #dfe5e9; border-radius: 12px; font-size: 13px; font-weight: 600; color: #086747; }
+.chat-actions-disclosure > summary::-webkit-details-marker { display: none; }
+.chat-actions-disclosure[open] .chat-header-actions { padding: 10px; background: #fff; border: 1px solid #dfe5e9; border-radius: 14px; box-shadow: 0 8px 24px #182d3a18; position: absolute; z-index: 10; right: 0; top: calc(100% + 6px); min-width: 220px; display: flex; flex-direction: column; align-items: stretch; }
+.chat-actions-disclosure[open] .chat-header-actions button span { display: inline; }

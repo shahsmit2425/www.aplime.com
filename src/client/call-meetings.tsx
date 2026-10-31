@@ -1,5 +1,5 @@
 import { T } from "../shared/language.js";
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import {
   CalendarPlus,
   CalendarDays,
@@ -17,7 +17,7 @@ import {
   type CallMeeting,
   type CallSlots,
 } from "../shared/meetings.js";
-import { request, openExternal } from "./api.js";
+import { request } from "./api.js";
 import { useWorkspace } from "./workspace.js";
 import { useMeetings } from "./meeting-state.js";
 import { Badge } from "./ui.js";
@@ -27,7 +27,9 @@ const when = (s: string) =>
     dateStyle: "medium",
     timeStyle: "short",
   });
-const localDay = (s: string) => new Date(s).toLocaleDateString("en-CA");
+const dayFormatter = new Intl.DateTimeFormat("en-CA");
+const localDay = (s: string) => dayFormatter.format(new Date(s));
+const CallRoom = lazy(() => import("./call-room.js"));
 export function ScheduleCallButton({
   projectId,
   proId,
@@ -108,6 +110,7 @@ export function CallScheduler({
   const dialog = useRef<HTMLDialogElement>(null),
     requestId = useRef(crypto.randomUUID());
   const [slots, setSlots] = useState<CallSlots | null>(null),
+    [instant, setInstant] = useState(false),
     [day, setDay] = useState(""),
     [time, setTime] = useState(""),
     [mode, setMode] = useState<"audio" | "video">(meeting?.mode || "video"),
@@ -143,7 +146,30 @@ export function CallScheduler({
       active = false;
     };
   }, [projectId, proId, meeting?.id, attempt]);
-  const days = [...new Set(slots?.slots.map(localDay) || [])];
+  const groups = useMemo(() => {
+    const result = new Map<
+      string,
+      { label: string; times: { value: string; label: string }[] }
+    >();
+    const dateLabel = new Intl.DateTimeFormat(undefined, {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    });
+    const timeLabel = new Intl.DateTimeFormat(undefined, {
+      hour: "numeric",
+      minute: "2-digit",
+    });
+    for (const value of slots?.slots || []) {
+      const date = new Date(value),
+        key = localDay(value);
+      if (!result.has(key))
+        result.set(key, { label: dateLabel.format(date), times: [] });
+      result.get(key)!.times.push({ value, label: timeLabel.format(date) });
+    }
+    return result;
+  }, [slots]);
+  const days = [...groups.keys()];
   return (
     <dialog
       ref={dialog}
@@ -183,6 +209,43 @@ export function CallScheduler({
         </strong>
         <span>{project?.title || meeting?.title}</span>
       </p>
+      {!meeting && data.user.role === "customer" && (
+        <div
+          className="meeting-request-kind"
+          role="group"
+          aria-label="When to call"
+        >
+          <button
+            type="button"
+            className="secondary"
+            disabled={busy}
+            aria-pressed={!instant}
+            onClick={() => setInstant(false)}
+          >
+            Choose a time
+          </button>
+          <button
+            type="button"
+            className="secondary"
+            disabled={busy}
+            aria-pressed={instant}
+            onClick={() => {
+              setInstant(true);
+              setMode("video");
+            }}
+          >
+            Urgent video request
+          </button>
+        </div>
+      )}
+      {instant && (
+        <p className="meeting-proposal">
+          Ask this professional to call now. They must accept first, and may be
+          unavailable. The 10-minute call starts when accepted. You can cancel
+          or choose a later time. For immediate danger, contact emergency
+          services.
+        </p>
+      )}
       <p>
         A {CALL_MINUTES}-minute call. The other person confirms your request.{" "}
         {meeting?.status === "confirmed" &&
@@ -204,7 +267,7 @@ export function CallScheduler({
           Review meetings
         </button>
       )}
-      {!slots ? (
+      {!slots && !instant ? (
         <div>
           {!error ? (
             <p role="status">Loading available times…</p>
@@ -220,7 +283,7 @@ export function CallScheduler({
             </button>
           )}
         </div>
-      ) : !days.length ? (
+      ) : !days.length && !instant ? (
         <div className="meeting-no-slots">
           <p>
             No open call times in the next 21 days. Ask the professional to
@@ -241,7 +304,7 @@ export function CallScheduler({
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (!time || busy) return;
+            if ((!time && !instant) || busy) return;
             setBusy(true);
             setError("");
             void request(
@@ -258,8 +321,9 @@ export function CallScheduler({
                     id: requestId.current,
                     projectId,
                     proId,
-                    startsAt: time,
-                    mode,
+                    ...(instant
+                      ? { instant: true, mode: "video" }
+                      : { startsAt: time, mode }),
                   },
             )
               .then(() => {
@@ -290,7 +354,7 @@ export function CallScheduler({
           }}
         >
           <fieldset disabled={busy || stale}>
-            {!meeting && (
+            {!meeting && !instant && (
               <div className="meeting-mode" role="group" aria-label="Call type">
                 {(["video", "audio"] as const).map((m) => (
                   <button
@@ -306,61 +370,65 @@ export function CallScheduler({
                 ))}
               </div>
             )}
-            <label>
-              Choose a date
-              <select
-                value={day}
-                onChange={(e) => {
-                  setDay(e.target.value);
-                  setTime("");
-                }}
-              >
-                {days.map((d) => (
-                  <option key={d} value={d}>
-                    {new Date(
-                      slots.slots.find((s) => localDay(s) === d)!,
-                    ).toLocaleDateString(undefined, {
-                      weekday: "long",
-                      month: "short",
-                      day: "numeric",
-                    })}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <p className="meeting-zone">
-              Times shown in {Intl.DateTimeFormat().resolvedOptions().timeZone}.
-              Professional’s work schedule: {slots.timeZone}.
-            </p>
-            <div
-              className="meeting-slots"
-              role="group"
-              aria-label="Available call times"
-            >
-              {slots.slots
-                .filter((s) => localDay(s) === day)
-                .map((s) => (
-                  <button
-                    type="button"
-                    key={s}
-                    className="secondary"
-                    aria-pressed={time === s}
-                    onClick={() => setTime(s)}
-                  >
-                    {new Date(s).toLocaleTimeString(undefined, {
-                      hour: "numeric",
-                      minute: "2-digit",
-                    })}
-                  </button>
-                ))}
-            </div>
+            {!instant && (
+              <>
+                <p>
+                  <strong>Choose a date</strong>
+                </p>
+                <div
+                  className="meeting-days"
+                  role="group"
+                  aria-label="Available dates"
+                >
+                  {days.map((d) => (
+                    <button
+                      type="button"
+                      className="secondary"
+                      key={d}
+                      aria-pressed={day === d}
+                      onClick={() => {
+                        setDay(d);
+                        setTime("");
+                      }}
+                    >
+                      {groups.get(d)!.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="meeting-zone">
+                  Times shown in{" "}
+                  {Intl.DateTimeFormat().resolvedOptions().timeZone}.
+                  Professional’s work schedule: {slots?.timeZone}.
+                </p>
+                <div
+                  className="meeting-slots"
+                  role="group"
+                  aria-label="Available call times"
+                >
+                  {(groups.get(day)?.times || []).map(({ value: s, label }) => (
+                    <button
+                      type="button"
+                      key={s}
+                      className="secondary"
+                      aria-pressed={time === s}
+                      onClick={() => setTime(s)}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+            {time && !instant && <p role="status">Selected: {when(time)}</p>}
             <div className="actions">
-              <button disabled={!time}>
+              <button disabled={!time && !instant}>
                 {busy
                   ? "Sending…"
                   : meeting
                     ? "Propose new time"
-                    : "Request meeting"}
+                    : instant
+                      ? "Send urgent request"
+                      : "Request meeting"}
               </button>
               <button type="button" className="secondary" onClick={onClose}>
                 <T>{"Cancel"}</T>{" "}
@@ -386,6 +454,11 @@ export function CallMeetings({
   const [error, setError] = useState(""),
     [busy, setBusy] = useState(""),
     [editing, setEditing] = useState<CallMeeting | null>(null);
+  const [joining, setJoining] = useState<{
+    url: string;
+    endsAt: number;
+    audioOnly: boolean;
+  } | null>(null);
   const targeted = useRef("");
   useEffect(() => {
     if (!id || targeted.current === id) return;
@@ -462,7 +535,8 @@ export function CallMeetings({
         {shown.map((m) => {
           const active = callIsActive(m, now),
             awaiting = !!m.proposedAt && m.proposedBy !== data.user.id,
-            proposalExpired = !!m.proposedAt && Date.parse(m.proposedAt) <= now,
+            proposalExpired =
+              !m.instant && !!m.proposedAt && Date.parse(m.proposedAt) <= now,
             ended = Date.parse(m.startsAt) + CALL_MINUTES * 60000 <= now,
             status =
               !active && m.status === "confirmed"
@@ -503,14 +577,21 @@ export function CallMeetings({
               </div>
               <p className="meeting-date">
                 <CalendarDays size={16} />
-                {when(m.startsAt)} · {CALL_MINUTES} min · {m.mode} call
+                {m.instant && m.status === "requested"
+                  ? "Urgent request · Starts when accepted"
+                  : when(m.startsAt)}{" "}
+                · {CALL_MINUTES} min · {m.mode} call
               </p>
               {active && m.proposedAt && (
                 <p className="meeting-proposal">
                   {m.status === "confirmed"
                     ? "Proposed new time: "
                     : "Requested time: "}
-                  <strong>{when(m.proposedAt)}</strong>
+                  <strong>
+                    {m.instant
+                      ? "As soon as you are ready"
+                      : when(m.proposedAt)}
+                  </strong>
                   {m.proposedBy === data.user.id
                     ? " · Waiting for confirmation"
                     : " · Your response needed"}
@@ -533,8 +614,9 @@ export function CallMeetings({
                       }
                     >
                       <Check size={16} />
-                      <T>{"Confirm"}</T>{" "}
-                      {m.status === "confirmed" ? "new time" : "meeting"}
+                      {m.instant
+                        ? "Accept — start 10-minute call"
+                        : `Confirm ${m.status === "confirmed" ? "new time" : "meeting"}`}
                     </button>
                     <button
                       className="secondary"
@@ -554,7 +636,13 @@ export function CallMeetings({
                     onClick={() => {
                       setBusy(m.id);
                       void request(`/call-meetings/${m.id}/join`, {})
-                        .then((r) => openExternal(r.url))
+                        .then((r) =>
+                          setJoining({
+                            url: r.url,
+                            endsAt: r.endsAt,
+                            audioOnly: r.mode === "audio",
+                          }),
+                        )
                         .catch((e) => setError(e.message))
                         .finally(() => setBusy(""));
                     }}
@@ -628,6 +716,11 @@ export function CallMeetings({
             void refresh();
           }}
         />
+      )}
+      {joining && (
+        <Suspense fallback={<p role="status">Opening call controls…</p>}>
+          <CallRoom {...joining} onClose={() => setJoining(null)} />
+        </Suspense>
       )}
     </section>
   );

@@ -85,6 +85,10 @@ project = project
 await writeFile(projectPath, project);
 let plist = await readFile("ios/App/App/Info.plist", "utf8");
 plist = plist.replace(
+  /(<key>CFBundleName<\/key>\s*<string>)[^<]*(<\/string>)/,
+  "$1" + target.appName + "$2",
+);
+plist = plist.replace(
   /(<key>CFBundleDisplayName<\/key>\s*<string>)[^<]*(<\/string>)/,
   "$1" + target.appName + "$2",
 );

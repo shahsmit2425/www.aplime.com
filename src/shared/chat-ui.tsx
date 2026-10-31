@@ -208,7 +208,10 @@ export function ChatHeader({
         <h3>{title}</h3>
         {context || <small>{subtitle}</small>}
       </div>
-      <div className="chat-header-actions">{actions}</div>
+      {actions && <details className="chat-actions-disclosure">
+        <summary aria-label="Conversation actions">Actions <span aria-hidden="true">⌄</span></summary>
+        <div className="chat-header-actions">{actions}</div>
+      </details>}
     </header>
   );
 }

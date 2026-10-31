@@ -41,8 +41,22 @@ app.use(
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "https://apis.google.com"],
+        scriptSrc: [
+          "'self'",
+          "'unsafe-inline'",
+          "https://apis.google.com",
+          "https://*.daily.co",
+          "https://*.dailywebrtc.com",
+          "https://*.dailywebrtc.net",
+        ],
         connectSrc: [
+          "https://*.daily.co",
+          "https://*.dailywebrtc.com",
+          "https://*.dailywebrtc.net",
+          "https://*.pluot.blue",
+          "wss://*.daily.co",
+          "wss://*.dailywebrtc.com",
+          "wss://*.dailywebrtc.net",
           "'self'",
           "https://*.googleapis.com",
           "https://*.firebaseapp.com",
@@ -55,7 +69,10 @@ app.use(
             : []),
         ],
         imgSrc: ["'self'", "data:", "https:"],
+        workerSrc: ["'self'", "blob:"],
+        mediaSrc: ["'self'", "blob:"],
         frameSrc: [
+          "'self'",
           "https://*.firebaseapp.com",
           "https://*.google.com",
         ],

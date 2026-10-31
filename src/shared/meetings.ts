@@ -16,6 +16,7 @@ export type CallMeeting = {
   proposedBy: string | null;
   version: number;
   note: string;
+  instant?: boolean;
 };
 export type CallSlots = { slots: string[]; timeZone: string; minutes: number };
 export const callRequestSchema = z
@@ -23,10 +24,14 @@ export const callRequestSchema = z
     id: z.string().uuid(),
     projectId: z.string().uuid(),
     proId: z.string().min(1).max(128),
-    startsAt: z.string().datetime(),
+    startsAt: z.string().datetime().optional(),
+    instant: z.boolean().default(false),
     mode: z.enum(["audio", "video"]),
   })
-  .strict();
+  .strict()
+  .refine((b) => (b.instant ? b.mode === "video" : !!b.startsAt), {
+    message: "Choose a scheduled time or request an instant video call.",
+  });
 export const callActionSchema = z.discriminatedUnion("type", [
   z
     .object({

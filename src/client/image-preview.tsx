@@ -1,6 +1,7 @@
 import { T } from "../shared/language.js";
 import { useEffect, useRef } from "react";
 import { X } from "lucide-react";
+import { ZoomableImage } from "./zoomable-image.js";
 export function ImagePreview({
   image,
   onClose,
@@ -36,7 +37,7 @@ export function ImagePreview({
           <T>{"Close"}</T>{" "}
         </button>
       </div>
-      <img src={image.url} alt={image.name} />
+      <ZoomableImage key={image.url} src={image.url} alt={image.name} />
     </dialog>
   );
 }

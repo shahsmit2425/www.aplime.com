@@ -1,3 +1,4 @@
+import { ZoomableImage } from "./zoomable-image.js";
 import { T } from "../shared/language.js";
 import { useEffect, useRef, useState } from "react";
 import { Images, Expand, ChevronLeft, ChevronRight, X } from "lucide-react";
@@ -131,7 +132,7 @@ export function BusinessPortfolio({
             </button>
           </div>
           <div className="business-work-stage">
-            <img src={current.url} alt={label(index)} />
+            <ZoomableImage key={current.url} src={current.url} alt={label(index)} />
           </div>
           {photos.length > 1 && (
             <>

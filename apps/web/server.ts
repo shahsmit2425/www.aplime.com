@@ -91,10 +91,20 @@ app.use(
               ]
             : ["'unsafe-inline'"]),
           "https://apis.google.com",
+          "https://*.daily.co",
+          "https://*.dailywebrtc.com",
+          "https://*.dailywebrtc.net",
           "https://js.stripe.com",
           "https://*.js.stripe.com",
         ],
         connectSrc: [
+          "https://*.daily.co",
+          "https://*.dailywebrtc.com",
+          "https://*.dailywebrtc.net",
+          "https://*.pluot.blue",
+          "wss://*.daily.co",
+          "wss://*.dailywebrtc.com",
+          "wss://*.dailywebrtc.net",
           "'self'",
           apiUrl,
           apiUrl.replace(/^http/, "ws"),
@@ -110,7 +120,10 @@ app.use(
             ? []
             : ["ws://127.0.0.1:*", "ws://localhost:*"]),
         ],
+        workerSrc: ["'self'", "blob:"],
+        mediaSrc: ["'self'", "blob:"],
         frameSrc: [
+          "'self'",
           "https://*.firebaseapp.com",
           "https://*.google.com",
           "https://js.stripe.com",

@@ -801,3 +801,145 @@ test("availability offers ten-minute start times and accepts them without allowi
   const a = await create(p, ten);
   assert.equal((await row(a.id)).status, "requested");
 });
+
+test("urgent calls require pro acceptance, reserve one pair and start a fresh ten-minute window", async () => {
+  await query("DELETE FROM scheduled_calls WHERE instant");
+  const realNow = Date.now;
+  const midday = new Date();
+  midday.setUTCHours(12, 0, 0, 0);
+  Date.now = () => +midday;
+  try {
+    const p = await project(),
+      id = randomUUID();
+    const body = {
+      id,
+      projectId: p,
+      proId: "pro",
+      instant: true,
+      mode: "video",
+    };
+    assert.equal((await call("pro", "/call-meetings", body)).status, 403);
+    assert.equal((await call("other", "/call-meetings", body)).status, 404);
+    assert.equal((await call("customer", "/call-meetings", body)).status, 200);
+    assert.equal((await call("customer", "/call-meetings", body)).status, 200);
+    assert.equal(
+      (await call("customer", "/call-meetings", { ...body, id: randomUUID() }))
+        .status,
+      409,
+    );
+    assert.equal(
+      (await act("customer", id, { type: "respond", accept: true }, 1)).status,
+      403,
+    );
+    assert.equal(
+      (await call("customer", `/call-meetings/${id}/join`, {})).status,
+      409,
+    );
+    Date.now = () => +midday + 60 * 60000;
+    assert.equal(
+      (await act("pro", id, { type: "respond", accept: true }, 1)).status,
+      200,
+    );
+    const m = await row(id);
+    assert.equal(m.status, "confirmed");
+    assert.equal(+new Date(m.starts_at), Date.now());
+    assert.equal(
+      callCanJoin(
+        { status: m.status, startsAt: new Date(m.starts_at).toISOString() },
+        Date.now(),
+      ),
+      true,
+    );
+    assert.equal(
+      callCanJoin(
+        { status: m.status, startsAt: new Date(m.starts_at).toISOString() },
+        Date.now() + 10 * 60000,
+      ),
+      false,
+    );
+  } finally {
+    Date.now = realNow;
+  }
+});
+
+test("urgent requests respect working hours and throttle repeated requests", async () => {
+  await query("DELETE FROM scheduled_calls WHERE instant");
+  const p = await project(),
+    id = randomUUID();
+  const b = { id, projectId: p, proId: "pro", instant: true, mode: "video" };
+  const realNow = Date.now,
+    midday = new Date();
+  midday.setUTCHours(12, 0, 0, 0);
+  Date.now = () => +midday;
+  try {
+    await query("UPDATE profiles SET weekly_hours='{}' WHERE id='pro'");
+    assert.equal((await call("customer", "/call-meetings", b)).status, 409);
+    await query("UPDATE profiles SET weekly_hours=$1 WHERE id='pro'", [
+      JSON.stringify(hours),
+    ]);
+    assert.equal((await call("customer", "/call-meetings", b)).status, 200);
+    assert.equal(
+      (await act("pro", id, { type: "respond", accept: false }, 1)).status,
+      200,
+    );
+    assert.equal(
+      (await call("customer", "/call-meetings", { ...b, id: randomUUID() }))
+        .status,
+      429,
+    );
+  } finally {
+    Date.now = realNow;
+    await query("UPDATE profiles SET weekly_hours=$1 WHERE id='pro'", [
+      JSON.stringify(hours),
+    ]);
+  }
+});
+
+test("urgent acceptance rechecks availability and can be changed into a scheduled proposal", async () => {
+  await query("DELETE FROM scheduled_calls WHERE instant");
+  const realNow = Date.now,
+    midday = new Date();
+  midday.setUTCHours(12, 0, 0, 0);
+  Date.now = () => +midday;
+  try {
+    const p = await project(),
+      id = randomUUID();
+    assert.equal(
+      (
+        await call("customer", "/call-meetings", {
+          id,
+          projectId: p,
+          proId: "pro",
+          instant: true,
+          mode: "video",
+        })
+      ).status,
+      200,
+    );
+    await query("UPDATE profiles SET weekly_hours='{}' WHERE id='pro'");
+    assert.equal(
+      (await act("pro", id, { type: "respond", accept: true }, 1)).status,
+      409,
+    );
+    assert.equal((await row(id)).status, "requested");
+    await query("UPDATE profiles SET weekly_hours=$1 WHERE id='pro'", [
+      JSON.stringify(hours),
+    ]);
+    assert.equal(
+      (await act("customer", id, { type: "reschedule", startsAt: slot() }, 1))
+        .status,
+      200,
+    );
+    assert.equal((await row(id)).instant, false);
+    assert.equal(
+      (await act("pro", id, { type: "respond", accept: true }, 2)).status,
+      200,
+    );
+    assert.equal(+new Date((await row(id)).starts_at), Date.parse(slot()));
+  } finally {
+    Date.now = realNow;
+    await query("UPDATE profiles SET weekly_hours=$1 WHERE id='pro'", [
+      JSON.stringify(hours),
+    ]);
+  }
+});

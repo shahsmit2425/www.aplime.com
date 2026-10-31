@@ -24,7 +24,9 @@ Run one or more `npm run worker` processes; row locking prevents normal concurre
 
 ## Daily
 
-Create a Daily account and supply the REST API key. The server creates private rooms per project and issues one-hour non-owner meeting tokens to authorized participants. Tokens expire and eject at expiry. No recording is enabled. Audio calls start with video off. Calls open in the browser/system calling window; both participants join from the same project.
+Create a Daily account and supply the REST API key. The server creates a private room per confirmed meeting and issues non-owner tokens that expire at the end of its ten-minute window. Room and token expiry eject participants. No recording is enabled. Audio calls start with video off. The shared in-app call screen uses Daily's call object with local self-pinning, microphone/camera controls and camera switching on phones. The SDK is loaded only when opening a call. Camera and microphone permissions are required on the device.
+
+Customers can choose an urgent video request in the call scheduler. The server checks project eligibility, blocks, working hours, calendar conflicts and the one-active-meeting-per-pair rule. Urgent requests have a five-minute per-customer cooldown. The pro must accept; acceptance rechecks availability and starts a fresh ten-minute window. Pending requests do not expire automatically and can be declined, cancelled or converted into a scheduled proposal. This is a request for urgent home-service advice, not emergency dispatch or a guarantee of availability. Migration 028 adds the instant-call flag. No additional environment variables are needed.
 
 Incoming call notifications appear in-app on the next refresh, with an email alert if enabled. Native push notifications, CallKit/ConnectionService, background ringing, and recordings are not implemented.
 

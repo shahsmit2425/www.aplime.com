@@ -110,3 +110,55 @@
   .app-keyboard-open .workspace { --mobile-tabs-height: 0px; }
   .app-keyboard-open .workspace .mobile-bottom-nav { display: none; }
 }
+
+@media(max-width:600px) {
+  .workspace .workspace-main .chat-header { gap: 8px; padding: 10px 12px; align-items: flex-start; }
+  .workspace .chat-header > .chat-avatar { display: none; }
+  .workspace .chat-header .chat-back { padding: 10px 8px; min-width: 36px; width: 36px; }
+  .workspace .chat-header .chat-actions-disclosure { margin-top: 0; }
+  .workspace .chat-actions-disclosure > summary { padding: 10px; font-size: 12px; }
+  .workspace .chat-actions-disclosure[open] .chat-header-actions { width: 230px; flex-direction: column; align-items: stretch; gap: 6px; }
+  .workspace .chat-actions-disclosure[open] .chat-header-actions button { justify-content: flex-start; min-height: 44px; height: auto; font-size: 14px; }
+  .workspace .chat-actions-disclosure[open] .chat-header-actions button span { display: inline; }
+  .workspace .chat-header .chat-project-context select { font-size: 16px; }
+  .workspace .chat-privacy { font-size: 10px; line-height: 1.4; margin: 8px 20px 14px; }
+  .workspace .chat-log-wrap > .chat-log > button { display: block; margin: 8px auto; width: auto; padding: 6px 16px; min-height: 36px; font-size: 12px; border: 0; border-radius: 18px; background: #edf2f4; }
+  .workspace .chat-bubble.mine { background: #e5f3ed; border-color: #d5e9df; }
+  .workspace .chat-bubble { border-radius: 18px; padding: 10px 14px; }
+  .workspace .chat-bubble.mine > strong { display: none; }
+}
+
+/* Call scheduling uses immediate taps instead of the iOS wheel picker. */
+.meeting-days { display:flex; gap:8px; overflow-x:auto; padding:4px 0 12px; scroll-snap-type:x proximity; }
+.meeting-days button { flex:0 0 auto; min-height:48px; scroll-snap-align:start; }
+.meeting-request-kind { display:flex; gap:8px; flex-wrap:wrap; margin:16px 0; }
+.meeting-days button[aria-pressed=true], .meeting-request-kind button[aria-pressed=true] { background:#08684f; color:white; border-color:#08684f; }
+.call-scheduler .meeting-slots { max-height:260px; overflow:auto; padding:4px; }
+.aplime-call-room { position:fixed; inset:0; width:100%; height:100dvh; max-width:none; max-height:none; margin:0; padding:max(16px,env(safe-area-inset-top)) 16px max(16px,env(safe-area-inset-bottom)); border:0; border-radius:0; background:#111b23; color:white; }
+.aplime-call-room[open] { display:flex; flex-direction:column; gap:16px; }
+.aplime-call-room header { display:flex; justify-content:space-between; align-items:center; flex-shrink:0; }
+.aplime-call-room h2 { margin:0; font:600 20px system-ui; color:white; }
+.aplime-call-room header span { color:#aebdc6; font-size:13px; }
+.aplime-call-room button { min-height:44px; border:1px solid #53636e; background:#243642; color:white; border-radius:12px; padding:10px; }
+.aplime-call-room header button { background:#a72c3a; display:flex; align-items:center; gap:8px; }
+.aplime-call-room button[aria-pressed=true] { background:#08684f; }
+.call-lobby { margin:auto; text-align:center; max-width:440px; }
+.call-lobby h3 { color:white; }
+.call-people { flex:1; min-height:0; display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.call-person { position:relative; overflow:hidden; background:#24323c; border-radius:16px; min-height:0; }
+.call-person video { width:100%; height:100%; object-fit:contain; }
+.call-camera-off { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; }
+.call-person-name { position:absolute; bottom:12px; left:12px; font-size:14px; padding:4px 8px; background:#111b23cc; border-radius:6px; }
+.call-play-audio { position:absolute; top:16px; left:16px; }
+.call-waiting { align-self:center; text-align:center; }
+.aplime-call-room footer { display:flex; justify-content:center; gap:10px; flex-shrink:0; }
+.aplime-call-room footer button { display:flex; flex-direction:column; align-items:center; gap:6px; min-width:70px; font-size:12px; }
+.call-error { background:#682733; color:white; border-radius:8px; padding:12px; }
+.call-people.self-pinned { grid-template-columns:3fr 1fr; }
+@media(max-width:600px) {
+ .call-people { grid-template-columns:1fr; grid-template-rows:2fr 1fr; }
+ .call-people.self-pinned { grid-template-columns:1fr; grid-template-rows:3fr 1fr; }
+ .aplime-call-room footer { gap:6px; }
+ .aplime-call-room footer button { flex:1; min-width:0; }
+ .call-scheduler .meeting-slots { grid-template-columns:repeat(3,minmax(0,1fr)); }
+}
