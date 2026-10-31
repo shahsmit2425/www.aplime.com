@@ -2,7 +2,7 @@
 
 The website brand is Aplime and its domain is `aplime.com`. Set `SITE_URL` to the actual customer origin for each environment (for example `https://aplime.com` if that is the domain attached to your development web service). Set `API_URL` to the actual API origin; do not assume API/admin subdomains exist. Match these values in GitHub's environment variables, and include the customer and admin origins in backend `ALLOWED_ORIGINS`. Update Firebase authorized domains and R2 CORS when changing domains.
 
-For website-only testing, leave GitHub `MOBILE_RELEASES_ENABLED` unset or set it to `false`. Render deployment and validation still run; iOS/Android publishing is skipped. Set it to `true` after both platforms' store/signing setup is complete. Native build validation remains enabled.
+For website-only testing, leave GitHub `IOS_RELEASES_ENABLED` and `ANDROID_RELEASES_ENABLED` unset or set it to `false`. Render deployment and validation still run; iOS/Android publishing is skipped. Enable each platform independently after its store/signing setup is complete. Native build validation remains enabled.
 
 ## Where values live
 
@@ -244,9 +244,9 @@ APP_ENV and RENDER_GIT_COMMIT label errors automatically. Default PII collection
 
 Keep these in **GitHub Settings → Environments → development / stagging / production**, not Render. The build runners require them before any app process exists.
 
-Variables: `SITE_URL`, `API_URL`, `ADMIN_URL`, `RENDER_WEB_SERVICE_ID`, `RENDER_API_SERVICE_ID`, `RENDER_ADMIN_SERVICE_ID`, `RENDER_WORKER_SERVICE_ID`, `BACKEND_RELEASES_ENABLED`, `MOBILE_RELEASES_ENABLED`. The old `RENDER_SERVICE_ID` is no longer used.
+Variables: `SITE_URL`, `API_URL`, `ADMIN_URL`, `RENDER_WEB_SERVICE_ID`, `RENDER_API_SERVICE_ID`, `RENDER_ADMIN_SERVICE_ID`, `RENDER_WORKER_SERVICE_ID`, `BACKEND_RELEASES_ENABLED`, `IOS_RELEASES_ENABLED` and `ANDROID_RELEASES_ENABLED`. The old `RENDER_SERVICE_ID` is no longer used.
 
-Keep `BACKEND_RELEASES_ENABLED` unset or `false` while previewing only the customer/admin websites. This skips API and mail-worker deployments, so authenticated marketplace features remain unavailable. Set it to `true` only after the development backend environment group passes `npm run config:check` and the database migration succeeds. Keep `MOBILE_RELEASES_ENABLED` unset or `false` until both mobile signing pipelines are configured.
+Keep `BACKEND_RELEASES_ENABLED` unset or `false` while previewing only the customer/admin websites. This skips API and mail-worker deployments, so authenticated marketplace features remain unavailable. Set it to `true` only after the development backend environment group passes `npm run config:check` and the database migration succeeds. Keep `IOS_RELEASES_ENABLED` and `ANDROID_RELEASES_ENABLED` unset or `false` until both mobile signing pipelines are configured.
 
 Secrets: `RENDER_API_KEY`, `GOOGLE_SERVICES_JSON_BASE64`, `GOOGLE_SERVICE_INFO_PLIST_BASE64`, `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`, `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`, `APPLE_TEAM_ID`, `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_BASE64`, `IOS_CERTIFICATE_BASE64`, `IOS_CERTIFICATE_PASSWORD`, `IOS_PROFILE_BASE64`, `IOS_PROFILE_NAME`, `KEYCHAIN_PASSWORD`.
 
@@ -343,3 +343,10 @@ These are backend-only settings. Existing `UPSTASH_REDIS_REST_URL` and `UPSTASH_
 See [Request security operations](REQUEST_SECURITY.md) for deployment checks and provider-side protections.
 
 Apple sign-in is no longer offered. Disable the Apple provider in Firebase Authentication for each environment separately; no environment variable changes are required. Do not delete existing user accounts.
+
+
+### Development iOS TestFlight setup (2026-10-31)
+
+Development iOS uses `com.aplime.app.dev` (`iosAppId` in config/environments.json). Android retains `com.servicetones.app.dev`; staging and production identifiers are unchanged. Set `MOBILE_PLATFORM=ios` when preparing/syncing iOS locally; CI sets it automatically. Run `npm run build:web`, `npm run mobile:prepare`, then `npx cap sync ios`. The preparation requires the matching development HTTPS `API_URL` and Firebase iOS configuration.
+
+GitHub development environment variables: `IOS_RELEASES_ENABLED=true` enables TestFlight after setup; keep `ANDROID_RELEASES_ENABLED=false`. The old `MOBILE_RELEASES_ENABLED` variable is no longer read and can be removed after this workflow is deployed. Never enable the iOS switch before this commit is pushed and signing secrets are configured. Existing `SITE_URL` and `API_URL` must point to development Render services. Signing secrets remain in GitHub, not Render.

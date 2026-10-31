@@ -63,7 +63,7 @@ if (firebaseAndroid) {
 if (firebaseIos) {
   const decoded = Buffer.from(firebaseIos, "base64").toString();
   if (
-    !decoded.includes("<string>" + target.appId + "</string>") ||
+    !decoded.includes("<string>" + target.iosAppId + "</string>") ||
     !decoded.includes("<string>" + config.firebase.projectId + "</string>")
   )
     throw new Error(
@@ -76,7 +76,7 @@ let project = await readFile(projectPath, "utf8");
 project = project
   .replace(
     /PRODUCT_BUNDLE_IDENTIFIER = [^;]+;/g,
-    "PRODUCT_BUNDLE_IDENTIFIER = " + target.appId + ";",
+    "PRODUCT_BUNDLE_IDENTIFIER = " + target.iosAppId + ";",
   )
   .replace(
     /CURRENT_PROJECT_VERSION = [^;]+;/g,

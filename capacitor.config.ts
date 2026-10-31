@@ -14,7 +14,7 @@ const target = process.env.APP_ENV
     environments.development;
 if (!target) throw new Error("Unknown mobile APP_ENV.");
 const config: CapacitorConfig = {
-  appId: target.appId,
+  appId: process.env.MOBILE_PLATFORM === "ios" ? target.iosAppId : target.appId,
   appName: target.appName,
   webDir: "dist/client",
   server: { androidScheme: "https" },

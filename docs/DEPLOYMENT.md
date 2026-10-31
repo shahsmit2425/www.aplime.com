@@ -76,7 +76,8 @@ Each GitHub Environment (development, stagging, production) needs these variable
 | RENDER_API_SERVICE_ID | Backend API service ID |
 | RENDER_ADMIN_SERVICE_ID | Admin static site ID |
 | RENDER_WORKER_SERVICE_ID | Mail worker ID |
-| MOBILE_RELEASES_ENABLED | true after signing and store setup |
+| IOS_RELEASES_ENABLED | true only after iOS signing and TestFlight setup |
+| ANDROID_RELEASES_ENABLED | true only after Android signing and Play setup |
 | BACKEND_RELEASES_ENABLED | true only after the API/worker backend group is complete; leave false for website-only preview |
 
 Store RENDER_API_KEY as a secret. RENDER_SERVICE_ID from the old combined setup is no longer used.
@@ -159,3 +160,10 @@ Changing common values can affect all applications. Changing backend credentials
 This update puts project chats and admin support together in the customer/pro Messages inbox, and uses a matching split-pane support inbox for administrators. New support notification links use `/app/messages/support%3ACONVERSATION_UUID`; native routes use the equivalent hash route. Existing `/app/help/CONVERSATION_UUID` links still work. No new environment variables or database migration are needed beyond the existing migration 012. Deploy the API first, then the customer web and admin clients; read/unread metadata and the scoped acknowledgement endpoints require this API version. No push, Render deployment or mobile store release is performed by the code change itself.
 
 After deploying, send a new support message from Admin → People → user → Contact user. Sign in as that user and open Messages; confirm the conversation, initial message, replies and unread badge appear. Reply back and confirm the administrator receives the reply. Test two separate signed-in sessions, background/foreground reconnection, project chat calls, and old Help & safety notification links. A second marketplace account must receive 404 for someone else's support conversation. Notification badges represent unread conversation updates, not per-message delivery/read receipts. SSE prompts refreshes; ten-second polling provides a fallback while the inbox is open.
+
+
+### Development iOS TestFlight setup (2026-10-31)
+
+Development iOS uses `com.aplime.app.dev` (`iosAppId` in config/environments.json). Android retains `com.servicetones.app.dev`; staging and production identifiers are unchanged. Set `MOBILE_PLATFORM=ios` when preparing/syncing iOS locally; CI sets it automatically. Run `npm run build:web`, `npm run mobile:prepare`, then `npx cap sync ios`. The preparation requires the matching development HTTPS `API_URL` and Firebase iOS configuration.
+
+GitHub development environment variables: `IOS_RELEASES_ENABLED=true` enables TestFlight after setup; keep `ANDROID_RELEASES_ENABLED=false`. The old `MOBILE_RELEASES_ENABLED` variable is no longer read and can be removed after this workflow is deployed. Never enable the iOS switch before this commit is pushed and signing secrets are configured. Existing `SITE_URL` and `API_URL` must point to development Render services. Signing secrets remain in GitHub, not Render.

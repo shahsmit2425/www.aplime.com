@@ -7,6 +7,9 @@ import mapping from "../config/environments.json";
 test("three branches map to isolated environments and mobile application identifiers", () => {
   assert.deepEqual(Object.keys(mapping), ["development", "stagging", "main"]);
   assert.equal(new Set(Object.values(mapping).map((x) => x.appId)).size, 3);
+  assert.equal(new Set(Object.values(mapping).map((x) => x.iosAppId)).size, 3);
+  assert.equal(mapping.development.iosAppId, "com.aplime.app.dev");
+  assert.equal(mapping.development.appId, "com.servicetones.app.dev");
 });
 test("Render services cannot auto-deploy another environment", () => {
   const b = parse(readFileSync("render.yaml", "utf8"));
@@ -98,12 +101,27 @@ test("release deployment depends on validation, and mobile depends on matching w
   for (const platform of ["ios", "android"]) {
     assert.match(
       w.jobs[platform].if,
-      /needs\.web\.outputs\.mobile-enabled == 'true'/,
+      new RegExp(`needs\\.web\\.outputs\\.${platform}-enabled == 'true'`),
     );
   }
   assert.equal(
-    w.jobs.web.outputs["mobile-enabled"],
-    "${{ steps.mobile.outputs.enabled }}",
+    w.jobs.web.outputs["ios-enabled"],
+    "${{ steps.mobile.outputs.ios }}",
+  );
+  assert.equal(
+    w.jobs.web.outputs["android-enabled"],
+    "${{ steps.mobile.outputs.android }}",
+  );
+  assert.equal(w.jobs.ios.env.MOBILE_PLATFORM, "ios");
+  assert.equal(
+    w.jobs.ios.env.MOBILE_APP_ID,
+    "${{ needs.validate.outputs.ios-app-id }}",
+  );
+  const settings = w.jobs.web.steps.find((step: any) => step.id === "mobile");
+  assert.equal(settings.env.IOS_ENABLED, "${{ vars.IOS_RELEASES_ENABLED }}");
+  assert.equal(
+    settings.env.ANDROID_ENABLED,
+    "${{ vars.ANDROID_RELEASES_ENABLED }}",
   );
   const deployEnv = w.jobs.web.steps.find(
     (step: any) =>
