@@ -694,3 +694,9 @@ Project intake now offers confirmed Start over before a project is created: clea
 ## Development iOS setup — 2026-10-31
 
 Added a separate iOS identifier mapping (development: com.aplime.app.dev) without changing Android, staging or production identifiers. Platform release switches now fail closed independently; the legacy combined switch is ignored. Typecheck and web/admin builds passed. Full suite: 168/217 passed, with 49 local fetch failures matching the prior environment limitation. Deployment tests passed. Capacitor iOS sync completed on Windows; CocoaPods and Xcode steps were skipped because macOS tooling is unavailable. No signing files were read or committed, GitHub secrets were not verified, and no signed build, TestFlight upload or device test was performed. Changes must be pushed before enabling IOS_RELEASES_ENABLED in the GitHub development environment.
+
+## TestFlight archive signing correction — 2026-10-31
+
+The supplied macOS CI log failed because App requested an iOS Development certificate. The target inherits the project's development identity; update_project_provisioning only replaces identity keys already present on the target. The lane now explicitly sets manual Apple Distribution signing for App/Release on device SDKs and explicitly archives Release. Signing overrides are scoped to the app instead of global xcodebuild arguments affecting Pods. Archive logs are retained as a separate CI artifact, including failed runs. No new secrets or environment variables are required.
+
+Typecheck, web/admin builds and all five deployment tests passed. Full suite: 168 passed and 49 failed with local fetch errors, matching the previous run. Native Ruby/Fastlane execution and signed archive verification remain unavailable on Windows: a new macOS CI run is required to confirm the fix with the actual certificate/profile. No TestFlight upload or deployment was performed.

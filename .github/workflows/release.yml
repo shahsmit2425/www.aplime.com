@@ -263,6 +263,14 @@ jobs:
           echo "IOS_PROFILE_PATH=$RUNNER_TEMP/distribution.mobileprovision" >>
           "$GITHUB_ENV"
       - run: bundle exec fastlane ios beta
+      - name: Preserve Xcode archive logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-logs-${{ needs.validate.outputs.environment }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/ios/logs/*.log
+          if-no-files-found: ignore
+          retention-days: 7
       - uses: actions/upload-artifact@v4
         with:
           name: ios-${{ needs.validate.outputs.environment }}-${{ github.sha }}
