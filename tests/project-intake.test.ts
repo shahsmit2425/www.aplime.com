@@ -184,3 +184,67 @@ test("retired opportunity response actions cannot enter the project workflow", (
       false,
     );
 });
+
+test("emergency intake skips questionnaire and budget but requires contact, location and a problem description", () => {
+  for (const category of categories) {
+    const draft = complete(category);
+    draft.emergency = true;
+    draft.intake = {};
+    draft.description = "Water leaking";
+    assert.deepEqual(intakeSteps(draft), [
+      "zip",
+      "category",
+      "notes",
+      "address",
+      "contact",
+      "photos",
+      "review",
+    ]);
+    assert.equal(firstInvalidStep(draft), null);
+    const payload = projectPayload(draft);
+    assert.equal(payload.urgency, "urgent");
+    assert.deepEqual(payload.intake, {});
+    assert.equal(payload.propertyType, "other");
+    assert.equal(projectSchema.safeParse(payload).success, true);
+    assert.equal(
+      projectSchema.safeParse({ ...payload, urgency: "flexible" }).success,
+      false,
+    );
+    draft.description = " ";
+    assert.equal(firstInvalidStep(draft), "notes");
+    draft.description = "Water leaking";
+    draft.contactConsent = false;
+    assert.equal(firstInvalidStep(draft), "contact");
+    draft.contactConsent = true;
+    draft.addressZip = "07001";
+    assert.equal(firstInvalidStep(draft), "address");
+  }
+});
+
+test("urgent payload still rejects unknown and invalid questionnaire answers and ignores skipped draft budgets", () => {
+  const draft = complete("Cleaning");
+  draft.emergency = true;
+  draft.description = "Need urgent cleaning";
+  draft.budgetMin = 20000;
+  draft.budgetMax = 10000;
+  draft.intake.cleaningType = "Other: ";
+  const payload = projectPayload(draft);
+  assert.equal(payload.budgetMin, null);
+  assert.equal(payload.budgetMax, null);
+  assert.equal(firstInvalidStep(draft), null);
+  assert.equal(
+    projectSchema.safeParse({ ...payload, intake: { unknown: "Injected" } })
+      .success,
+    false,
+  );
+  assert.equal(
+    projectSchema.safeParse({
+      ...payload,
+      intake: { cleaningType: "Invalid choice" },
+    }).success,
+    false,
+  );
+  draft.emergency = false;
+  assert.ok(firstInvalidStep(draft));
+  assert.equal(freshIntakeSession(null).draft.emergency, false);
+});

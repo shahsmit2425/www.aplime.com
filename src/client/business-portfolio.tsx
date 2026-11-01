@@ -1,6 +1,6 @@
 import { ZoomableImage } from "./zoomable-image.js";
 import { T } from "../shared/language.js";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useId } from "react";
 import { Images, Expand, ChevronLeft, ChevronRight, X } from "lucide-react";
 import {
   portfolioImages,
@@ -10,10 +10,13 @@ import {
 export function BusinessPortfolio({
   images,
   business,
+  compact = false,
 }: {
   images?: BusinessImage[];
   business: string;
+  compact?: boolean;
 }) {
+  const titleId = useId();
   const photos = portfolioImages(images);
   const [viewId, setViewId] = useState<string | null>(null);
   const dialog = useRef<HTMLDialogElement>(null);
@@ -34,14 +37,20 @@ export function BusinessPortfolio({
   const label = (i: number) => `${business} · Past work photo ${i + 1}`;
   return (
     <section
-      className="profile-content-card business-work-section"
+      className={
+        compact
+          ? "pro-listing-portfolio"
+          : "profile-content-card business-work-section"
+      }
       aria-label="Past work portfolio"
     >
       <div className="business-work-heading">
         <div>
-          <p className="eyebrow">
-            <Images size={16} aria-hidden="true" /> THEIR WORK, UP CLOSE
-          </p>
+          {!compact && (
+            <p className="eyebrow">
+              <Images size={16} aria-hidden="true" /> THEIR WORK, UP CLOSE
+            </p>
+          )}
           <h2>
             Past work{" "}
             <span>
@@ -96,7 +105,7 @@ export function BusinessPortfolio({
         <dialog
           ref={dialog}
           className="business-image-dialog business-work-dialog"
-          aria-labelledby="business-work-viewer-title"
+          aria-labelledby={titleId}
           onClose={() => {
             setViewId(null);
             opener.current?.focus();
@@ -116,7 +125,7 @@ export function BusinessPortfolio({
         >
           <div className="business-image-heading">
             <div>
-              <h2 id="business-work-viewer-title">{business} · Past work</h2>
+              <h2 id={titleId}>{business} · Past work</h2>
               <p aria-live="polite">
                 Photo {index + 1} of {photos.length}
               </p>
@@ -132,7 +141,11 @@ export function BusinessPortfolio({
             </button>
           </div>
           <div className="business-work-stage">
-            <ZoomableImage key={current.url} src={current.url} alt={label(index)} />
+            <ZoomableImage
+              key={current.url}
+              src={current.url}
+              alt={label(index)}
+            />
           </div>
           {photos.length > 1 && (
             <>

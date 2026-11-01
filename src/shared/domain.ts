@@ -251,7 +251,8 @@ export const projectSchema = z
     const allowed = new Set(questions.map((question) => question.id));
     for (const question of questions) {
       const answer = project.intake[question.id]?.trim();
-      if (question.required && !answer)
+      // Urgent requests may use the short intake; provided answers remain validated.
+      if (question.required && !answer && project.urgency !== "urgent")
         context.addIssue({
           code: z.ZodIssueCode.custom,
           path: ["intake", question.id],

@@ -6548,3 +6548,9 @@ summary:focus-visible {
   .business-image-dialog .business-work-navigation button { font-size: 13px; min-height: 44px; padding: 8px 12px; }
   .business-image-dialog .business-work-navigation { font-size: 13px; }
 }
+
+/* Short urgent-project intake uses the same controls and spacing as standard intake. */
+.intake-request-mode { margin-bottom: 22px; }
+.intake-request-mode h2 { font-size: 18px; margin: 0 0 12px; }
+.intake-request-mode p { font-size: 14px; line-height: 1.6; color: #53646d; }
+.intake-urgent-notice { padding: 14px 16px; border: 1px solid #e9d2a0; border-radius: 10px; background: #fff9ec; color: #654b20; font-size: 14px; line-height: 1.6; }

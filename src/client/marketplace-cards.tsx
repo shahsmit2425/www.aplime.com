@@ -1,5 +1,8 @@
 import { T } from "../shared/language.js";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import { BusinessPortfolio } from "./business-portfolio.js";
+import { portfolioImages } from "../shared/business-images.js";
+import { ImagePreview } from "./image-preview.js";
 import {
   ArrowUpRight,
   CalendarDays,
@@ -138,114 +141,140 @@ export function ProfessionalCard({
   save: ReactNode;
   children?: ReactNode;
 }) {
-  const cover = p.images?.find((i) => i.slot === "cover"),
-    logo = p.images?.find((i) => i.slot === "logo");
+  const [expanded, setExpanded] = useState(false);
+  const [showCover, setShowCover] = useState(false);
+  const cover = p.images?.find((i) => i.slot === "cover");
+  const logo = p.images?.find((i) => i.slot === "logo");
+  const photos = portfolioImages(p.images);
+  const location = [p.details?.city, p.details?.state, p.zip]
+    .filter(Boolean)
+    .join(", ");
+  const categories = p.serviceCategories.length
+    ? p.serviceCategories
+    : [p.category];
   return (
     <article
-      className={
-        "professional-card" +
-        (layout === "horizontal" ? " professional-card-horizontal" : "")
-      }
+      className="pro-listing"
+      data-layout={layout}
       data-service={p.category}
     >
-      <div
-        className={
-          "professional-card-cover" + (!cover ? " professional-card-art" : "")
-        }
-        data-service={p.category}
-      >
-        {cover ? (
-          <img
-            src={cover.url}
-            alt={p.business + " advertising image"}
-            loading="lazy"
-          />
-        ) : (
-          <>
-            <ServiceIcon service={p.category} size={64} />
-            <span>
-              {p.category}
-              <small>Home services</small>
-            </span>
-          </>
-        )}
-        {cover && (
-          <span className="professional-service-ribbon">
-            <ServiceIcon service={p.category} size={14} />
-            {p.category}
-          </span>
-        )}
-        <div className="professional-card-save">{save}</div>
-      </div>
-      <div className="professional-card-body">
-        <div className="professional-card-content">
-          <div className="professional-card-identity">
-            <div className="professional-card-logo">
-              {logo ? (
-                <img src={logo.url} alt={p.business + " logo"} loading="lazy" />
-              ) : (
-                <ServiceIcon service={p.category} size={29} />
-              )}
-            </div>
-            <div className="professional-card-heading">
-              <h2>{p.business}</h2>
-              <span className="professional-rating">
-                <Star size={14} />
-                {p.reviewCount ? (
-                  <>
-                    <strong>{p.rating.toFixed(1)}</strong>
-                    <span>({p.reviewCount})</span>
-                  </>
-                ) : (
-                  <span>No reviews yet</span>
-                )}
-              </span>
-            </div>
-          </div>
-          <div className="professional-card-name">
-            <p>
-              <MapPin size={14} />
-              {p.zip}
-              {p.serviceRadiusMiles > 0 &&
-                " · Serves within " + p.serviceRadiusMiles + " miles"}
-            </p>
-          </div>
-          <div className="professional-card-services">
-            {p.serviceCategories.slice(0, 3).map((c) => (
-              <span key={c}>{c}</span>
-            ))}
-            {p.serviceCategories.length > 3 && (
-              <span>+{p.serviceCategories.length - 3} more</span>
+      <header className="pro-listing-header">
+        <div className="pro-listing-logo">
+          {logo ? (
+            <img src={logo.url} alt={p.business + " logo"} loading="lazy" />
+          ) : (
+            <ServiceIcon service={p.category} size={28} />
+          )}
+        </div>
+        <div className="pro-listing-title">
+          <h2>{p.business}</h2>
+          <div className="pro-listing-rating">
+            <Star size={16} aria-hidden="true" />
+            {p.reviewCount > 0 ? (
+              <>
+                <strong>{p.rating.toFixed(1)}</strong>
+                <span>
+                  ({p.reviewCount} {p.reviewCount === 1 ? "review" : "reviews"})
+                </span>
+              </>
+            ) : (
+              <span>No reviews yet</span>
             )}
           </div>
-          <p className="professional-card-bio">{p.bio}</p>
-
-          {preview && (
-            <p className="card-preview-note">Not accepting requests yet</p>
-          )}
-          {children}
         </div>
-        <div className="professional-card-sidebar">
-          <div className="professional-card-facts">
-            <span className={p.verified ? "verified-fact" : "pending-fact"}>
-              {p.verified ? <ShieldCheck size={15} /> : <Clock3 size={15} />}{" "}
-              {p.verified ? "Identity verified" : "Identity pending"}
-            </span>
-            <span className="professional-card-rate">
-              <strong>
-                {new Intl.NumberFormat("en-US", {
-                  style: "currency",
-                  currency: "USD",
-                  maximumFractionDigits: 2,
-                  minimumFractionDigits: 0,
-                }).format(p.rate)}
-              </strong>{" "}
-              /hr<small>Starting rate</small>
-            </span>
-          </div>
-          <div className="professional-card-actions">{actions}</div>
-        </div>
+        <div className="pro-listing-save">{save}</div>
+      </header>
+      <div className="pro-listing-location">
+        <MapPin size={16} aria-hidden="true" />
+        <span>
+          {location || "Service area on profile"}
+          {p.serviceRadiusMiles > 0 &&
+            ` · Serves within ${p.serviceRadiusMiles} miles`}
+        </span>
       </div>
+      <div className="pro-listing-services">
+        {(expanded ? categories : categories.slice(0, 3)).map((c) => (
+          <span key={c}>{c}</span>
+        ))}
+        {categories.length > 3 && (
+          <button
+            type="button"
+            aria-expanded={expanded}
+            onClick={() => setExpanded(!expanded)}
+          >
+            {expanded ? "Show less" : `+${categories.length - 3} more`}
+          </button>
+        )}
+      </div>
+      <div className="pro-listing-trust">
+        {!p.verified && (
+          <span className="pro-listing-pending">
+            <Clock3 size={16} aria-hidden="true" />
+            Identity pending
+          </span>
+        )}
+        {p.verified && (
+          <span>
+            <ShieldCheck size={16} aria-hidden="true" />
+            Identity verified
+          </span>
+        )}
+        {!!p.details?.yearsExperience && (
+          <span>
+            <Clock3 size={16} aria-hidden="true" />
+            {p.details.yearsExperience} years of experience
+          </span>
+        )}
+      </div>
+      {p.bio && <p className="pro-listing-bio">{p.bio}</p>}
+      {photos.length > 0 ? (
+        <BusinessPortfolio images={p.images} business={p.business} compact />
+      ) : (
+        cover && (
+          <button
+            className="pro-listing-ad"
+            type="button"
+            onClick={() => setShowCover(true)}
+          >
+            <img
+              src={cover.url}
+              alt={p.business + " advertising image"}
+              loading="lazy"
+            />
+            <span>
+              From the business<small>View advertising image</small>
+            </span>
+            <ArrowUpRight size={18} />
+          </button>
+        )
+      )}
+      {preview && (
+        <p className="card-preview-note">Not accepting requests yet</p>
+      )}
+      {children && <div className="pro-listing-project">{children}</div>}
+      <footer className="pro-listing-footer">
+        <div className="pro-listing-rate">
+          <span>
+            <strong>
+              {new Intl.NumberFormat("en-US", {
+                style: "currency",
+                currency: "USD",
+                maximumFractionDigits: 2,
+                minimumFractionDigits: 0,
+              }).format(p.rate)}
+            </strong>{" "}
+            /hr
+          </span>
+          <small>Starting rate</small>
+        </div>
+        <div className="pro-listing-actions">{actions}</div>
+      </footer>
+      {showCover && cover && (
+        <ImagePreview
+          image={{ url: cover.url, name: p.business + " · Advertising image" }}
+          onClose={() => setShowCover(false)}
+        />
+      )}
     </article>
   );
 }

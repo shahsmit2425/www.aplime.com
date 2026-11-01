@@ -729,3 +729,9 @@ Final validation: all 220 tests passed, including urgent-call authorization, pen
 # Native push notifications (2026-11-01)
 
 Added native opt-in/device registration, owner-checked notification tap resolution, transactional push outbox, bounded retries, token invalidation and account-session cleanup. PGlite coverage verifies trigger fanout, no historical backfill/admin delivery, retry recovery, retry exhaustion, read/expired notification suppression, reassigned-device isolation and session revocation. Typecheck, the full test suite and web/admin builds are run locally. Capacitor sync covers Android/iOS registration, but this Windows environment cannot run CocoaPods or Xcode. APNs/FCM delivery, iOS permission prompts, background/terminated taps and signed TestFlight behavior require the real-device checklist in MOBILE_PUSH.md. No external deployment or successful device delivery is claimed.
+
+## Emergency project intake - 2026-11-01
+
+Added an optional short urgent-request path at the ZIP step. It skips service questionnaire, timing and budget screens, retains a required problem description, server-validated service address/ZIP and explicit phone consent, uses the authenticated customer name, and retains optional photos and final review/authentication. Submitted urgency is urgent; skipped answers and budgets are not sent. Urgent projects permit omitted questionnaire answers on the shared server schema while continuing to reject unknown or invalid answers. Standard requests retain required questions. No emergency dispatch or response-time guarantee is implied.
+
+Typecheck, all 223 tests and web/admin production builds passed. Local HTTP regression tests required network permission. No deployment or signed iPhone/Android verification performed; test the short flow, draft resume, consent, photo upload and matching on the development website and next TestFlight build. No new environment variables or migrations.

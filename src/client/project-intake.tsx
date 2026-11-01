@@ -441,7 +441,9 @@ export function ProjectIntake(props: Props) {
         category: "What can we help you with?",
         timing: "When would you like help?",
         budget: "Do you have a budget in mind?",
-        notes: "Anything else your professional should know?",
+        notes: draft.emergency
+          ? "What needs urgent attention?"
+          : "Anything else your professional should know?",
         contact: "How can matching professionals reach you?",
         address: "What is the service address?",
         unit: "Is there an apartment or unit number?",
@@ -549,6 +551,34 @@ export function ProjectIntake(props: Props) {
           disabled={busy || !!session.savedProjectId}
           className="intake-fields"
         >
+          {step === "zip" && (
+            <div className="intake-request-mode">
+              <h2>How would you like to post?</h2>
+              <Choices
+                options={["Standard project", "Emergency / urgent request"]}
+                value={
+                  draft.emergency
+                    ? "Emergency / urgent request"
+                    : "Standard project"
+                }
+                onChange={(value) =>
+                  patch({ emergency: value === "Emergency / urgent request" })
+                }
+              />
+              <p>
+                {draft.emergency
+                  ? "A shorter form: tell us the essentials and discuss the rest with a professional."
+                  : "Answer a few questions so professionals can understand your project."}
+              </p>
+            </div>
+          )}
+          {draft.emergency && step === "zip" && (
+            <p className="intake-urgent-notice">
+              Need immediate help for a fire, gas leak, or danger to someone?
+              Call 911 or your utility. Aplime connects you with professionals;
+              availability and response times are not guaranteed.
+            </p>
+          )}
           {step === "zip" && (
             <Field label="Project ZIP code">
               <span className="intake-location-input">
@@ -749,8 +779,15 @@ export function ProjectIntake(props: Props) {
             </>
           )}
           {step === "notes" && (
-            <Field label="Extra details (optional)">
+            <Field
+              label={
+                draft.emergency
+                  ? "Briefly describe the problem"
+                  : "Extra details (optional)"
+              }
+            >
               <textarea
+                required={draft.emergency}
                 value={draft.description}
                 maxLength={4000}
                 rows={4}
@@ -774,7 +811,7 @@ export function ProjectIntake(props: Props) {
               }
             />
           )}
-          {step === "unit" && (
+          {(step === "unit" || (draft.emergency && step === "address")) && (
             <Field label="Apartment / unit (optional)">
               <input
                 value={draft.addressUnit}
@@ -786,6 +823,13 @@ export function ProjectIntake(props: Props) {
           )}
           {step === "contact" && (
             <div>
+              {draft.emergency && (
+                <p className="intake-field-hint">
+                  {props.data?.user.name
+                    ? `Contact name: ${props.data.user.name}`
+                    : "Your contact name comes from the customer account you sign in with at the final step."}
+                </p>
+              )}
               <Field label="Phone number">
                 <input
                   type="tel"
@@ -832,6 +876,12 @@ export function ProjectIntake(props: Props) {
                   onChange={(e) => patch({ title: e.target.value })}
                 />
               </Field>
+              {draft.emergency && (
+                <p className="intake-urgent-notice">
+                  <strong>Emergency / urgent request</strong> · As soon as
+                  possible. Professionals must confirm their availability.
+                </p>
+              )}
               <dl>
                 {[
                   ["ZIP / town", draft.zipLabel, "zip"],
@@ -862,30 +912,32 @@ export function ProjectIntake(props: Props) {
                     "unit",
                   ],
                   ["Photos", `${photos.length} selected`, "photos"],
-                ].map(([label, value, target]) => (
-                  <div key={label}>
-                    <dt>
-                      <T>{label}</T>
-                    </dt>
-                    <dd>
-                      {target === "category" ||
-                      (target.startsWith("question:") &&
-                        intakeQuestions(draft.category)
-                          .find((q) => "question:" + q.id === target)
-                          ?.options?.includes(value))
-                        ? t(value)
-                        : value}
-                    </dd>
-                    <button
-                      type="button"
-                      className="text-button"
-                      aria-label={t("Edit") + " " + t(label)}
-                      onClick={() => move(target)}
-                    >
-                      <T>{"Edit"}</T>{" "}
-                    </button>
-                  </div>
-                ))}
+                ]
+                  .filter(([, , target]) => steps.includes(target))
+                  .map(([label, value, target]) => (
+                    <div key={label}>
+                      <dt>
+                        <T>{label}</T>
+                      </dt>
+                      <dd>
+                        {target === "category" ||
+                        (target.startsWith("question:") &&
+                          intakeQuestions(draft.category)
+                            .find((q) => "question:" + q.id === target)
+                            ?.options?.includes(value))
+                          ? t(value)
+                          : value}
+                      </dd>
+                      <button
+                        type="button"
+                        className="text-button"
+                        aria-label={t("Edit") + " " + t(label)}
+                        onClick={() => move(target)}
+                      >
+                        <T>{"Edit"}</T>{" "}
+                      </button>
+                    </div>
+                  ))}
               </dl>
               <div className="intake-assurance">
                 <ShieldCheck size={24} />

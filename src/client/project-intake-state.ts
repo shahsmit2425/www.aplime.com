@@ -10,6 +10,7 @@ export const INTAKE_TTL = 24 * 60 * 60_000;
 export const INTAKE_KEY = "aplime-project-intake-v1";
 export const INTAKE_RESUME = "aplime-project-intake-resume";
 const draftSchema = z.object({
+  emergency: z.boolean().default(false),
   contactPhone: z.string().max(40).default(""),
   contactConsent: z.boolean().default(false),
   zip: z.string().max(5).default(""),
@@ -56,6 +57,16 @@ export function intakeQuestions(category: ServiceCategory) {
   return questions;
 }
 export function intakeSteps(draft: IntakeDraft) {
+  if (draft.emergency)
+    return [
+      "zip",
+      "category",
+      "notes",
+      "address",
+      "contact",
+      "photos",
+      "review",
+    ];
   return [
     "zip",
     "category",
@@ -85,22 +96,27 @@ export function projectPayload(draft: IntakeDraft) {
     title: draft.title.trim() || `${draft.category} project`,
     description: description.slice(0, 4000),
     category: draft.category,
-    intake: Object.fromEntries(
-      questions.map((q) => [q.id, draft.intake[q.id]]).filter(([, v]) => v),
-    ),
+    intake: draft.emergency
+      ? {}
+      : Object.fromEntries(
+          questions.map((q) => [q.id, draft.intake[q.id]]).filter(([, v]) => v),
+        ),
     placeId: draft.placeId,
     address: draft.address,
     addressUnit: draft.addressUnit,
-    urgency: draft.urgency || "flexible",
-    propertyType: property.includes("Commercial")
-      ? "commercial"
-      : property.includes("Apartment")
-        ? "apartment"
-        : property.startsWith("Other")
-          ? "other"
-          : "home",
-    budgetMin: draft.budgetMin,
-    budgetMax: draft.budgetMax,
+    urgency: draft.emergency ? "urgent" : draft.urgency || "flexible",
+    propertyType:
+      draft.emergency && !property
+        ? "other"
+        : property.includes("Commercial")
+          ? "commercial"
+          : property.includes("Apartment")
+            ? "apartment"
+            : property.startsWith("Other")
+              ? "other"
+              : "home",
+    budgetMin: draft.emergency ? null : draft.budgetMin,
+    budgetMax: draft.emergency ? null : draft.budgetMax,
     proId: draft.proId,
     scheduledAt: null,
   };
@@ -127,6 +143,8 @@ export function stepProblem(step: string, draft: IntakeDraft): string {
     )
       return "Choose an answer or use Other to describe it.";
   }
+  if (step === "notes" && draft.emergency && !draft.description.trim())
+    return "Briefly describe the urgent work you need.";
   if (step === "timing" && !draft.urgency)
     return "Choose when you would like help.";
   if (
