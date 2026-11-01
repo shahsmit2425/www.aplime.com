@@ -1,4 +1,5 @@
 import { ReviewPhotoEditor } from "./review-photos.js";
+import { PushSettings } from './push.js';
 import { ProjectContact } from "./project-contact.js";
 import { RatingPicker, ReviewCard } from "./reviews.js";
 import { T } from "../shared/language.js";
@@ -1234,6 +1235,7 @@ function Settings() {
       <Head title={<T>{"Settings"}</T>}>
         <T>{"Manage your account preferences."}</T>
       </Head>
+      <PushSettings />
       <Panel title="Account details">
         <Form
           busy={busy}

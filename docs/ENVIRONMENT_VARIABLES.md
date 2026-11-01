@@ -347,6 +347,8 @@ Apple sign-in is no longer offered. Disable the Apple provider in Firebase Authe
 
 ### Development iOS TestFlight setup (2026-10-31)
 
+Native push uses the existing `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL` and `FIREBASE_PRIVATE_KEY` in the backend-only environment group. This group must also be linked to the background worker. No new push environment variable is needed. The APNs key is uploaded to Firebase, not stored in Render or the repository. See [Mobile push setup](MOBILE_PUSH.md) for provisioning, IAM requirements and device testing.
+
 Development iOS uses `com.aplime.app.dev` (`iosAppId` in config/environments.json). Android retains `com.servicetones.app.dev`; staging and production identifiers are unchanged. Set `MOBILE_PLATFORM=ios` when preparing/syncing iOS locally; CI sets it automatically. Run `npm run build:web`, `npm run mobile:prepare`, then `npx cap sync ios`. The preparation requires the matching development HTTPS `API_URL` and Firebase iOS configuration.
 
 GitHub development environment variables: `IOS_RELEASES_ENABLED=true` enables TestFlight after setup; keep `ANDROID_RELEASES_ENABLED=false`. The old `MOBILE_RELEASES_ENABLED` variable is no longer read and can be removed after this workflow is deployed. Never enable the iOS switch before this commit is pushed and signing secrets are configured. Existing `SITE_URL` and `API_URL` must point to development Render services. Signing secrets remain in GitHub, not Render.

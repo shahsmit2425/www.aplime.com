@@ -68,6 +68,7 @@ export async function google() {
   );
 }
 export async function logout() {
+  if (Capacitor.isNativePlatform()) await (await import('./push.js')).disconnectPush();
   await signOut(auth());
   if (Capacitor.isNativePlatform()) await FirebaseAuthentication.signOut();
 }

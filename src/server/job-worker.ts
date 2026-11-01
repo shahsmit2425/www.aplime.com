@@ -1,4 +1,5 @@
 import { PgBoss } from "pg-boss";
+import { deliverPush } from "./push.js";
 import { pool } from "./db/index.js";
 import { cleanupDeletedAccounts, cleanupStorage } from "./account-cleanup.js";
 import { sendEmail } from "./integrations/email.js";
@@ -30,6 +31,7 @@ export async function startJobWorker() {
   );
   await boss.start();
   const handlers: Record<(typeof jobQueues)[number], () => Promise<unknown>> = {
+    "push-delivery": () => deliverPush(),
     "email-delivery": () => deliverOutbox(sendEmail, 20),
     "email-reminders": queueEmailReminders,
     "meeting-lifecycle": closeDueMeetings,
@@ -55,9 +57,12 @@ export async function startJobWorker() {
     if (enqueueing) return;
     enqueueing = true;
     void Promise.all(
-      ["email-delivery", "meeting-lifecycle", "estimate-expiry"].map((name) =>
-        boss.send(name, {}, { singletonKey: name }),
-      ),
+      [
+        "push-delivery",
+        "email-delivery",
+        "meeting-lifecycle",
+        "estimate-expiry",
+      ].map((name) => boss.send(name, {}, { singletonKey: name })),
     )
       .catch(() => console.error("Fast job scheduling deferred"))
       .finally(() => {

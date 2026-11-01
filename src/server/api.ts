@@ -1,4 +1,5 @@
 import { reviewImages } from "./review-images.js";
+import { pushRouter } from "./push.js";
 import { projectContacts } from "./project-contacts.js";
 import { contactInput } from "../shared/project-contact.js";
 import { reviewInput } from "../shared/reviews.js";
@@ -239,6 +240,7 @@ api.use((req, _res, next) => {
   next();
 });
 api.get("/notifications/stream", notificationStream);
+api.use('/push', pushRouter);
 api.post("/realtime/ticket", realtimeTicket);
 api.use(reviewImages);
 api.use(projectContacts);

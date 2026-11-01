@@ -1,4 +1,5 @@
 import { cleanupDeletedAccounts, cleanupStorage } from "./account-cleanup.js";
+import { deliverPush } from "./push.js";
 import { pool } from "./db/index.js";
 import { sendEmail } from "./integrations/email.js";
 import { env, validateMailWorker } from "./config.js";
@@ -16,6 +17,7 @@ const batch = 20;
 let remindersAt = 0;
 while (!stopping) {
   try {
+    await deliverPush();
     await cleanupStorage();
     await cleanupDeletedAccounts();
     await expireEstimates();

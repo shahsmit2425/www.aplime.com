@@ -1,4 +1,5 @@
 import { T } from "../shared/language.js";
+import { NativePush } from './push.js';
 import { IntakeAccountNotice } from "./intake-account-notice.js";
 import { ProjectIntake } from "./project-intake.js";
 import { hasIntakeResume } from "./project-intake-state.js";
@@ -1030,6 +1031,7 @@ export default function Workspace() {
       value={{ data, page: route.page, id: route.id, go, run, busy }}
     >
       <MeetingProvider key={data.user.id} userId={data.user.id}>
+        <NativePush userId={data.user.id} go={go} />
         <div
           className="workspace"
           style={

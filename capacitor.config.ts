@@ -21,6 +21,7 @@ const config: CapacitorConfig = {
   ios: { contentInset: "automatic" },
   android: { backgroundColor: "#f7f9fc" },
   plugins: {
+    FirebaseMessaging: { presentationOptions: ["alert", "sound"] },
     FirebaseAuthentication: {
       skipNativeAuth: true,
       providers: ["google.com"],

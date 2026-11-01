@@ -3,7 +3,7 @@ import { getAuth, type DecodedIdToken } from "firebase-admin/auth";
 import { env } from "../config.js";
 import { requireValue, fail } from "../errors.js";
 import { recallToken, rememberToken } from "../token-cache.js";
-function firebaseApp() {
+export function firebaseApp() {
   requireValue(
     env.FIREBASE_PROJECT_ID &&
       env.FIREBASE_CLIENT_EMAIL &&

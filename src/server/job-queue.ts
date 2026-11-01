@@ -1,6 +1,7 @@
 import type { Queue } from "pg-boss";
 
 export const jobQueues = [
+  "push-delivery",
   "email-delivery",
   "email-reminders",
   "meeting-lifecycle",
