@@ -29,6 +29,14 @@ export function affected(paths) {
       result.api = result.worker = true;
       continue;
     }
+    if (file === "scripts/check-local-seo.ts") {
+      result.api = true;
+      continue;
+    }
+    if (/^src\/local-directory/.test(file)) {
+      result.web = result.mobile = true;
+      continue;
+    }
     if (file.startsWith("apps/web/")) {
       result.web = true;
       continue;

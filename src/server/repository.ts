@@ -72,6 +72,19 @@ async function mappedProfile(
     profile.serviceCategories = [profile.category];
   return profile;
 }
+export async function localDirectoryProfiles(ids: string[]) {
+  if (!ids.length) return [];
+  const { rows } = await pool.query(
+    profileSelect +
+      " WHERE p.id=ANY($1::text[]) AND u.deleted_at IS NULL AND " +
+      eligibleProSql("p") +
+      " ORDER BY p.business",
+    [ids],
+  );
+  return Promise.all(
+    rows.map(async (row) => ({ row, profile: await mappedProfile(row) })),
+  );
+}
 export async function publicProfiles(id?: string) {
   const { rows } = await pool.query(
     profileSelect +

@@ -743,3 +743,13 @@ Typecheck, all 223 tests and web/admin production builds passed. Local HTTP regr
 - Call lists now show only current meetings, including unconfirmed requests. Completed, cancelled, declined, and elapsed confirmed meetings remain stored but are hidden from the list.
 - Passed TypeScript checking, all 223 automated tests, and web/SSR/admin production builds. No new environment variables or dependencies.
 - Live Firebase password changes, device/browser visual checks, and deployment were not performed. Verify wrong-password rejection, password-policy errors, successful update/new-password login, and Google-only settings on development accounts before release.
+
+
+## New Jersey local SEO foundation (2026-11-02)
+
+- Added canonical state, county, municipality and service-location route handling with an explicit municipality registry. Existing service and business profile URLs are preserved; no ZIP landing pages are generated.
+- Added server-only, Git-reviewed coverage/publication manifests, live database eligibility checks, expiry and preference fingerprints, distinct-business publication thresholds, SSR profile listings and portfolio thumbnails, metadata/breadcrumb/collection schema, ZIP hand-off, and supply-aware sitemap links. The initial coverage manifest is intentionally empty: no actual business coverage or city publication was invented.
+- Empty NJ hub is honest and noindex; unapproved city/county paths are 404; previously approved pages losing supply remain useful noindex pages. Service schema now names New Jersey. The web deploy depends on the API `/local-directory` endpoint: deploy API first.
+- Passed TypeScript checking, all 230 tests, and production web/SSR/admin builds. Tests cover canonical parsing, thresholds, lost supply, noindex outside production, safe serialization, review expiry/preference invalidation, and PostgreSQL-engine eligibility/public-field isolation.
+- A local preview server was started, but the available browser could not reach the local port; no browser visual verification is claimed. No Render deployment, production coverage review, Search Console submission, live search indexing, real-device or signed native verification was performed. Verify desktop/mobile layouts and end-to-end form hand-off in development before promotion.
+- No new environment variables, dependencies, or migrations. See LOCAL_SEO.md for actual-coverage approval, read-only `npm run seo:check` commands, publication and rollout steps.

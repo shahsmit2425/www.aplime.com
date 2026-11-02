@@ -1,3 +1,10 @@
+import { LocalDirectoryPage, LocationLinks } from "./local-directory-page.js";
+import {
+  emptyDirectory,
+  locationPage,
+  visibleLocation,
+  type LocalDirectory,
+} from "./shared/local-directory.js";
 import { T } from "./shared/language.js";
 import { serviceSlug } from "./shared/service-questionnaires.js";
 import { ArrowUpRight } from "lucide-react";
@@ -357,7 +364,9 @@ function FaqPage({ path }: { path: string }) {
 function ContactPage({
   path,
   supportEmail,
+  directory = emptyDirectory,
 }: {
+  directory?: LocalDirectory;
   path: string;
   supportEmail?: string;
 }) {
@@ -460,13 +469,19 @@ export function PublicPage({
   path,
   profile,
   supportEmail,
+  directory = emptyDirectory,
 }: {
+  directory?: LocalDirectory;
   path: string;
   profile?: Profile;
   supportEmail?: string;
 }) {
-  const slug = decodeURIComponent(path.split("/")[2] || "");
-  const category = categories.find((c) => serviceSlug(c) === slug);
+  const category = categories.find(
+    (c) => path === "/services/" + serviceSlug(c),
+  );
+  const candidate = locationPage(path);
+  const localPage =
+    candidate && visibleLocation(candidate, directory) ? candidate : undefined;
   const information =
     informationalPages[path as keyof typeof informationalPages];
   const servicesIndex = path === "/services";
@@ -477,7 +492,8 @@ export function PublicPage({
     !profile &&
     !legal &&
     !information &&
-    !servicesIndex;
+    !servicesIndex &&
+    !localPage;
   return (
     <>
       <a className="skip-link" href="#main-content">
@@ -486,6 +502,7 @@ export function PublicPage({
       <header className="public-header">
         <Brand />
         <nav aria-label="Main navigation">
+          <a href="/nj">New Jersey</a>
           <a href="/#services">
             <T>{"Explore services"}</T>
           </a>
@@ -504,6 +521,7 @@ export function PublicPage({
             <Menu />
           </summary>
           <div>
+            <a href="/nj">New Jersey</a>
             <a href="/services">
               <T>{"Explore services"}</T>
             </a>
@@ -557,6 +575,8 @@ export function PublicPage({
               contact Aplime through Messages in your account.
             </p>
           </article>
+        ) : localPage ? (
+          <LocalDirectoryPage page={localPage} directory={directory} />
         ) : notFound ? (
           <NotFoundPage />
         ) : profile ? (
@@ -580,9 +600,15 @@ export function PublicPage({
         ) : information ? (
           <InformationPage path={path} />
         ) : servicesIndex ? (
-          <ServicesIndex />
+          <>
+            <ServicesIndex />
+            <LocationLinks directory={directory} />
+          </>
         ) : category ? (
-          <ServicePage category={category} />
+          <>
+            <ServicePage category={category} />
+            <LocationLinks directory={directory} service={category} />
+          </>
         ) : (
           <>
             <section className="hero hero-with-photo">
@@ -653,8 +679,21 @@ export function PublicPage({
                 </div>
               </div>
               <figure className="estimate-hero-photo">
-                <img src="/free-estimate-consultation.webp" alt="Illustrative scene of a homeowner discussing a project estimate with a home-service professional" width="1200" height="800" decoding="async" fetchPriority="high" />
-                <figcaption><strong>Start with a free estimate.</strong><span>Share your project, compare options, and choose your professional.</span></figcaption>
+                <img
+                  src="/free-estimate-consultation.webp"
+                  alt="Illustrative scene of a homeowner discussing a project estimate with a home-service professional"
+                  width="1200"
+                  height="800"
+                  decoding="async"
+                  fetchPriority="high"
+                />
+                <figcaption>
+                  <strong>Start with a free estimate.</strong>
+                  <span>
+                    Share your project, compare options, and choose your
+                    professional.
+                  </span>
+                </figcaption>
               </figure>
             </section>
             <section id="services">

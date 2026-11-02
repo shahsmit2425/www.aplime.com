@@ -4545,3 +4545,41 @@ test("project contact and review photos enforce ownership, publication and ten-p
     );
   }
 });
+
+
+test("local directory enforces live eligibility and never exposes private coverage evidence", async () => {
+  const { localDirectoryProfiles } = await import("../src/server/repository.js");
+  const { publicLocalDirectory } = await import("../src/server/local-directory.js");
+  const { approvedCoverage } = await import("../src/server/local-directory-approved.js");
+  const { preferenceFingerprint } = await import("../src/server/local-coverage-policy.js");
+  const { municipalities } = await import("../src/shared/local-directory.js");
+  await query("BEGIN");
+  const previous = approvedCoverage.length;
+  try {
+    await query("UPDATE users SET deleted_at=NULL WHERE id=$1", [professional.id]);
+    await query("UPDATE profiles SET verified=true,review_status='approved',listed=true,suspended=false,available=true,published_profile=NULL,service_categories='[\"Plumbing\"]'::jsonb WHERE id=$1", [professional.id]);
+    await query("UPDATE professional_subscriptions SET status='active' WHERE user_id=$1", [professional.id]);
+    const [record] = await localDirectoryProfiles([professional.id]);
+    assert.ok(record);
+    approvedCoverage.push({ proId: professional.id, municipalityId: municipalities[0].id, service: "Plumbing",
+      reviewedAt: new Date(Date.now()-60000).toISOString(), expiresAt: new Date(Date.now()+86400000).toISOString(),
+      evidenceReference: "PRIVATE-REVIEW-REFERENCE", preferenceFingerprint: preferenceFingerprint(record.row) });
+    const visible = await publicLocalDirectory();
+    assert.equal(visible.listings.length, 1);
+    assert.doesNotMatch(JSON.stringify(visible), /PRIVATE-REVIEW-REFERENCE|preferenceFingerprint|placeId|reviewNote|address/);
+    for (const column of ["suspended", "available", "verified"]) {
+      const denied = column === "suspended";
+      await query(`UPDATE profiles SET ${column}=$2 WHERE id=$1`, [professional.id, denied]);
+      assert.equal((await publicLocalDirectory()).listings.length, 0, column);
+      await query(`UPDATE profiles SET ${column}=$2 WHERE id=$1`, [professional.id, !denied]);
+    }
+    await query("UPDATE professional_subscriptions SET status='canceled' WHERE user_id=$1", [professional.id]);
+    assert.equal((await publicLocalDirectory()).listings.length, 0);
+    await query("UPDATE professional_subscriptions SET status='active' WHERE user_id=$1", [professional.id]);
+    await query("UPDATE profiles SET service_radius_miles=service_radius_miles+1 WHERE id=$1", [professional.id]);
+    assert.equal((await publicLocalDirectory()).listings.length, 0, "preference change invalidates coverage");
+  } finally {
+    approvedCoverage.splice(previous);
+    await query("ROLLBACK");
+  }
+});

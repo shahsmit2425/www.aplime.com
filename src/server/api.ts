@@ -1,3 +1,4 @@
+import { publicLocalDirectory } from "./local-directory.js";
 import { reviewImages } from "./review-images.js";
 import { pushRouter } from "./push.js";
 import { projectContacts } from "./project-contacts.js";
@@ -107,6 +108,9 @@ export const api = Router();
 api.use(publicBusinessImages);
 api.use("/intake/locations", publicIntake);
 api.get("/config", (_q, r) => r.json(publicConfig));
+api.get("/local-directory", async (_q, r) => {
+  r.set("Cache-Control", "no-store").json(await publicLocalDirectory());
+});
 const PUBLIC_PROFILE_TTL_MS = 30_000;
 const publicProfileMemo = new Map<
   string,
