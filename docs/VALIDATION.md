@@ -735,3 +735,11 @@ Added native opt-in/device registration, owner-checked notification tap resoluti
 Added an optional short urgent-request path at the ZIP step. It skips service questionnaire, timing and budget screens, retains a required problem description, server-validated service address/ZIP and explicit phone consent, uses the authenticated customer name, and retains optional photos and final review/authentication. Submitted urgency is urgent; skipped answers and budgets are not sent. Urgent projects permit omitted questionnaire answers on the shared server schema while continuing to reject unknown or invalid answers. Standard requests retain required questions. No emergency dispatch or response-time guarantee is implied.
 
 Typecheck, all 223 tests and web/admin production builds passed. Local HTTP regression tests required network permission. No deployment or signed iPhone/Android verification performed; test the short flow, draft resume, consent, photo upload and matching on the development website and next TestFlight build. No new environment variables or migrations.
+
+
+## Dashboard filters and account security (2026-11-01)
+- Added professional dashboard service, project status, and timing filters, visible counts, reset, and a separate archived view. Filters apply to both owned and matched projects, not estimate history.
+- Removed the account-data download control from Settings; the authorized backend export endpoint remains intact. Added current-password reauthentication and confirmed new-password updates through Firebase, with Google-only account guidance. Password fields clear after success.
+- Call lists now show only current meetings, including unconfirmed requests. Completed, cancelled, declined, and elapsed confirmed meetings remain stored but are hidden from the list.
+- Passed TypeScript checking, all 223 automated tests, and web/SSR/admin production builds. No new environment variables or dependencies.
+- Live Firebase password changes, device/browser visual checks, and deployment were not performed. Verify wrong-password rejection, password-policy errors, successful update/new-password login, and Google-only settings on development accounts before release.

@@ -474,7 +474,7 @@ export function CallMeetings({
       (m) =>
         (!projectId || m.projectId === projectId) &&
         (!conversationProId || m.proId === conversationProId) &&
-        (!compact || callIsActive(m, now)),
+        callIsActive(m, now),
     )
     .sort(
       (a, b) =>
@@ -527,8 +527,7 @@ export function CallMeetings({
       {loading && <p role="status">Loading call meetings…</p>}
       {!loading && !shown.length && !error && !loadError && (
         <p className="meeting-empty">
-          No calls scheduled. Choose Schedule call on a professional’s project
-          card to get started.
+          No current calls. Schedule a call from a project or conversation.
         </p>
       )}
       <div className="meeting-list">

@@ -1,6 +1,11 @@
 import { useState } from "react";
 import { request } from "./api.js";
-import { reauthenticate, usesPassword, logout } from "./auth.js";
+import {
+  reauthenticate,
+  usesPassword,
+  logout,
+  changePassword,
+} from "./auth.js";
 import { Field, Form, Panel } from "./ui.js";
 import { useWorkspace } from "./workspace.js";
 
@@ -8,49 +13,64 @@ export function AccountData() {
   const { run, busy, go } = useWorkspace();
   const [confirming, setConfirming] = useState(false);
   const password = usesPassword();
+  const [passwordVersion, setPasswordVersion] = useState(0);
   async function confirm(f: FormData) {
     await reauthenticate(String(f.get("password") || ""));
   }
   return (
-    <Panel title="Download or delete your data">
-      <p>
-        Download a copy of the personal data we hold for your account, or
-        permanently delete your account. Both ask you to confirm your sign-in
-        first.
-      </p>
-      <Form
-        busy={busy}
-        onSubmit={(f) =>
-          run(async () => {
-            await confirm(f);
-            const data = await request("/account/export");
-            const url = URL.createObjectURL(
-              new Blob([JSON.stringify(data, null, 2)], {
-                type: "application/json",
-              }),
-            );
-            const link = document.createElement("a");
-            link.href = url;
-            link.download = "aplime-account-data.json";
-            document.body.append(link);
-            link.click();
-            link.remove();
-            setTimeout(() => URL.revokeObjectURL(url), 10000);
-          }, "Your data download has started.")
-        }
-      >
-        {password && (
-          <Field label="Confirm your password">
+    <Panel title="Account security">
+      <h3>Update password</h3>
+      {password ? (
+        <Form
+          key={passwordVersion}
+          busy={busy}
+          onSubmit={(f) =>
+            run(async () => {
+              await changePassword(
+                String(f.get("currentPassword") || ""),
+                String(f.get("newPassword") || ""),
+                String(f.get("confirmPassword") || ""),
+              );
+              setPasswordVersion((value) => value + 1);
+            }, "Your password has been updated.")
+          }
+        >
+          <Field label="Current password">
             <input
-              name="password"
+              name="currentPassword"
               type="password"
               autoComplete="current-password"
               required
             />
           </Field>
-        )}
-        <button className="secondary">Download my data</button>
-      </Form>
+          <Field label="New password">
+            <input
+              name="newPassword"
+              type="password"
+              autoComplete="new-password"
+              minLength={12}
+              required
+            />
+          </Field>
+          <Field label="Confirm new password">
+            <input
+              name="confirmPassword"
+              type="password"
+              autoComplete="new-password"
+              minLength={12}
+              required
+            />
+          </Field>
+          <p>
+            Use at least 12 characters and a password you do not use elsewhere.
+          </p>
+          <button>Update password</button>
+        </Form>
+      ) : (
+        <p>
+          You sign in with Google. Manage your password in your Google account.
+        </p>
+      )}
       <h3>Sign out all devices</h3>
       <Form
         busy={busy}

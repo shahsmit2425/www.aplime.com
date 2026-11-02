@@ -10,6 +10,7 @@ import {
   createUserWithEmailAndPassword,
   sendEmailVerification,
   sendPasswordResetEmail,
+  updatePassword,
   signOut,
   EmailAuthProvider,
   reauthenticateWithCredential,
@@ -81,7 +82,7 @@ export async function reauthenticate(password?: string) {
   const user = auth().currentUser;
   if (!user) throw new Error("Please sign in again.");
   const provider = user.providerData[0]?.providerId;
-  if (provider === "password") {
+  if (usesPassword()) {
     if (!password) throw new Error("Enter your password to continue.");
     await reauthenticateWithCredential(
       user,
@@ -135,5 +136,21 @@ export function authErrorMessage(error: unknown) {
       return error instanceof Error
         ? error.message
         : "Authentication could not be completed.";
+  }
+}
+
+export async function changePassword(current: string, next: string, confirmation: string) {
+  if (!usesPassword()) throw new Error("Your password is managed by Google.");
+  if (next !== confirmation) throw new Error("New passwords do not match.");
+  if (next.length < 12) throw new Error("Use at least 12 characters for your new password.");
+  if (next === current) throw new Error("Choose a different password from your current password.");
+  try {
+    await reauthenticate(current);
+    const user = auth().currentUser;
+    if (!user) throw new Error("Please sign in again.");
+    await updatePassword(user, next);
+    await user.getIdToken(true);
+  } catch (error) {
+    throw new Error(authErrorMessage(error));
   }
 }
