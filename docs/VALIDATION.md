@@ -751,3 +751,9 @@ Local typecheck, all 223 tests, and web, SSR, and admin builds passed. Coverage 
 ### Optional project phone sharing and professional dashboard
 
 Standard and urgent intake require a phone number and accept either explicit sharing choice. Integration tests check that opting out denies both the professional preview and reveal, that only the project owner can update the choice, and that the owner retains their number. Pre-existing affirmative consent timestamps are preserved by migration 031. The professional dashboard uses one status selector and lists active work first. Local typecheck, all 223 tests and production builds passed. Live deployment, signed mobile builds and device layout were not verified.
+
+### Upload availability, worker monitoring and workspace recovery
+
+All 225 tests, typecheck, and web/SSR/admin builds passed locally. The HTTP tests hold four partial image uploads, disconnect one, let the remaining requests expire and confirm a new upload succeeds. Limiter tests cover rejection, timeout, ordinary workspace reads, local quota exhaustion and sensitive requests. Worker error events use the existing SENTRY_DSN and fixed job labels. Delivery to a real Sentry project, Render failure handling and mobile device UI were not tested.
+
+A disposable PostgreSQL 16 cluster applied the migrations through 031. A custom-format dump restored into a separate database contained the test project and successfully served customer and professional workspace snapshots. Before the unread-count optimization, 1/2/10 concurrent snapshots issued 15/30/150 queries with observed peak pool queues of 0/6/22 in this tiny fixture. This was a local rehearsal, not a production backup recovery or a capacity forecast. The API now combines unread counts and skips redundant background timer/focus loads while a snapshot is pending.

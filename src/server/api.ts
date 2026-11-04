@@ -1,3 +1,4 @@
+import { checkAuthenticatedLimit } from "./abuse-limits.js";
 import { reviewImages } from "./review-images.js";
 import { pushRouter } from "./push.js";
 import { projectContacts } from "./project-contacts.js";
@@ -173,9 +174,11 @@ api.use(async (req, res, next) => {
     authTime: decoded.auth_time,
   };
   if (distributedLimiter) {
-    const result = await distributedLimiter.limit(decoded.uid);
-    if (!result.success)
-      return res.status(429).json({ error: "Please slow down and try again." });
+    await checkAuthenticatedLimit(
+      distributedLimiter,
+      decoded.uid,
+      req.method === "GET" && req.path === "/workspace",
+    );
   }
   const record = (
     await pool.query("SELECT * FROM users WHERE id=$1", [decoded.uid])
@@ -240,7 +243,7 @@ api.use((req, _res, next) => {
   next();
 });
 api.get("/notifications/stream", notificationStream);
-api.use('/push', pushRouter);
+api.use("/push", pushRouter);
 api.post("/realtime/ticket", realtimeTicket);
 api.use(reviewImages);
 api.use(projectContacts);

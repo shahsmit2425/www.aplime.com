@@ -249,6 +249,7 @@ export default function Workspace() {
   const [liveConnected, setLiveConnected] = useState(false);
   const loadSequence = useRef(0);
   const lastLoadAt = useRef(0);
+  const pendingLoad = useRef(0);
   const [liveNotice, setLiveNotice] = useState<Notice | null>(null);
   const knownNotices = useRef<{ user: string; ids: Set<string> }>({
     user: "",
@@ -347,6 +348,7 @@ export default function Workspace() {
     const owner = auth().currentUser;
     if (!owner) return;
     const sequence = ++loadSequence.current;
+    pendingLoad.current = sequence;
     lastLoadAt.current = Date.now();
     try {
       const result = await request<Data>("/workspace");
@@ -382,6 +384,8 @@ export default function Workspace() {
         setNeedsAccount(true);
         setData(null);
       } else throw e;
+    } finally {
+      if (pendingLoad.current === sequence) pendingLoad.current = 0;
     }
   }
   useEffect(() => {
@@ -419,6 +423,7 @@ export default function Workspace() {
     const refresh = () => {
       if (
         document.visibilityState === "visible" &&
+        !pendingLoad.current &&
         Date.now() - lastLoadAt.current >= interval / 2
       )
         void load().catch(() => {});

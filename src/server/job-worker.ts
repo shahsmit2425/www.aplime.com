@@ -1,3 +1,4 @@
+import { reportWorkerFailure } from "./worker-monitor.js";
 import { PgBoss } from "pg-boss";
 import { deliverPush } from "./push.js";
 import { pool } from "./db/index.js";
@@ -24,11 +25,12 @@ export async function startJobWorker() {
     schema: "pgboss",
     instanceName: "aplime-worker",
   });
-  boss.on("error", () =>
+  boss.on("error", () => {
     console.error(
       "Job queue operation failed; inspect worker and PostgreSQL health",
-    ),
-  );
+    );
+    reportWorkerFailure("queue");
+  });
   await boss.start();
   const handlers: Record<(typeof jobQueues)[number], () => Promise<unknown>> = {
     "push-delivery": () => deliverPush(),
@@ -46,6 +48,7 @@ export async function startJobWorker() {
         await handlers[name]();
       } catch (error) {
         console.error("Background task failed: " + name);
+        reportWorkerFailure(name);
         throw error;
       }
     });
@@ -64,7 +67,10 @@ export async function startJobWorker() {
         "estimate-expiry",
       ].map((name) => boss.send(name, {}, { singletonKey: name })),
     )
-      .catch(() => console.error("Fast job scheduling deferred"))
+      .catch(() => {
+        console.error("Fast job scheduling deferred");
+        reportWorkerFailure("schedule");
+      })
       .finally(() => {
         enqueueing = false;
       });

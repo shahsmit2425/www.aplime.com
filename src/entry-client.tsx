@@ -22,7 +22,72 @@ if (!window.__CONFIG__) {
   } catch {}
 }
 const config = window.__CONFIG__ || fallbackConfig;
-if (config.sentryDsn) {
+const root = document.getElementById("root")!;
+const native = Capacitor.isNativePlatform();
+const privatePage =
+  native ||
+  location.pathname.startsWith("/app") ||
+  location.hash.startsWith("#/");
+class RecoveryBoundary extends React.Component<
+  React.PropsWithChildren,
+  { failed: boolean }
+> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  render() {
+    if (!this.state.failed) return this.props.children;
+    return (
+      <main className="loading" role="alert">
+        <h1>This screen couldn’t open</h1>
+        <p>Reload Aplime to try again.</p>
+        <button onClick={() => location.reload()}>Reload Aplime</button>
+      </main>
+    );
+  }
+}
+
+if (privatePage) {
+  createRoot(root).render(
+    <React.StrictMode>
+      <RecoveryBoundary>
+        <LanguageProvider>
+          <Suspense
+            fallback={
+              <div className="loading" role="status">
+                Opening your workspace…
+              </div>
+            }
+          >
+            <Workspace />
+          </Suspense>
+        </LanguageProvider>
+      </RecoveryBoundary>
+    </React.StrictMode>,
+  );
+} else if (root.hasChildNodes() && window.__PAGE__) {
+  hydrateRoot(
+    root,
+    <RecoveryBoundary>
+      <LanguageProvider>
+        <PublicPage {...window.__PAGE__} supportEmail={config.supportEmail} />
+      </LanguageProvider>
+    </RecoveryBoundary>,
+  );
+} else
+  createRoot(root).render(
+    <RecoveryBoundary>
+      <LanguageProvider>
+        <PublicPage
+          path={location.pathname}
+          supportEmail={config.supportEmail}
+        />
+      </LanguageProvider>
+    </RecoveryBoundary>,
+  );
+
+async function startMonitoring() {
   const Sentry = await import("@sentry/react");
   Sentry.init({
     dsn: config.sentryDsn,
@@ -37,38 +102,10 @@ if (config.sentryDsn) {
     },
   });
 }
-const root = document.getElementById("root")!;
-const native = Capacitor.isNativePlatform();
-const privatePage =
-  native ||
-  location.pathname.startsWith("/app") ||
-  location.hash.startsWith("#/");
-if (privatePage) {
-  createRoot(root).render(
-    <React.StrictMode>
-      <LanguageProvider>
-        <Suspense
-          fallback={
-            <div className="loading" role="status">
-              Opening your workspace…
-            </div>
-          }
-        >
-          <Workspace />
-        </Suspense>
-      </LanguageProvider>
-    </React.StrictMode>,
-  );
-} else if (root.hasChildNodes() && window.__PAGE__) {
-  hydrateRoot(
-    root,
-    <LanguageProvider>
-      <PublicPage {...window.__PAGE__} supportEmail={config.supportEmail} />
-    </LanguageProvider>,
-  );
-} else
-  createRoot(root).render(
-    <LanguageProvider>
-      <PublicPage path={location.pathname} supportEmail={config.supportEmail} />
-    </LanguageProvider>,
-  );
+
+if (config.sentryDsn)
+  setTimeout(() => {
+    void startMonitoring().catch(() =>
+      console.warn("Browser monitoring unavailable."),
+    );
+  }, 0);

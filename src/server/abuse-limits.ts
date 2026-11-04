@@ -105,3 +105,25 @@ export async function guardCreation(kind: "signup" | "project", req: Request) {
     req.identity.uid,
   );
 }
+
+const fallbackWorkspaceBudget = new FixedWindowBudget();
+export async function checkAuthenticatedLimit(
+  limiter: Pick<Ratelimit, "limit">,
+  uid: string,
+  workspaceRead: boolean,
+) {
+  let result;
+  try {
+    result = await limiter.limit(uid);
+  } catch {
+    // Only the workspace snapshot can fall back; its authorization still runs below.
+  }
+  if (result && result.reason !== "timeout") {
+    requireLimitResult(result);
+    return;
+  }
+  if (!workspaceRead)
+    fail(503, "Safety checks are unavailable. Please try again shortly.");
+  if (!fallbackWorkspaceBudget.take(uid, 12, 60_000))
+    fail(429, "Please slow down and try again.");
+}

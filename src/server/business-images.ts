@@ -1,5 +1,6 @@
-import { Router, raw } from "express";
-import { IMAGE_TYPES, MAX_UPLOAD_BYTES } from "../shared/uploads.js";
+import { imageUploadBody } from "./upload-body.js";
+import { Router } from "express";
+import { IMAGE_TYPES } from "../shared/uploads.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { pool, transaction } from "./db/index.js";
@@ -83,7 +84,6 @@ businessImages.post("/", async (req, res) => {
   res.json(result);
 });
 // Bound buffering to four 10 MB files per API process, one per account.
-const receiving = new Set<string>();
 businessImages.put(
   "/:id/content",
   async (req, res, next) => {
@@ -103,26 +103,10 @@ businessImages.put(
       )
     )
       fail(415, "Choose a JPG, PNG, or WebP image.");
-    if (receiving.size >= 4 || receiving.has(req.account.id))
-      fail(429, "Another image is uploading. Please retry shortly.");
-    receiving.add(req.account.id);
-    let released = false;
-    const release = () => {
-      if (!released) {
-        released = true;
-        receiving.delete(req.account.id);
-      }
-    };
-    res.locals.releaseImageUpload = release;
-    res.once("finish", release);
-    res.once("close", () => {
-      if (!res.locals.processingImageUpload) release();
-    });
     next();
   },
-  raw({ type: [...IMAGE_TYPES], limit: MAX_UPLOAD_BYTES, inflate: false }),
+  imageUploadBody(),
   async (req, res) => {
-    res.locals.processingImageUpload = true;
     try {
       if (!Buffer.isBuffer(req.body) || !req.body.length)
         fail(400, "Choose a non-empty image.");
@@ -159,7 +143,7 @@ businessImages.put(
       });
       res.json({ ok: true });
     } finally {
-      res.locals.releaseImageUpload?.();
+      res.locals.releaseUpload?.();
     }
   },
 );

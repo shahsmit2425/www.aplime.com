@@ -1,4 +1,5 @@
-import { Router, raw } from "express";
+import { imageUploadBody } from "./upload-body.js";
+import { Router } from "express";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { pool, transaction } from "./db/index.js";
@@ -10,7 +11,7 @@ import {
   storeBusinessImage,
   removeObject,
 } from "./integrations/storage.js";
-import { IMAGE_TYPES, MAX_UPLOAD_BYTES } from "../shared/uploads.js";
+import { IMAGE_TYPES } from "../shared/uploads.js";
 export const reviewImages = Router();
 const projectId = (value: unknown) => z.string().uuid().parse(value);
 const slotId = (value: unknown) =>
@@ -40,7 +41,6 @@ reviewImages.get("/projects/:id/review-photos", async (req, res) => {
   if (!access) fail(404, "Project unavailable.");
   res.set("Cache-Control", "no-store").json(await reviewPhotos(id));
 });
-const receiving = new Set<string>();
 reviewImages.put(
   "/projects/:id/review-photos/:slot",
   async (req, res, next) => {
@@ -61,20 +61,10 @@ reviewImages.put(
       )
     )
       fail(415, "Choose JPG, PNG or WebP images.");
-    if (receiving.size >= 4 || receiving.has(req.account.id))
-      fail(429, "Another image is uploading. Try again shortly.");
-    receiving.add(req.account.id);
-    const release = () => receiving.delete(req.account.id);
-    res.locals.release = release;
-    res.once("finish", release);
-    res.once("close", () => {
-      if (!res.locals.processing) release();
-    });
     next();
   },
-  raw({ type: [...IMAGE_TYPES], limit: MAX_UPLOAD_BYTES, inflate: false }),
+  imageUploadBody(),
   async (req, res) => {
-    res.locals.processing = true;
     const id = projectId(req.params.id),
       slot = slotId(req.params.slot),
       key = `${env.APP_ENV}/reviews/${id}/${randomUUID()}`;
@@ -122,7 +112,7 @@ reviewImages.put(
       if (stored) await removeObject(key).catch(() => {});
       throw error;
     } finally {
-      res.locals.release?.();
+      res.locals.releaseUpload?.();
     }
   },
 );

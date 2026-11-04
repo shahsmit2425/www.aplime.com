@@ -1,4 +1,5 @@
-import { Router, raw } from "express";
+import { imageUploadBody } from "./upload-body.js";
+import { Router } from "express";
 import { randomUUID, createHash } from "node:crypto";
 import { z } from "zod";
 import type pg from "pg";
@@ -8,7 +9,6 @@ import { fail } from "./errors.js";
 import {
   uploadSchema,
   IMAGE_TYPES,
-  MAX_UPLOAD_BYTES,
   MAX_PROJECT_IMAGES,
 } from "../shared/uploads.js";
 import { matchesImageSignature } from "../shared/business-images.js";
@@ -95,7 +95,6 @@ projectImages.post("/projects/:id/photos/reservations", async (req, res) => {
 });
 // Like business images, authenticated API uploads avoid browser-to-R2 CORS.
 // Bound buffering to four files per API instance and one per account.
-const receiving = new Set<string>();
 projectImages.put(
   "/project-photos/:id/content",
   async (req, res, next) => {
@@ -115,26 +114,10 @@ projectImages.put(
       )
     )
       fail(415, "Choose a JPG, PNG or WebP image.");
-    if (receiving.size >= 4 || receiving.has(req.account.id))
-      fail(429, "Another image is uploading. Please retry shortly.");
-    receiving.add(req.account.id);
-    let released = false;
-    const release = () => {
-      if (!released) {
-        released = true;
-        receiving.delete(req.account.id);
-      }
-    };
-    res.locals.releaseProjectPhoto = release;
-    res.once("finish", release);
-    res.once("close", () => {
-      if (!res.locals.processingProjectPhoto) release();
-    });
     next();
   },
-  raw({ type: [...IMAGE_TYPES], limit: MAX_UPLOAD_BYTES, inflate: false }),
+  imageUploadBody(),
   async (req, res) => {
-    res.locals.processingProjectPhoto = true;
     try {
       if (!Buffer.isBuffer(req.body) || !req.body.length)
         fail(400, "Choose a non-empty photo.");
@@ -180,7 +163,7 @@ projectImages.put(
       });
       res.json({ ok: true });
     } finally {
-      res.locals.releaseProjectPhoto?.();
+      res.locals.releaseUpload?.();
     }
   },
 );

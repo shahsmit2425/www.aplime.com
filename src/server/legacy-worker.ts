@@ -1,3 +1,4 @@
+import { reportWorkerFailure } from "./worker-monitor.js";
 import { cleanupDeletedAccounts, cleanupStorage } from "./account-cleanup.js";
 import { deliverPush } from "./push.js";
 import { pool } from "./db/index.js";
@@ -28,6 +29,7 @@ while (!stopping) {
     }
     while (!stopping && (await deliverOutbox(sendEmail, batch)) === batch);
   } catch {
+    reportWorkerFailure("legacy-maintenance");
     console.error("Background worker could not reach the database.");
   }
   await new Promise((r) => setTimeout(r, 3000));

@@ -1,3 +1,4 @@
+import { reportWorkerFailure } from "./worker-monitor.js";
 import { pool, transaction } from "./db/index.js";
 import { emailAllowed, emailPolicy } from "../shared/email-alerts.js";
 import { eventEmail } from "./email-template.js";
@@ -131,10 +132,12 @@ export async function deliverOutbox(send: Send, batch = 20) {
           ? { provider: "resend", code: error.code, status: error.status }
           : { code: "processing_error" },
       );
-      if (mail.attempts === 8)
+      if (mail.attempts === 8) {
+        reportWorkerFailure("email-delivery-exhausted");
         await pool.query(
           "INSERT INTO notifications(id,user_id,title,body,target_page) SELECT gen_random_uuid(),id,'Email delivery failed','An email exhausted its retry attempts. Review failed deliveries in Email & alerts.','emails' FROM users WHERE role='admin' AND deleted_at IS NULL",
         );
+      }
     }
   }
   return mails.length;

@@ -1,3 +1,4 @@
+import { reportWorkerFailure } from "./worker-monitor.js";
 import { Router } from "express";
 import { z } from "zod";
 import { pool, transaction } from "./db/index.js";
@@ -138,6 +139,7 @@ export async function deliverPush(
               Math.min(900, 30 * 2 ** attempts),
             ],
           );
+          if (attempts >= 6) reportWorkerFailure("push-delivery-exhausted");
           console.error(
             "Push delivery deferred",
             row.id,

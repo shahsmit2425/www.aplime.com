@@ -240,6 +240,12 @@ export async function workspace(user: User): Promise<Workspace> {
         )
       : Promise.resolve({ rows: [] }),
   ]);
+  const { rows: [unread] } = await pool.query(
+    `SELECT count(*)::int AS total,
+     count(*) FILTER (WHERE target_page='messages' OR (target_page='help' AND target_id IS NOT NULL))::int AS messages
+     FROM notifications WHERE user_id=$1 AND NOT read`,
+    [user.id],
+  );
   return {
     user,
     projectDraft: projectDraft.rows[0] ? camel(projectDraft.rows[0]) : null,
@@ -255,18 +261,8 @@ export async function workspace(user: User): Promise<Workspace> {
     reviews: reviews.rows.map((r) => camel(r)),
     tickets: tickets.rows.map((r) => camel(r)),
     notices: notices.rows.map((r) => camel(r)),
-    unreadCount: (
-      await pool.query(
-        "SELECT count(*)::int AS n FROM notifications WHERE user_id=$1 AND NOT read",
-        [user.id],
-      )
-    ).rows[0].n,
-    unreadMessageCount: (
-      await pool.query(
-        "SELECT count(*)::int AS n FROM notifications WHERE user_id=$1 AND NOT read AND (target_page='messages' OR (target_page='help' AND target_id IS NOT NULL))",
-        [user.id],
-      )
-    ).rows[0].n,
+    unreadCount: unread.total,
+    unreadMessageCount: unread.messages,
     uploads: uploads.rows.map((r) => camel(r)),
     saved: saved.rows.map((r) => r.pro_id),
     blocked: blocked.rows.map((r) => r.other_id),
