@@ -9,30 +9,37 @@ import { projectSchema } from "../shared/domain.js";
 export const INTAKE_TTL = 24 * 60 * 60_000;
 export const INTAKE_KEY = "aplime-project-intake-v1";
 export const INTAKE_RESUME = "aplime-project-intake-resume";
-const draftSchema = z.object({
-  emergency: z.boolean().default(false),
-  contactPhone: z.string().max(40).default(""),
-  contactConsent: z.boolean().default(false),
-  zip: z.string().max(5).default(""),
-  zipLabel: z.string().max(300).default(""),
-  addressZip: z.string().max(5).default(""),
-  category: z.enum(categories).default("Handyman"),
-  intake: z.record(z.string().max(64), z.string().max(1500)).default({}),
-  title: z.string().max(120).default(""),
-  description: z.string().max(4000).default(""),
-  address: z.string().max(300).default(""),
-  placeId: z.string().max(300).default(""),
-  addressUnit: z.string().max(100).default(""),
-  urgency: z
-    .enum(["urgent", "this_week", "this_month", "flexible", ""])
-    .default(""),
-  propertyType: z
-    .enum(["home", "apartment", "condo", "commercial", "other"])
-    .default("home"),
-  budgetMin: z.number().int().min(0).max(10000000).nullable().default(null),
-  budgetMax: z.number().int().min(0).max(10000000).nullable().default(null),
-  proId: z.string().max(128).nullable().default(null),
-});
+const draftSchema = z
+  .object({
+    emergency: z.boolean().default(false),
+    contactPhone: z.string().max(40).default(""),
+    sharePhone: z.boolean().optional(),
+    contactConsent: z.boolean().optional(), // Older drafts only recorded affirmative consent.
+    zip: z.string().max(5).default(""),
+    zipLabel: z.string().max(300).default(""),
+    addressZip: z.string().max(5).default(""),
+    category: z.enum(categories).default("Handyman"),
+    intake: z.record(z.string().max(64), z.string().max(1500)).default({}),
+    title: z.string().max(120).default(""),
+    description: z.string().max(4000).default(""),
+    address: z.string().max(300).default(""),
+    placeId: z.string().max(300).default(""),
+    addressUnit: z.string().max(100).default(""),
+    urgency: z
+      .enum(["urgent", "this_week", "this_month", "flexible", ""])
+      .default(""),
+    propertyType: z
+      .enum(["home", "apartment", "condo", "commercial", "other"])
+      .default("home"),
+    budgetMin: z.number().int().min(0).max(10000000).nullable().default(null),
+    budgetMax: z.number().int().min(0).max(10000000).nullable().default(null),
+    proId: z.string().max(128).nullable().default(null),
+  })
+  .transform(({ contactConsent, ...draft }) => ({
+    ...draft,
+    sharePhone:
+      draft.sharePhone ?? (contactConsent === true ? true : undefined),
+  }));
 export type IntakeDraft = z.infer<typeof draftSchema>;
 export function initialIntake(value: unknown = {}) {
   const parsed = draftSchema.safeParse(value);
@@ -92,7 +99,7 @@ export function projectPayload(draft: IntakeDraft) {
         .join(" ");
   return {
     contactPhone: draft.contactPhone,
-    contactConsent: draft.contactConsent,
+    contactConsent: draft.sharePhone,
     title: draft.title.trim() || `${draft.category} project`,
     description: description.slice(0, 4000),
     category: draft.category,
@@ -154,8 +161,10 @@ export function stepProblem(step: string, draft: IntakeDraft): string {
     draft.budgetMin > draft.budgetMax
   )
     return "Your maximum budget must be at least your minimum.";
-  if (step === "contact" && !contactInput.safeParse(draft).success)
-    return "Enter a valid US phone number and agree to project-related contact.";
+  if (step === "contact") {
+    const result = contactInput.safeParse(projectPayload(draft));
+    if (!result.success) return result.error.issues[0].message;
+  }
   if (step === "address" && (!draft.placeId || !draft.addressZip))
     return "Select a complete address from the suggestions.";
   if (step === "address" && draft.addressZip !== draft.zip)

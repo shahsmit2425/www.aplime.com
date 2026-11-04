@@ -1,4 +1,4 @@
-import { CONTACT_CONSENT } from "../shared/project-contact.js";
+import { PhoneSharingChoice } from "./phone-sharing-choice.js";
 import { T, useT } from "../shared/language.js";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -444,7 +444,7 @@ export function ProjectIntake(props: Props) {
         notes: draft.emergency
           ? "What needs urgent attention?"
           : "Anything else your professional should know?",
-        contact: "How can matching professionals reach you?",
+        contact: "What is your project contact number?",
         address: "What is the service address?",
         unit: "Is there an apartment or unit number?",
         photos: "Want to show us the project?",
@@ -841,21 +841,15 @@ export function ProjectIntake(props: Props) {
                   onChange={(e) =>
                     patch({
                       contactPhone: e.target.value,
-                      contactConsent: false,
+                      sharePhone: undefined,
                     })
                   }
                 />
               </Field>
-              <label className="project-contact-consent">
-                <input
-                  type="checkbox"
-                  checked={draft.contactConsent}
-                  onChange={(e) => patch({ contactConsent: e.target.checked })}
-                />
-                <span>
-                  <T>{CONTACT_CONSENT}</T>
-                </span>
-              </label>
+              <PhoneSharingChoice
+                value={draft.sharePhone}
+                onChange={(sharePhone) => patch({ sharePhone })}
+              />
             </div>
           )}
           {step === "photos" && (
@@ -887,6 +881,15 @@ export function ProjectIntake(props: Props) {
                   ["ZIP / town", draft.zipLabel, "zip"],
                   ["Service", draft.category, "category"],
                   ["Phone number", draft.contactPhone, "contact"],
+                  [
+                    "Share with professionals",
+                    draft.sharePhone === true
+                      ? "Yes, for this project"
+                      : draft.sharePhone === false
+                        ? "No, keep private"
+                        : "Choose Yes or No",
+                    "contact",
+                  ],
                   ...intakeQuestions(draft.category).map((q) => [
                     q.label,
                     draft.intake[q.id],

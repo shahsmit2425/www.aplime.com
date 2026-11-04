@@ -575,8 +575,8 @@ api.post("/projects", async (req, res) => {
       ],
     );
     await c.query(
-      "INSERT INTO project_contacts(project_id,phone) VALUES($1,$2)",
-      [id, contact.contactPhone],
+      "INSERT INTO project_contacts(project_id,phone,consent_at) VALUES($1,$2,CASE WHEN $3::boolean THEN now() END)",
+      [id, contact.contactPhone, contact.contactConsent],
     );
     if (clientKey)
       await c.query(

@@ -188,6 +188,13 @@ await db.exec(
   ),
 );
 
+await db.exec(
+  await readFile(
+    "src/server/db/migrations/031_optional_project_phone_sharing.sql",
+    "utf8",
+  ),
+);
+
 test.after(async () => {
   await db.close();
   await pool.end();
@@ -4430,7 +4437,7 @@ test("project contact and review photos enforce ownership, publication and ten-p
   const { errorResponse } = await import("../src/server/error-response.js");
   const id = await lifecycleProject("completed");
   await query(
-    "INSERT INTO project_contacts(project_id,phone) VALUES($1,'+12015550123')",
+    "INSERT INTO project_contacts(project_id,phone,consent_at) VALUES($1,'+12015550123',now())",
     [id],
   );
   await query("UPDATE profiles SET suspended=false WHERE id=$1", [
@@ -4449,6 +4456,7 @@ test("project contact and review photos enforce ownership, publication and ten-p
           : customer;
     next();
   });
+  app.use(express.json());
   app.use(projectContacts);
   app.use(reviewImages);
   app.use((error: unknown, _req: any, res: any, _next: any) => {
@@ -4483,6 +4491,21 @@ test("project contact and review photos enforce ownership, publication and ten-p
         method: "POST",
         headers: { "x-actor": "pro" },
       });
+    const sharing = (sharePhone: boolean, actor = "customer") =>
+      fetch(base + "/contact", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "x-actor": actor },
+        body: JSON.stringify({ sharePhone }),
+      });
+    assert.equal((await sharing(false)).status, 200);
+    assert.equal((await sharing(true, "pro")).status, 404);
+    assert.equal(await (await get("/contact?preview=1", "pro")).json(), null);
+    assert.equal((await reveal()).status, 404);
+    assert.deepEqual(await (await get("/contact")).json(), {
+      phone: "+12015550123",
+      consentAt: null,
+    });
+    assert.equal((await sharing(true)).status, 200);
     for (let i = 0; i < 10; i++) {
       const other = randomUUID();
       await query(

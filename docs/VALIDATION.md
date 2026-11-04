@@ -747,3 +747,7 @@ Typecheck, all 223 tests and web/admin production builds passed. Local HTTP regr
 ### Project contact and public lookup protections
 
 Local typecheck, all 223 tests, and web, SSR, and admin builds passed. Coverage includes owner access, professional reveal auditing, repeat access at quota, block enforcement, independent public lookup networks, and literal profile text in the HTML template. Apply migration 030 before deploying the API. Live Render, shared Redis limits across replicas, real Google billing, and signed mobile builds were not exercised.
+
+### Optional project phone sharing and professional dashboard
+
+Standard and urgent intake require a phone number and accept either explicit sharing choice. Integration tests check that opting out denies both the professional preview and reveal, that only the project owner can update the choice, and that the owner retains their number. Pre-existing affirmative consent timestamps are preserved by migration 031. The professional dashboard uses one status selector and lists active work first. Local typecheck, all 223 tests and production builds passed. Live deployment, signed mobile builds and device layout were not verified.

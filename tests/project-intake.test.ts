@@ -28,7 +28,7 @@ function complete(category: (typeof categories)[number]) {
     placeId: "test-place",
     urgency: "flexible",
     contactPhone: "(201) 555-0123",
-    contactConsent: true,
+    sharePhone: true,
   });
   for (const q of intakeQuestions(category))
     draft.intake[q.id] =
@@ -148,11 +148,14 @@ test("restored custom budgets remain editable even with one bound or a preset ma
   );
 });
 
-test("publishing requires a valid phone and explicit consent", () => {
+test("publishing requires a valid phone and accepts either explicit sharing choice", () => {
   const draft = complete("Cleaning");
-  draft.contactConsent = false;
+  draft.sharePhone = false;
+  assert.equal(firstInvalidStep(draft), null);
+  assert.equal(projectPayload(draft).contactConsent, false);
+  draft.sharePhone = undefined;
   assert.equal(firstInvalidStep(draft), "contact");
-  draft.contactConsent = true;
+  draft.sharePhone = true;
   draft.contactPhone = "123";
   assert.equal(firstInvalidStep(draft), "contact");
   draft.contactPhone = "2015550123";
@@ -162,7 +165,7 @@ test("publishing requires a valid phone and explicit consent", () => {
 test("starting over resets answers, consent, photos and publication identifiers", () => {
   const first = freshIntakeSession("customer-1");
   first.draft.zip = "08859";
-  first.draft.contactConsent = true;
+  first.draft.sharePhone = true;
   first.draft.intake = { rooms: "Kitchen" };
   first.photoCount = 3;
   first.savedProjectId = "old-project";
@@ -213,9 +216,11 @@ test("emergency intake skips questionnaire and budget but requires contact, loca
     draft.description = " ";
     assert.equal(firstInvalidStep(draft), "notes");
     draft.description = "Water leaking";
-    draft.contactConsent = false;
+    draft.sharePhone = false;
+    assert.equal(firstInvalidStep(draft), null);
+    draft.sharePhone = undefined;
     assert.equal(firstInvalidStep(draft), "contact");
-    draft.contactConsent = true;
+    draft.sharePhone = true;
     draft.addressZip = "07001";
     assert.equal(firstInvalidStep(draft), "address");
   }

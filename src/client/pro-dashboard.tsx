@@ -1,4 +1,5 @@
-import { categories, statuses, type Project } from "../shared/domain.js";
+import { inProjectGroup } from "./project-hub.js";
+import { statuses, type Project } from "../shared/domain.js";
 import { T } from "../shared/language.js";
 import { useState } from "react";
 import { quotePrice, quoteTiming } from "../shared/estimates.js";
@@ -10,38 +11,46 @@ import { SetupNotice } from "./setup-notice.js";
 
 export function ProDashboard() {
   const { data, go } = useWorkspace();
-  const [archived, setArchived] = useState(false);
-  const [service, setService] = useState("");
   const [status, setStatus] = useState("");
-  const [urgency, setUrgency] = useState("");
-  const matchesFilters = (p: Project) =>
-    (!service || p.category === service) &&
-    (!status || p.status === status) &&
-    (!urgency || p.urgency === urgency);
-  const filtered = !!(service || status || urgency);
-  const resetFilters = () => {
-    setService("");
-    setStatus("");
-    setUrgency("");
-    setArchived(false);
-  };
-  const projects = [
-    ...new Map(
-      data.projects
-        .filter((p) => !!p.archived === archived && matchesFilters(p))
-        .map((p) => [p.id, p]),
-    ).values(),
-  ];
-  projects.sort(
-    (a, b) =>
-      Number(b.status === "booked" && b.awardAccepted === false) -
-      Number(a.status === "booked" && a.awardAccepted === false),
-  );
-  const projectIds = new Set(data.projects.map((p) => p.id));
+  const archived = status === "archived";
+  const matchesStatus = (p: Project) =>
+    archived ? !!p.archived : !p.archived && (!status || p.status === status);
+  const assigned = [...new Map(data.projects.map((p) => [p.id, p])).values()];
+  const projectIds = new Set(assigned.map((p) => p.id));
   const availableMatches = [
     ...new Map(data.leads.map((p) => [p.id, p])).values(),
   ].filter((p) => !projectIds.has(p.id));
-  const matches = archived ? [] : availableMatches.filter(matchesFilters);
+  const projects = assigned.filter(matchesStatus);
+  const active = projects
+    .filter((p) => inProjectGroup(p, "active"))
+    .sort(
+      (a, b) =>
+        Number(b.status === "booked" && b.awardAccepted === false) -
+        Number(a.status === "booked" && a.awardAccepted === false),
+    );
+  const groups = archived
+    ? [{ title: "Archived projects", projects }]
+    : [
+        { title: "Active projects", projects: active },
+        {
+          title:
+            data.discoveryMode === "open"
+              ? "Available projects"
+              : "Matched projects",
+          projects: availableMatches.filter(matchesStatus),
+        },
+        {
+          title: "Paused projects",
+          projects: projects.filter((p) => p.status === "paused"),
+        },
+        {
+          title: "Past projects",
+          projects: projects.filter(
+            (p) => p.status === "completed" || p.status === "cancelled",
+          ),
+        },
+      ];
+  const total = groups.reduce((n, group) => n + group.projects.length, 0);
   const allProjects = [...data.projects, ...availableMatches];
   const estimates = data.quotes.filter((q) => q.proId === data.user.id);
   return (
@@ -64,15 +73,6 @@ export function ProDashboard() {
       )}
       <div className="pro-dashboard-filters" aria-label="Project filters">
         <label>
-          Service
-          <select value={service} onChange={(e) => setService(e.target.value)}>
-            <option value="">All services</option>
-            {categories.map((category) => (
-              <option key={category}>{category}</option>
-            ))}
-          </select>
-        </label>
-        <label>
           Status
           <select value={status} onChange={(e) => setStatus(e.target.value)}>
             <option value="">All statuses</option>
@@ -87,66 +87,27 @@ export function ProDashboard() {
                 )[value] || value.charAt(0).toUpperCase() + value.slice(1)}
               </option>
             ))}
+            <option value="archived">Archived</option>
           </select>
         </label>
-        <label>
-          Timing
-          <select value={urgency} onChange={(e) => setUrgency(e.target.value)}>
-            <option value="">Any timing</option>
-            <option value="urgent">As soon as possible</option>
-            <option value="this_week">This week</option>
-            <option value="this_month">This month</option>
-            <option value="flexible">Flexible</option>
-          </select>
-        </label>
-        {(filtered || archived) && (
-          <button type="button" className="text-button" onClick={resetFilters}>
-            Clear filters
-          </button>
-        )}
       </div>
-      <div className="actions">
-        <button
-          type="button"
-          className="secondary"
-          aria-pressed={archived}
-          onClick={() => setArchived(!archived)}
-        >
-          {archived ? "Show current projects" : "Show archived projects"}
-        </button>
-      </div>
-      <p role="status">{projects.length + matches.length} projects shown</p>
-      {archived && !projects.length && (
-        <Empty title="No archived projects match these filters." />
-      )}
-      {projects.length > 0 && (
-        <section className="project-collection" aria-label="Your projects">
-          <CollectionHeading title="Your projects" count={projects.length} />
-          <div className="project-card-grid">
-            {projects.map((p) => (
-              <ProjectCard
-                key={p.id}
-                project={p}
-                quotes={estimates}
-                onOpen={() => go("project", p.id)}
-              />
-            ))}
-          </div>
-        </section>
-      )}
-      {!archived && (
-        <section className="project-collection" aria-label="Matched projects">
-          <CollectionHeading
-            title={
-              data.discoveryMode === "open"
-                ? "Available projects"
-                : "Matched projects"
-            }
-            count={matches.length}
-          />
-          {matches.length ? (
+      <p role="status">
+        {total} {total === 1 ? "project" : "projects"} shown
+      </p>
+      {groups
+        .filter((group) => group.projects.length > 0)
+        .map((group) => (
+          <section
+            className="project-collection"
+            aria-label={group.title}
+            key={group.title}
+          >
+            <CollectionHeading
+              title={group.title}
+              count={group.projects.length}
+            />
             <div className="project-card-grid">
-              {matches.map((p) => (
+              {group.projects.map((p) => (
                 <ProjectCard
                   key={p.id}
                   project={p}
@@ -155,19 +116,16 @@ export function ProDashboard() {
                 />
               ))}
             </div>
-          ) : (
-            <Empty
-              title={
-                filtered
-                  ? "No matches for these filters."
-                  : "No new projects yet."
-              }
-            >
-              New opportunities appear here as customers post requests. Manage
-              your service areas and categories in Project preferences.
-            </Empty>
-          )}
-        </section>
+          </section>
+        ))}
+      {!total && (
+        <Empty
+          title={
+            status
+              ? "No projects with this status."
+              : "No current projects yet."
+          }
+        />
       )}
       {estimates.length > 0 && (
         <details className="pro-estimate-history">

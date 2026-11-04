@@ -1,7 +1,12 @@
 import { useEffect, useState } from "react";
 import { request } from "./api.js";
+import { PhoneSharingChoice } from "./phone-sharing-choice.js";
 import { T } from "../shared/language.js";
-type Contact = { phone?: string; available?: boolean };
+type Contact = {
+  phone?: string;
+  available?: boolean;
+  consentAt?: string | null;
+};
 
 export function ProjectContact({ projectId }: { projectId: string }) {
   const [contact, setContact] = useState<Contact | null>(null);
@@ -34,6 +39,21 @@ export function ProjectContact({ projectId }: { projectId: string }) {
       setBusy(false);
     }
   }
+  async function changeSharing(sharePhone: boolean) {
+    setBusy(true);
+    setError("");
+    try {
+      setContact(await request<Contact>(path, { sharePhone }, "PATCH"));
+    } catch (e) {
+      setError(
+        e instanceof Error
+          ? e.message
+          : "Could not update your sharing preference.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
   if (!contact && !error) return null;
   return (
     <section className="project-contact-card">
@@ -50,10 +70,18 @@ export function ProjectContact({ projectId }: { projectId: string }) {
         )
       )}
       {error && <span role="alert">{error}</span>}
-      {contact && (
-        <small>
-          <T>Customer permission: calls or texts about this project only.</T>
-        </small>
+      {contact && "consentAt" in contact ? (
+        <PhoneSharingChoice
+          value={!!contact.consentAt}
+          onChange={changeSharing}
+          disabled={busy}
+        />
+      ) : (
+        contact && (
+          <small>
+            <T>Customer permission: calls or texts about this project only.</T>
+          </small>
+        )
       )}
     </section>
   );
