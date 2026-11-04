@@ -5,7 +5,6 @@ import { Capacitor } from "@capacitor/core";
 import { PublicPage } from "./public-page.js";
 import { fallbackConfig } from "./shared/config.js";
 import "./styles.css";
-import "./local-directory.css";
 import "./design-system.css";
 import "./mobile-workspace.css";
 import "./professional-listings.css";

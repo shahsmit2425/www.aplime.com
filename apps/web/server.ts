@@ -1,8 +1,3 @@
-import {
-  directoryPaths,
-  locationPage,
-  type LocalDirectory,
-} from "../../src/shared/local-directory.js";
 import { serviceSlug } from "../../src/shared/service-questionnaires.js";
 import { canonicalRedirect } from "./redirects.js";
 import "dotenv/config";
@@ -177,19 +172,6 @@ app.get("/sitemap.xml", async (_q, r) => {
   const esc = (s: string) =>
     s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
   let professionalPaths: string[] = [];
-  let localPaths: string[] = [];
-  if (env.APP_ENV === "production") {
-    try {
-      localPaths = directoryPaths(
-        await api<LocalDirectory>("/local-directory"),
-      );
-    } catch {
-      r.status(503)
-        .set("Cache-Control", "no-store")
-        .send("Sitemap temporarily unavailable");
-      return;
-    }
-  }
   if (env.APP_ENV === "production")
     try {
       professionalPaths = (await publicProfiles()).map(
@@ -205,10 +187,9 @@ app.get("/sitemap.xml", async (_q, r) => {
           ...seoStaticPaths,
           ...categories.map((c) => "/services/" + serviceSlug(c)),
           ...professionalPaths,
-          ...localPaths,
         ]
       : [];
-  r.set("Cache-Control", "public, max-age=60, must-revalidate")
+  r.set("Cache-Control", "public, max-age=900, stale-while-revalidate=3600")
     .type("application/xml")
     .send(
       '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' +
@@ -256,18 +237,7 @@ app.use(async (req, res, next) => {
       : await import(
           pathToFileURL(path.resolve("dist/server/entry-server.js")).href
         );
-    const directory =
-      locationPage(pathName) ||
-      pathName === "/services" ||
-      /^\/services\/[^/]+$/.test(pathName)
-        ? await api<LocalDirectory>("/local-directory")
-        : undefined;
-    const page = mod.renderPage(
-      pathName,
-      await configuration(),
-      profile,
-      directory,
-    );
+    const page = mod.renderPage(pathName, await configuration(), profile);
     let template = await readFile(
       vite ? "index.html" : "dist/client/index.html",
       "utf8",
@@ -278,7 +248,7 @@ app.use(async (req, res, next) => {
     res.setHeader(
       "Cache-Control",
       env.APP_ENV === "production" && !pathName.startsWith("/app")
-        ? directory || pathName.startsWith("/professionals/")
+        ? pathName.startsWith("/professionals/")
           ? "public, max-age=0, must-revalidate"
           : "public, max-age=0, s-maxage=300, stale-while-revalidate=3600"
         : "no-store",

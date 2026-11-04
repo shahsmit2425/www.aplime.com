@@ -1,14 +1,3 @@
-import {
-  emptyDirectory,
-  locationPage,
-  visibleLocation,
-  indexableLocation,
-  locationHeading,
-  locationDescription,
-  uniquePros,
-  pageListings,
-  type LocalDirectory,
-} from "./shared/local-directory.js";
 import { serviceSlug } from "./shared/service-questionnaires.js";
 import { renderToString } from "react-dom/server";
 import { PublicPage } from "./public-page.js";
@@ -56,11 +45,7 @@ export function renderPage(
   path: string,
   config: PublicConfig,
   profile?: Profile,
-  directory: LocalDirectory = emptyDirectory,
 ) {
-  const candidate = locationPage(path);
-  const localPage =
-    candidate && visibleLocation(candidate, directory) ? candidate : undefined;
   const category = categories.find(
     (item) => path === "/services/" + serviceSlug(item),
   );
@@ -76,52 +61,39 @@ export function renderPage(
     !!category ||
     !!information ||
     !!profile ||
-    !!localPage ||
     legalPage;
   const homeDescription =
     "Find home-service professionals, compare itemized estimates, and manage project messages, calls, scheduling, and updates with Aplime.";
-  const title = localPage
-    ? withBrand(
-        localPage.kind === "state"
-          ? "New Jersey Home Services"
-          : locationHeading(localPage),
-      )
-    : profile
-      ? `${profile.business} | ${profile.category}${profile.details?.city ? ` in ${profile.details.city}, ${profile.details.state}` : ""} | Aplime`
-      : category
-        ? withBrand(serviceSeoContent[category].title)
-        : information
-          ? withBrand(information.title)
-          : servicesIndex
-            ? "Home Services Directory | Aplime"
-            : privatePage
-              ? "Your workspace | Aplime"
-              : !valid
-                ? "Page not found | Aplime"
-                : path === "/"
-                  ? "Home Services Made Simple | Aplime"
-                  : path === "/privacy"
-                    ? "Privacy Information | Aplime"
-                    : "Service Information | Aplime";
-  const description = localPage
-    ? locationDescription(localPage)
-    : profile
-      ? profile.bio.slice(0, 160)
-      : category
-        ? serviceSeoContent[category].description
-        : information
-          ? information.description
-          : servicesIndex
-            ? "Explore home-service categories, prepare a useful project request, and compare approved professional profiles and written estimates on Aplime."
-            : homeDescription;
+  const title = profile
+    ? `${profile.business} | ${profile.category}${profile.details?.city ? ` in ${profile.details.city}, ${profile.details.state}` : ""} | Aplime`
+    : category
+      ? withBrand(serviceSeoContent[category].title)
+      : information
+        ? withBrand(information.title)
+        : servicesIndex
+          ? "Home Services Directory | Aplime"
+          : privatePage
+            ? "Your workspace | Aplime"
+            : !valid
+              ? "Page not found | Aplime"
+              : path === "/"
+                ? "Home Services Made Simple | Aplime"
+                : path === "/privacy"
+                  ? "Privacy Information | Aplime"
+                  : "Service Information | Aplime";
+  const description = profile
+    ? profile.bio.slice(0, 160)
+    : category
+      ? serviceSeoContent[category].description
+      : information
+        ? information.description
+        : servicesIndex
+          ? "Explore home-service categories, prepare a useful project request, and compare approved professional profiles and written estimates on Aplime."
+          : homeDescription;
   const siteUrl = config.siteUrl.replace(/\/$/, "");
   const canonical = siteUrl + path;
   const indexable =
-    config.environment === "production" &&
-    !privatePage &&
-    valid &&
-    !legalPage &&
-    (!localPage || indexableLocation(localPage, directory));
+    config.environment === "production" && !privatePage && valid && !legalPage;
   const organization = {
     "@type": "Organization",
     "@id": siteUrl + "/#organization",
@@ -139,34 +111,7 @@ export function renderPage(
       : {}),
   };
   const graph: Record<string, unknown>[] = [organization];
-  if (localPage) {
-    graph.push({
-      "@type": "CollectionPage",
-      "@id": canonical + "#page",
-      name: locationHeading(localPage),
-      description,
-      url: canonical,
-      about: { "@type": "AdministrativeArea", name: localPage.name },
-      mainEntity: {
-        "@type": "ItemList",
-        itemListElement: uniquePros(pageListings(localPage, directory)).map(
-          (pro, i) => ({
-            "@type": "ListItem",
-            position: i + 1,
-            name: pro.business,
-            url: siteUrl + "/professionals/" + encodeURIComponent(pro.id),
-          }),
-        ),
-      },
-    });
-    graph.push(
-      breadcrumbSchema(siteUrl, [
-        { name: "Home", path: "/" },
-        ...(path === "/nj" ? [] : [{ name: "New Jersey", path: "/nj" }]),
-        { name: locationHeading(localPage), path },
-      ]),
-    );
-  } else if (profile) {
+  if (profile) {
     graph.push({
       "@type": "ProfessionalService",
       "@id": canonical + "#business",
@@ -212,7 +157,7 @@ export function renderPage(
       serviceType: category + " services",
       description,
       url: canonical,
-      areaServed: { "@type": "State", name: "New Jersey" },
+      areaServed: { "@type": "Country", name: "United States" },
       provider: { "@id": organization["@id"] },
     });
     graph.push(
@@ -292,9 +237,7 @@ export function renderPage(
     JSON.stringify(value).replace(/</g, "\\u003c");
   const robots = indexable
     ? "index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1"
-    : localPage && config.environment === "production"
-      ? "noindex,follow"
-      : "noindex,nofollow";
+    : "noindex,nofollow";
   const socialImage = siteUrl + "/home.jpg";
   return {
     status: valid ? 200 : 404,
@@ -304,7 +247,6 @@ export function renderPage(
           <PublicPage
             path={path}
             profile={profile}
-            directory={directory}
             supportEmail={config.supportEmail}
           />,
         ),
@@ -338,7 +280,7 @@ export function renderPage(
       "<script>window.__CONFIG__=" +
       serialize(config) +
       ";window.__PAGE__=" +
-      serialize({ path, profile, directory }) +
+      serialize({ path, profile }) +
       ";</script>",
   };
 }
