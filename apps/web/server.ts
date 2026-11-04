@@ -1,3 +1,4 @@
+import { renderTemplate } from "./render-template.js";
 import { serviceSlug } from "../../src/shared/service-questionnaires.js";
 import { canonicalRedirect } from "./redirects.js";
 import "dotenv/config";
@@ -256,24 +257,7 @@ app.use(async (req, res, next) => {
     res
       .status(page.status)
       .type("html")
-      .send(
-        template
-          .replace(
-            "<!--head-->",
-            page.head.replaceAll(
-              "<script ",
-              `<script nonce="${res.locals.cspNonce}" `,
-            ),
-          )
-          .replace("<!--app-->", page.html)
-          .replace(
-            "<!--bootstrap-->",
-            page.bootstrap.replace(
-              "<script>",
-              `<script nonce="${res.locals.cspNonce}">`,
-            ),
-          ),
-      );
+      .send(renderTemplate(template, page, res.locals.cspNonce));
   } catch (e) {
     next(e);
   }

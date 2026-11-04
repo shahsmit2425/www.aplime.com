@@ -29,6 +29,13 @@ const policies = {
   signupUser: { limit: 3, seconds: 3600 },
   projectIp: { limit: 20, seconds: 3600 },
   projectUser: { limit: 10, seconds: 3600 },
+  publicLookupNetwork: {
+    limit: Math.max(
+      1,
+      Math.min(100, Math.floor(env.PUBLIC_LOOKUP_DAILY_LIMIT / 4)),
+    ),
+    seconds: 86400,
+  },
   publicLookup: { limit: env.PUBLIC_LOOKUP_DAILY_LIMIT, seconds: 86400 },
 } as const;
 const local = new FixedWindowBudget();

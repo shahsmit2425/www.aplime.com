@@ -2,9 +2,15 @@ import { env } from "../config.js";
 import { fail } from "../errors.js";
 import { AddressError } from "./address-error.js";
 
-async function places(path: string, fields: string, body?: unknown) {
+async function places(
+  path: string,
+  fields: string,
+  body?: unknown,
+  beforeLookup?: () => Promise<void>,
+) {
   const key = env.GOOGLE_MAPS_SERVER_KEY.trim();
   if (!key) throw new AddressError("ADDRESS_NOT_CONFIGURED");
+  await beforeLookup?.();
   let response: Response;
   try {
     response = await fetch("https://places.googleapis.com/v1/" + path, {
@@ -57,7 +63,11 @@ async function places(path: string, fields: string, body?: unknown) {
     throw new AddressError("ADDRESS_UNAVAILABLE");
   return data;
 }
-export async function autocompleteAddress(input: string, sessionToken: string) {
+export async function autocompleteAddress(
+  input: string,
+  sessionToken: string,
+  beforeLookup?: () => Promise<void>,
+) {
   const data = await places(
     "places:autocomplete",
     "suggestions.placePrediction.placeId,suggestions.placePrediction.text.text",
@@ -67,6 +77,7 @@ export async function autocompleteAddress(input: string, sessionToken: string) {
       sessionToken,
       languageCode: "en",
     },
+    beforeLookup,
   );
   if (data.suggestions !== undefined && !Array.isArray(data.suggestions))
     throw new AddressError("ADDRESS_UNAVAILABLE");
@@ -82,12 +93,18 @@ export async function autocompleteAddress(input: string, sessionToken: string) {
       address: item.placePrediction.text.text,
     }));
 }
-export async function locateAddress(placeId: string, sessionToken?: string) {
+export async function locateAddress(
+  placeId: string,
+  sessionToken?: string,
+  beforeLookup?: () => Promise<void>,
+) {
   const data = await places(
     "places/" +
       encodeURIComponent(placeId) +
       (sessionToken ? "?sessionToken=" + encodeURIComponent(sessionToken) : ""),
     "id,formattedAddress,addressComponents,location",
+    undefined,
+    beforeLookup,
   );
   const component = (type: string) =>
     data.addressComponents?.find((item: any) => item.types.includes(type));

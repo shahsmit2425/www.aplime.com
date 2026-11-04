@@ -1,6 +1,6 @@
 import { consumeBudget, checkSharedLimit } from "./abuse-limits.js";
 import { clientNetwork } from "./client-ip.js";
-import { Router } from "express";
+import { Router, type Request } from "express";
 import rateLimit from "express-rate-limit";
 import { z } from "zod";
 import { createHash } from "node:crypto";
@@ -47,16 +47,22 @@ publicIntake.use(async (req, res, next) => {
       .digest("hex");
     await checkSharedLimit(lookupLimiter, "public-intake:" + ip);
   }
-  await consumeBudget("publicLookup", "all-public-lookups");
   next();
 });
+async function reserveLookup(req: Request) {
+  await consumeBudget(
+    "publicLookupNetwork",
+    clientNetwork(req, req.app.get("trust proxy fn")),
+  );
+  await consumeBudget("publicLookup", "all-public-lookups");
+}
 publicIntake.get("/zip", async (req, res) => {
   const zip = z
     .string()
     .regex(/^\d{5}$/, "Enter a five-digit ZIP code.")
     .parse(req.query.zip);
   const location = await cachedValue("intake-zip:" + zip, 86400, () =>
-    locate(zip),
+    locate(zip, () => reserveLookup(req)),
   );
   if (!location || location.zip !== zip || location.country !== "US")
     fail(400, "Enter a valid US ZIP code.");
@@ -70,7 +76,9 @@ publicIntake.get("/autocomplete", async (req, res) => {
       sessionToken: z.string().uuid(),
     })
     .parse(req.query);
-  res.json(await autocompleteAddress(q.q, q.sessionToken));
+  res.json(
+    await autocompleteAddress(q.q, q.sessionToken, () => reserveLookup(req)),
+  );
 });
 publicIntake.get("/details", async (req, res) => {
   const q = z
@@ -79,7 +87,9 @@ publicIntake.get("/details", async (req, res) => {
       sessionToken: z.string().uuid(),
     })
     .parse(req.query);
-  const location = await locateAddress(q.placeId, q.sessionToken);
+  const location = await locateAddress(q.placeId, q.sessionToken, () =>
+    reserveLookup(req),
+  );
   assertServiceArea(location);
   res.json({
     label: location.label,

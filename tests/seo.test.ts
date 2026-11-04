@@ -1,3 +1,4 @@
+import { renderTemplate } from "../apps/web/render-template.js";
 import { serviceSlug } from "../src/shared/service-questionnaires.js";
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -132,6 +133,27 @@ test("approved professional pages expose truthful local business metadata", () =
       businessType: "LLC",
     },
   };
+  const special = renderPage("/professionals/professional-1", production, {
+    ...profile,
+    business: "Repair $& Co",
+    bio: "Prices start at $50. Ask for $$ details.",
+  });
+  const document = renderTemplate(
+    "<!--head--><!--app--><!--bootstrap-->",
+    special,
+    "test-nonce",
+  );
+  assert.ok(document.includes(special.html));
+  assert.ok(
+    document.includes(
+      special.bootstrap.replace("<script>", '<script nonce="test-nonce">'),
+    ),
+  );
+  assert.ok(
+    document.includes(
+      special.head.replaceAll("<script ", '<script nonce="test-nonce" '),
+    ),
+  );
   const page = renderPage("/professionals/professional-1", production, profile);
   assert.equal(page.status, 200);
   assert.match(page.head, /Green Home Repair \| Handyman in New York, NY/);

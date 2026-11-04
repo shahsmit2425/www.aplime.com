@@ -4,12 +4,14 @@ import express from "express";
 import { randomUUID } from "node:crypto";
 process.env.GOOGLE_MAPS_SERVER_KEY = "test-server-only-key";
 process.env.REDIS_URL = "";
+process.env.PUBLIC_LOOKUP_DAILY_LIMIT = "16";
 process.env.UPSTASH_REDIS_REST_URL = "";
 process.env.UPSTASH_REDIS_REST_TOKEN = "";
 const { publicIntake } = await import("../src/server/public-intake.js");
 const { errorResponse } = await import("../src/server/error-response.js");
 test("anonymous intake exposes bounded NJ lookups, not creation, credentials or exact coordinates", async () => {
   const app = express();
+  app.set("trust proxy", 1);
   app.use("/intake/locations", publicIntake);
   app.use(
     (
@@ -109,6 +111,17 @@ test("anonymous intake exposes bounded NJ lookups, not creation, credentials or 
         .status,
       404,
     );
+    // Four provider calls used this network's daily share. Invalid requests did not.
+    assert.equal(providerCalls, 4);
+    const validUrl = base + "/intake/locations/zip?zip=08859";
+    assert.equal((await fetch(validUrl)).status, 429);
+    assert.equal(providerCalls, 4);
+    assert.equal(
+      (await fetch(validUrl, { headers: { "x-forwarded-for": "203.0.113.2" } }))
+        .status,
+      200,
+    );
+    assert.equal(providerCalls, 5);
     let last: Response | undefined;
     for (let i = 0; i < 91; i++)
       last = await fetch(base + "/intake/locations/zip?zip=bad");

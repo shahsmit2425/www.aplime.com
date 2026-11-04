@@ -743,3 +743,7 @@ Typecheck, all 223 tests and web/admin production builds passed. Local HTTP regr
 - Call lists now show only current meetings, including unconfirmed requests. Completed, cancelled, declined, and elapsed confirmed meetings remain stored but are hidden from the list.
 - Passed TypeScript checking, all 223 automated tests, and web/SSR/admin production builds. No new environment variables or dependencies.
 - Live Firebase password changes, device/browser visual checks, and deployment were not performed. Verify wrong-password rejection, password-policy errors, successful update/new-password login, and Google-only settings on development accounts before release.
+
+### Project contact and public lookup protections
+
+Local typecheck, all 223 tests, and web, SSR, and admin builds passed. Coverage includes owner access, professional reveal auditing, repeat access at quota, block enforcement, independent public lookup networks, and literal profile text in the HTML template. Apply migration 030 before deploying the API. Live Render, shared Redis limits across replicas, real Google billing, and signed mobile builds were not exercised.

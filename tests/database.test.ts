@@ -181,6 +181,13 @@ await db.exec(
   ),
 );
 
+await db.exec(
+  await readFile(
+    "src/server/db/migrations/030_project_contact_reveals.sql",
+    "utf8",
+  ),
+);
+
 test.after(async () => {
   await db.close();
   await pool.end();
@@ -4467,6 +4474,51 @@ test("project contact and review photos enforce ownership, publication and ten-p
   try {
     assert.equal((await (await get("/contact")).json()).phone, "+12015550123");
     assert.equal(await (await get("/contact", "other")).json(), null);
+    assert.equal(await (await get("/contact", "pro")).json(), null);
+    assert.deepEqual(await (await get("/contact?preview=1", "pro")).json(), {
+      available: true,
+    });
+    const reveal = () =>
+      fetch(base + "/contact/reveal", {
+        method: "POST",
+        headers: { "x-actor": "pro" },
+      });
+    for (let i = 0; i < 10; i++) {
+      const other = randomUUID();
+      await query(
+        "INSERT INTO users(id,email,name,role) VALUES($1,$2,'Customer','customer')",
+        [other, other + "@example.invalid"],
+      );
+      await query(
+        "INSERT INTO project_contact_reveals(pro_id,customer_id,project_id) VALUES($1,$2,$3)",
+        [professional.id, other, id],
+      );
+    }
+    assert.equal((await reveal()).status, 429);
+    await query(
+      "UPDATE project_contact_reveals SET revealed_at=now()-interval '25 hours' WHERE customer_id=(SELECT customer_id FROM project_contact_reveals WHERE pro_id=$1 LIMIT 1)",
+      [professional.id],
+    );
+    assert.equal((await (await reveal()).json()).phone, "+12015550123");
+    assert.equal((await reveal()).status, 200);
+    await query("INSERT INTO blocked(user_id,other_id) VALUES($1,$2)", [
+      customer.id,
+      professional.id,
+    ]);
+    assert.equal((await reveal()).status, 404);
+    await query("DELETE FROM blocked WHERE user_id=$1 AND other_id=$2", [
+      customer.id,
+      professional.id,
+    ]);
+    assert.equal(
+      (
+        await query(
+          "SELECT count(*)::int AS n FROM project_contact_reveals WHERE customer_id=$1 AND pro_id=$2 AND project_id=$3",
+          [customer.id, professional.id, id],
+        )
+      ).rows[0].n,
+      2,
+    );
     assert.equal((await get("/review-photos", "other")).status, 404);
     assert.equal((await get("/review-photos", "pro")).status, 404);
     assert.equal(
