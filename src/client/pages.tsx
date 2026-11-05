@@ -1148,11 +1148,6 @@ function Reviews() {
               )
             }
           >
-            <ReviewPhotoEditor
-              projectId={p.id}
-              editable
-              onBusy={setPhotosBusy}
-            />
             <RatingPicker />
             <Field label="How did it go?">
               <textarea name="body" maxLength={2000} rows={5} required />
@@ -1164,13 +1159,19 @@ function Reviews() {
                 </T>
               </small>
             </Field>
+            <ReviewPhotoEditor
+              projectId={p.id}
+              editable
+              onBusy={setPhotosBusy}
+            />
+            <p className="review-submit-notice">Check your rating, message and photos before submitting. You can submit once per project. Your review and photos cannot be edited or added to afterward.</p>
             <button>
-              <T>{"Publish review"}</T>
+              <T>{"Submit review"}</T>
             </button>
           </Form>
         </Panel>
       ))}
-      <Panel title="Reviews">
+      <Panel title={data.user.role === "customer" ? "Your submitted reviews" : "Customer reviews"}>
         {data.reviews.length ? (
           data.reviews.map((r) => (
             <article className="review" key={r.id}>
@@ -1186,10 +1187,8 @@ function Reviews() {
                 }}
                 context={data.projects.find((p) => p.id === r.projectId)?.title}
               />
-              <ReviewPhotoEditor
-                projectId={r.projectId}
-                editable={data.user.role === "customer"}
-              />
+              <ReviewPhotoEditor projectId={r.projectId} />
+              {data.user.role === "customer" && <p className="muted">Submitted - Your rating, message and photos are final.</p>}
               {!r.reply && r.proId === data.user.id && (
                 <Form
                   busy={busy}
@@ -1203,11 +1202,12 @@ function Reviews() {
                     )
                   }
                 >
+                  <p className="review-submit-notice">You can post one public reply. Once submitted, it cannot be edited.</p>
                   <Field label="Your reply">
                     <textarea name="reply" maxLength={1500} required />
                   </Field>
                   <button>
-                    <T>{"Reply"}</T>
+                    <T>{"Submit reply"}</T>
                   </button>
                 </Form>
               )}

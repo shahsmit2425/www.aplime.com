@@ -4,7 +4,7 @@ import { pushRouter } from "./push.js";
 import { projectContacts } from "./project-contacts.js";
 import { contactInput } from "../shared/project-contact.js";
 import { reviewInput } from "../shared/reviews.js";
-import { publicReviews } from "./reviews.js";
+import { publicReviews, submitReviewReply } from "./reviews.js";
 import { guardCreation } from "./abuse-limits.js";
 import { publicIntake } from "./public-intake.js";
 import { projectDrafts } from "./project-drafts.js";
@@ -737,6 +737,8 @@ api.post("/projects/:id/review", async (req, res) => {
         .rowCount
     )
       fail(409, "You already reviewed this project.");
+    const photos = await c.query("SELECT count(*)::int AS count FROM review_images WHERE project_id=$1", [p.id]);
+    if (photos.rows[0].count > 5) fail(400, "Remove extra photos before submitting. Reviews allow up to five photos.");
     await assertIndependentParties(c, p.customerId, p.proId!);
     if (
       (
@@ -771,16 +773,10 @@ api.post("/reviews/:id/reply", async (req, res) => {
     .strict()
     .parse(q.body);
   await transaction(async (c) => {
-    const r = (
-      await c.query(
-        "UPDATE reviews SET reply=$3 WHERE id=$1 AND pro_id=$2 RETURNING project_id",
-        [z.string().uuid().parse(q.params.id), q.account.id, reply],
-      )
-    ).rows[0];
-    if (!r) fail(403, "You can reply only to your own reviews.");
+    const projectId = await submitReviewReply(c, z.string().uuid().parse(q.params.id), q.account.id, reply);
     const p = (
       await c.query("SELECT customer_id FROM projects WHERE id=$1", [
-        r.project_id,
+        projectId,
       ])
     ).rows[0];
     await notify(

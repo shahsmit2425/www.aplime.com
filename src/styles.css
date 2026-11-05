@@ -4485,3 +4485,5 @@ blockquote {
 .pro-dashboard-filters { display:flex; flex-wrap:wrap; gap:16px; align-items:end; padding:20px; margin-bottom:16px; border:1px solid #dce2e5; border-radius:16px; background:#fff; }
 .pro-dashboard-filters label { display:grid; gap:8px; width:min(100%, 20rem); font-weight:600; min-width:0; }
 .pro-dashboard-filters select { width:100%; min-height:44px; }
+
+.review-submit-notice { padding: 14px 16px; border: 1px solid #cbd5db; border-radius: 10px; background: #f5f7f8; color: #33464e; line-height: 1.55; }

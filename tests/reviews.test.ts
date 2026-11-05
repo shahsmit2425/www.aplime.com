@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { PGlite } from "@electric-sql/pglite";
 import { pool } from "../src/server/db/index.js";
-import { publicReviews } from "../src/server/reviews.js";
+import { publicReviews, submitReviewReply } from "../src/server/reviews.js";
 import { reviewInput } from "../src/shared/reviews.js";
 const db = new PGlite();
 await db.exec(`CREATE TABLE projects(id text PRIMARY KEY,category text,status text,pro_id text,customer_id text,address text);
@@ -90,4 +90,12 @@ test("public reviews preserve negative feedback, paginate deterministically and 
 
 test("short review text is accepted without a minimum character count",()=>{
  assert.equal(reviewInput.safeParse({rating:5,body:"OK"}).success,true);
+});
+
+test("only the reviewed professional can reply, and a published reply cannot be replaced", async () => {
+  await db.query("INSERT INTO reviews VALUES ('reply-test','job','owner',5,'Good',NULL,now())");
+  await assert.rejects(() => submitReviewReply(pool, 'reply-test', 'other', 'Forged'));
+  assert.equal(await submitReviewReply(pool, 'reply-test', 'owner', 'Thank you'), 'job');
+  await assert.rejects(() => submitReviewReply(pool, 'reply-test', 'owner', 'Replacement'));
+  assert.equal((await db.query<{ reply: string }>("SELECT reply FROM reviews WHERE id='reply-test'")).rows[0].reply, 'Thank you');
 });

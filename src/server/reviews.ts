@@ -1,3 +1,5 @@
+import type { PoolClient } from "pg";
+import { fail } from "./errors.js";
 import { reviewPhotos } from "./review-images.js";
 import { pool } from "./db/index.js";
 import type { ReviewPage } from "../shared/reviews.js";
@@ -40,4 +42,14 @@ export async function publicReviews(
     nextOffset:
       offset + rows.length < summary.total ? offset + rows.length : null,
   };
+}
+
+// The conditional update makes simultaneous or repeated replies first-write-only.
+export async function submitReviewReply(c: Pick<PoolClient, "query">, id: string, proId: string, reply: string) {
+  const result = await c.query(
+    "UPDATE reviews SET reply=$3 WHERE id=$1 AND pro_id=$2 AND reply IS NULL RETURNING project_id",
+    [id, proId, reply],
+  );
+  if (!result.rows[0]) fail(403, "You can reply only once to your own reviews. Published replies cannot be changed.");
+  return result.rows[0].project_id as string;
 }

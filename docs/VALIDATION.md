@@ -757,3 +757,11 @@ Standard and urgent intake require a phone number and accept either explicit sha
 All 225 tests, typecheck, and web/SSR/admin builds passed locally. The HTTP tests hold four partial image uploads, disconnect one, let the remaining requests expire and confirm a new upload succeeds. Limiter tests cover rejection, timeout, ordinary workspace reads, local quota exhaustion and sensitive requests. Worker error events use the existing SENTRY_DSN and fixed job labels. Delivery to a real Sentry project, Render failure handling and mobile device UI were not tested.
 
 A disposable PostgreSQL 16 cluster applied the migrations through 031. A custom-format dump restored into a separate database contained the test project and successfully served customer and professional workspace snapshots. Before the unread-count optimization, 1/2/10 concurrent snapshots issued 15/30/150 queries with observed peak pool queues of 0/6/22 in this tiny fixture. This was a local rehearsal, not a production backup recovery or a capacity forecast. The API now combines unread counts and skips redundant background timer/focus loads while a snapshot is pending.
+
+
+## One-time reviews and replies (2026-11-04)
+- One review per completed project; the existing same-professional 30-day cooldown remains.
+- New uploads and submission allow five photos. Draft photos can be replaced/removed before submission. Project row locks serialize publication with photo changes; published photos are read-only.
+- Existing published reviews with more than five photos are preserved. Older unpublished drafts must remove extra photos before submission.
+- Replies use an atomic first-write-only update. The UI explains that review and reply submissions are final.
+- Validation: typecheck, 226 tests, web/SSR/admin build. Deployed services and physical iOS/Android devices have not been verified.

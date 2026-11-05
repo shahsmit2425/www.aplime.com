@@ -67,8 +67,8 @@ export function ReviewPhotoEditor({
   async function upload(files: File[], replace?: number) {
     setError("");
     if (!files.length) return;
-    if (replace === undefined && photos.length + files.length > 10) {
-      setError("You can add up to 10 review photos.");
+    if (replace === undefined && photos.length + files.length > 5) {
+      setError("You can add up to 5 review photos.");
       return;
     }
     const invalid = files.map(imageError).find(Boolean);
@@ -78,7 +78,7 @@ export function ReviewPhotoEditor({
     }
     setBusy(true);
     onBusy?.(true);
-    const available = Array.from({ length: 10 }, (_, i) => i + 1).filter(
+    const available = Array.from({ length: 5 }, (_, i) => i + 1).filter(
       (n) => !photos.some((p) => p.slot === n),
     );
     try {
@@ -98,10 +98,11 @@ export function ReviewPhotoEditor({
       onBusy?.(false);
     }
   }
+  if (!editable && !photos.length && !error) return null;
   return (
     <section className="review-photo-editor">
       <h3>
-        <T>Review photos</T> <small>{photos.length}/10</small>
+        <T>{editable ? "Add photos (optional)" : "Review photos"}</T> <small>{editable ? `${photos.length}/5` : `${photos.length} photos`}</small>
       </h3>
       <ReviewPhotoGallery photos={photos} />
       {editable && (
@@ -154,7 +155,7 @@ export function ReviewPhotoEditor({
               </div>
             ))}
           </div>
-          {photos.length < 10 && (
+          {photos.length < 5 && (
             <label className="review-photo-add">
               <T>Add photos</T>
               <input

@@ -4430,7 +4430,7 @@ test("pending award reminders are deduplicated and invalidated by confirmation",
   );
 });
 
-test("project contact and review photos enforce ownership, publication and ten-photo bounds", async () => {
+test("project contact and review photos enforce ownership, publication, five-photo uploads and immutable submitted photos", async () => {
   const express = (await import("express")).default;
   const { projectContacts } = await import("../src/server/project-contacts.js");
   const { reviewImages } = await import("../src/server/review-images.js");
@@ -4545,7 +4545,7 @@ test("project contact and review photos enforce ownership, publication and ten-p
     assert.equal((await get("/review-photos", "other")).status, 404);
     assert.equal((await get("/review-photos", "pro")).status, 404);
     assert.equal(
-      (await fetch(base + "/review-photos/11", { method: "PUT" })).status,
+      (await fetch(base + "/review-photos/6", { method: "PUT" })).status,
       400,
     );
     assert.equal(
@@ -4604,6 +4604,12 @@ test("project contact and review photos enforce ownership, publication and ten-p
       (await (await get("/review-photos", "pro")).json()).length,
       10,
     );
+    assert.equal((await fetch(base + "/review-photos/1", { method: "DELETE" })).status, 409);
+    assert.equal((await fetch(base + "/review-photos/1", {
+      method: "PUT", headers: { "Content-Type": "image/png" }, body: new Uint8Array(image),
+    })).status, 403);
+    assert.equal((await (await get("/review-photos")).json()).length, 10,
+      "Existing published photos remain intact and read-only");
     assert.equal(
       (
         await fetch(base + "/review-photos/1", {

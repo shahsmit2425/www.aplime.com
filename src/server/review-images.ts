@@ -15,7 +15,7 @@ import { IMAGE_TYPES } from "../shared/uploads.js";
 export const reviewImages = Router();
 const projectId = (value: unknown) => z.string().uuid().parse(value);
 const slotId = (value: unknown) =>
-  z.coerce.number().int().min(1).max(10).parse(value);
+  z.coerce.number().int().min(1).max(5).parse(value);
 export async function reviewPhotos(id: string) {
   const rows = (
     await pool.query(
@@ -49,7 +49,7 @@ reviewImages.put(
     if (
       !(
         await pool.query(
-          "SELECT 1 FROM projects WHERE id=$1 AND customer_id=$2 AND status='completed' AND pro_id IS NOT NULL",
+          "SELECT 1 FROM projects WHERE id=$1 AND customer_id=$2 AND status='completed' AND pro_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM reviews WHERE project_id=projects.id)",
           [id, req.account.id],
         )
       ).rowCount
@@ -90,12 +90,16 @@ reviewImages.put(
         ).rows[0];
         if (!p || p.customer_id !== req.account.id || p.status !== "completed")
           fail(403, "Project unavailable.");
+        if ((await c.query("SELECT 1 FROM reviews WHERE project_id=$1", [id])).rowCount)
+          fail(409, "Submitted review photos cannot be changed.");
         old = (
           await c.query(
             "SELECT object_key FROM review_images WHERE project_id=$1 AND slot=$2",
             [id, slot],
           )
         ).rows[0]?.object_key;
+        if (!old && (await c.query("SELECT count(*)::int AS count FROM review_images WHERE project_id=$1", [id])).rows[0].count >= 5)
+          fail(400, "Reviews allow up to five photos. Remove an existing photo first.");
         await storeBusinessImage(key, req.get("content-type")!, clean);
         stored = true;
         await c.query(
@@ -118,7 +122,7 @@ reviewImages.put(
 );
 reviewImages.delete("/projects/:id/review-photos/:slot", async (req, res) => {
   const id = projectId(req.params.id),
-    slot = slotId(req.params.slot);
+    slot = z.coerce.number().int().min(1).max(10).parse(req.params.slot);
   const row = await transaction(async (c) => {
     const p = (
       await c.query("SELECT customer_id FROM projects WHERE id=$1 FOR UPDATE", [
@@ -127,6 +131,8 @@ reviewImages.delete("/projects/:id/review-photos/:slot", async (req, res) => {
     ).rows[0];
     if (!p || p.customer_id !== req.account.id)
       fail(403, "Only the customer can remove these photos.");
+    if ((await c.query("SELECT 1 FROM reviews WHERE project_id=$1", [id])).rowCount)
+      fail(409, "Submitted review photos cannot be changed.");
     return (
       await c.query(
         "DELETE FROM review_images WHERE project_id=$1 AND slot=$2 RETURNING object_key",
