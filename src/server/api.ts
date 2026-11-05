@@ -715,10 +715,7 @@ api.post("/projects/:id/review", async (req, res) => {
   if (q.account.id !== p.customerId || p.status !== "completed" || !p.proId)
     fail(403, "Only the customer can review completed work.");
   await transaction(async (c) => {
-    // Serialize this customer/pro pair so concurrent submissions cannot bypass the cooldown.
-    await c.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [
-      p.customerId + ":" + p.proId,
-    ]);
+    // Lock this project to serialize review submission with photo changes.
     const current = (
       await c.query(
         "SELECT status,customer_id,pro_id FROM projects WHERE id=$1 FOR UPDATE",
@@ -740,18 +737,6 @@ api.post("/projects/:id/review", async (req, res) => {
     const photos = await c.query("SELECT count(*)::int AS count FROM review_images WHERE project_id=$1", [p.id]);
     if (photos.rows[0].count > 5) fail(400, "Remove extra photos before submitting. Reviews allow up to five photos.");
     await assertIndependentParties(c, p.customerId, p.proId!);
-    if (
-      (
-        await c.query(
-          "SELECT 1 FROM reviews r JOIN projects pj ON pj.id=r.project_id WHERE pj.customer_id=$1 AND r.pro_id=$2 AND r.created_at>now()-interval '30 days'",
-          [p.customerId, p.proId],
-        )
-      ).rowCount
-    )
-      fail(
-        429,
-        "You already reviewed this professional recently. Reviews for the same professional are limited to one every 30 days.",
-      );
     await c.query(
       "INSERT INTO reviews(id,project_id,pro_id,rating,body) VALUES($1,$2,$3,$4,$5)",
       [randomUUID(), p.id, p.proId, data.rating, data.body],

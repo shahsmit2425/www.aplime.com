@@ -1106,12 +1106,7 @@ function Reviews() {
     (p) =>
       p.status === "completed" &&
       data.user.id === p.customerId &&
-      !data.reviews.some(
-        (x) =>
-          x.projectId === p.id ||
-          (x.proId === p.proId &&
-            Date.now() - new Date(x.createdAt).getTime() < 30 * 86400000),
-      ),
+      !data.reviews.some((x) => x.projectId === p.id),
   );
   return (
     <>
@@ -1128,8 +1123,8 @@ function Reviews() {
       {data.user.role === "customer" && (
         <p className="muted">
           <T>
-            One review per project, and one review per professional every 30
-            days.
+            One review per completed project. You can review the same professional
+            again after a different project is completed.
           </T>
         </p>
       )}

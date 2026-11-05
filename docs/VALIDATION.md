@@ -293,7 +293,7 @@ Second pass (award handshake, expiry, delivery, ranking):
 - The background worker now expires lapsed pending estimates on open projects (status `expired`, revision bumped, project version bumped, professional and customer notified, activity recorded). Expired estimates can be re-sent. Boundary: the job runs only while the worker service is running; it was exercised against the PGlite fixture, not a deployed worker.
 - Email delivery claims up to 20 messages with a five-minute lease, sends outside the database transaction and drains the queue before sleeping, so a failed commit cannot cause duplicate sends and throughput is no longer one message per three seconds. A crash mid-send can still repeat that one message after the lease lapses. Provider delivery was not exercised; tests use a fake sender.
 - Matching alerts and customer notifications use bulk inserts; new-project alerts go to the best-ranked 50 matching professionals (Bayesian-weighted rating, then distance, then id). The same ranking orders the customer's five-card shortlist.
-- A professional cannot quote, be accepted by, or be reviewed by an account whose email is the same after removing plus-tags and Gmail dots, and a customer can review a given professional once every 30 days. This is a heuristic against self-dealing, not identity verification; it does not detect different emails or addresses.
+- A professional cannot quote, be accepted by, or be reviewed by an account whose email is the same after removing plus-tags and Gmail dots, and a customer can review each completed project once. This is a heuristic against self-dealing, not identity verification; it does not detect different emails or addresses.
 - A `charge.refunded` webhook that closes a disputed project now bumps its version and notifies both participants (no activity entry, because the event has no human actor).
 
 Automated tests cover each server rule against the in-memory PostgreSQL fixture. Browser rendering of the new confirm/decline panel, real signed-photo downloads, live notification delivery, and a deployed worker were not exercised. Migration 010 has not been run against a Render database.
@@ -760,8 +760,16 @@ A disposable PostgreSQL 16 cluster applied the migrations through 031. A custom-
 
 
 ## One-time reviews and replies (2026-11-04)
-- One review per completed project; the existing same-professional 30-day cooldown remains.
+- One review per completed project. The same-professional cooldown was subsequently removed; see the repeat-project correction below.
 - New uploads and submission allow five photos. Draft photos can be replaced/removed before submission. Project row locks serialize publication with photo changes; published photos are read-only.
 - Existing published reviews with more than five photos are preserved. Older unpublished drafts must remove extra photos before submission.
 - Replies use an atomic first-write-only update. The UI explains that review and reply submissions are final.
 - Validation: typecheck, 226 tests, web/SSR/admin build. Deployed services and physical iOS/Android devices have not been verified.
+
+## Repeat-project reviews (2026-11-04)
+
+- Removed the customer Hire again action.
+- Removed the customer/pro 30-day review cooldown from both review eligibility UI and submission API. Each completed project can receive its own review, even for repeat customers of the same pro. This supersedes the earlier cooldown and pair-serialization notes.
+- Project row locking and the unique project review constraint still prevent duplicate reviews. Submitted reviews and photos remain final, with up to five photos and one final professional reply per review.
+- Regression coverage submits reviews for two completed projects with the same customer/pro and rejects a second submission on the first project. Live deployed and iPhone flows remain unverified.
+- Validation: TypeScript typecheck, all 227 tests, and web/admin production builds passed. No database migration or environment changes are required.

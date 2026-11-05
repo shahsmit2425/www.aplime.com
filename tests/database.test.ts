@@ -4626,3 +4626,18 @@ test("project contact and review photos enforce ownership, publication, five-pho
     );
   }
 });
+
+
+test("customers can review two completed projects with the same pro but cannot review a project twice", async () => {
+  const { api } = await import("../src/server/api.js");
+  const route = api.stack.find((layer: any) => layer.route?.path === "/projects/:id/review");
+  const handler = route!.route!.stack[0].handle as any;
+  const first = await lifecycleProject("completed");
+  const second = await lifecycleProject("completed");
+  const submit = (id: string) => handler({ params: { id }, account: customer,
+    body: { rating: 5, body: "Good work" } }, { json() {} });
+  await submit(first);
+  await submit(second);
+  await assert.rejects(() => submit(first), /already reviewed this project/);
+  assert.equal((await query("SELECT count(*)::int AS count FROM reviews WHERE project_id=ANY($1::uuid[])", [[first, second]])).rows[0].count, 2);
+});

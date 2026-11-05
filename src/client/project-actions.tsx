@@ -13,7 +13,6 @@ import {
   MapPin,
   MessageCircle,
   Pencil,
-  RotateCcw,
   Send,
   Star,
   Users,
@@ -272,12 +271,6 @@ export function ProjectActionBar({
         </button>,
       );
     add("save", <SavePro proId={p.proId} label />);
-    add(
-      "again",
-      <button className="secondary" onClick={() => go("projects", p.proId!)}>
-        <RotateCcw size={17} /> Hire again
-      </button>,
-    );
   } else if (customer && live && p.proId)
     add("save", <SavePro proId={p.proId} label />);
   if (!buttons.length) return null;
