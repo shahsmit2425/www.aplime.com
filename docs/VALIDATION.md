@@ -773,3 +773,9 @@ A disposable PostgreSQL 16 cluster applied the migrations through 031. A custom-
 - Project row locking and the unique project review constraint still prevent duplicate reviews. Submitted reviews and photos remain final, with up to five photos and one final professional reply per review.
 - Regression coverage submits reviews for two completed projects with the same customer/pro and rejects a second submission on the first project. Live deployed and iPhone flows remain unverified.
 - Validation: TypeScript typecheck, all 227 tests, and web/admin production builds passed. No database migration or environment changes are required.
+
+## Stagging iOS identity (2026-11-11)
+
+- Updated only the stagging iOS Bundle ID to com.aplime.app.stagging. Development, Android and production identifiers are unchanged.
+- Validation: all five deployment configuration tests and git diff --check passed. Full checks were interrupted in the preceding attempt; no full-suite result is claimed for this change.
+- Signed iOS build, Firebase sign-in and TestFlight installation require verification in the new stagging workflow run.

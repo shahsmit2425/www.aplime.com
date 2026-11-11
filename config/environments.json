@@ -11,7 +11,7 @@
     "appId": "com.servicetones.app.staging",
     "appName": "Aplime Staging",
     "androidTrack": "internal",
-    "iosAppId": "com.servicetones.app.staging"
+    "iosAppId": "com.aplime.app.stagging"
   },
   "main": {
     "environment": "production",
