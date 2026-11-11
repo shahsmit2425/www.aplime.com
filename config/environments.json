@@ -2,19 +2,22 @@
   "development": {
     "environment": "development",
     "appId": "com.servicetones.app.dev",
-    "appName": "ServiceTones Dev",
-    "androidTrack": "internal"
+    "appName": "Aplime Dev",
+    "androidTrack": "internal",
+    "iosAppId": "com.aplime.app.dev"
   },
   "stagging": {
     "environment": "stagging",
     "appId": "com.servicetones.app.staging",
-    "appName": "ServiceTones Staging",
-    "androidTrack": "internal"
+    "appName": "Aplime Staging",
+    "androidTrack": "internal",
+    "iosAppId": "com.servicetones.app.staging"
   },
   "main": {
     "environment": "production",
     "appId": "com.servicetones.app",
-    "appName": "ServiceTones",
-    "androidTrack": "production"
+    "appName": "Aplime",
+    "androidTrack": "production",
+    "iosAppId": "com.servicetones.app"
   }
 }

@@ -12,9 +12,9 @@ if (!target)
   throw new Error("Mobile builds require a mapped deployment branch.");
 if (process.env.APP_ENV && process.env.APP_ENV !== target.environment)
   throw new Error("APP_ENV must match the selected deployment branch.");
-const site = process.env.SITE_URL;
+const site = process.env.API_URL;
 if (!site || !site.startsWith("https://"))
-  throw new Error("Set SITE_URL to the deployed HTTPS environment.");
+  throw new Error("Set API_URL to the deployed HTTPS API environment.");
 const r = await fetch(site.replace(/\/$/, "") + "/api/config", {
   signal: AbortSignal.timeout(20000),
 });
@@ -23,8 +23,8 @@ if (!r.ok)
 const config = (await r.json()) as PublicConfig;
 if (config.environment !== target.environment)
   throw new Error("Mobile environment mismatch.");
-if (process.env.GITHUB_SHA && config.release !== process.env.GITHUB_SHA)
-  throw new Error("Deploy this commit to Render before building mobile apps.");
+// Independently deployed API may be an earlier compatible release.
+config.release = process.env.GITHUB_SHA || config.release;
 config.apiUrl = site.replace(/\/$/, "");
 const index = await readFile("dist/client/index.html", "utf8");
 await writeFile(
@@ -63,7 +63,7 @@ if (firebaseAndroid) {
 if (firebaseIos) {
   const decoded = Buffer.from(firebaseIos, "base64").toString();
   if (
-    !decoded.includes("<string>" + target.appId + "</string>") ||
+    !decoded.includes("<string>" + target.iosAppId + "</string>") ||
     !decoded.includes("<string>" + config.firebase.projectId + "</string>")
   )
     throw new Error(
@@ -76,7 +76,7 @@ let project = await readFile(projectPath, "utf8");
 project = project
   .replace(
     /PRODUCT_BUNDLE_IDENTIFIER = [^;]+;/g,
-    "PRODUCT_BUNDLE_IDENTIFIER = " + target.appId + ";",
+    "PRODUCT_BUNDLE_IDENTIFIER = " + target.iosAppId + ";",
   )
   .replace(
     /CURRENT_PROJECT_VERSION = [^;]+;/g,
@@ -84,6 +84,10 @@ project = project
   );
 await writeFile(projectPath, project);
 let plist = await readFile("ios/App/App/Info.plist", "utf8");
+plist = plist.replace(
+  /(<key>CFBundleName<\/key>\s*<string>)[^<]*(<\/string>)/,
+  "$1" + target.appName + "$2",
+);
 plist = plist.replace(
   /(<key>CFBundleDisplayName<\/key>\s*<string>)[^<]*(<\/string>)/,
   "$1" + target.appName + "$2",

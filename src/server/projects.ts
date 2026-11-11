@@ -1,116 +1,305 @@
+import { lockActiveAccount } from "./quotas.js";
+import { commitProjectPhotos } from "./project-images.js";
+import { removeObject } from "./integrations/storage.js";
+import { changeLifecycle, lifecycleActions } from "./project-lifecycle.js";
+import {
+  recordProjectActivity,
+  notifyProjectMembers,
+  notifyProjectObservers,
+  notifyMatchingProfessionals,
+} from "./project-events.js";
+import { assertMatch, assertIndependentParties } from "./matching.js";
+import { assertAppointment } from "./scheduling.js";
 import { randomUUID } from "node:crypto";
 import type { User, ProjectAction } from "../shared/domain.js";
 import { allowedTransition, assertFuture } from "../shared/domain.js";
 import { transaction } from "./db/index.js";
-import { getProject, notify, audit } from "./repository.js";
+import { getProject, audit, notifyMany } from "./repository.js";
 import { fail } from "./errors.js";
 export async function projectAction(
   id: string,
   user: User,
   action: ProjectAction,
+  expectedVersion?: number,
 ) {
-  return transaction(async (c) => {
+  const removedKeys: string[] = [];
+  const result = await transaction(async (c) => {
+    await lockActiveAccount(c, user.id);
     const p = await getProject(c, id);
     if (!allowedTransition(p, user, action.type))
       fail(403, "This action is not available for this project.");
+    if (expectedVersion !== undefined && expectedVersion !== p.version)
+      fail(409, "This project changed. Refresh it before trying again.");
+    if (lifecycleActions.has(action.type)) {
+      await changeLifecycle(c, p, user, action);
+      return { ok: true };
+    }
+    let extraRecipient: string | undefined;
     if (action.type === "quote") {
-      const profile = (
-        await c.query(
-          "SELECT * FROM profiles WHERE id=$1 AND verified AND NOT suspended AND available",
-          [user.id],
-        )
-      ).rows[0];
-      if (!profile || profile.category !== p.category)
-        fail(403, "Complete verification and use a matching service category.");
+      extraRecipient = user.id;
+      await assertIndependentParties(c, p.customerId, user.id);
+      await assertMatch(c, user.id, id);
       if (
-        (
+        !(
           await c.query(
-            "SELECT 1 FROM quotes WHERE project_id=$1 AND pro_id=$2",
-            [id, user.id],
+            "SELECT 1 FROM professional_subscriptions WHERE user_id=$1 AND status IN ('active','trialing')",
+            [user.id],
           )
         ).rowCount
       )
-        fail(409, "You have already submitted an estimate.");
+        fail(
+          403,
+          "An active Aplime subscription is required for new estimates.",
+        );
+      const profile = (
+        await c.query(
+          "SELECT 1 FROM profiles WHERE id=$1 AND verified AND (review_status='approved' OR listed) AND NOT suspended AND available",
+          [user.id],
+        )
+      ).rows[0];
+      if (!profile)
+        fail(403, "An approved and available business profile is required.");
+      const existing = (
+        await c.query(
+          "SELECT status FROM quotes WHERE project_id=$1 AND pro_id=$2",
+          [id, user.id],
+        )
+      ).rows[0];
+      if (
+        existing &&
+        !["pending", "withdrawn", "expired"].includes(existing.status)
+      )
+        fail(409, "This estimate is closed.");
+      const amount = action.assessmentRequired
+        ? null
+        : action.laborAmount + action.materialsAmount;
+      if (action.expiresAt) assertFuture(action.expiresAt);
       await c.query(
-        "INSERT INTO quotes(id,project_id,pro_id,amount,description) VALUES($1,$2,$3,$4,$5)",
-        [randomUUID(), id, user.id, action.amount, action.description],
+        "INSERT INTO quotes(id,project_id,pro_id,amount,labor_amount,materials_amount,description,exclusions,timeline,expires_at,assessment_required,estimated_days) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) ON CONFLICT(project_id,pro_id) DO UPDATE SET status='pending',amount=EXCLUDED.amount,labor_amount=EXCLUDED.labor_amount,materials_amount=EXCLUDED.materials_amount,description=EXCLUDED.description,exclusions=EXCLUDED.exclusions,timeline=EXCLUDED.timeline,expires_at=EXCLUDED.expires_at,assessment_required=EXCLUDED.assessment_required,estimated_days=EXCLUDED.estimated_days,created_at=now(),revision=quotes.revision+1",
+        [
+          randomUUID(),
+          id,
+          user.id,
+          amount,
+          action.laborAmount,
+          action.materialsAmount,
+          action.description,
+          action.exclusions,
+          action.estimatedDays
+            ? `${action.estimatedDays} ${action.estimatedDays === 1 ? "day" : "days"}`
+            : action.timeline,
+          action.expiresAt,
+          !!action.assessmentRequired,
+          action.estimatedDays || null,
+        ],
       );
-      await c.query("UPDATE projects SET status='quoted' WHERE id=$1", [id]);
+      await c.query(
+        "INSERT INTO project_discussions(id,project_id,pro_id) VALUES($1,$2,$3) ON CONFLICT(project_id,pro_id) DO NOTHING",
+        [randomUUID(), id, user.id],
+      );
+      await c.query(
+        "UPDATE projects SET status=CASE WHEN EXISTS(SELECT 1 FROM quotes WHERE project_id=$1 AND status='pending' AND NOT assessment_required) THEN 'quoted' ELSE 'requested' END WHERE id=$1",
+        [id],
+      );
+    } else if (action.type === "withdraw_quote") {
+      const changed = await c.query(
+        "UPDATE quotes SET status='withdrawn',revision=revision+1 WHERE project_id=$1 AND pro_id=$2 AND status='pending' RETURNING id",
+        [id, user.id],
+      );
+      if (!changed.rowCount)
+        fail(409, "There is no pending estimate to withdraw.");
+      extraRecipient = user.id;
+      await c.query(
+        "UPDATE projects SET status=CASE WHEN EXISTS(SELECT 1 FROM quotes WHERE project_id=$1 AND status='pending' AND NOT assessment_required) THEN 'quoted' ELSE 'requested' END WHERE id=$1",
+        [id],
+      );
     } else if (action.type === "accept" || action.type === "decline") {
       const quote = (
         await c.query(
-          "SELECT q.* FROM quotes q JOIN profiles f ON f.id=q.pro_id WHERE q.id=$1 AND q.project_id=$2 AND q.status='pending' AND f.verified AND NOT f.suspended",
+          action.type === "accept"
+            ? "SELECT q.* FROM quotes q JOIN profiles f ON f.id=q.pro_id WHERE q.id=$1 AND q.project_id=$2 AND q.status='pending' AND NOT q.assessment_required AND q.amount IS NOT NULL AND (q.expires_at IS NULL OR q.expires_at>now()) AND f.verified AND (f.review_status='approved' OR f.listed) AND NOT f.suspended"
+            : "SELECT q.* FROM quotes q WHERE q.id=$1 AND q.project_id=$2 AND q.status='pending'",
           [action.quoteId, id],
         )
       ).rows[0];
       if (!quote) fail(409, "This estimate is no longer available.");
+      extraRecipient = quote.pro_id;
       if (action.type === "accept") {
-        await c.query(
-          "UPDATE quotes SET status=CASE WHEN id=$1 THEN 'accepted' ELSE 'declined' END WHERE project_id=$2",
-          [quote.id, id],
+        if (quote.revision !== action.revision)
+          fail(
+            409,
+            "This estimate changed. Review the latest version before accepting.",
+          );
+        const eligible = await c.query(
+          `SELECT 1 FROM professional_subscriptions s WHERE s.user_id=$1 AND s.status IN ('active','trialing')
+           AND NOT EXISTS (SELECT 1 FROM blocked b WHERE (b.user_id=$1 AND b.other_id=$2) OR (b.other_id=$1 AND b.user_id=$2))`,
+          [quote.pro_id, p.customerId],
         );
+        if (!eligible.rowCount)
+          fail(
+            409,
+            "This professional can no longer be booked. Choose another estimate.",
+          );
+        await assertIndependentParties(c, p.customerId, quote.pro_id);
+        await c.query("UPDATE quotes SET status='accepted' WHERE id=$1", [
+          quote.id,
+        ]);
         await c.query(
-          "UPDATE projects SET status='booked',pro_id=$2,amount=$3 WHERE id=$1",
+          "UPDATE projects SET status='booked',pro_id=$2,amount=$3,award_accepted=false,award_selected_at=now() WHERE id=$1",
           [id, quote.pro_id, quote.amount],
-        );
-        await notify(
-          c,
-          quote.pro_id,
-          "Estimate accepted",
-          "Your estimate for " + p.title + " has been accepted.",
         );
       } else {
         await c.query("UPDATE quotes SET status='declined' WHERE id=$1", [
           quote.id,
         ]);
         await c.query(
-          "UPDATE projects SET status=CASE WHEN EXISTS(SELECT 1 FROM quotes WHERE project_id=$1 AND status='pending') THEN 'quoted' ELSE 'requested' END WHERE id=$1",
+          "UPDATE projects SET status=CASE WHEN EXISTS(SELECT 1 FROM quotes WHERE project_id=$1 AND status='pending' AND NOT assessment_required) THEN 'quoted' ELSE 'requested' END WHERE id=$1",
           [id],
         );
       }
-    } else if (action.type === "reschedule") {
-      assertFuture(action.scheduledAt);
-      await c.query("UPDATE projects SET scheduled_at=$2 WHERE id=$1", [
-        id,
-        action.scheduledAt,
-      ]);
-    } else if (action.type === "dispute") {
+    } else if (action.type === "open_request") {
+      extraRecipient = p.proId || undefined;
       await c.query(
-        "UPDATE projects SET previous_status=status,status='disputed' WHERE id=$1",
+        "UPDATE projects SET pro_id=NULL,status=CASE WHEN EXISTS(SELECT 1 FROM quotes WHERE project_id=$1 AND status='pending' AND NOT assessment_required) THEN 'quoted' ELSE 'requested' END WHERE id=$1",
         [id],
       );
+    } else if (action.type === "update_details") {
+      if (action.photos)
+        removedKeys.push(
+          ...(await commitProjectPhotos(c, id, user.id, action.photos)),
+        );
       await c.query(
-        "INSERT INTO tickets(id,user_id,project_id,subject,body) VALUES($1,$2,$3,$4,$5)",
+        "UPDATE projects SET title=$2,description=$3,urgency=$4,budget_min=$5,budget_max=$6 WHERE id=$1",
         [
-          randomUUID(),
-          user.id,
           id,
-          "Project dispute: " + p.title,
-          action.reason,
+          action.title,
+          action.description,
+          action.urgency,
+          action.budgetMin,
+          action.budgetMax,
         ],
       );
-    } else {
-      await c.query("UPDATE projects SET status=$2 WHERE id=$1", [
-        id,
-        action.type === "start"
-          ? "in_progress"
-          : action.type === "complete"
-            ? "completed"
-            : "cancelled",
-      ]);
-      if (action.type === "cancel")
+      const interested = (
         await c.query(
-          "UPDATE quotes SET status='declined' WHERE project_id=$1 AND status='pending'",
+          "SELECT pro_id AS id FROM quotes WHERE project_id=$1 AND status='pending' UNION SELECT pro_id FROM project_discussions WHERE project_id=$1",
           [id],
+        )
+      ).rows.map((row) => row.id as string);
+      await notifyMany(
+        c,
+        interested.filter((uid) => uid !== p.proId),
+        "Project details updated",
+        action.title +
+          ": the customer changed the request. Review before updating your estimate.",
+        { page: "project", id },
+      );
+    } else if (action.type === "accept_award") {
+      await c.query("UPDATE projects SET award_accepted=true WHERE id=$1", [
+        id,
+      ]);
+      await c.query(
+        "UPDATE quotes SET status='declined' WHERE project_id=$1 AND status='pending'",
+        [id],
+      );
+    } else if (
+      action.type === "decline_award" ||
+      action.type === "withdraw_award"
+    ) {
+      extraRecipient = p.proId || undefined;
+      await c.query(
+        "UPDATE quotes SET status=$3,revision=revision+1 WHERE project_id=$1 AND pro_id=$2 AND status='accepted'",
+        [id, p.proId, action.type === "decline_award" ? "declined" : "pending"],
+      );
+      await c.query(
+        "UPDATE projects SET pro_id=NULL,amount=NULL,award_accepted=true,proposed_at=NULL,proposed_by=NULL,scheduled_at=NULL,status=CASE WHEN EXISTS(SELECT 1 FROM quotes WHERE project_id=$1 AND status='pending' AND NOT assessment_required) THEN 'quoted' ELSE 'requested' END WHERE id=$1",
+        [id],
+      );
+    } else if (action.type === "respond_appointment") {
+      if (
+        !p.proposedAt ||
+        p.proposedBy === user.id ||
+        new Date(p.proposedAt).getTime() !==
+          new Date(action.proposedAt).getTime()
+      )
+        fail(
+          409,
+          "This appointment proposal is unavailable or cannot be confirmed by you.",
         );
-    }
-    await audit(c, user.id, action.type, id);
-    await notify(
+      if (action.accept) {
+        assertFuture(p.proposedAt);
+        await assertAppointment(c, p.proId, p.proposedAt, id);
+      }
+      await c.query(
+        "UPDATE projects SET scheduled_at=CASE WHEN $2 THEN proposed_at ELSE scheduled_at END,proposed_at=NULL,proposed_by=NULL WHERE id=$1",
+        [id, action.accept],
+      );
+    } else if (action.type === "reschedule") {
+      assertFuture(action.scheduledAt);
+      await assertAppointment(c, p.proId, action.scheduledAt, id);
+      await c.query(
+        "UPDATE projects SET proposed_at=$2,proposed_by=$3 WHERE id=$1",
+        [id, action.scheduledAt, user.id],
+      );
+    } else fail(400, "Unsupported project action.");
+    await c.query("UPDATE projects SET version=version+1 WHERE id=$1", [id]);
+    const titles: Record<string, string> = {
+      quote:
+        action.type === "quote" && action.assessmentRequired
+          ? "Assessment requested before pricing"
+          : "Estimate received or updated",
+      accept: "Estimate selected: awaiting professional confirmation",
+      accept_award: "Professional confirmed the job",
+      decline_award: "Professional declined the job",
+      withdraw_award: "Customer withdrew the award",
+      decline: "Estimate declined",
+      open_request: "Request opened to more professionals",
+      update_details: "Customer updated the project details",
+      withdraw_quote: "Estimate withdrawn",
+      reschedule: "Appointment proposed",
+      respond_appointment:
+        action.type === "respond_appointment" && action.accept
+          ? "Appointment confirmed"
+          : "Appointment proposal declined",
+    };
+    const title = titles[action.type];
+    await recordProjectActivity(
       c,
-      user.id === p.customerId ? p.proId : p.customerId,
-      "Project update",
-      p.title + " has an update. Open ServiceTones for details.",
+      id,
+      user.id,
+      action.type,
+      title,
+      "reason" in action ? action.reason : undefined,
     );
+    await audit(c, user.id, action.type, id);
+    const updated = await getProject(c, id);
+    await notifyProjectMembers(
+      c,
+      updated,
+      title,
+      p.title + ": open the project for the update.",
+      extraRecipient ? [extraRecipient] : [],
+    );
+    if (action.type === "accept_award")
+      await notifyProjectObservers(
+        c,
+        updated,
+        "Project awarded",
+        "The customer chose another professional for " +
+          p.title +
+          ". Your estimate was not selected.",
+      );
+    if (
+      action.type === "open_request" ||
+      action.type === "decline_award" ||
+      action.type === "withdraw_award"
+    )
+      await notifyMatchingProfessionals(c, id, "Project open for estimates");
     return { ok: true };
   });
+  // Cleanup must not turn a committed edit into a failed HTTP response.
+  for (const key of removedKeys)
+    void removeObject(key).catch(() => {
+      console.error("Removed project photo object cleanup failed");
+    });
+  return result;
 }

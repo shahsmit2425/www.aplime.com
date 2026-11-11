@@ -84,16 +84,36 @@ test("financial amounts use bounded integer cents and unknown fields are rejecte
   assert.equal(
     actionSchema.safeParse({
       type: "quote",
-      amount: 100.5,
+      laborAmount: 12500,
+      materialsAmount: 2500,
       description: "Detailed scope of work",
+      exclusions: "Permit fees",
+      timeline: "One workday",
+      expiresAt: null,
+    }).success,
+    true,
+  );
+  assert.equal(
+    actionSchema.safeParse({
+      type: "quote",
+      laborAmount: 50,
+      materialsAmount: 0,
+      description: "Detailed scope of work",
+      exclusions: "",
+      timeline: "One workday",
+      expiresAt: null,
     }).success,
     false,
   );
   assert.equal(
     actionSchema.safeParse({
       type: "quote",
-      amount: -100,
+      laborAmount: -100,
+      materialsAmount: 0,
       description: "Detailed scope of work",
+      exclusions: "",
+      timeline: "One workday",
+      expiresAt: null,
     }).success,
     false,
   );
@@ -126,4 +146,48 @@ test("administrator status does not grant private conversation membership", () =
     isMember({ customerId: "a", proId: "b" }, { id: "c", role: "admin" }),
     false,
   );
+});
+
+test("assessment requests defer price and days; priced estimates require a completion estimate", () => {
+  const base = {
+    type: "quote",
+    laborAmount: 0,
+    materialsAmount: 0,
+    description: "",
+    exclusions: "",
+    timeline: "",
+    expiresAt: null,
+  };
+  assert.equal(
+    actionSchema.safeParse({
+      ...base,
+      assessmentRequired: true,
+      estimatedDays: null,
+    }).success,
+    true,
+  );
+  for (const change of [
+    { laborAmount: 500 },
+    { estimatedDays: 2 },
+    { expiresAt: "2030-01-01T00:00:00Z" },
+  ])
+    assert.equal(
+      actionSchema.safeParse({ ...base, assessmentRequired: true, ...change })
+        .success,
+      false,
+    );
+  assert.equal(
+    actionSchema.safeParse({ ...base, laborAmount: 4000, estimatedDays: 2 })
+      .success,
+    true,
+  );
+  for (const days of [null, 0, 1.5, 3651])
+    assert.equal(
+      actionSchema.safeParse({
+        ...base,
+        laborAmount: 4000,
+        estimatedDays: days,
+      }).success,
+      false,
+    );
 });

@@ -1,9 +1,20 @@
+import { T } from "../shared/language.js";
+import { NativePush } from './push.js';
+import { IntakeAccountNotice } from "./intake-account-notice.js";
+import { ProjectIntake } from "./project-intake.js";
+import { hasIntakeResume } from "./project-intake-state.js";
+import { NotificationDropdown } from "./notification-dropdown.js";
+import { MeetingProvider } from "./meeting-state.js";
+import { watchNotifications } from "./live-notifications.js";
+import type { Notice } from "../shared/domain.js";
 import {
   createContext,
   useContext,
   useEffect,
   useState,
+  useRef,
   type ReactNode,
+  type CSSProperties,
 } from "react";
 import { onAuthStateChanged, type User as FirebaseUser } from "firebase/auth";
 import { Capacitor } from "@capacitor/core";
@@ -26,6 +37,7 @@ import {
   Menu,
   X,
   LogOut,
+  ChevronDown,
   Heart,
 } from "lucide-react";
 import type { Workspace as Data } from "../shared/domain.js";
@@ -35,20 +47,26 @@ import {
   login,
   register,
   google,
-  apple,
   logout,
   recover,
   verifyEmail,
+  configureSession,
+  authErrorMessage,
 } from "./auth.js";
 import { request, ApiError } from "./api.js";
 import { Brand, Field, Form } from "./ui.js";
 import { Pages } from "./pages.js";
+import { pageAfterAuthentication } from "./onboarding.js";
 type WorkspaceContext = {
   data: Data;
   page: string;
   id?: string;
   go: (page: string, id?: string) => void;
-  run: (fn: () => Promise<unknown>, message?: string) => Promise<void>;
+  run: (
+    fn: () => Promise<unknown>,
+    message?: string,
+    after?: () => void,
+  ) => Promise<void>;
   busy: boolean;
 };
 const Context = createContext<WorkspaceContext | null>(null);
@@ -76,8 +94,10 @@ const navIcons: Record<string, typeof House> = {
   messages: MessageCircle,
   payments: CreditCard,
   earnings: CreditCard,
+  subscription: CreditCard,
   reviews: Star,
   profile: UserRound,
+  verification: ShieldCheck,
   availability: Clock,
   people: Users,
   reports: ShieldCheck,
@@ -89,47 +109,230 @@ const navIcons: Record<string, typeof House> = {
 };
 const navigation = {
   customer: [
-    ["dashboard", "Overview"],
-    ["discover", "Find a pro"],
-    ["projects", "My projects"],
-    ["quotes", "Estimates"],
+    ["dashboard", "Dashboard"],
+    ["projects", "Post project"],
     ["schedule", "Schedule"],
     ["messages", "Messages"],
     ["saved", "Saved pros"],
-    ["payments", "Payments & receipts"],
     ["reviews", "My reviews"],
   ],
   pro: [
-    ["dashboard", "Overview"],
-    ["leads", "Opportunities"],
-    ["projects", "My jobs"],
-    ["quotes", "My estimates"],
+    ["dashboard", "Dashboard"],
     ["schedule", "Schedule"],
     ["messages", "Messages"],
-    ["earnings", "Earnings"],
-    ["profile", "Business profile"],
-    ["availability", "Availability"],
+    ["profile", "My business"],
     ["reviews", "Reviews"],
   ],
-  admin: [
-    ["dashboard", "Platform overview"],
-    ["people", "Professionals"],
-    ["projects", "All projects"],
-    ["reports", "Support & disputes"],
-    ["payments", "Transactions"],
-  ],
+  admin: [],
 };
+function RoleChoice({
+  value,
+  onChange,
+}: {
+  value: "customer" | "pro";
+  onChange: (role: "customer" | "pro") => void;
+}) {
+  return (
+    <div className="role-choice" role="radiogroup" aria-label="Account type">
+      <button
+        type="button"
+        role="radio"
+        aria-checked={value === "customer"}
+        className={
+          value === "customer" ? "role-option selected" : "role-option"
+        }
+        onClick={() => onChange("customer")}
+      >
+        <House size={22} />
+        <span>
+          <strong>
+            <T>{"Customer"}</T>
+          </strong>
+          <small>
+            <T>{"Find and manage help for your home"}</T>
+          </small>
+        </span>
+      </button>
+      <button
+        type="button"
+        role="radio"
+        aria-checked={value === "pro"}
+        className={value === "pro" ? "role-option selected" : "role-option"}
+        onClick={() => onChange("pro")}
+      >
+        <BriefcaseBusiness size={22} />
+        <span>
+          <strong>
+            <T>{"Professional"}</T>
+          </strong>
+          <small>
+            <T>{"Offer services and manage your work"}</T>
+          </small>
+        </span>
+      </button>
+    </div>
+  );
+}
 export default function Workspace() {
   const [route, setRoute] = useState(readRoute),
+    [signupRole, setSignupRole] = useState<"customer" | "pro">(() =>
+      !hasIntakeResume() &&
+      new URLSearchParams(location.search).get("role") === "pro"
+        ? "pro"
+        : "customer",
+    ),
+    [resendUntil, setResendUntil] = useState(0),
+    [remember, setRemember] = useState(true),
+    [authEmail, setAuthEmail] = useState(""),
     [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null),
     [data, setData] = useState<Data | null>(null),
     [loading, setLoading] = useState(true),
+    [sessionDelayed, setSessionDelayed] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
     [needsAccount, setNeedsAccount] = useState(false),
-    [menu, setMenu] = useState(false);
+    [menu, setMenu] = useState(false),
+    [notificationsOpen, setNotificationsOpen] = useState(false),
+    [headerHeight, setHeaderHeight] = useState(110);
+  const headerRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    const updateViewport = () => {
+      document.documentElement.style.setProperty("--app-viewport-height", `${viewport?.height || window.innerHeight}px`);
+      document.documentElement.classList.toggle("app-keyboard-open", window.innerHeight - (viewport?.height || window.innerHeight) > 150);
+    };
+    updateViewport();
+    viewport?.addEventListener("resize", updateViewport);
+    window.addEventListener("resize", updateViewport);
+    return () => {
+      viewport?.removeEventListener("resize", updateViewport);
+      window.removeEventListener("resize", updateViewport);
+      document.documentElement.classList.remove("app-keyboard-open");
+      document.documentElement.style.removeProperty("--app-viewport-height");
+    };
+  }, []);
+  useEffect(() => {
+    setSessionDelayed(false);
+    if (!loading) return;
+    const timer = setTimeout(() => setSessionDelayed(true), 20000);
+    return () => clearTimeout(timer);
+  }, [loading]);
+  useEffect(() => {
+    const header = headerRef.current;
+    if (!header) return;
+    const measure = () =>
+      setHeaderHeight(
+        header.offsetHeight +
+          (document.querySelector<HTMLElement>(".environment-bar")
+            ?.offsetHeight || 0),
+      );
+    const observer = new ResizeObserver(measure);
+    observer.observe(header);
+    measure();
+    const wide = window.matchMedia("(min-width: 851px)");
+    const closeMobileNavigation = () => {
+      if (wide.matches) setMenu(false);
+    };
+    wide.addEventListener("change", closeMobileNavigation);
+    return () => {
+      observer.disconnect();
+      wide.removeEventListener("change", closeMobileNavigation);
+    };
+  }, [!!data]);
+  useEffect(() => {
+    if (data && route.page === "notifications") {
+      replaceRoute("dashboard");
+      setNotificationsOpen(true);
+    }
+  }, [route.page, !!data]);
+  const [liveConnected, setLiveConnected] = useState(false);
+  const loadSequence = useRef(0);
+  const lastLoadAt = useRef(0);
+  const pendingLoad = useRef(0);
+  const [liveNotice, setLiveNotice] = useState<Notice | null>(null);
+  const knownNotices = useRef<{ user: string; ids: Set<string> }>({
+    user: "",
+    ids: new Set(),
+  });
+  useEffect(() => {
+    if (!data) {
+      knownNotices.current = { user: "", ids: new Set() };
+      setLiveNotice(null);
+      return;
+    }
+    const previous = knownNotices.current;
+    if (previous.user === data.user.id) {
+      const fresh = data.notices.find(
+        (n) => !n.read && !previous.ids.has(n.id),
+      );
+      if (fresh) setLiveNotice(fresh);
+    }
+    knownNotices.current = {
+      user: data.user.id,
+      ids: new Set(data.notices.map((n) => n.id)),
+    };
+  }, [data]);
+  useEffect(() => {
+    if (!liveNotice) return;
+    const timer = setTimeout(() => setLiveNotice(null), 10000);
+    return () => clearTimeout(timer);
+  }, [liveNotice]);
+  useEffect(() => {
+    if (!data) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let pending = false,
+      again = false,
+      disposed = false;
+    const refresh = async () => {
+      if (pending) {
+        again = true;
+        return;
+      }
+      pending = true;
+      try {
+        await load();
+        if (!disposed) window.dispatchEvent(new Event("aplime:updates"));
+      } catch {
+      } finally {
+        pending = false;
+        if (again && !disposed) {
+          again = false;
+          timer = setTimeout(() => void refresh(), 200);
+        }
+      }
+    };
+    const stop = watchNotifications(() => {
+      clearTimeout(timer);
+      timer = setTimeout(() => void refresh(), 150);
+    }, setLiveConnected);
+    return () => {
+      disposed = true;
+      stop();
+      clearTimeout(timer);
+      setLiveConnected(false);
+    };
+  }, [data?.user.id]);
+  function replaceRoute(page: string) {
+    if (Capacitor.isNativePlatform()) location.hash = "/" + page;
+    else history.replaceState({}, "", "/app/" + page);
+    setRoute(readRoute());
+  }
+  function chooseSignupRole(role: "customer" | "pro") {
+    setSignupRole(role);
+    if (!Capacitor.isNativePlatform() && route.page === "register") {
+      const url = new URL(location.href);
+      url.searchParams.set("role", role);
+      history.replaceState({}, "", url);
+    }
+  }
   function go(page: string, id?: string) {
+    if (page === "notifications") {
+      setNotificationsOpen(true);
+      setMenu(false);
+      return;
+    }
+    setNotificationsOpen(false);
     const path = page + (id ? "/" + encodeURIComponent(id) : "");
     if (Capacitor.isNativePlatform()) location.hash = "/" + path;
     else {
@@ -142,15 +345,47 @@ export default function Workspace() {
     window.scrollTo(0, 0);
   }
   async function load() {
+    const owner = auth().currentUser;
+    if (!owner) return;
+    const sequence = ++loadSequence.current;
+    pendingLoad.current = sequence;
+    lastLoadAt.current = Date.now();
     try {
       const result = await request<Data>("/workspace");
+      if (auth().currentUser !== owner || sequence !== loadSequence.current)
+        return;
+      if (result.user.role === "admin")
+        throw new Error("Use the separate administrator application.");
       setData(result);
       setNeedsAccount(false);
+      const current = readRoute().page;
+      const next = pageAfterAuthentication(
+        current,
+        result.user.role,
+        result.profiles.some((p) => p.id === result.user.id),
+      );
+      if (
+        hasIntakeResume() &&
+        result.user.role === "customer" &&
+        ["login", "register", "recovery"].includes(current)
+      )
+        replaceRoute("projects/resume");
+      else if (next !== current) replaceRoute(next);
     } catch (e) {
+      if (auth().currentUser !== owner || sequence !== loadSequence.current)
+        return;
+      if (e instanceof ApiError && e.status === 401) {
+        await logout();
+        replaceRoute("login");
+        setNotice("Your session has ended. Please sign in again.");
+        return;
+      }
       if (e instanceof ApiError && e.status === 428) {
         setNeedsAccount(true);
         setData(null);
       } else throw e;
+    } finally {
+      if (pendingLoad.current === sequence) pendingLoad.current = 0;
     }
   }
   useEffect(() => {
@@ -160,6 +395,7 @@ export default function Workspace() {
     let unsub = () => {};
     try {
       unsub = onAuthStateChanged(auth(), (u) => {
+        setLoading(true);
         setFirebaseUser(u);
         setData(null);
         setNeedsAccount(false);
@@ -170,7 +406,7 @@ export default function Workspace() {
         else setLoading(false);
       });
     } catch (e) {
-      setError((e as Error).message);
+      setError(authErrorMessage(e));
       setLoading(false);
     }
     return () => {
@@ -181,83 +417,289 @@ export default function Workspace() {
   }, []);
   useEffect(() => {
     if (!data) return;
+    // While the live stream is connected it announces every change, so polling
+    // is only a slow safety net; without it, keep the fast fallback.
+    const interval = liveConnected ? 60000 : 10000;
     const refresh = () => {
-      if (document.visibilityState === "visible") void load().catch(() => {});
+      if (
+        document.visibilityState === "visible" &&
+        !pendingLoad.current &&
+        Date.now() - lastLoadAt.current >= interval / 2
+      )
+        void load().catch(() => {});
     };
-    const timer = setInterval(refresh, 10000);
+    const timer = setInterval(refresh, interval);
     window.addEventListener("focus", refresh);
     return () => {
       clearInterval(timer);
       window.removeEventListener("focus", refresh);
     };
-  }, [data?.user.id]);
-  async function run(fn: () => Promise<unknown>, message = "Saved.") {
+  }, [data?.user.id, liveConnected]);
+  useEffect(() => {
+    if (!menu || !data) return;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    const drawer = document.querySelector<HTMLElement>(".drawer");
+    const oldOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const focusable = () =>
+      Array.from(
+        drawer?.querySelectorAll<HTMLElement>(
+          'button:not(:disabled), a[href], input:not(:disabled), [tabindex="0"]',
+        ) || [],
+      ).filter((el) => el.getClientRects().length);
+    focusable()[0]?.focus();
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMenu(false);
+      if (event.key !== "Tab") return;
+      const items = focusable(),
+        first = items[0],
+        last = items.at(-1);
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last?.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first?.focus();
+      }
+    };
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.body.style.overflow = oldOverflow;
+      document.removeEventListener("keydown", handleKey);
+      previousFocus?.focus();
+    };
+  }, [menu, !!data]);
+  const verificationPending = useRef(false);
+  async function checkVerification() {
+    const user = auth().currentUser;
+    if (!user || verificationPending.current) return false;
+    verificationPending.current = true;
+    try {
+      await user.reload();
+      if (auth().currentUser !== user || !user.emailVerified) return false;
+      await user.getIdToken(true);
+      setLoading(true);
+      try {
+        await load();
+      } finally {
+        setLoading(false);
+      }
+      return true;
+    } finally {
+      verificationPending.current = false;
+    }
+  }
+  useEffect(() => {
+    if (!firebaseUser || firebaseUser.emailVerified || data || needsAccount)
+      return;
+    const check = () => {
+      if (document.visibilityState === "visible")
+        void checkVerification().catch(() => {});
+    };
+    const timer = setInterval(check, 5000);
+    window.addEventListener("focus", check);
+    document.addEventListener("visibilitychange", check);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("focus", check);
+      document.removeEventListener("visibilitychange", check);
+    };
+  }, [firebaseUser, data, needsAccount]);
+  useEffect(() => {
+    if (!resendUntil) return;
+    const timer = setTimeout(
+      () => setResendUntil(0),
+      Math.max(0, resendUntil - Date.now()),
+    );
+    return () => clearTimeout(timer);
+  }, [resendUntil]);
+  async function run(
+    fn: () => Promise<unknown>,
+    message = "Saved.",
+    after?: () => void,
+  ) {
     if (busy) return;
     setBusy(true);
     setError("");
     setNotice("");
     try {
       await fn();
-      if (firebaseUser?.emailVerified) await load();
+      if (auth().currentUser?.emailVerified) await load();
+      after?.();
       if (message) setNotice(message);
     } catch (e) {
-      setError((e as Error).message);
+      setError(authErrorMessage(e));
+      if (e instanceof ApiError && e.status === 409)
+        await load().catch(() => {});
     } finally {
       setBusy(false);
     }
   }
+  function signOutToLogin() {
+    setMenu(false);
+    void run(async () => {
+      await logout();
+      replaceRoute("login");
+    }, "Your account is saved. Sign in to continue verification or setup.");
+  }
   const config = window.__CONFIG__ || fallbackConfig;
+  if (loading)
+    return (
+      <div className="auth-page auth-loading-page" role="status">
+        <Brand />
+        {!sessionDelayed && <div className="auth-loader" aria-hidden="true" />}
+        <div>
+          <h1>
+            <T>{sessionDelayed ? "Your session is taking longer than expected" : "Opening your Aplime account…"}</T>
+          </h1>
+          <p>
+            <T>{sessionDelayed ? "Check your internet connection and try again. Your saved account and projects will not be removed." : "Checking your secure session."}</T>
+          </p>
+          {sessionDelayed && (
+            <button type="button" className="button primary" onClick={() => window.location.reload()}>
+              Try again
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  if (!data && route.page === "projects")
+    return (
+      <div className="guest-intake-page">
+        <header className="guest-intake-header">
+          <Brand />
+            <span>
+            <T>{"Plan your project · Sign in at the final step"}</T>
+          </span>
+        </header>
+        <main>
+          <ProjectIntake
+            onAuthenticate={() => {
+              setSignupRole("customer");
+              go("login");
+            }}
+            onPublished={async () => {}}
+          />
+        </main>
+        <footer>
+          <a href="/privacy">
+            <T>{"Privacy"}</T>
+          </a>
+          <a href="/terms">
+            <T>{"Service information"}</T>
+          </a>
+        </footer>
+      </div>
+    );
   if (!data)
     return (
       <div className="auth-page">
         <Brand />
         <section className="auth-card">
-          <p className="eyebrow">WELCOME TO SERVICETONES</p>
+          <p className="eyebrow">
+            <T>{"WELCOME TO APLIME"}</T>
+          </p>
+          {hasIntakeResume() && (
+            <div className="intake-auth-notice">
+              <strong>
+                <T>{"Your project is ready."}</T>
+              </strong>
+              <p>
+                <T>
+                  {
+                    "Sign in to review and publish it. Your answers and photos are saved in this tab."
+                  }
+                </T>{" "}
+              </p>
+              <button
+                className="text-button"
+                onClick={() => go("projects", "resume")}
+              >
+                <T>{"Back to project answers"}</T>{" "}
+              </button>
+            </div>
+          )}
           <h1>
             {needsAccount
-              ? "A few details, then you’re in."
+              ? `Finish setting up your ${signupRole === "pro" ? "professional" : "customer"} account.`
               : firebaseUser && !firebaseUser.emailVerified
                 ? "Check your inbox."
                 : route.page === "register"
-                  ? "Make yourself at home."
+                  ? "Create your Aplime account."
                   : route.page === "recovery"
                     ? "Let’s get you back in."
-                    : "Welcome home."}
+                    : "Sign in to your account."}
           </h1>
-          {loading ? (
-            <p role="status">Connecting your account…</p>
-          ) : firebaseUser && !firebaseUser.emailVerified ? (
+          {(route.page === "register" ||
+            (firebaseUser && !firebaseUser.emailVerified) ||
+            needsAccount) && (
+            <ol className="auth-steps" aria-label="Registration progress">
+              <li
+                className={
+                  route.page === "register" && !firebaseUser
+                    ? "current"
+                    : "complete"
+                }
+              >
+                <span>1</span> <T>{"Account"}</T>{" "}
+              </li>
+              <li
+                className={
+                  firebaseUser && !firebaseUser.emailVerified
+                    ? "current"
+                    : needsAccount
+                      ? "complete"
+                      : ""
+                }
+              >
+                <span>2</span> <T>{"Verify"}</T>{" "}
+              </li>
+              <li className={needsAccount ? "current" : ""}>
+                <span>3</span> <T>{"Profile"}</T>{" "}
+              </li>
+            </ol>
+          )}
+          {firebaseUser && !firebaseUser.emailVerified ? (
             <>
               <p>
-                Verify your email using the link we sent to {firebaseUser.email}
-                . Then refresh your verification status.
+                <T>{"Verify your email using the link we sent to"}</T>{" "}
+                {firebaseUser.email}. We’ll continue automatically when
+                verification is confirmed. You can also check below.
               </p>
               <button
                 disabled={busy}
                 onClick={() =>
                   void run(async () => {
-                    await firebaseUser.reload();
-                    await firebaseUser.getIdToken(true);
-                    setFirebaseUser(auth().currentUser);
-                    if (auth().currentUser?.emailVerified) await load();
-                  }, "Verification checked.")
+                    const verified = await checkVerification();
+                    if (!verified)
+                      setNotice(
+                        "Not verified yet. Open the latest email link, then try again. Check your spam folder too.",
+                      );
+                  }, "")
                 }
               >
-                I’ve verified my email
+                <T>{"I’ve verified my email"}</T>{" "}
               </button>
               <button
                 className="secondary"
+                disabled={busy || resendUntil > Date.now()}
                 onClick={() =>
-                  void run(
-                    () => verifyEmail(firebaseUser),
-                    "Verification email sent.",
-                  )
+                  void run(async () => {
+                    await verifyEmail(firebaseUser);
+                    setResendUntil(Date.now() + 60000);
+                  }, "Verification email sent.")
                 }
               >
-                Resend email
+                {resendUntil > Date.now()
+                  ? "Email sent — wait a minute to resend"
+                  : "Resend verification email"}
               </button>
-              <button className="text-button" onClick={() => void logout()}>
-                Sign out
+              <button
+                className="text-button"
+                disabled={busy}
+                onClick={signOutToLogin}
+              >
+                <T>{"Use a different account"}</T>{" "}
               </button>
             </>
           ) : needsAccount ? (
@@ -277,53 +719,91 @@ export default function Workspace() {
               <Field label="Your name">
                 <input
                   name="name"
-                  minLength={2}
                   maxLength={80}
                   required
                   autoComplete="name"
                 />
               </Field>
-              <Field label="I’m here to">
-                <select
-                  name="role"
-                  defaultValue={
-                    new URLSearchParams(location.search).get("role") === "pro"
-                      ? "pro"
-                      : "customer"
-                  }
-                >
-                  <option value="customer">
-                    Find home service professionals
-                  </option>
-                  <option value="pro">Offer professional services</option>
-                </select>
-              </Field>
+              <fieldset className="role-field">
+                <legend>
+                  <T>{"I’m here to"}</T>
+                </legend>
+                <input type="hidden" name="role" value={signupRole} />
+                {hasIntakeResume() ? (
+                  <p>
+                    <T>{"Customer account · Find help for your project"}</T>
+                  </p>
+                ) : (
+                  <RoleChoice value={signupRole} onChange={chooseSignupRole} />
+                )}
+              </fieldset>
               <p className="muted">
-                Professionals complete a business profile and identity
-                verification before their listing appears.
+                <T>
+                  {
+                    "Professionals complete a business profile and identity verification before their listing appears."
+                  }
+                </T>{" "}
               </p>
-              <button>Create account</button>
+              <button>
+                <T>{"Create account"}</T>
+              </button>
               <button
                 type="button"
                 className="text-button"
-                onClick={() => void logout()}
+                disabled={busy}
+                onClick={signOutToLogin}
               >
-                Sign out
+                <T>{"Sign out"}</T>{" "}
               </button>
             </Form>
           ) : firebaseUser ? (
             <>
               <p>
-                Your account could not be loaded. Check the connection and
-                retry.
+                <T>
+                  {
+                    "Your account could not be loaded. Check the connection and retry."
+                  }
+                </T>{" "}
               </p>
-              <button onClick={() => void run(load, "")}>Retry</button>
-              <button className="text-button" onClick={() => void logout()}>
-                Sign out
+              <button onClick={() => void run(load, "")}>
+                <T>{"Retry"}</T>
+              </button>
+              <button className="text-button" onClick={signOutToLogin}>
+                <T>{"Sign out"}</T>{" "}
               </button>
             </>
           ) : (
             <>
+              {route.page === "register" && (
+                <>
+                  <p className="auth-intro">
+                    <T>
+                      {
+                        "Choose how you plan to use Aplime. You can’t change the account type after finishing registration."
+                      }
+                    </T>{" "}
+                  </p>
+                  {hasIntakeResume() ? (
+                    <p>
+                      <T>{"Customer account · Find help for your project"}</T>
+                    </p>
+                  ) : (
+                    <RoleChoice
+                      value={signupRole}
+                      onChange={chooseSignupRole}
+                    />
+                  )}
+                </>
+              )}
+              {route.page === "login" && (
+                <p className="auth-intro">
+                  <T>
+                    {
+                      "Pick up where you left off. We’ll open your account or help you finish verification automatically."
+                    }
+                  </T>{" "}
+                </p>
+              )}
               <Form
                 busy={busy}
                 onSubmit={(f) =>
@@ -334,9 +814,10 @@ export default function Workspace() {
                         await recover(email);
                         return;
                       }
+                      await configureSession(remember);
                       if (route.page === "register")
                         await register(email, String(f.get("password")));
-                      else await login(email, String(f.get("password")));
+                      else await login(email.trim(), String(f.get("password")));
                     },
                     route.page === "recovery"
                       ? "If an account exists, a recovery email will arrive shortly."
@@ -348,6 +829,8 @@ export default function Workspace() {
                   <input
                     type="email"
                     name="email"
+                    value={authEmail}
+                    onChange={(event) => setAuthEmail(event.target.value)}
                     required
                     autoComplete="email"
                   />
@@ -367,6 +850,23 @@ export default function Workspace() {
                     />
                   </Field>
                 )}
+                {route.page !== "recovery" && !Capacitor.isNativePlatform() && (
+                  <label className="session-choice">
+                    <input
+                      type="checkbox"
+                      checked={remember}
+                      onChange={(e) => setRemember(e.target.checked)}
+                    />
+                    <span>
+                      <T>{"Keep me signed in"}</T>{" "}
+                      <small>
+                        <T>
+                          {"Uncheck on a shared device to use this tab only."}
+                        </T>{" "}
+                      </small>
+                    </span>
+                  </label>
+                )}
                 <button>
                   {route.page === "register"
                     ? "Create your account"
@@ -380,17 +880,16 @@ export default function Workspace() {
                   <button
                     className="secondary"
                     disabled={busy}
-                    onClick={() => void run(google, "")}
+                    onClick={() =>
+                      void run(async () => {
+                        await configureSession(remember);
+                        await google();
+                      }, "")
+                    }
                   >
-                    Continue with Google
+                    <T>{"Continue with Google"}</T>{" "}
                   </button>
-                  <button
-                    className="secondary"
-                    disabled={busy}
-                    onClick={() => void run(apple, "")}
-                  >
-                    Continue with Apple
-                  </button>
+
                 </div>
               )}
               <div className="auth-links">
@@ -405,7 +904,7 @@ export default function Workspace() {
                     : "New here? Create an account"}
                 </button>
                 <button className="text-button" onClick={() => go("recovery")}>
-                  Forgot password?
+                  <T>{"Forgot password?"}</T>{" "}
                 </button>
               </div>
             </>
@@ -421,59 +920,111 @@ export default function Workspace() {
             </p>
           )}
           <p className="auth-foot">
-            Your projects. Your conversations. All together.
+            <T>{"Your projects. Your conversations. All together."}</T>{" "}
           </p>
         </section>
-        <a href="/">Back to home</a>
+        <a href="/">
+          <T>{"Back to home"}</T>
+        </a>
       </div>
     );
   const links = [
     ...navigation[data.user.role],
-    ["notifications", "Notifications"],
     ["settings", "Settings"],
     ["help", "Help & safety"],
   ];
+  const renderLinks = (items: string[][]) =>
+    items.map(([p, label]) => {
+      const Icon = navIcons[p];
+      const active =
+        (data.user.role === "customer" && p === "dashboard"
+          ? route.page === "dashboard" ||
+            route.page === "project" ||
+            (route.page === "projects" && !route.id)
+          : data.user.role === "customer" && p === "projects"
+            ? route.page === "projects" && !!route.id
+            : data.user.role === "pro" && p === "dashboard"
+              ? [
+                  "dashboard",
+                  "project",
+                  "projects",
+                  "leads",
+                  "quotes",
+                ].includes(route.page)
+              : route.page === p) ||
+        (data.user.role === "pro" &&
+          p === "profile" &&
+          [
+            "verification",
+            "subscription",
+            "availability",
+            "onboarding",
+            "payments",
+            "earnings",
+          ].includes(route.page));
+      return (
+        <button
+          key={p}
+          className={active ? "nav-link active" : "nav-link"}
+          aria-current={active ? "page" : undefined}
+          onClick={() =>
+            go(
+              p,
+              data.user.role === "customer" && p === "projects"
+                ? "new"
+                : undefined,
+            )
+          }
+        >
+          <Icon size={19} />
+          <T>{label}</T>
+          {p === "messages" && !!data.unreadMessageCount && (
+            <span
+              className="notification-count"
+              aria-label={`${data.unreadMessageCount} unread conversation updates`}
+            >
+              {data.unreadMessageCount > 99 ? "99+" : data.unreadMessageCount}
+            </span>
+          )}
+        </button>
+      );
+    });
+  const dashboardBrand = (
+    <Brand
+      href={Capacitor.isNativePlatform() ? "#/dashboard" : "/app/dashboard"}
+      onClick={(event) => {
+        if (
+          event.button !== 0 ||
+          event.metaKey ||
+          event.ctrlKey ||
+          event.shiftKey ||
+          event.altKey
+        )
+          return;
+        event.preventDefault();
+        go("dashboard");
+      }}
+    />
+  );
   const nav = (
     <>
-      <Brand />
+      {dashboardBrand}
       <p className="workspace-label">
-        {data.user.role === "pro"
-          ? "YOUR BUSINESS"
-          : data.user.role === "admin"
-            ? "PLATFORM OPERATIONS"
-            : "YOUR HOME, ORGANIZED"}
+        {data.user.role === "pro" ? "YOUR BUSINESS" : "YOUR HOME, ORGANIZED"}
       </p>
-      <nav aria-label="Workspace navigation">
-        {links.map(([p, label]) => {
-          const Icon = navIcons[p];
-          return (
-            <button
-              key={p}
-              className={route.page === p ? "nav-link active" : "nav-link"}
-              onClick={() => go(p)}
-            >
-              <Icon size={19} />
-              {label}
-            </button>
-          );
-        })}
-      </nav>
+      <nav aria-label="Workspace navigation">{renderLinks(links)}</nav>
       <div className="sidebar-person">
         <span className="avatar">{data.user.name.slice(0, 1)}</span>
         <div>
           <strong>{data.user.name}</strong>
           <small>
-            {data.user.role === "pro"
-              ? "Professional"
-              : data.user.role === "admin"
-                ? "Administrator"
-                : "Customer"}
+            {data.user.role === "pro" ? "Professional" : "Customer"}
           </small>
         </div>
         <button
           aria-label="Sign out"
           className="icon-button"
-          onClick={() => void logout()}
+          onClick={signOutToLogin}
         >
           <LogOut size={18} />
         </button>
@@ -484,93 +1035,320 @@ export default function Workspace() {
     <Context.Provider
       value={{ data, page: route.page, id: route.id, go, run, busy }}
     >
-      <div className="workspace">
-        <aside className="sidebar">{nav}</aside>
-        <div className="workspace-body">
-          {config.environment !== "production" && (
-            <div className="environment-bar">
-              {config.environment === "stagging" ? "Staging" : "Development"}{" "}
-              environment
-            </div>
-          )}
-          <header className="topbar">
+      <MeetingProvider key={data.user.id} userId={data.user.id}>
+        <NativePush userId={data.user.id} go={go} />
+        <div
+          className="workspace"
+          style={
+            {
+              "--workspace-header-height": `${headerHeight}px`,
+            } as CSSProperties
+          }
+        >
+          <a className="skip-link" href="#workspace-content">
+            <T>{"Skip to content"}</T>{" "}
+          </a>
+          <div className="workspace-body">
+            {config.environment !== "production" && (
+              <div className="environment-bar">
+                {config.environment === "stagging" ? "Staging" : "Development"}{" "}
+                environment
+              </div>
+            )}
+            <header
+              className={
+                "topbar workspace-header" +
+                (data.user.role === "pro" ? " professional-header" : "")
+              }
+              ref={headerRef}
+            >
+              {dashboardBrand}
+              <nav
+                className="workspace-primary-nav"
+                aria-label="Main navigation"
+              >
+                {renderLinks(
+                  links.filter(
+                    ([p]) => !["notifications", "help", "settings"].includes(p),
+                  ),
+                )}
+              </nav>
+              <div className="actions">
+                <button
+                  className="secondary workspace-support"
+                  aria-label="Support"
+                  onClick={() => go("messages", "new-support")}
+                >
+                  <HelpCircle size={19} />
+                  <span>
+                    <T>Support</T>
+                  </span>
+                </button>
+                <button
+                  className="icon-button workspace-menu"
+                  aria-label="Open navigation"
+                  aria-expanded={menu}
+                  onClick={() => setMenu(true)}
+                >
+                  <Menu size={21} />
+                </button>
+                <NotificationDropdown
+                  open={notificationsOpen}
+                  setOpen={setNotificationsOpen}
+                  notices={data.notices}
+                  unread={data.unreadCount || 0}
+                  connected={liveConnected}
+                  busy={busy}
+                  run={run}
+                  go={go}
+                />
+                <details
+                  className="workspace-account-menu"
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                      event.currentTarget.open = false;
+                      event.currentTarget.querySelector("summary")?.focus();
+                    }
+                  }}
+                >
+                  <summary aria-label="Account menu">
+                    <span className="avatar" aria-hidden="true">
+                      {data.user.name.slice(0, 1)}
+                    </span>
+                    <ChevronDown size={16} aria-hidden="true" />
+                  </summary>
+                  <div className="workspace-account-panel">
+                    <div className="workspace-account-heading">
+                      <strong>{data.user.name}</strong>
+                      <small>
+                        <T>
+                          {data.user.role === "pro"
+                            ? "Professional"
+                            : "Customer"}
+                        </T>
+                      </small>
+                    </div>
+                    <button
+                      type="button"
+                      className="workspace-account-action"
+                      onClick={(event) => {
+                        event.currentTarget
+                          .closest("details")
+                          ?.removeAttribute("open");
+                        go("settings");
+                      }}
+                    >
+                      <Settings size={18} />
+                      <T>{"Settings"}</T>
+                    </button>
+                    <button
+                      type="button"
+                      className="workspace-account-action"
+                      onClick={signOutToLogin}
+                    >
+                      <LogOut size={18} />
+                      <T>{"Sign out"}</T>
+                    </button>
+                  </div>
+                </details>
+              </div>
+            </header>
+            <main
+              className={
+                "workspace-main" +
+                (route.page === "project" && data.user.role === "customer"
+                  ? " customer-project-main"
+                  : "")
+              }
+              id="workspace-content"
+              data-page={route.page}
+            >
+              {liveNotice && (
+                <aside className="live-notice" role="status" aria-live="polite">
+                  <Bell size={20} />
+                  <div>
+                    <strong>{liveNotice.title}</strong>
+                    <p>{liveNotice.body}</p>
+                    <button
+                      className="text-button"
+                      onClick={() => {
+                        const item = liveNotice;
+                        setLiveNotice(null);
+                        void run(
+                          () => request(`/notifications/${item.id}/read`, {}),
+                          "",
+                        );
+                        go(
+                          item.targetPage || "notifications",
+                          item.targetId || undefined,
+                        );
+                      }}
+                    >
+                      <T>{"View update"}</T>{" "}
+                    </button>
+                  </div>
+                  <button
+                    className="icon-button"
+                    aria-label="Dismiss notification"
+                    onClick={() => setLiveNotice(null)}
+                  >
+                    <X size={18} />
+                  </button>
+                </aside>
+              )}
+              {error && (
+                <p role="alert" className="alert error">
+                  {error}
+                </p>
+              )}
+              {notice && (
+                <p role="status" className="alert">
+                  {notice}
+                </p>
+              )}
+              {busy && (
+                <p className="busy" role="status">
+                  <T>{"Saving changes…"}</T>{" "}
+                </p>
+              )}
+              {data.user.role === "pro" && hasIntakeResume() && (
+                <IntakeAccountNotice
+                  key={data.user.id}
+                  onSignOut={() => {
+                    void run(async () => {
+                      await logout();
+                      replaceRoute("login");
+                    }, "Sign in with a customer account to finish your saved project.");
+                  }}
+                />
+              )}
+              <Pages />
+            </main>
+            <footer className="workspace-footer">
+              © {new Date().getFullYear()} Aplime{" "}
+              <a href="/privacy">
+                <T>{"Privacy"}</T>
+              </a>
+              <a href="/terms">
+                <T>{"Service information"}</T>
+              </a>
+            </footer>
+          </div>
+          <nav className="mobile-bottom-nav" aria-label="Quick navigation">
             <button
-              className="icon-button mobile-menu"
-              aria-label="Open navigation"
+              aria-current={
+                route.page === "dashboard" ||
+                (data.user.role === "pro" &&
+                  ["project", "projects", "leads", "quotes"].includes(
+                    route.page,
+                  )) ||
+                (data.user.role === "customer" &&
+                  (route.page === "project" ||
+                    (route.page === "projects" && !route.id)))
+                  ? "page"
+                  : undefined
+              }
+              onClick={() => go("dashboard")}
+            >
+              <House size={21} />
+              <span>
+                <T>{"Home"}</T>
+              </span>
+            </button>
+            {data.user.role === "customer" ? (
+              <>
+                <button
+                  onClick={() => go("projects", "new")}
+                  aria-current={
+                    route.page === "projects" && !!route.id ? "page" : undefined
+                  }
+                >
+                  <BriefcaseBusiness size={21} />
+                  <span>
+                    <T>{"Post"}</T>
+                  </span>
+                </button>
+                <button
+                  onClick={() => go("schedule")}
+                  aria-current={route.page === "schedule" ? "page" : undefined}
+                >
+                  <CalendarDays size={21} />
+                  <span>
+                    <T>{"Schedule"}</T>
+                  </span>
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => go("schedule")}
+                  aria-current={route.page === "schedule" ? "page" : undefined}
+                >
+                  <CalendarDays size={21} />
+                  <span>
+                    <T>{"Schedule"}</T>
+                  </span>
+                </button>
+                <button
+                  onClick={() => go("profile")}
+                  aria-current={route.page === "profile" ? "page" : undefined}
+                >
+                  <UserRound size={21} />
+                  <span>
+                    <T>{"My business"}</T>
+                  </span>
+                </button>
+              </>
+            )}
+            <button
+              aria-current={route.page === "messages" ? "page" : undefined}
+              onClick={() => go("messages")}
+            >
+              <MessageCircle size={21} />
+              <span>
+                <T>{"Messages"}</T>
+              </span>
+              {!!data.unreadMessageCount && (
+                <span className="notification-count">
+                  {data.unreadMessageCount > 99
+                    ? "99+"
+                    : data.unreadMessageCount}
+                </span>
+              )}
+            </button>
+            <button
+              aria-label="More navigation options"
+              aria-expanded={menu}
               onClick={() => setMenu(true)}
             >
-              <Menu />
+              <Menu size={21} />
+              <span>
+                <T>{"More"}</T>
+              </span>
             </button>
-            <span>
-              {data.user.role === "pro"
-                ? "Provider"
-                : data.user.role === "admin"
-                  ? "Admin"
-                  : "Customer"}{" "}
-              workspace{" "}
-              <b>
-                /{" "}
-                {links.find((l) => l[0] === route.page)?.[1] ||
-                  "Project details"}
-              </b>
-            </span>
-            <div className="actions">
-              <button
-                className="icon-button"
-                aria-label="Notifications"
-                onClick={() => go("notifications")}
+          </nav>
+          {menu && (
+            <div className="drawer-backdrop" onClick={() => setMenu(false)}>
+              <aside
+                className="drawer"
+                role="dialog"
+                aria-modal="true"
+                aria-label="Workspace navigation"
+                onClick={(e) => e.stopPropagation()}
               >
-                <Bell size={20} />
-                {data.notices.some((n) => !n.read) && <i />}
-              </button>
-              <button
-                className="avatar"
-                aria-label="Account settings"
-                onClick={() => go("settings")}
-              >
-                {data.user.name.slice(0, 1)}
-              </button>
+                <button
+                  className="icon-button"
+                  aria-label="Close navigation"
+                  onClick={() => setMenu(false)}
+                >
+                  <X />
+                </button>
+                {nav}
+              </aside>
             </div>
-          </header>
-          <main className="workspace-main">
-            {error && (
-              <p role="alert" className="alert error">
-                {error}
-              </p>
-            )}
-            {notice && (
-              <p role="status" className="alert">
-                {notice}
-              </p>
-            )}
-            {busy && (
-              <p className="busy" role="status">
-                Saving changes…
-              </p>
-            )}
-            <Pages />
-          </main>
-          <footer className="workspace-footer">
-            © {new Date().getFullYear()} ServiceTones{" "}
-            <a href="/privacy">Privacy</a>
-            <a href="/terms">Service information</a>
-          </footer>
+          )}
         </div>
-        {menu && (
-          <div className="drawer-backdrop" onClick={() => setMenu(false)}>
-            <aside className="drawer" onClick={(e) => e.stopPropagation()}>
-              <button
-                className="icon-button"
-                aria-label="Close navigation"
-                onClick={() => setMenu(false)}
-              >
-                <X />
-              </button>
-              {nav}
-            </aside>
-          </div>
-        )}
-      </div>
+      </MeetingProvider>
     </Context.Provider>
   );
 }

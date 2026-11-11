@@ -1,6 +1,6 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="title_activity_main">ServiceTones</string>
+    <string name="title_activity_main">Aplime</string>
     <string name="package_name">com.servicetones.app</string>
     <string name="custom_url_scheme">com.servicetones.app</string>
 </resources>

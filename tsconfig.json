@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["DOM", "DOM.Iterable", "ES2022"],
+    "lib": [
+      "DOM",
+      "DOM.Iterable",
+      "ES2022"
+    ],
     "strict": true,
     "skipLibCheck": true,
     "noEmit": true,
@@ -11,7 +15,10 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "react-jsx",
-    "types": ["node", "vite/client"],
+    "types": [
+      "node",
+      "vite/client"
+    ],
     "allowImportingTsExtensions": true
   },
   "include": [
@@ -19,6 +26,7 @@
     "scripts/*.ts",
     "tests",
     "vite.config.ts",
-    "capacitor.config.ts"
+    "capacitor.config.ts",
+    "apps"
   ]
 }

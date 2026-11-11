@@ -1,0 +1,8 @@
+/* One readable scale for customer, professional, admin and native UI. */
+:root {
+  --text-caption: 0.875rem;
+  --text-small: 1rem;
+  --text-body: 1.125rem;
+  --text-lead: 1.25rem;
+  --section-border: #b6cbb5;
+}

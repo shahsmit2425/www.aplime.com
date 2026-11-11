@@ -1,18 +1,67 @@
+import { renderTemplate } from "../apps/web/render-template.js";
+import { serviceSlug } from "../src/shared/service-questionnaires.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { renderPage } from "../src/entry-server.js";
 import { fallbackConfig } from "../src/shared/config.js";
+import { categories, type Profile } from "../src/shared/domain.js";
+import { informationalPages } from "../src/shared/seo-content.js";
+const production = {
+  ...fallbackConfig,
+  environment: "production" as const,
+  siteUrl: "https://aplime.com",
+};
 test("public service routes contain useful server rendered content and production SEO metadata", () => {
-  const page = renderPage("/services/plumbing", {
-    ...fallbackConfig,
-    environment: "production",
-    siteUrl: "https://example.org",
-  });
+  const page = renderPage("/services/plumbing", production);
   assert.equal(page.status, 200);
-  assert.match(page.html, /Plumbing services/);
+  assert.match(page.html, /Plumbing Services and Repairs/);
+  assert.match(page.html, /Leaking faucets, pipes, and fixtures/);
+  assert.match(page.html, /What should a plumbing estimate include/);
   assert.match(page.head, /index,follow/);
-  assert.match(page.head, /https:\/\/example.org\/services\/plumbing/);
+  assert.match(page.head, /https:\/\/aplime.com\/services\/plumbing/);
+  assert.match(page.head, /Plumbing Services and Repairs \| Aplime/);
   assert.match(page.head, /application\/ld\+json/);
+  assert.match(page.head, /summary_large_image/);
+  assert.match(page.head, /BreadcrumbList/);
+  assert.match(page.head, /"@type":"Service"/);
+});
+test("every SEO landing page has unique metadata, useful copy, and valid structured data", () => {
+  const paths = [
+    "/",
+    "/services",
+    ...categories.map((category) => "/services/" + serviceSlug(category)),
+    ...Object.keys(informationalPages),
+  ];
+  const titles = new Set<string>();
+  const descriptions = new Set<string>();
+  for (const path of paths) {
+    const page = renderPage(path, production);
+    assert.equal(page.status, 200, path);
+    assert.ok(page.html.length > 500, path);
+    const title = page.head.match(/<title>(.*?)<\/title>/)?.[1];
+    const description = page.head.match(
+      /<meta name="description" content="(.*?)"\/>/,
+    )?.[1];
+    const json = page.head.match(
+      /<script type="application\/ld\+json">(.*?)<\/script>/,
+    )?.[1];
+    assert.ok(title, path);
+    assert.ok(description && description.length >= 100, path);
+    assert.ok(json, path);
+    assert.equal(JSON.parse(json!)["@context"], "https://schema.org", path);
+    assert.match(
+      page.head,
+      new RegExp(`https://aplime\\.com${path === "/" ? "/" : path}`),
+    );
+    assert.equal(titles.has(title!), false, `duplicate title: ${title}`);
+    assert.equal(
+      descriptions.has(description!),
+      false,
+      `duplicate description: ${description}`,
+    );
+    titles.add(title!);
+    descriptions.add(description!);
+  }
 });
 test("staging and private routes are never indexable", () => {
   assert.match(
@@ -28,6 +77,97 @@ test("staging and private routes are never indexable", () => {
   );
   assert.equal(renderPage("/not-a-real-page", fallbackConfig).status, 404);
 });
+test("approved professional pages expose truthful local business metadata", () => {
+  const profile: Profile = {
+    address: "",
+    placeId: "",
+    serviceCategories: ["Handyman"],
+    weeklyHours: { Mon: { start: "08:00", end: "17:00" } },
+    timeZone: "America/New_York",
+    id: "professional-1",
+    name: "Account owner",
+    business: "Green Home Repair",
+    category: "Handyman",
+    bio: "Home repair and installation services with clear written project estimates.",
+    zip: "10001",
+    rate: 75,
+    verified: true,
+    suspended: false,
+    listed: true,
+    available: true,
+    availability: ["Mon"],
+    rating: 4.8,
+    reviewCount: 12,
+    serviceRadiusMiles: 25,
+    reviewStatus: "approved",
+    images: [
+      {
+        id: "image-1",
+        slot: "logo",
+        url: "https://api.aplime.com/api/business-images/image-1",
+      },
+      {
+        id: "past-work-1",
+        slot: "work-1",
+        url: "https://api.aplime.com/api/business-images/past-work-1",
+      },
+    ],
+    details: {
+      legalName: "Green Home Repair LLC",
+      phone: "+1 212 555 0100",
+      email: "hello@example.com",
+      website: "https://example.com",
+      city: "New York",
+      state: "NY",
+      serviceAreas: "Manhattan and nearby neighborhoods",
+      specialties: "Mounting and minor repairs",
+      languages: "English",
+      hours: "Monday through Friday",
+      license: "",
+      insurance: "",
+      qualifications: "",
+      warranty: "",
+      cancellationPolicy: "Please give 24 hours notice.",
+      yearsExperience: 8,
+      teamSize: 2,
+      businessType: "LLC",
+    },
+  };
+  const special = renderPage("/professionals/professional-1", production, {
+    ...profile,
+    business: "Repair $& Co",
+    bio: "Prices start at $50. Ask for $$ details.",
+  });
+  const document = renderTemplate(
+    "<!--head--><!--app--><!--bootstrap-->",
+    special,
+    "test-nonce",
+  );
+  assert.ok(document.includes(special.html));
+  assert.ok(
+    document.includes(
+      special.bootstrap.replace("<script>", '<script nonce="test-nonce">'),
+    ),
+  );
+  assert.ok(
+    document.includes(
+      special.head.replaceAll("<script ", '<script nonce="test-nonce" '),
+    ),
+  );
+  const page = renderPage("/professionals/professional-1", production, profile);
+  assert.equal(page.status, 200);
+  assert.match(page.head, /Green Home Repair \| Handyman in New York, NY/);
+  assert.match(page.head, /"@type":"ProfessionalService"/);
+  assert.match(page.head, /"ratingValue":4.8/);
+  assert.match(page.head, /"addressLocality":"New York"/);
+  assert.match(page.html, /Green Home Repair/);
+  assert.match(page.html, /Past work portfolio/);
+  assert.match(page.html, /Green Home Repair past work photo 1/);
+  assert.match(
+    page.html,
+    /https:\/\/api\.aplime\.com\/api\/business-images\/past-work-1/,
+  );
+});
 test("bootstrap JSON cannot break out of a script tag", () => {
   const page = renderPage("/", {
     ...fallbackConfig,
@@ -35,4 +175,53 @@ test("bootstrap JSON cannot break out of a script tag", () => {
   });
   assert.ok(!page.bootstrap.includes("</script><script>"));
   assert.match(page.bootstrap, /\\u003c/);
+});
+test("FAQ and contact pages are indexable, in the sitemap list, and expose truthful structured data", async () => {
+  const { seoStaticPaths } = await import("../src/shared/seo-content.js");
+  assert.ok(seoStaticPaths.includes("/faq"));
+  assert.ok(seoStaticPaths.includes("/contact"));
+  const faq = renderPage("/faq", production);
+  assert.equal(faq.status, 200);
+  assert.match(faq.head, /index,follow/);
+  assert.match(faq.head, /"@type":"FAQPage"/);
+  assert.match(faq.head, /"@type":"Question"/);
+  assert.match(faq.html, /Does Aplime handle payment for the work\?/);
+  const contact = renderPage("/contact", {
+    ...production,
+    supportEmail: "help@example.com",
+  });
+  assert.equal(contact.status, 200);
+  assert.match(contact.head, /"@type":"ContactPage"/);
+  assert.match(contact.html, /mailto:help@example.com/);
+  assert.doesNotMatch(renderPage("/contact", production).html, /mailto:/);
+});
+test("titles do not repeat the brand and the organization logo is a raster image", () => {
+  const about = renderPage("/about", production).head;
+  assert.match(about, /<title>About Aplime<\/title>/);
+  assert.match(about, /"logo":"https:\/\/aplime.com\/icon-512.png"/);
+});
+test("unknown pages return a helpful noindex 404", () => {
+  const page = renderPage("/nope", production);
+  assert.equal(page.status, 404);
+  assert.match(page.head, /noindex,nofollow/);
+  assert.match(page.html, /href="\/services"/);
+  assert.match(page.html, /href="\/faq"/);
+});
+
+test("homepage uses twelve compact icon links that preselect intake categories", () => {
+  const page = renderPage("/", production);
+  assert.equal(
+    (page.html.match(/class="home-service-tile"/g) || []).length,
+    12,
+  );
+  for (const category of categories) {
+    assert.ok(
+      page.html.includes(
+        "/app/projects/new?category=" + encodeURIComponent(category),
+      ),
+      category,
+    );
+  }
+  assert.ok(!page.html.includes('class="service-number"'));
+  assert.equal(new Set(categories.map(serviceSlug)).size, categories.length);
 });

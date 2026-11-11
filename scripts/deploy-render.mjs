@@ -1,22 +1,15 @@
 import fs from "node:fs";
-const {
-  RENDER_API_KEY,
-  RENDER_SERVICE_ID,
-  RENDER_WORKER_SERVICE_ID,
-  GITHUB_SHA,
-  GITHUB_REF_NAME,
-  SITE_URL,
-} = process.env;
-for (const key of [
-  "RENDER_API_KEY",
-  "RENDER_SERVICE_ID",
-  "RENDER_WORKER_SERVICE_ID",
-  "GITHUB_SHA",
-  "GITHUB_REF_NAME",
-  "SITE_URL",
-])
+const { RENDER_API_KEY, GITHUB_SHA, GITHUB_REF_NAME } = process.env;
+const selected = ["api", "worker", "web", "admin"].filter(
+  (k) => process.env["DEPLOY_" + k.toUpperCase()] === "true",
+);
+if (!selected.length) {
+  console.log("No deployable code changed.");
+  process.exit(0);
+}
+for (const key of ["RENDER_API_KEY", "GITHUB_SHA", "GITHUB_REF_NAME"])
   if (!process.env[key])
-    throw new Error("Missing GitHub environment configuration: " + key);
+    throw new Error("Missing GitHub configuration: " + key);
 const mapping = JSON.parse(fs.readFileSync("config/environments.json", "utf8"));
 if (!mapping[GITHUB_REF_NAME]) throw new Error("Unmapped deployment branch.");
 const base = "https://api.render.com/v1";
@@ -58,15 +51,77 @@ async function deploy(id) {
   }
   throw new Error("Render deployment timed out.");
 }
-await deploy(RENDER_SERVICE_ID);
-const response = await fetch(SITE_URL.replace(/\/$/, "") + "/api/health", {
-  signal: AbortSignal.timeout(30000),
-});
-if (!response.ok) throw new Error("Deployed health check failed.");
-const health = await response.json();
-if (
-  health.release !== GITHUB_SHA ||
-  health.environment !== mapping[GITHUB_REF_NAME].environment
-)
-  throw new Error("Deployed release/environment does not match this build.");
-await deploy(RENDER_WORKER_SERVICE_ID);
+
+for (const target of selected) {
+  const key = "RENDER_" + target.toUpperCase() + "_SERVICE_ID";
+  if (!process.env[key])
+    throw new Error("Missing GitHub configuration: " + key);
+  await deploy(process.env[key]);
+  if (target === "worker") continue;
+  const urlKey =
+    target === "api"
+      ? "API_URL"
+      : target === "admin"
+        ? "ADMIN_URL"
+        : "SITE_URL";
+  const url = process.env[urlKey];
+  if (!url?.startsWith("https://")) throw new Error("Set HTTPS " + urlKey);
+  const endpoint =
+    target === "api"
+      ? "/api/health"
+      : target === "admin"
+        ? "/release.json"
+        : "/health";
+  const response = await fetch(url.replace(/\/$/, "") + endpoint, {
+    cache: "no-store",
+    signal: AbortSignal.timeout(30000),
+  });
+  if (!response.ok) throw new Error(target + " health check failed");
+  const health = await response.json();
+  if (
+    health.release !== GITHUB_SHA ||
+    health.environment !== mapping[GITHUB_REF_NAME].environment
+  )
+    throw new Error(target + " release/environment mismatch");
+  if (target === "web") {
+    const site = url.replace(/\/$/, "");
+    const [homeResponse, robotsResponse, sitemapResponse] = await Promise.all([
+      fetch(site + "/", {
+        cache: "no-store",
+        signal: AbortSignal.timeout(30000),
+      }),
+      fetch(site + "/robots.txt", {
+        cache: "no-store",
+        signal: AbortSignal.timeout(30000),
+      }),
+      fetch(site + "/sitemap.xml", {
+        cache: "no-store",
+        signal: AbortSignal.timeout(30000),
+      }),
+    ]);
+    if (!homeResponse.ok || !robotsResponse.ok || !sitemapResponse.ok)
+      throw new Error("Web SEO endpoint verification failed");
+    const [home, robots, sitemap] = await Promise.all([
+      homeResponse.text(),
+      robotsResponse.text(),
+      sitemapResponse.text(),
+    ]);
+    if (
+      !home.includes(`<link rel="canonical" href="${site}/"`) ||
+      !home.includes('type="application/ld+json"')
+    )
+      throw new Error("Web canonical or structured data is missing");
+    const production = mapping[GITHUB_REF_NAME].environment === "production";
+    if (production) {
+      if (
+        !robots.includes(`Sitemap: ${site}/sitemap.xml`) ||
+        !sitemap.includes(`${site}/services/plumbing`)
+      )
+        throw new Error("Production robots or sitemap content is invalid");
+    } else if (
+      !robots.includes("Disallow: /") ||
+      !homeResponse.headers.get("x-robots-tag")?.includes("noindex")
+    )
+      throw new Error("Non-production website is not protected from indexing");
+  }
+}

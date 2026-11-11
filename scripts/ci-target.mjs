@@ -20,6 +20,8 @@ if (GITHUB_OUTPUT)
       target.environment +
       "\napp-id=" +
       target.appId +
+      "\nios-app-id=" +
+      target.iosAppId +
       "\nandroid-track=" +
       target.androidTrack +
       "\n",

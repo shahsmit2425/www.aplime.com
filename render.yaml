@@ -1,101 +1,260 @@
-# Add credentials to the matching Render environment group. See docs/ENVIRONMENT_VARIABLES.md.
+# Common settings reach all application services; backend configuration reaches only API/worker.
+# Add SITE_URL and API_URL to common; DATABASE_URL and credentials to backend manually.
+# Add REDIS_URL (private Render Key Value URL) to backend for live WebSockets/cache.
+# The existing -mail service runs all pg-boss queues; see docs/DEPLOYMENT.md.
 services:
   - type: web
-    name: servicetones-development
+    name: servicetones-development-api
     runtime: node
     plan: starter
     region: ohio
+    repo: https://github.com/shahsmit2425/www.aplime.com
     branch: development
     autoDeployTrigger: off
-    buildCommand: npm ci --include=dev && npm run build
-    startCommand: npm start
+    buildCommand: npm ci --include=dev
+    startCommand: npm run start:api
     preDeployCommand: npm run config:check && npm run db:migrate
     healthCheckPath: /api/health
     envVars:
-      - fromGroup: servicetones-development
-      - key: DATABASE_URL
-        fromDatabase:
-          name: servicetones-development-db
-          property: connectionString
+      - fromGroup: servicetones-development-common
+      - fromGroup: servicetones-development-backend
   - type: worker
     name: servicetones-development-mail
     runtime: node
     plan: starter
     region: ohio
+    repo: https://github.com/shahsmit2425/www.aplime.com
     branch: development
     autoDeployTrigger: off
     buildCommand: npm ci --include=dev
     startCommand: npm run worker
     envVars:
-      - fromGroup: servicetones-development
-      - key: DATABASE_URL
-        fromDatabase:
-          name: servicetones-development-db
-          property: connectionString
+      - fromGroup: servicetones-development-common
+      - fromGroup: servicetones-development-backend
   - type: web
-    name: servicetones-stagging
+    name: servicetones-development-web
     runtime: node
     plan: starter
     region: ohio
+    repo: https://github.com/shahsmit2425/www.aplime.com
+    branch: development
+    autoDeployTrigger: off
+    buildCommand: npm ci --include=dev && npm run build:web
+    startCommand: npm run start:web
+    healthCheckPath: /health
+    envVars:
+      - fromGroup: servicetones-development-common
+  - type: web
+    name: servicetones-development-admin
+    runtime: static
+    repo: https://github.com/shahsmit2425/www.aplime.com
+    branch: development
+    autoDeployTrigger: off
+    buildCommand: npm ci --include=dev && npm run build:admin
+    staticPublishPath: dist/admin
+    envVars:
+      - fromGroup: servicetones-development-common
+    headers:
+      - path: /*
+        name: X-Robots-Tag
+        value: noindex, nofollow
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: Strict-Transport-Security
+        value: max-age=31536000; includeSubDomains
+      - path: /*
+        name: Referrer-Policy
+        value: no-referrer
+      - path: /index.html
+        name: Cache-Control
+        value: no-store
+      - path: /release.json
+        name: Cache-Control
+        value: no-store
+      - path: /*
+        name: Content-Security-Policy
+        value: >-
+          default-src 'self'; script-src 'self'; style-src 'self'; connect-src
+          'self' https:; img-src 'self' data: https://*.r2.cloudflarestorage.com;
+          frame-ancestors 'none'; base-uri 'none'; object-src 'none'; form-action 'self'
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+  - type: web
+    name: servicetones-stagging-api
+    runtime: node
+    plan: starter
+    region: ohio
+    repo: https://github.com/shahsmit2425/www.aplime.com
     branch: stagging
     autoDeployTrigger: off
-    buildCommand: npm ci --include=dev && npm run build
-    startCommand: npm start
+    buildCommand: npm ci --include=dev
+    startCommand: npm run start:api
     preDeployCommand: npm run config:check && npm run db:migrate
     healthCheckPath: /api/health
     envVars:
-      - fromGroup: servicetones-stagging
-      - key: DATABASE_URL
-        fromDatabase:
-          name: servicetones-stagging-db
-          property: connectionString
+      - fromGroup: servicetones-stagging-common
+      - fromGroup: servicetones-stagging-backend
   - type: worker
     name: servicetones-stagging-mail
     runtime: node
     plan: starter
     region: ohio
+    repo: https://github.com/shahsmit2425/www.aplime.com
     branch: stagging
     autoDeployTrigger: off
     buildCommand: npm ci --include=dev
     startCommand: npm run worker
     envVars:
-      - fromGroup: servicetones-stagging
-      - key: DATABASE_URL
-        fromDatabase:
-          name: servicetones-stagging-db
-          property: connectionString
+      - fromGroup: servicetones-stagging-common
+      - fromGroup: servicetones-stagging-backend
   - type: web
-    name: servicetones-production
+    name: servicetones-stagging-web
     runtime: node
     plan: starter
     region: ohio
+    repo: https://github.com/shahsmit2425/www.aplime.com
+    branch: stagging
+    autoDeployTrigger: off
+    buildCommand: npm ci --include=dev && npm run build:web
+    startCommand: npm run start:web
+    healthCheckPath: /health
+    envVars:
+      - fromGroup: servicetones-stagging-common
+  - type: web
+    name: servicetones-stagging-admin
+    runtime: static
+    repo: https://github.com/shahsmit2425/www.aplime.com
+    branch: stagging
+    autoDeployTrigger: off
+    buildCommand: npm ci --include=dev && npm run build:admin
+    staticPublishPath: dist/admin
+    envVars:
+      - fromGroup: servicetones-stagging-common
+    headers:
+      - path: /*
+        name: X-Robots-Tag
+        value: noindex, nofollow
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: Strict-Transport-Security
+        value: max-age=31536000; includeSubDomains
+      - path: /*
+        name: Referrer-Policy
+        value: no-referrer
+      - path: /index.html
+        name: Cache-Control
+        value: no-store
+      - path: /release.json
+        name: Cache-Control
+        value: no-store
+      - path: /*
+        name: Content-Security-Policy
+        value: >-
+          default-src 'self'; script-src 'self'; style-src 'self'; connect-src
+          'self' https:; img-src 'self' data: https://*.r2.cloudflarestorage.com;
+          frame-ancestors 'none'; base-uri 'none'; object-src 'none'; form-action 'self'
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+  - type: web
+    name: servicetones-production-api
+    runtime: node
+    plan: starter
+    region: ohio
+    repo: https://github.com/shahsmit2425/www.aplime.com
     branch: main
     autoDeployTrigger: off
-    buildCommand: npm ci --include=dev && npm run build
-    startCommand: npm start
+    buildCommand: npm ci --include=dev
+    startCommand: npm run start:api
     preDeployCommand: npm run config:check && npm run db:migrate
     healthCheckPath: /api/health
     envVars:
-      - fromGroup: servicetones-production
-      - key: DATABASE_URL
-        fromDatabase:
-          name: servicetones-production-db
-          property: connectionString
+      - fromGroup: servicetones-production-common
+      - fromGroup: servicetones-production-backend
   - type: worker
     name: servicetones-production-mail
     runtime: node
     plan: starter
     region: ohio
+    repo: https://github.com/shahsmit2425/www.aplime.com
     branch: main
     autoDeployTrigger: off
     buildCommand: npm ci --include=dev
     startCommand: npm run worker
     envVars:
-      - fromGroup: servicetones-production
-      - key: DATABASE_URL
-        fromDatabase:
-          name: servicetones-production-db
-          property: connectionString
+      - fromGroup: servicetones-production-common
+      - fromGroup: servicetones-production-backend
+  - type: web
+    name: servicetones-production-web
+    runtime: node
+    plan: starter
+    region: ohio
+    repo: https://github.com/shahsmit2425/www.aplime.com
+    branch: main
+    autoDeployTrigger: off
+    buildCommand: npm ci --include=dev && npm run build:web
+    startCommand: npm run start:web
+    healthCheckPath: /health
+    domains:
+      - aplime.com
+    renderSubdomainPolicy: disabled
+    envVars:
+      - fromGroup: servicetones-production-common
+  - type: web
+    name: servicetones-production-admin
+    runtime: static
+    repo: https://github.com/shahsmit2425/www.aplime.com
+    branch: main
+    autoDeployTrigger: off
+    buildCommand: npm ci --include=dev && npm run build:admin
+    staticPublishPath: dist/admin
+    envVars:
+      - fromGroup: servicetones-production-common
+    headers:
+      - path: /*
+        name: X-Robots-Tag
+        value: noindex, nofollow
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: Strict-Transport-Security
+        value: max-age=31536000; includeSubDomains
+      - path: /*
+        name: Referrer-Policy
+        value: no-referrer
+      - path: /index.html
+        name: Cache-Control
+        value: no-store
+      - path: /release.json
+        name: Cache-Control
+        value: no-store
+      - path: /*
+        name: Content-Security-Policy
+        value: >-
+          default-src 'self'; script-src 'self'; style-src 'self'; connect-src
+          'self' https:; img-src 'self' data: https://*.r2.cloudflarestorage.com;
+          frame-ancestors 'none'; base-uri 'none'; object-src 'none'; form-action 'self'
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
 databases:
   - name: servicetones-development-db
     plan: basic-256mb
@@ -116,7 +275,7 @@ databases:
     user: servicetones
     ipAllowList: []
 envVarGroups:
-  - name: servicetones-development
+  - name: servicetones-development-common
     envVars:
       - key: NODE_VERSION
         value: 22.16.0
@@ -124,15 +283,11 @@ envVarGroups:
         value: production
       - key: APP_ENV
         value: development
+  - name: servicetones-development-backend
+    envVars:
       - key: DATABASE_SSL
         value: render-internal
-      - key: SMTP_HOST
-        value: smtp.office365.com
-      - key: SMTP_PORT
-        value: 587
-      - key: STRIPE_PLATFORM_FEE_PERCENT
-        value: 10
-  - name: servicetones-stagging
+  - name: servicetones-stagging-common
     envVars:
       - key: NODE_VERSION
         value: 22.16.0
@@ -140,15 +295,11 @@ envVarGroups:
         value: production
       - key: APP_ENV
         value: stagging
+  - name: servicetones-stagging-backend
+    envVars:
       - key: DATABASE_SSL
         value: render-internal
-      - key: SMTP_HOST
-        value: smtp.office365.com
-      - key: SMTP_PORT
-        value: 587
-      - key: STRIPE_PLATFORM_FEE_PERCENT
-        value: 10
-  - name: servicetones-production
+  - name: servicetones-production-common
     envVars:
       - key: NODE_VERSION
         value: 22.16.0
@@ -156,11 +307,7 @@ envVarGroups:
         value: production
       - key: APP_ENV
         value: production
+  - name: servicetones-production-backend
+    envVars:
       - key: DATABASE_SSL
         value: render-internal
-      - key: SMTP_HOST
-        value: smtp.office365.com
-      - key: SMTP_PORT
-        value: 587
-      - key: STRIPE_PLATFORM_FEE_PERCENT
-        value: 10

@@ -2,15 +2,32 @@ import "dotenv/config";
 import { z } from "zod";
 import type { PublicConfig } from "../shared/config.js";
 const envSchema = z.object({
+  API_URL: z.string().default("http://127.0.0.1:3001"),
+  ADMIN_ALLOWED_UIDS: z.string().default(""),
   APP_ENV: z
     .enum(["development", "stagging", "production"])
     .default("development"),
   NODE_ENV: z
     .enum(["development", "production", "test"])
     .default("development"),
+  TRUST_PROXY_HOPS: z.coerce
+    .number()
+    .int()
+    .min(0)
+    .max(5)
+    .default(process.env.RENDER === "true" ? 1 : 0),
+  TRUSTED_PROXY_CIDRS: z.string().default(""),
+  PUBLIC_LOOKUP_DAILY_LIMIT: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(1000000)
+    .default(3000),
   PORT: z.coerce.number().int().min(1).max(65535).default(5173),
   SITE_URL: z.string().url().default("http://127.0.0.1:5173"),
   DATABASE_URL: z.string().default(""),
+  REDIS_URL: z.string().default(""),
+  JOBS_ENGINE: z.enum(["legacy", "pg-boss"]).default("pg-boss"),
   DATABASE_SSL: z
     .enum(["require", "render-internal", "disable"])
     .default("require"),
@@ -25,27 +42,34 @@ const envSchema = z.object({
   ALLOWED_ORIGINS: z
     .string()
     .default(
-      "http://127.0.0.1:5173,http://localhost:5173,capacitor://localhost,https://localhost",
+      "http://127.0.0.1:5173,http://localhost:5173,http://127.0.0.1:5174,capacitor://localhost,https://localhost",
     ),
   UPSTASH_REDIS_REST_URL: z.string().default(""),
   UPSTASH_REDIS_REST_TOKEN: z.string().default(""),
+  STRIPE_PRO_PRICE_ID: z.string().default(""),
+  STRIPE_PRO_MONTHLY_PRICE_ID: z.string().trim().default(""),
+  STRIPE_PRO_SIX_MONTH_PRICE_ID: z.string().trim().default(""),
+  STRIPE_PRO_YEARLY_PRICE_ID: z.string().trim().default(""),
+  STRIPE_PUBLISHABLE_KEY: z
+    .string()
+    .regex(/^$|^pk_(test|live)_[A-Za-z0-9]+$/, "Use a Stripe publishable key")
+    .default(""),
   STRIPE_SECRET_KEY: z.string().default(""),
   STRIPE_WEBHOOK_SECRET: z.string().default(""),
+  STRIPE_SUBSCRIPTION_WEBHOOK_SECRET: z.string().default(""),
+  STRIPE_IDENTITY_WEBHOOK_SECRET: z.string().default(""),
   STRIPE_CONNECT_WEBHOOK_SECRET: z.string().default(""),
-  STRIPE_PLATFORM_FEE_PERCENT: z.coerce.number().min(0).max(30).default(10),
   DAILY_API_KEY: z.string().default(""),
   R2_ACCOUNT_ID: z.string().default(""),
   R2_ACCESS_KEY_ID: z.string().default(""),
   R2_SECRET_ACCESS_KEY: z.string().default(""),
   R2_BUCKET: z.string().default(""),
   GOOGLE_MAPS_SERVER_KEY: z.string().default(""),
-  SMTP_HOST: z.string().default("smtp.office365.com"),
-  SMTP_PORT: z.coerce.number().default(587),
-  SMTP_USER: z.string().default(""),
-  SMTP_FROM: z.string().default(""),
-  MICROSOFT_TENANT_ID: z.string().default(""),
-  MICROSOFT_CLIENT_ID: z.string().default(""),
-  MICROSOFT_CLIENT_SECRET: z.string().default(""),
+  MARKETPLACE_DISCOVERY_MODE: z.enum(["open", "matched"]).default("matched"),
+  MARKETPLACE_PREVIEW: z.enum(["true", "false"]).optional(),
+  RESEND_API_KEY: z.string().trim().default(""),
+  EMAIL_FROM: z.string().trim().default(""),
+  EMAIL_REPLY_TO: z.string().trim().default(""),
   SENTRY_DSN: z.string().default(""),
   PUBLIC_SENTRY_DSN: z.string().default(""),
   SUPPORT_EMAIL: z.string().default(""),
@@ -55,7 +79,7 @@ export const env = envSchema.parse(process.env);
 export const publicConfig: PublicConfig = {
   environment: env.APP_ENV,
   siteUrl: env.SITE_URL.replace(/\/$/, ""),
-  apiUrl: "",
+  apiUrl: env.API_URL.replace(/\/$/, ""),
   firebase: {
     apiKey: env.FIREBASE_WEB_API_KEY,
     authDomain: env.FIREBASE_AUTH_DOMAIN,
@@ -79,28 +103,58 @@ export function requiredKeys() {
     "UPSTASH_REDIS_REST_URL",
     "UPSTASH_REDIS_REST_TOKEN",
     "STRIPE_SECRET_KEY",
-    "STRIPE_WEBHOOK_SECRET",
-    "STRIPE_CONNECT_WEBHOOK_SECRET",
+    ...(env.STRIPE_WEBHOOK_SECRET
+      ? (["STRIPE_WEBHOOK_SECRET"] as const)
+      : ([
+          "STRIPE_SUBSCRIPTION_WEBHOOK_SECRET",
+          "STRIPE_IDENTITY_WEBHOOK_SECRET",
+        ] as const)),
+    ...(env.STRIPE_PRO_MONTHLY_PRICE_ID ||
+    env.STRIPE_PRO_SIX_MONTH_PRICE_ID ||
+    env.STRIPE_PRO_YEARLY_PRICE_ID
+      ? ([
+          "STRIPE_PRO_MONTHLY_PRICE_ID",
+          "STRIPE_PRO_SIX_MONTH_PRICE_ID",
+          "STRIPE_PRO_YEARLY_PRICE_ID",
+        ] as const)
+      : (["STRIPE_PRO_PRICE_ID"] as const)),
     "DAILY_API_KEY",
     "R2_ACCOUNT_ID",
     "R2_ACCESS_KEY_ID",
     "R2_SECRET_ACCESS_KEY",
     "R2_BUCKET",
     "GOOGLE_MAPS_SERVER_KEY",
-    "SMTP_USER",
-    "SMTP_FROM",
-    "MICROSOFT_TENANT_ID",
-    "MICROSOFT_CLIENT_ID",
-    "MICROSOFT_CLIENT_SECRET",
+    "RESEND_API_KEY",
+    "EMAIL_FROM",
     "SUPPORT_EMAIL",
   ] as const;
 }
 export function validateDeployment() {
+  if (!env.API_URL.startsWith("https://"))
+    throw new Error("API_URL must be HTTPS");
   const missing = requiredKeys().filter((k) => !env[k]);
   if (missing.length)
     throw new Error("Missing deployment configuration: " + missing.join(", "));
+  validateEmailDelivery();
+  const membershipPrices = [
+    env.STRIPE_PRO_MONTHLY_PRICE_ID,
+    env.STRIPE_PRO_SIX_MONTH_PRICE_ID,
+    env.STRIPE_PRO_YEARLY_PRICE_ID,
+  ].filter(Boolean);
+  if (membershipPrices.length && new Set(membershipPrices).size !== 3)
+    throw new Error(
+      "Configure three distinct professional membership Price IDs.",
+    );
   if (!env.SITE_URL.startsWith("https://"))
     throw new Error("A deployed environment requires an HTTPS SITE_URL.");
+  if (new URL(env.SITE_URL).origin !== env.SITE_URL)
+    throw new Error(
+      "SITE_URL must be the exact canonical origin without a path or trailing slash.",
+    );
+  if (new URL(env.API_URL).origin !== env.API_URL)
+    throw new Error(
+      "API_URL must be an exact origin without a path or trailing slash.",
+    );
   if (
     env.APP_ENV !== "production" &&
     !env.STRIPE_SECRET_KEY.startsWith("sk_test_")
@@ -111,4 +165,37 @@ export function validateDeployment() {
     !env.STRIPE_SECRET_KEY.startsWith("sk_live_")
   )
     throw new Error("Production requires a Stripe live key.");
+}
+
+// Mail starts independently of optional provider jobs; account cleanup needs
+// Firebase/R2 credentials when such jobs are present.
+export function validateEmailDelivery(config: typeof env = env) {
+  const keys = ["RESEND_API_KEY", "EMAIL_FROM"] as const;
+  const missing = keys.filter((key) => !config[key].trim());
+  if (missing.length)
+    throw new Error("Missing email configuration: " + missing.join(", "));
+  if (!/^re_[A-Za-z0-9_-]+$/.test(config.RESEND_API_KEY))
+    throw new Error("RESEND_API_KEY must be a Resend API key.");
+  if (!z.string().email().safeParse(config.EMAIL_FROM).success)
+    throw new Error(
+      "EMAIL_FROM must be a plain email address on your verified sending domain.",
+    );
+  if (
+    config.EMAIL_REPLY_TO &&
+    !z.string().email().safeParse(config.EMAIL_REPLY_TO).success
+  )
+    throw new Error("EMAIL_REPLY_TO must be a plain email address.");
+}
+export function validateMailWorker(config: typeof env = env) {
+  if (!config.DATABASE_URL.trim())
+    throw new Error("Missing email-worker configuration: DATABASE_URL");
+  validateEmailDelivery(config);
+  if (
+    config.NODE_ENV === "production" &&
+    (!config.SITE_URL.startsWith("https://") ||
+      new URL(config.SITE_URL).origin !== config.SITE_URL)
+  )
+    throw new Error(
+      "Email worker SITE_URL must be the exact HTTPS customer website origin.",
+    );
 }

@@ -7,17 +7,67 @@ import mapping from "../config/environments.json";
 test("three branches map to isolated environments and mobile application identifiers", () => {
   assert.deepEqual(Object.keys(mapping), ["development", "stagging", "main"]);
   assert.equal(new Set(Object.values(mapping).map((x) => x.appId)).size, 3);
+  assert.equal(new Set(Object.values(mapping).map((x) => x.iosAppId)).size, 3);
+  assert.equal(mapping.development.iosAppId, "com.aplime.app.dev");
+  assert.equal(mapping.development.appId, "com.servicetones.app.dev");
 });
 test("Render services cannot auto-deploy another environment", () => {
   const b = parse(readFileSync("render.yaml", "utf8"));
-  assert.equal(b.services.length, 6);
+  assert.equal(b.services.length, 12);
   assert.equal(b.databases.length, 3);
+  assert.equal(b.envVarGroups.length, 6);
+  for (const group of b.envVarGroups.filter((g: any) =>
+    g.name.endsWith("-common"),
+  )) {
+    assert.ok(
+      group.envVars.every((v: any) =>
+        ["NODE_ENV", "NODE_VERSION", "APP_ENV", "SITE_URL", "API_URL"].includes(
+          v.key,
+        ),
+      ),
+    );
+  }
   for (const s of b.services) {
     assert.equal(s.autoDeployTrigger, "off");
     const target = mapping[s.branch as keyof typeof mapping];
     assert.ok(target);
     assert.ok(s.name.includes(target.environment));
-    assert.equal(s.envVars[0].fromGroup, "servicetones-" + target.environment);
+    assert.deepEqual(s.envVars, [
+      { fromGroup: "servicetones-" + target.environment + "-common" },
+      ...(s.name.endsWith("-api") || s.name.endsWith("-mail")
+        ? [{ fromGroup: "servicetones-" + target.environment + "-backend" }]
+        : []),
+    ]);
+  }
+});
+test("admin static headers permit private signed R2 image previews without opening frames or object embeds", () => {
+  const blueprint = parse(readFileSync("render.yaml", "utf8"));
+  const admins = blueprint.services.filter((s: any) =>
+    s.name.endsWith("-admin"),
+  );
+  assert.equal(admins.length, 3);
+  for (const service of admins) {
+    const csp = service.headers.find(
+      (h: any) => h.name === "Content-Security-Policy",
+    ).value;
+    assert.match(
+      csp,
+      /img-src 'self' data: https:\/\/\*\.r2\.cloudflarestorage\.com;/,
+    );
+    assert.match(csp, /frame-ancestors 'none'/);
+    assert.match(csp, /object-src 'none'/);
+    assert.ok(
+      service.headers.some(
+        (h: any) => h.name === "Referrer-Policy" && h.value === "no-referrer",
+      ),
+    );
+    assert.ok(
+      service.headers.some(
+        (h: any) =>
+          h.name === "Strict-Transport-Security" &&
+          /max-age=\d{8,}/.test(h.value),
+      ),
+    );
   }
 });
 test("promotion guard rejects direct development-to-main changes", () => {
@@ -48,4 +98,35 @@ test("release deployment depends on validation, and mobile depends on matching w
   assert.deepEqual(w.jobs.ios.needs, ["validate", "web"]);
   assert.deepEqual(w.jobs.android.needs, ["validate", "web"]);
   assert.equal(w.permissions.contents, "read");
+  for (const platform of ["ios", "android"]) {
+    assert.match(
+      w.jobs[platform].if,
+      new RegExp(`needs\\.web\\.outputs\\.${platform}-enabled == 'true'`),
+    );
+  }
+  assert.equal(
+    w.jobs.web.outputs["ios-enabled"],
+    "${{ steps.mobile.outputs.ios }}",
+  );
+  assert.equal(
+    w.jobs.web.outputs["android-enabled"],
+    "${{ steps.mobile.outputs.android }}",
+  );
+  assert.equal(w.jobs.ios.env.MOBILE_PLATFORM, "ios");
+  assert.equal(
+    w.jobs.ios.env.MOBILE_APP_ID,
+    "${{ needs.validate.outputs.ios-app-id }}",
+  );
+  const settings = w.jobs.web.steps.find((step: any) => step.id === "mobile");
+  assert.equal(settings.env.IOS_ENABLED, "${{ vars.IOS_RELEASES_ENABLED }}");
+  assert.equal(
+    settings.env.ANDROID_ENABLED,
+    "${{ vars.ANDROID_RELEASES_ENABLED }}",
+  );
+  const deployEnv = w.jobs.web.steps.find(
+    (step: any) =>
+      step.name === "Deploy exact validated commit and verify health",
+  ).env;
+  assert.match(deployEnv.DEPLOY_API, /BACKEND_RELEASES_ENABLED == 'true'/);
+  assert.match(deployEnv.DEPLOY_WORKER, /BACKEND_RELEASES_ENABLED == 'true'/);
 });

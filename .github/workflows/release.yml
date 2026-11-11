@@ -1,10 +1,16 @@
 name: Validate and deploy matching environment
 on:
   push:
-    branches: [development, stagging, main]
+    branches:
+      - development
+      - stagging
+      - main
   pull_request:
-    branches: [development, stagging, main]
-  workflow_dispatch:
+    branches:
+      - development
+      - stagging
+      - main
+  workflow_dispatch: null
 permissions:
   contents: read
 concurrency:
@@ -17,9 +23,17 @@ jobs:
     outputs:
       environment: ${{ steps.target.outputs.environment }}
       app-id: ${{ steps.target.outputs.app-id }}
+      ios-app-id: ${{ steps.target.outputs.ios-app-id }}
       android-track: ${{ steps.target.outputs.android-track }}
+      web: ${{ steps.affected.outputs.web }}
+      api: ${{ steps.affected.outputs.api }}
+      admin: ${{ steps.affected.outputs.admin }}
+      worker: ${{ steps.affected.outputs.worker }}
+      mobile: ${{ steps.affected.outputs.mobile }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -32,26 +46,54 @@ jobs:
           REF_BRANCH: ${{ github.ref_name }}
           EVENT_NAME: ${{ github.event_name }}
         run: node scripts/ci-target.mjs
+      - name: Select affected applications
+        id: affected
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+        run: node scripts/affected.mjs
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      - run: node scripts/check-browser-env.mjs
       - run: npx cap sync android
       - uses: actions/setup-java@v4
-        with: { distribution: temurin, java-version: 21 }
+        with:
+          distribution: temurin
+          java-version: 21
       - uses: android-actions/setup-android@v3
         with:
           packages: platform-tools platforms;android-36 build-tools;36.0.0
       - run: chmod +x android/gradlew && cd android && ./gradlew assembleDebug
   web:
-    name: Deploy Render
+    name: Deploy affected Render services
     needs: validate
+    outputs:
+      ios-enabled: ${{ steps.mobile.outputs.ios }}
+      android-enabled: ${{ steps.mobile.outputs.android }}
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     environment:
       name: ${{ needs.validate.outputs.environment }}
       url: ${{ vars.SITE_URL }}
     steps:
+      - name: Read environment mobile release settings
+        id: mobile
+        env:
+          IOS_ENABLED: ${{ vars.IOS_RELEASES_ENABLED }}
+          ANDROID_ENABLED: ${{ vars.ANDROID_RELEASES_ENABLED }}
+        run: |
+          if [ "$IOS_ENABLED" = "true" ]; then
+            echo "ios=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ios=false" >> "$GITHUB_OUTPUT"
+          fi
+          if [ "$ANDROID_ENABLED" = "true" ]; then
+            echo "android=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "android=false" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
@@ -59,14 +101,25 @@ jobs:
       - name: Deploy exact validated commit and verify health
         env:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
-          RENDER_SERVICE_ID: ${{ vars.RENDER_SERVICE_ID }}
+          RENDER_WEB_SERVICE_ID: ${{ vars.RENDER_WEB_SERVICE_ID }}
+          RENDER_API_SERVICE_ID: ${{ vars.RENDER_API_SERVICE_ID }}
+          RENDER_ADMIN_SERVICE_ID: ${{ vars.RENDER_ADMIN_SERVICE_ID }}
           RENDER_WORKER_SERVICE_ID: ${{ vars.RENDER_WORKER_SERVICE_ID }}
           SITE_URL: ${{ vars.SITE_URL }}
+          API_URL: ${{ vars.API_URL }}
+          ADMIN_URL: ${{ vars.ADMIN_URL }}
+          DEPLOY_WEB: ${{ needs.validate.outputs.web }}
+          DEPLOY_API: ${{ needs.validate.outputs.api == 'true' && vars.BACKEND_RELEASES_ENABLED == 'true' }}
+          DEPLOY_ADMIN: ${{ needs.validate.outputs.admin }}
+          DEPLOY_WORKER: ${{ needs.validate.outputs.worker == 'true' && vars.BACKEND_RELEASES_ENABLED == 'true' }}
         run: node scripts/deploy-render.mjs
   android:
     name: Android distribution
-    needs: [validate, web]
-    if: github.event_name != 'pull_request'
+    needs:
+      - validate
+      - web
+    if: github.event_name != 'pull_request' && needs.validate.outputs.mobile ==
+      'true' && needs.web.outputs.android-enabled == 'true'
     runs-on: ubuntu-latest
     environment: ${{ needs.validate.outputs.environment }}
     env:
@@ -79,40 +132,57 @@ jobs:
       ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
       ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
       GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
+      API_URL: ${{ vars.API_URL }}
     steps:
       - uses: actions/checkout@v4
       - name: Require mobile configuration
         env:
-          ENABLED: ${{ vars.MOBILE_RELEASES_ENABLED }}
-        run: test "$ENABLED" = "true" || { echo "Set MOBILE_RELEASES_ENABLED=true after completing signing and store setup."; exit 1; }
+          ENABLED: ${{ vars.ANDROID_RELEASES_ENABLED }}
+        run:
+          test "$ENABLED" = "true" || { echo "Set ANDROID_RELEASES_ENABLED=true after
+          completing signing and store setup."; exit 1; }
       - uses: actions/setup-node@v4
-        with: { node-version: 22, cache: npm }
+        with:
+          node-version: 22
+          cache: npm
       - uses: actions/setup-java@v4
-        with: { distribution: temurin, java-version: 21 }
+        with:
+          distribution: temurin
+          java-version: 21
       - uses: android-actions/setup-android@v3
         with:
           packages: platform-tools platforms;android-36 build-tools;36.0.0
       - uses: ruby/setup-ruby@v1
-        with: { ruby-version: "3.3" }
+        with:
+          ruby-version: "3.3"
       - run: npm ci
       - name: Set unique native build number
-        run: echo "BUILD_NUMBER=$((GITHUB_RUN_NUMBER * 100 + GITHUB_RUN_ATTEMPT))" >> "$GITHUB_ENV"
+        run:
+          echo "BUILD_NUMBER=$((GITHUB_RUN_NUMBER * 100 + GITHUB_RUN_ATTEMPT))" >>
+          "$GITHUB_ENV"
       - run: npm run mobile:sync
       - name: Prepare Android signing files
         env:
           KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           PLAY_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
-        run: |
-          test -n "$KEYSTORE" && test -n "$PLAY_JSON" && test -n "$GOOGLE_SERVICES_JSON_BASE64"
+        run: >
+          test -n "$KEYSTORE" && test -n "$PLAY_JSON" && test -n
+          "$GOOGLE_SERVICES_JSON_BASE64"
+
           printf '%s' "$KEYSTORE" | base64 --decode > "$RUNNER_TEMP/release.jks"
+
           printf '%s' "$PLAY_JSON" > "$RUNNER_TEMP/play.json"
+
           echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+
           echo "PLAY_JSON_PATH=$RUNNER_TEMP/play.json" >> "$GITHUB_ENV"
       - run: chmod +x android/gradlew && cd android && ./gradlew bundleRelease
       - run: bundle install
-        env: { BUNDLE_GEMFILE: fastlane/Gemfile }
+        env:
+          BUNDLE_GEMFILE: fastlane/Gemfile
       - run: bundle exec fastlane android release
-        env: { BUNDLE_GEMFILE: fastlane/Gemfile }
+        env:
+          BUNDLE_GEMFILE: fastlane/Gemfile
       - uses: actions/upload-artifact@v4
         with:
           name: android-${{ needs.validate.outputs.environment }}-${{ github.sha }}
@@ -120,13 +190,17 @@ jobs:
           retention-days: 14
   ios:
     name: iOS TestFlight
-    needs: [validate, web]
-    if: github.event_name != 'pull_request'
+    needs:
+      - validate
+      - web
+    if: github.event_name != 'pull_request' && needs.validate.outputs.mobile ==
+      'true' && needs.web.outputs.ios-enabled == 'true'
     runs-on: macos-15
     environment: ${{ needs.validate.outputs.environment }}
     env:
       APP_ENV: ${{ needs.validate.outputs.environment }}
-      MOBILE_APP_ID: ${{ needs.validate.outputs.app-id }}
+      MOBILE_APP_ID: ${{ needs.validate.outputs.ios-app-id }}
+      MOBILE_PLATFORM: ios
       SITE_URL: ${{ vars.SITE_URL }}
       BUILD_NUMBER: ${{ github.run_number }}
       GOOGLE_SERVICE_INFO_PLIST_BASE64: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST_BASE64 }}
@@ -138,36 +212,65 @@ jobs:
       IOS_PROFILE_NAME: ${{ secrets.IOS_PROFILE_NAME }}
       KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
       BUNDLE_GEMFILE: fastlane/Gemfile
+      API_URL: ${{ vars.API_URL }}
     steps:
       - uses: actions/checkout@v4
       - name: Require mobile configuration
-        env: { ENABLED: "${{ vars.MOBILE_RELEASES_ENABLED }}" }
-        run: test "$ENABLED" = "true" || { echo "Set MOBILE_RELEASES_ENABLED=true after completing signing and store setup."; exit 1; }
+        env:
+          ENABLED: ${{ vars.IOS_RELEASES_ENABLED }}
+        run:
+          test "$ENABLED" = "true" || { echo "Set IOS_RELEASES_ENABLED=true after
+          completing signing and store setup."; exit 1; }
       - uses: actions/setup-node@v4
-        with: { node-version: 22, cache: npm }
+        with:
+          node-version: 22
+          cache: npm
       - uses: ruby/setup-ruby@v1
-        with: { ruby-version: "3.3" }
+        with:
+          ruby-version: "3.3"
       - run: bundle install
       - uses: maxim-lobanov/setup-xcode@v1
-        with: { xcode-version: latest-stable }
+        with:
+          xcode-version: latest-stable
       - name: Validate Apple SDK version
-        run: test "$(xcodebuild -version | head -1 | awk '{print $2}' | cut -d. -f1)" -ge 26
+        run:
+          test "$(xcodebuild -version | head -1 | awk '{print $2}' | cut -d. -f1)"
+          -ge 26
       - run: npm ci
       - name: Set unique native build number
-        run: echo "BUILD_NUMBER=$((GITHUB_RUN_NUMBER * 100 + GITHUB_RUN_ATTEMPT))" >> "$GITHUB_ENV"
-      - run: npm run mobile:sync
+        run:
+          echo "BUILD_NUMBER=$((GITHUB_RUN_NUMBER * 100 + GITHUB_RUN_ATTEMPT))" >>
+          "$GITHUB_ENV"
+      - run: npm run build:web && npm run mobile:prepare && npx cap sync ios
       - run: bundle exec pod install --project-directory=ios/App
       - name: Prepare iOS signing files
         env:
           CERTIFICATE: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
           PROFILE: ${{ secrets.IOS_PROFILE_BASE64 }}
-        run: |
-          test -n "$CERTIFICATE" && test -n "$PROFILE" && test -n "$GOOGLE_SERVICE_INFO_PLIST_BASE64"
-          printf '%s' "$CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/distribution.p12"
-          printf '%s' "$PROFILE" | base64 --decode > "$RUNNER_TEMP/distribution.mobileprovision"
-          echo "IOS_CERTIFICATE_PATH=$RUNNER_TEMP/distribution.p12" >> "$GITHUB_ENV"
-          echo "IOS_PROFILE_PATH=$RUNNER_TEMP/distribution.mobileprovision" >> "$GITHUB_ENV"
+        run: >
+          test -n "$CERTIFICATE" && test -n "$PROFILE" && test -n
+          "$GOOGLE_SERVICE_INFO_PLIST_BASE64"
+
+          printf '%s' "$CERTIFICATE" | base64 --decode >
+          "$RUNNER_TEMP/distribution.p12"
+
+          printf '%s' "$PROFILE" | base64 --decode >
+          "$RUNNER_TEMP/distribution.mobileprovision"
+
+          echo "IOS_CERTIFICATE_PATH=$RUNNER_TEMP/distribution.p12" >>
+          "$GITHUB_ENV"
+
+          echo "IOS_PROFILE_PATH=$RUNNER_TEMP/distribution.mobileprovision" >>
+          "$GITHUB_ENV"
       - run: bundle exec fastlane ios beta
+      - name: Preserve Xcode archive logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-logs-${{ needs.validate.outputs.environment }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/ios/logs/*.log
+          if-no-files-found: ignore
+          retention-days: 7
       - uses: actions/upload-artifact@v4
         with:
           name: ios-${{ needs.validate.outputs.environment }}-${{ github.sha }}

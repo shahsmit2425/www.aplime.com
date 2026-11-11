@@ -14,16 +14,17 @@ const target = process.env.APP_ENV
     environments.development;
 if (!target) throw new Error("Unknown mobile APP_ENV.");
 const config: CapacitorConfig = {
-  appId: target.appId,
+  appId: process.env.MOBILE_PLATFORM === "ios" ? target.iosAppId : target.appId,
   appName: target.appName,
   webDir: "dist/client",
   server: { androidScheme: "https" },
   ios: { contentInset: "automatic" },
   android: { backgroundColor: "#f7f9fc" },
   plugins: {
+    FirebaseMessaging: { presentationOptions: ["alert", "sound"] },
     FirebaseAuthentication: {
       skipNativeAuth: true,
-      providers: ["google.com", "apple.com"],
+      providers: ["google.com"],
     },
   },
 };

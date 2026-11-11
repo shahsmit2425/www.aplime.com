@@ -12,8 +12,17 @@ platform :ios do
    import_certificate(certificate_path: ENV.fetch("IOS_CERTIFICATE_PATH"), certificate_password: ENV.fetch("IOS_CERTIFICATE_PASSWORD"), keychain_name: "servicetones-ci", keychain_password: ENV.fetch("KEYCHAIN_PASSWORD"))
    install_provisioning_profile(path: ENV.fetch("IOS_PROFILE_PATH"))
    update_project_provisioning(xcodeproj: File.join(ROOT, "ios/App/App.xcodeproj"), profile: ENV.fetch("IOS_PROFILE_PATH"), build_configuration: "Release", code_signing_identity: "Apple Distribution")
-   build_app(workspace: File.join(ROOT, "ios/App/App.xcworkspace"), scheme: "App", export_method: "app-store", output_directory: File.join(ROOT, "artifacts/ios"),
-    xcargs: "DEVELOPMENT_TEAM=" + ENV.fetch("APPLE_TEAM_ID") + " CODE_SIGN_STYLE=Manual",
+   # Provisioning alone only replaces existing target identity keys. App inherits
+   # a development identity, so explicitly override it for distribution archives.
+   update_code_signing_settings(
+    path: File.join(ROOT, "ios/App/App.xcodeproj"),
+    targets: ["App"], build_configurations: ["Release"],
+    use_automatic_signing: false, team_id: ENV.fetch("APPLE_TEAM_ID"),
+    code_sign_identity: "Apple Distribution", sdk: "iphoneos*",
+    profile_name: ENV.fetch("IOS_PROFILE_NAME")
+   )
+   build_app(workspace: File.join(ROOT, "ios/App/App.xcworkspace"), scheme: "App", configuration: "Release", export_method: "app-store", output_directory: File.join(ROOT, "artifacts/ios"),
+    buildlog_path: File.join(ROOT, "artifacts/ios/logs"),
     export_options: { provisioningProfiles: { ENV.fetch("MOBILE_APP_ID") => ENV.fetch("IOS_PROFILE_NAME") } })
    upload_to_testflight(api_key: api_key, skip_waiting_for_build_processing: true, distribute_external: false)
   ensure

@@ -11,6 +11,9 @@ COPY package*.json ./
 RUN npm ci --omit=dev
 COPY --from=build /app/dist ./dist
 COPY src ./src
+COPY apps ./apps
+COPY scripts ./scripts
+COPY config ./config
 USER node
 EXPOSE 10000
 CMD ["npm","start"]

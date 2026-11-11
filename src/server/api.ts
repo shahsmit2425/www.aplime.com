@@ -1,5 +1,55 @@
+import { checkAuthenticatedLimit } from "./abuse-limits.js";
+import { reviewImages } from "./review-images.js";
+import { pushRouter } from "./push.js";
+import { projectContacts } from "./project-contacts.js";
+import { contactInput } from "../shared/project-contact.js";
+import { reviewInput } from "../shared/reviews.js";
+import { publicReviews, submitReviewReply } from "./reviews.js";
+import { guardCreation } from "./abuse-limits.js";
+import { publicIntake } from "./public-intake.js";
+import { projectDrafts } from "./project-drafts.js";
+import { realtimeTicket } from "./realtime.js";
+import { cachedValue, redis } from "./redis.js";
+import {
+  preservePublication,
+  releasePublication,
+} from "./business-publication.js";
+import { callMeetings } from "./call-meetings.js";
+import {
+  assertProjectQuota,
+  assertMessageQuota,
+  assertSupportRequestQuota,
+} from "./quotas.js";
+import { projectImages } from "./project-images.js";
+import { identityVerification } from "./identity-verification.js";
+import { adminConsole } from "./admin-console.js";
+import { supportRouter } from "./support.js";
+import { preferencesSchema } from "../shared/preferences.js";
+import { hasBusinessBranding } from "../shared/business-images.js";
+import {
+  recordProjectActivity,
+  readProjectActivity,
+  notifyProjectMembers,
+  notifyMatchingProfessionals,
+} from "./project-events.js";
+import {
+  autocompleteAddress,
+  locateAddress,
+  assertServiceArea,
+} from "./integrations/address.js";
+import {
+  assertIndependentParties,
+  assertMatch,
+  isOpenLead,
+} from "./matching.js";
+import { assertAppointment } from "./scheduling.js";
+import { businessImages, publicBusinessImages } from "./business-images.js";
+import { notificationStream } from "./notification-stream.js";
+import { discussions, ensurePairConversation } from "./discussions.js";
+import { subscriptions } from "./subscriptions.js";
 import { Router, json, type Request } from "express";
-import { randomUUID } from "node:crypto";
+import { randomUUID, createHash } from "node:crypto";
+import { previousProjectRequest } from "./project-retries.js";
 import { z } from "zod";
 import {
   signupSchema,
@@ -12,10 +62,23 @@ import {
   type Project,
 } from "../shared/domain.js";
 import { pool, camel, transaction } from "./db/index.js";
-import { verifyToken } from "./integrations/firebase.js";
+import { assertAdmin } from "./admin-policy.js";
+import rateLimit from "express-rate-limit";
+import {
+  verifyToken,
+  deleteFirebaseUser,
+  revokeUserSessions,
+} from "./integrations/firebase.js";
+import { clearTokenCache } from "./token-cache.js";
+import {
+  assertRecentSignIn,
+  deleteAccountData,
+  exportAccountData,
+} from "./account-data.js";
 import { env, publicConfig } from "./config.js";
 import { fail } from "./errors.js";
 import {
+  notifyAdministrators,
   publicProfiles,
   workspace,
   getProject,
@@ -24,27 +87,68 @@ import {
 } from "./repository.js";
 import { projectAction } from "./projects.js";
 import { stripe } from "./integrations/stripe.js";
-import { meeting } from "./integrations/daily.js";
-import {
-  uploadUrl,
-  downloadUrl,
-  inspectObject,
-  removeObject,
-} from "./integrations/storage.js";
+import { downloadUrl, imageUrl, removeObject } from "./integrations/storage.js";
 import { locate } from "./integrations/maps.js";
 import { distributedLimiter } from "./integrations/redis.js";
 declare global {
   namespace Express {
     interface Request {
       account: User;
-      identity: { uid: string; email: string; admin?: boolean };
+      identity: {
+        uid: string;
+        email: string;
+        admin?: boolean;
+        authTime?: number;
+      };
     }
   }
 }
 type AuthRequest = Request;
 export const api = Router();
+api.use(publicBusinessImages);
+api.use("/intake/locations", publicIntake);
 api.get("/config", (_q, r) => r.json(publicConfig));
-api.get("/professionals", async (_q, r) => r.json(await publicProfiles()));
+const PUBLIC_PROFILE_TTL_MS = 30_000;
+const publicProfileMemo = new Map<
+  string,
+  { at: number; value: Awaited<ReturnType<typeof publicProfiles>> }
+>();
+async function cachedPublicProfiles(id?: string) {
+  // Do not stack local and shared TTLs: publication changes must age out in 30s.
+  if (redis?.isReady)
+    return cachedValue("profiles:" + (id || "all"), 30, () =>
+      publicProfiles(id),
+    );
+  const key = id ?? "";
+  const hit = publicProfileMemo.get(key);
+  if (hit && Date.now() - hit.at < PUBLIC_PROFILE_TTL_MS) return hit.value;
+  const value = await publicProfiles(id);
+  if (publicProfileMemo.size >= 500) publicProfileMemo.clear();
+  publicProfileMemo.set(key, { at: Date.now(), value });
+  return value;
+}
+const publicListCache = "public, max-age=15, stale-while-revalidate=30";
+api.get("/professionals/:id/reviews", async (q, r) => {
+  const id = z.string().min(1).max(128).parse(q.params.id);
+  const offset = z.coerce
+    .number()
+    .int()
+    .min(0)
+    .max(10000)
+    .default(0)
+    .parse(q.query.offset);
+  if (!(await cachedPublicProfiles(id)).length)
+    fail(404, "Business profile not available.");
+  r.set("Cache-Control", "no-store").json(await publicReviews(id, offset));
+});
+api.get("/professionals/:id", async (q, r) => {
+  const value = await cachedPublicProfiles(String(q.params.id));
+  r.set("Cache-Control", publicListCache).json(value);
+});
+api.get("/professionals", async (_q, r) => {
+  const value = await cachedPublicProfiles();
+  r.set("Cache-Control", publicListCache).json(value);
+});
 api.get("/health", async (_q, r) => {
   if (!env.DATABASE_URL)
     return r
@@ -67,19 +171,47 @@ api.use(async (req, res, next) => {
     uid: decoded.uid,
     email: decoded.email!,
     admin: decoded.admin === true,
+    authTime: decoded.auth_time,
   };
   if (distributedLimiter) {
-    const result = await distributedLimiter.limit(decoded.uid);
-    if (!result.success)
-      return res.status(429).json({ error: "Please slow down and try again." });
+    await checkAuthenticatedLimit(
+      distributedLimiter,
+      decoded.uid,
+      req.method === "GET" && req.path === "/workspace",
+    );
   }
   const record = (
     await pool.query("SELECT * FROM users WHERE id=$1", [decoded.uid])
   ).rows[0];
+  if (record?.deleted_at) {
+    clearTokenCache();
+    void deleteFirebaseUser(decoded.uid).catch(() => {
+      console.error("Deleted-account sign-in cleanup failed");
+    });
+    fail(403, "This account was deleted.");
+  }
+  if (
+    record?.sessions_revoked_at &&
+    decoded.auth_time * 1000 <= new Date(record.sessions_revoked_at).getTime()
+  )
+    fail(401, "Your sessions were signed out. Please sign in again.");
   if (record) {
     q.account = camel<User>(record);
-    if (q.account.role === "admin" && !q.identity.admin)
-      fail(403, "Administrator access has been revoked.");
+  }
+  if (
+    /^\/admin(?:\/|$)/i.test(req.path) ||
+    q.account?.role === "admin" ||
+    q.identity.admin
+  ) {
+    assertAdmin(
+      decoded,
+      q.account,
+      env.ADMIN_ALLOWED_UIDS.split(",")
+        .map((x) => x.trim())
+        .filter(Boolean),
+    );
+    if (!/^\/admin(?:\/|$)/i.test(req.path))
+      fail(403, "Use the separate administrator application.");
   }
   next();
 });
@@ -87,77 +219,343 @@ api.post("/account", async (req, res) => {
   const q = req as AuthRequest;
   const data = signupSchema.parse(q.body);
   if (q.account) return res.json(q.account);
-  await pool.query(
-    "INSERT INTO users(id,email,name,role) VALUES($1,$2,$3,$4) ON CONFLICT(id) DO NOTHING",
-    [
-      q.identity.uid,
-      q.identity.email,
-      data.name,
-      q.identity.admin ? "admin" : data.role,
-    ],
-  );
+  await guardCreation("signup", req);
+  await transaction(async (c) => {
+    const created = await c.query(
+      "INSERT INTO users(id,email,name,role) VALUES($1,$2,$3,$4) ON CONFLICT(id) DO NOTHING RETURNING id",
+      [q.identity.uid, q.identity.email, data.name, data.role],
+    );
+    if (created.rowCount)
+      await notify(
+        c,
+        q.identity.uid,
+        "Welcome to Aplime",
+        data.role === "pro"
+          ? "Complete your business profile, identity verification, and subscription to respond to opportunities."
+          : "Create a project or find a professional to get started.",
+        { page: data.role === "pro" ? "profile" : "dashboard" },
+      );
+  });
   res.status(201).json({ ok: true });
 });
 api.use((req, _res, next) => {
   if (!(req as AuthRequest).account) fail(428, "Complete your account setup.");
   next();
 });
+api.get("/notifications/stream", notificationStream);
+api.use("/push", pushRouter);
+api.post("/realtime/ticket", realtimeTicket);
+api.use(reviewImages);
+api.use(projectContacts);
+api.use("/subscription", subscriptions);
+api.use("/support", supportRouter(false));
 api.get("/workspace", async (q, r) =>
   r.json(await workspace((q as AuthRequest).account)),
 );
+api.get("/locations/autocomplete", async (req, res) => {
+  const q = z
+    .object({
+      q: z.string().trim().min(3).max(200),
+      sessionToken: z.string().uuid(),
+    })
+    .parse(req.query);
+  res.json(await autocompleteAddress(q.q, q.sessionToken));
+});
+api.get("/locations/details", async (req, res) => {
+  const q = z
+    .object({
+      placeId: z.string().min(3).max(300),
+      sessionToken: z.string().uuid(),
+    })
+    .parse(req.query);
+  res.json(await locateAddress(q.placeId, q.sessionToken));
+});
+api.put("/profile/preferences", async (req, res) => {
+  if (req.account.role !== "pro") fail(403, "Professional account required.");
+  const p = preferencesSchema.parse(req.body);
+  await transaction(async (c) => {
+    const updated = await c.query(
+      "UPDATE profiles SET service_categories=$2,service_radius_miles=$3,available=$4,weekly_hours=$5,time_zone=$6,availability=$7 WHERE id=$1 RETURNING id",
+      [
+        req.account.id,
+        JSON.stringify([...new Set(p.serviceCategories)]),
+        p.serviceRadiusMiles,
+        p.available,
+        JSON.stringify(p.weeklyHours),
+        p.timeZone,
+        JSON.stringify(Object.keys(p.weeklyHours)),
+      ],
+    );
+    if (!updated.rowCount) fail(409, "Save your business profile first.");
+    await notify(
+      c,
+      req.account.id,
+      "Preferences updated",
+      "Your project matches and published hours now use your saved preferences.",
+      { page: "availability" },
+    );
+  });
+  res.json({ ok: true });
+});
+api.put("/account/language", async (req, res) => {
+  const { language } = z
+    .object({ language: z.literal("en") })
+    .strict()
+    .parse(req.body);
+  await pool.query(
+    "UPDATE users SET settings=settings || jsonb_build_object('language',$2::text) WHERE id=$1",
+    [req.account.id, language],
+  );
+  res.json({ ok: true });
+});
 api.put("/account", async (req, res) => {
   const q = req as AuthRequest;
   const data = z
     .object({
-      name: z.string().trim().min(2).max(80),
+      name: z.string().trim().min(1).max(80),
       emailAlerts: z.boolean(),
+      emailCategories: z
+        .object({
+          projects: z.boolean(),
+          messages: z.boolean(),
+          meetings: z.boolean(),
+          business: z.boolean(),
+          reviews: z.boolean(),
+          support: z.boolean(),
+        })
+        .strict()
+        .optional(),
     })
     .strict()
     .parse(q.body);
   await pool.query(
-    "UPDATE users SET name=$2,settings=jsonb_set(settings,'{emailAlerts}',$3::jsonb) WHERE id=$1",
-    [q.account.id, data.name, JSON.stringify(data.emailAlerts)],
-  );
-  res.json({ ok: true });
-});
-api.put("/profile", async (req, res) => {
-  const q = req as AuthRequest;
-  if (q.account.role !== "pro") fail(403, "Professional account required.");
-  const p = profileSchema.parse(q.body);
-  await pool.query(
-    "INSERT INTO profiles(id,business,category,bio,zip,rate,available,availability) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(id) DO UPDATE SET business=$2,category=$3,bio=$4,zip=$5,rate=$6,available=$7,availability=$8",
+    "UPDATE users SET name=$2,settings=settings || $3::jsonb WHERE id=$1",
     [
       q.account.id,
-      p.business,
-      p.category,
-      p.bio,
-      p.zip,
-      p.rate,
-      p.available,
-      JSON.stringify(p.availability),
+      data.name,
+      JSON.stringify({
+        emailAlerts: data.emailAlerts,
+        ...(data.emailCategories
+          ? { emailCategories: data.emailCategories }
+          : {}),
+      }),
     ],
   );
   res.json({ ok: true });
 });
+const exportLimiter = rateLimit({
+  windowMs: 3_600_000,
+  limit: 5,
+  keyGenerator: (req) => (req as AuthRequest).account.id,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  validate: { keyGeneratorIpFallback: false },
+  message: { error: "Data exports are limited. Try again later." },
+});
+api.get("/account/export", exportLimiter, async (req, res) => {
+  const q = req as AuthRequest;
+  if (q.account.role === "admin") fail(403, "Use the administrator tools.");
+  assertRecentSignIn(q.identity.authTime);
+  const data = await exportAccountData(q.account.id);
+  res
+    .set(
+      "Content-Disposition",
+      'attachment; filename="aplime-account-data.json"',
+    )
+    .json(data);
+});
+api.post("/account/revoke-sessions", async (req, res) => {
+  assertRecentSignIn(req.identity.authTime);
+  await revokeUserSessions(req.account.id);
+  await pool.query(
+    "UPDATE users SET sessions_revoked_at=to_timestamp($2) WHERE id=$1",
+    [req.account.id, Math.floor(Date.now() / 1000)],
+  );
+  clearTokenCache();
+  await transaction((c) =>
+    notify(
+      c,
+      req.account.id,
+      "All devices signed out",
+      "You signed out of all devices. Sign in again to continue. If you did not request this, reset your password.",
+      { page: "settings" },
+    ),
+  );
+  res.json({ ok: true });
+});
+api.post("/account/delete", async (req, res) => {
+  const q = req as AuthRequest;
+  z.object({ confirm: z.literal("DELETE") })
+    .strict()
+    .parse(q.body);
+  assertRecentSignIn(q.identity.authTime);
+  await deleteAccountData(q.account.id);
+  clearTokenCache();
+  try {
+    await deleteFirebaseUser(q.account.id);
+  } catch {
+    console.error("Deleted-account sign-in removal failed; will retry on use");
+  }
+  res.json({ ok: true });
+});
+// Stable stringify so jsonb key reordering never looks like an edit.
+const canonical = (value: unknown): string =>
+  JSON.stringify(value, (_key, v) =>
+    v && typeof v === "object" && !Array.isArray(v)
+      ? Object.fromEntries(
+          Object.entries(v as Record<string, unknown>).sort(([a], [b]) =>
+            a.localeCompare(b),
+          ),
+        )
+      : v,
+  );
+api.put("/profile", async (req, res) => {
+  const q = req as AuthRequest;
+  if (q.account.role !== "pro") fail(403, "Professional account required.");
+  const p = profileSchema.parse(q.body);
+  const location = await locateAddress(p.placeId);
+  if (!location) fail(400, "Select a complete street address.");
+  await transaction(async (c) => {
+    const existing = (
+      await c.query("SELECT * FROM profiles WHERE id=$1 FOR UPDATE", [
+        q.account.id,
+      ])
+    ).rows[0];
+    await preservePublication(c, q.account.id);
+    // Customer-facing listing content needs review; availability, schedule
+    // and service-radius changes are operational and never unlist a business.
+    const material =
+      !existing ||
+      existing.business !== p.business ||
+      existing.category !== p.category ||
+      existing.bio !== p.bio ||
+      Number(existing.rate) !== p.rate ||
+      existing.place_id !== location.placeId ||
+      canonical(existing.details) !== canonical(p.details);
+    await c.query(
+      "INSERT INTO profiles(id,business,category,bio,zip,rate,available,availability,details,service_radius_miles,latitude,longitude,address,place_id,service_categories) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,jsonb_build_array($3::text)) ON CONFLICT(id) DO UPDATE SET business=$2,category=$3,bio=$4,zip=$5,rate=$6,available=$7,availability=$8,details=$9,service_radius_miles=$10,latitude=$11,longitude=$12,address=$13,place_id=$14",
+      [
+        q.account.id,
+        p.business,
+        p.category,
+        p.bio,
+        location.zip,
+        p.rate,
+        p.available,
+        JSON.stringify(p.availability),
+        JSON.stringify(p.details),
+        p.serviceRadiusMiles,
+        location.lat,
+        location.lng,
+        location.label,
+        location.placeId,
+      ],
+    );
+    if (material) {
+      // A listed business stays visible while its edits are re-reviewed;
+      // unlisted ones return to draft and resubmit manually.
+      const relist =
+        !!existing &&
+        (existing.listed || existing.review_status === "approved");
+      await c.query(
+        relist
+          ? "UPDATE profiles SET review_status='pending',review_note=NULL,submitted_at=now(),reviewed_at=NULL,reviewed_by=NULL WHERE id=$1"
+          : "UPDATE profiles SET review_status='draft',review_note=NULL,submitted_at=NULL,reviewed_at=NULL,reviewed_by=NULL WHERE id=$1",
+        [q.account.id],
+      );
+      if (relist)
+        await notifyAdministrators(
+          c,
+          "Listed business profile updated",
+          p.business +
+            " changed its live listing. Review the updates in the administrator console.",
+        );
+    }
+  });
+  res.json({ ok: true });
+});
+api.post("/profile/submit-review", async (req, res) => {
+  const q = req as AuthRequest;
+  if (q.account.role !== "pro") fail(403, "Professional account required.");
+  await transaction(async (c) => {
+    const profile = (
+      await c.query(
+        "SELECT p.*,COALESCE(array_agg(i.slot) FILTER (WHERE i.slot IS NOT NULL),ARRAY[]::text[]) AS ready_slots FROM profiles p LEFT JOIN business_images i ON i.profile_id=p.id AND i.status='ready' WHERE p.id=$1 GROUP BY p.id",
+        [q.account.id],
+      )
+    ).rows[0];
+    if (!profile) fail(409, "Save your business details first.");
+    if (!profile.verified) fail(409, "Complete identity verification first.");
+    if (!hasBusinessBranding(profile.ready_slots))
+      fail(409, "Add your business logo and advertising image before review.");
+    if (profile.review_status === "pending")
+      fail(409, "Your business profile is already under review.");
+    await c.query(
+      "UPDATE profiles SET review_status='pending',review_note=NULL,submitted_at=now() WHERE id=$1",
+      [q.account.id],
+    );
+    await notifyAdministrators(
+      c,
+      "Business profile ready for review",
+      profile.business + " submitted its marketplace listing.",
+    );
+    await notify(
+      c,
+      q.account.id,
+      "Business profile submitted for review",
+      "Your business profile is under review. We will notify you when a decision is available.",
+      { page: "profile" },
+    );
+    await audit(c, q.account.id, "submit_profile_review", q.account.id);
+  });
+  res.json({ ok: true });
+});
+api.use("/profile/images", businessImages);
+api.use(discussions);
+api.use(callMeetings);
+api.use(projectImages);
+api.use(projectDrafts);
 api.post("/projects", async (req, res) => {
   const q = req as AuthRequest;
   if (q.account.role !== "customer") fail(403, "Customer account required.");
-  const p = projectSchema.parse(q.body);
+  const { clientKey, expectedZip, ...payload } = z
+    .object({
+      clientKey: z.string().uuid().optional(),
+      expectedZip: z
+        .string()
+        .regex(/^\d{5}$/)
+        .optional(),
+    })
+    .passthrough()
+    .parse(q.body);
+  const p = projectSchema.parse(payload);
+  const contact = contactInput.parse(p);
+  await guardCreation("project", req);
+  const fingerprint = createHash("sha256").update(canonical(p)).digest("hex");
   assertFuture(p.scheduledAt);
-  const id = randomUUID();
+  const location = await locateAddress(p.placeId);
+  if (!location) fail(400, "Select a complete street address.");
+  assertServiceArea(location);
+  if (expectedZip && expectedZip !== location.zip)
+    fail(
+      400,
+      "The service address does not match your starting ZIP. Update your ZIP or address before publishing.",
+    );
+  let id: string = randomUUID();
   await transaction(async (c) => {
-    if (
-      p.proId &&
-      !(
-        await c.query(
-          "SELECT 1 FROM profiles WHERE id=$1 AND category=$2 AND verified AND NOT suspended AND available",
-          [p.proId, p.category],
-        )
-      ).rowCount
-    )
-      fail(400, "Choose an available professional in this category.");
+    const previous = await previousProjectRequest(
+      c,
+      q.account.id,
+      clientKey,
+      fingerprint,
+    );
+    if (previous) {
+      id = previous;
+      return;
+    }
+    await assertProjectQuota(c, q.account.id);
     await c.query(
-      "INSERT INTO projects(id,customer_id,pro_id,title,description,category,zip,scheduled_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8)",
+      "INSERT INTO projects(id,customer_id,pro_id,title,description,category,zip,scheduled_at,intake,urgency,property_type,budget_min,budget_max,latitude,longitude,address,place_id,address_unit) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)",
       [
         id,
         q.account.id,
@@ -165,28 +563,73 @@ api.post("/projects", async (req, res) => {
         p.title,
         p.description,
         p.category,
-        p.zip,
-        p.scheduledAt,
+        location.zip,
+        null,
+        JSON.stringify(p.intake),
+        p.urgency,
+        p.propertyType,
+        p.budgetMin,
+        p.budgetMax,
+        location.lat,
+        location.lng,
+        location.label,
+        location.placeId,
+        p.addressUnit,
       ],
     );
-    await notify(
+    await c.query(
+      "INSERT INTO project_contacts(project_id,phone,consent_at) VALUES($1,$2,CASE WHEN $3::boolean THEN now() END)",
+      [id, contact.contactPhone, contact.contactConsent],
+    );
+    if (clientKey)
+      await c.query(
+        "INSERT INTO project_publish_requests(user_id,client_key,project_id,fingerprint) VALUES($1,$2,$3,$4)",
+        [q.account.id, clientKey, id, fingerprint],
+      );
+    if (p.proId) await assertMatch(c, p.proId, id);
+    if (p.scheduledAt) await assertAppointment(c, p.proId, p.scheduledAt, id);
+    if (p.proId)
+      await c.query(
+        "INSERT INTO project_discussions(id,project_id,pro_id) VALUES($1,$2,$3)",
+        [randomUUID(), id, p.proId],
+      );
+    if (p.scheduledAt)
+      await c.query(
+        "UPDATE projects SET proposed_at=$2,proposed_by=$3 WHERE id=$1",
+        [id, p.scheduledAt, q.account.id],
+      );
+    if (!p.proId) await notifyMatchingProfessionals(c, id);
+    const created = await getProject(c, id);
+    await recordProjectActivity(
       c,
-      p.proId,
-      "New project request",
-      "A customer sent you a project request.",
+      id,
+      q.account.id,
+      "publish",
+      "Project published",
+    );
+    await notifyProjectMembers(
+      c,
+      created,
+      "Project published",
+      p.title + ": your project is ready for discussion.",
     );
   });
   res.status(201).json({ id });
 });
-api.post("/projects/:id/actions", async (req, res) =>
+api.post("/projects/:id/actions", async (req, res) => {
+  const { expectedVersion, ...action } = z
+    .object({ expectedVersion: z.number().int().positive() })
+    .passthrough()
+    .parse(req.body);
   res.json(
     await projectAction(
       z.string().uuid().parse(req.params.id),
       (req as AuthRequest).account,
-      actionSchema.parse(req.body),
+      actionSchema.parse(action),
+      expectedVersion,
     ),
-  ),
-);
+  );
+});
 async function memberProject(id: string, user: User) {
   const p = (
     await pool.query("SELECT * FROM projects WHERE id=$1", [
@@ -197,6 +640,14 @@ async function memberProject(id: string, user: User) {
     fail(403, "This project is private.");
   return camel<Project>(p);
 }
+api.get("/projects/:id/activity", async (req, res) => {
+  res.json(
+    await readProjectActivity(
+      z.string().uuid().parse(req.params.id),
+      req.account.id,
+    ),
+  );
+});
 api.post("/projects/:id/messages", async (req, res) => {
   const q = req as AuthRequest;
   const body = z
@@ -207,6 +658,14 @@ api.post("/projects/:id/messages", async (req, res) => {
   if (!p.proId)
     fail(409, "Choose an estimate before messaging a professional.");
   const other = q.account.id === p.customerId ? p.proId : p.customerId;
+  if (
+    (
+      await pool.query("SELECT 1 FROM profiles WHERE id=$1 AND suspended", [
+        p.proId,
+      ])
+    ).rowCount
+  )
+    fail(403, "This business cannot receive or send messages right now.");
   await transaction(async (c) => {
     if (
       (
@@ -217,104 +676,124 @@ api.post("/projects/:id/messages", async (req, res) => {
       ).rowCount
     )
       fail(403, "This conversation is blocked.");
+    const conversation = await ensurePairConversation(
+      c,
+      p.id,
+      p.customerId,
+      p.proId!,
+    );
+    const messageId = randomUUID();
+    await assertMessageQuota(c, q.account.id);
     await c.query(
       "INSERT INTO messages(id,project_id,sender_id,body) VALUES($1,$2,$3,$4)",
-      [randomUUID(), p.id, q.account.id, body.body],
+      [messageId, p.id, q.account.id, body.body],
+    );
+    await c.query(
+      "INSERT INTO discussion_messages(id,discussion_id,sender_id,body) VALUES($1,$2,$3,$4)",
+      [messageId, conversation.contextId, q.account.id, body.body],
     );
     await notify(
       c,
       other,
-      "New project message",
+      "New message",
       "You have a new message about " + p.title + ".",
+      { page: "messages", id: conversation.id },
     );
   });
   res.json({ ok: true });
 });
-api.post("/projects/:id/call", async (req, res) => {
-  const q = req as AuthRequest;
-  const { audioOnly } = z
-    .object({ audioOnly: z.boolean() })
-    .strict()
-    .parse(q.body);
-  const p = await memberProject(String(q.params.id), q.account);
-  if (!p.proId) fail(409, "A professional has not been assigned.");
-  if (["cancelled", "disputed"].includes(p.status))
-    fail(409, "Calls are unavailable for this project.");
-  const other = q.account.id === p.customerId ? p.proId : p.customerId;
-  if (
-    (
-      await pool.query(
-        "SELECT 1 FROM blocked WHERE (user_id=$1 AND other_id=$2) OR (user_id=$2 AND other_id=$1)",
-        [q.account.id, other],
-      )
-    ).rowCount
-  )
-    fail(403, "This conversation is blocked.");
-  const room = await meeting(p.id, q.account.id, q.account.name, audioOnly);
-  await transaction((c) =>
-    notify(
-      c,
-      other,
-      "Join a project call",
-      "Open " + p.title + " and select the call button to join.",
-    ),
+api.post("/projects/:id/call", (_req, _res) => {
+  fail(
+    410,
+    "Direct calls are no longer available. Schedule and confirm a meeting to call.",
   );
-  res.json(room);
 });
 api.post("/projects/:id/review", async (req, res) => {
   const q = req as AuthRequest;
   const p = await memberProject(String(q.params.id), q.account);
-  const data = z
-    .object({
-      rating: z.number().int().min(1).max(5),
-      body: z.string().trim().min(10).max(2000),
-    })
-    .strict()
-    .parse(q.body);
+  const data = reviewInput.parse(q.body);
   if (q.account.id !== p.customerId || p.status !== "completed" || !p.proId)
     fail(403, "Only the customer can review completed work.");
-  if (
-    !(
-      await pool.query(
-        "SELECT 1 FROM payments WHERE project_id=$1 AND status='paid'",
+  await transaction(async (c) => {
+    // Lock this project to serialize review submission with photo changes.
+    const current = (
+      await c.query(
+        "SELECT status,customer_id,pro_id FROM projects WHERE id=$1 FOR UPDATE",
         [p.id],
       )
-    ).rowCount
-  )
-    fail(409, "Complete payment before leaving a review.");
-  await pool.query(
-    "INSERT INTO reviews(id,project_id,pro_id,rating,body) VALUES($1,$2,$3,$4,$5)",
-    [randomUUID(), p.id, p.proId, data.rating, data.body],
-  );
+    ).rows[0];
+    if (
+      !current ||
+      current.status !== "completed" ||
+      current.customer_id !== q.account.id ||
+      current.pro_id !== p.proId
+    )
+      fail(409, "This project changed. Refresh before reviewing.");
+    if (
+      (await c.query("SELECT 1 FROM reviews WHERE project_id=$1", [p.id]))
+        .rowCount
+    )
+      fail(409, "You already reviewed this project.");
+    const photos = await c.query("SELECT count(*)::int AS count FROM review_images WHERE project_id=$1", [p.id]);
+    if (photos.rows[0].count > 5) fail(400, "Remove extra photos before submitting. Reviews allow up to five photos.");
+    await assertIndependentParties(c, p.customerId, p.proId!);
+    await c.query(
+      "INSERT INTO reviews(id,project_id,pro_id,rating,body) VALUES($1,$2,$3,$4,$5)",
+      [randomUUID(), p.id, p.proId, data.rating, data.body],
+    );
+    await notify(
+      c,
+      p.proId,
+      "New customer review",
+      p.title + ": a customer shared their experience.",
+      { page: "reviews" },
+    );
+  });
   res.json({ ok: true });
 });
 api.post("/reviews/:id/reply", async (req, res) => {
   const q = req as AuthRequest;
   const { reply } = z
-    .object({ reply: z.string().trim().min(2).max(1500) })
+    .object({ reply: z.string().trim().min(1).max(1500) })
     .strict()
     .parse(q.body);
-  if (
-    !(
-      await pool.query(
-        "UPDATE reviews SET reply=$3 WHERE id=$1 AND pro_id=$2 RETURNING id",
-        [z.string().uuid().parse(q.params.id), q.account.id, reply],
-      )
-    ).rowCount
-  )
-    fail(403, "You can reply only to your own reviews.");
+  await transaction(async (c) => {
+    const projectId = await submitReviewReply(c, z.string().uuid().parse(q.params.id), q.account.id, reply);
+    const p = (
+      await c.query("SELECT customer_id FROM projects WHERE id=$1", [
+        projectId,
+      ])
+    ).rows[0];
+    await notify(
+      c,
+      p.customer_id,
+      "Professional replied to your review",
+      "Open your reviews to read the response.",
+      { page: "reviews" },
+    );
+  });
   res.json({ ok: true });
 });
 api.post("/saved/:id", async (req, res) => {
   const q = req as AuthRequest;
   if (q.account.role !== "customer") fail(403, "Customer account required.");
   const { saved } = z.object({ saved: z.boolean() }).strict().parse(q.body);
-  if (saved)
-    await pool.query(
-      "INSERT INTO saved(user_id,pro_id) SELECT $1,id FROM profiles WHERE id=$2 AND verified AND NOT suspended ON CONFLICT DO NOTHING",
+  if (saved) {
+    const inserted = await pool.query(
+      "INSERT INTO saved(user_id,pro_id) SELECT $1,id FROM profiles WHERE id=$2 AND NOT suspended ON CONFLICT DO NOTHING",
       [q.account.id, q.params.id],
     );
-  else
+    if (
+      !inserted.rowCount &&
+      !(
+        await pool.query("SELECT 1 FROM saved WHERE user_id=$1 AND pro_id=$2", [
+          q.account.id,
+          q.params.id,
+        ])
+      ).rowCount
+    )
+      fail(404, "This professional is not available to save.");
+  } else
     await pool.query("DELETE FROM saved WHERE user_id=$1 AND pro_id=$2", [
       q.account.id,
       q.params.id,
@@ -328,7 +807,7 @@ api.post("/blocked/:id", async (req, res) => {
   if (
     !(
       await pool.query(
-        "SELECT 1 FROM projects WHERE (customer_id=$1 AND pro_id=$2) OR (customer_id=$2 AND pro_id=$1)",
+        "SELECT 1 FROM projects p LEFT JOIN project_discussions d ON d.project_id=p.id WHERE (p.customer_id=$1 AND (p.pro_id=$2 OR d.pro_id=$2)) OR (p.customer_id=$2 AND (p.pro_id=$1 OR d.pro_id=$1))",
         [q.account.id, q.params.id],
       )
     ).rowCount
@@ -346,25 +825,48 @@ api.post("/blocked/:id", async (req, res) => {
     ]);
   res.json({ ok: true });
 });
+api.post("/notifications/:id/read", async (req, res) => {
+  await pool.query(
+    "UPDATE notifications SET read=true WHERE id=$1 AND user_id=$2 AND NOT read",
+    [z.string().uuid().parse(req.params.id), req.account.id],
+  );
+  res.json({ ok: true });
+});
 api.post("/notifications/read", async (req, res) => {
-  await pool.query("UPDATE notifications SET read=true WHERE user_id=$1", [
-    (req as AuthRequest).account.id,
-  ]);
+  await pool.query(
+    "UPDATE notifications SET read=true WHERE user_id=$1 AND NOT read",
+    [(req as AuthRequest).account.id],
+  );
   res.json({ ok: true });
 });
 api.post("/support", async (req, res) => {
   const q = req as AuthRequest;
   const data = z
     .object({
-      subject: z.string().trim().min(5).max(120),
-      body: z.string().trim().min(10).max(3000),
+      subject: z.string().trim().min(1).max(120),
+      body: z.string().trim().min(1).max(3000),
     })
     .strict()
     .parse(q.body);
-  await pool.query(
-    "INSERT INTO tickets(id,user_id,subject,body) VALUES($1,$2,$3,$4)",
-    [randomUUID(), q.account.id, data.subject, data.body],
-  );
+  await transaction(async (c) => {
+    await assertSupportRequestQuota(c, q.account.id);
+    await c.query(
+      "INSERT INTO tickets(id,user_id,subject,body) VALUES($1,$2,$3,$4)",
+      [randomUUID(), q.account.id, data.subject, data.body],
+    );
+    await notifyAdministrators(
+      c,
+      "New support request",
+      "A user opened a support request. Review it in the administrator console.",
+    );
+    await notify(
+      c,
+      q.account.id,
+      "Support request received",
+      "Your support request was saved. View its status in Help.",
+      { page: "help" },
+    );
+  });
   res.json({ ok: true });
 });
 api.get("/location/:zip", async (req, res) =>
@@ -377,169 +879,14 @@ api.get("/location/:zip", async (req, res) =>
     ),
   ),
 );
-// Financial endpoints derive amounts and destination accounts from locked database records.
-api.post("/projects/:id/checkout", async (req, res) => {
-  const q = req as AuthRequest;
-  const result = await transaction(async (c) => {
-    const p = await getProject(c, z.string().uuid().parse(q.params.id));
-    if (
-      p.customerId !== q.account.id ||
-      p.status !== "completed" ||
-      !p.amount ||
-      !p.proId
-    )
-      fail(403, "Payment is available to the customer after completion.");
-    const profile = (
-      await c.query("SELECT * FROM profiles WHERE id=$1", [p.proId])
-    ).rows[0];
-    if (!profile?.connect_ready || !profile.verified || profile.suspended)
-      fail(409, "The professional must finish payout setup before payment.");
-    let payment = (
-      await c.query("SELECT * FROM payments WHERE project_id=$1 FOR UPDATE", [
-        p.id,
-      ])
-    ).rows[0];
-    if (payment?.status === "paid" || payment?.status === "refunded")
-      fail(409, "This project has already been paid.");
-    if (payment?.checkout_id) {
-      const previous = await stripe().checkout.sessions.retrieve(
-        payment.checkout_id,
-      );
-      if (previous.status === "open" && previous.url)
-        return { url: previous.url };
-      if (previous.status === "complete")
-        fail(409, "Payment is processing. Refresh shortly.");
-      await c.query("UPDATE payments SET checkout_id=NULL WHERE id=$1", [
-        payment.id,
-      ]);
-    }
-    if (!payment) {
-      payment = { id: randomUUID(), amount: p.amount };
-      await c.query(
-        "INSERT INTO payments(id,project_id,amount) VALUES($1,$2,$3)",
-        [payment.id, p.id, p.amount],
-      );
-    }
-    const session = await stripe().checkout.sessions.create(
-      {
-        mode: "payment",
-        customer_email: q.account.email,
-        line_items: [
-          {
-            price_data: {
-              currency: "usd",
-              unit_amount: p.amount,
-              product_data: { name: p.title },
-            },
-            quantity: 1,
-          },
-        ],
-        payment_intent_data: {
-          application_fee_amount: Math.round(
-            (p.amount * env.STRIPE_PLATFORM_FEE_PERCENT) / 100,
-          ),
-          transfer_data: { destination: profile.stripe_account_id },
-        },
-        success_url: env.SITE_URL + "/app/payments?payment=processing",
-        cancel_url: env.SITE_URL + "/app/payments",
-        metadata: { projectId: p.id },
-      },
-      {
-        idempotencyKey:
-          "checkout:" + p.id + ":" + (payment.checkout_id || "initial"),
-      },
-    );
-    await c.query("UPDATE payments SET checkout_id=$2 WHERE id=$1", [
-      payment.id,
-      session.id,
-    ]);
-    return { url: session.url };
-  });
-  res.json(result);
+// Retired project-payment routes fail closed for old clients.
+api.post(["/projects/:id/checkout", "/profile/connect"], () => {
+  fail(
+    410,
+    "Aplime does not process payments between customers and professionals.",
+  );
 });
-api.post("/profile/identity", async (req, res) => {
-  const q = req as AuthRequest;
-  if (q.account.role !== "pro") fail(403, "Professional account required.");
-  const result = await transaction(async (c) => {
-    const p = (
-      await c.query("SELECT * FROM profiles WHERE id=$1 FOR UPDATE", [
-        q.account.id,
-      ])
-    ).rows[0];
-    if (!p) fail(409, "Save your business profile first.");
-    if (p.verified) fail(409, "Identity is already verified.");
-    if (p.identity_session_id) {
-      const old = await stripe().identity.verificationSessions.retrieve(
-        p.identity_session_id,
-      );
-      if (old.status === "processing")
-        fail(409, "Verification is processing. Please check back shortly.");
-      if (old.status === "requires_input" && old.url) return { url: old.url };
-    }
-    const session = await stripe().identity.verificationSessions.create(
-      {
-        type: "document",
-        metadata: { userId: q.account.id },
-        options: { document: { require_matching_selfie: true } },
-        return_url: env.SITE_URL + "/app/profile",
-      },
-      {
-        idempotencyKey:
-          "identity:" +
-          q.account.id +
-          ":" +
-          (p.identity_session_id || "initial"),
-      },
-    );
-    await c.query("UPDATE profiles SET identity_session_id=$2 WHERE id=$1", [
-      q.account.id,
-      session.id,
-    ]);
-    return { url: session.url };
-  });
-  res.json(result);
-});
-api.post("/profile/connect", async (req, res) => {
-  const q = req as AuthRequest;
-  if (q.account.role !== "pro") fail(403, "Professional account required.");
-  const result = await transaction(async (c) => {
-    const p = (
-      await c.query("SELECT * FROM profiles WHERE id=$1 FOR UPDATE", [
-        q.account.id,
-      ])
-    ).rows[0];
-    if (!p?.verified) fail(409, "Complete identity verification first.");
-    let accountId = p.stripe_account_id;
-    if (!accountId) {
-      const account = await stripe().accounts.create(
-        {
-          type: "express",
-          country: "US",
-          email: q.account.email,
-          capabilities: {
-            card_payments: { requested: true },
-            transfers: { requested: true },
-          },
-          metadata: { userId: q.account.id },
-        },
-        { idempotencyKey: "connect:" + q.account.id },
-      );
-      accountId = account.id;
-      await c.query("UPDATE profiles SET stripe_account_id=$2 WHERE id=$1", [
-        q.account.id,
-        accountId,
-      ]);
-    }
-    const link = await stripe().accountLinks.create({
-      account: accountId,
-      type: "account_onboarding",
-      return_url: env.SITE_URL + "/app/profile",
-      refresh_url: env.SITE_URL + "/app/profile",
-    });
-    return { url: link.url };
-  });
-  res.json(result);
-});
+api.use("/profile/identity", identityVerification);
 api.get("/payments/:id/receipt", async (req, res) => {
   const q = req as AuthRequest;
   const row = (
@@ -566,59 +913,20 @@ api.get("/payments/:id/receipt", async (req, res) => {
     fail(404, "Receipt not available.");
   res.json({ url: charge.receipt_url });
 });
-api.post("/projects/:id/uploads", async (req, res) => {
+api.delete("/uploads/:id", async (req, res) => {
   const q = req as AuthRequest;
-  const p = await memberProject(String(q.params.id), q.account);
-  const data = z
-    .object({
-      name: z.string().trim().min(1).max(160),
-      contentType: z.enum([
-        "image/jpeg",
-        "image/png",
-        "image/webp",
-        "application/pdf",
-      ]),
-      size: z
-        .number()
-        .int()
-        .min(1)
-        .max(10 * 1024 * 1024),
-    })
-    .strict()
-    .parse(q.body);
-  if (
-    (
-      await pool.query(
-        "SELECT count(*)::int AS n FROM uploads WHERE project_id=$1",
-        [p.id],
+  await transaction(async (c) => {
+    const f = (
+      await c.query(
+        "SELECT * FROM uploads WHERE id=$1 AND user_id=$2 AND status='pending' FOR UPDATE",
+        [z.string().uuid().parse(q.params.id), q.account.id],
       )
-    ).rows[0].n >= 50
-  )
-    fail(409, "This project has reached its attachment limit.");
-  const id = randomUUID(),
-    key = env.APP_ENV + "/" + p.id + "/" + id;
-  const url = await uploadUrl(key, data.contentType, data.size);
-  await pool.query(
-    "INSERT INTO uploads(id,project_id,user_id,object_key,name,content_type,size) VALUES($1,$2,$3,$4,$5,$6,$7)",
-    [id, p.id, q.account.id, key, data.name, data.contentType, data.size],
-  );
-  res.json({ id, url });
-});
-api.post("/uploads/:id/complete", async (req, res) => {
-  const q = req as AuthRequest;
-  const f = (
-    await pool.query("SELECT * FROM uploads WHERE id=$1 AND user_id=$2", [
-      z.string().uuid().parse(q.params.id),
-      q.account.id,
-    ])
-  ).rows[0];
-  if (!f) fail(404, "Upload not found.");
-  const head = await inspectObject(f.object_key);
-  if (head.ContentLength !== f.size || head.ContentType !== f.content_type) {
+    ).rows[0];
+    if (!f) fail(404, "Unfinished upload not found.");
+    await memberProject(f.project_id, q.account);
     await removeObject(f.object_key);
-    fail(400, "Uploaded file does not match its declared type or size.");
-  }
-  await pool.query("UPDATE uploads SET status='ready' WHERE id=$1", [f.id]);
+    await c.query("DELETE FROM uploads WHERE id=$1", [f.id]);
+  });
   res.json({ ok: true });
 });
 api.get("/uploads/:id", async (req, res) => {
@@ -629,14 +937,58 @@ api.get("/uploads/:id", async (req, res) => {
     ])
   ).rows[0];
   if (!f) fail(404, "File not found.");
-  await memberProject(f.project_id, q.account);
-  res.json({ url: await downloadUrl(f.object_key) });
+  if (q.account.role === "pro") {
+    const denied = await pool.query(
+      "SELECT 1 FROM projects p JOIN profiles f ON f.id=$2 WHERE p.id=$1 AND (f.suspended OR EXISTS(SELECT 1 FROM blocked b WHERE (b.user_id=$2 AND b.other_id=p.customer_id) OR (b.other_id=$2 AND b.user_id=p.customer_id)))",
+      [f.project_id, q.account.id],
+    );
+    if (denied.rowCount) fail(403, "Project photos are unavailable.");
+  }
+  const openLead =
+    q.account.role === "pro" &&
+    String(f.content_type).startsWith("image/") &&
+    (await isOpenLead(q.account.id, f.project_id));
+  const conversationPhoto =
+    q.account.role === "pro" &&
+    String(f.content_type).startsWith("image/") &&
+    (
+      await pool.query(
+        `SELECT 1 FROM project_discussions d JOIN projects p ON p.id=d.project_id JOIN profiles f ON f.id=d.pro_id
+        WHERE d.project_id=$1 AND d.pro_id=$2 AND NOT f.suspended
+        AND (p.pro_id IS NULL OR p.pro_id=$2)
+        AND NOT EXISTS(SELECT 1 FROM blocked b WHERE (b.user_id=$2 AND b.other_id=p.customer_id) OR (b.other_id=$2 AND b.user_id=p.customer_id))`,
+        [f.project_id, q.account.id],
+      )
+    ).rowCount;
+  if (!openLead && !conversationPhoto)
+    await memberProject(f.project_id, q.account);
+  // Images open inline so participants can view photos in the browser;
+  // documents keep the attachment disposition.
+  const inline = String(f.content_type).startsWith("image/");
+  res.json({
+    url: inline
+      ? await imageUrl(f.object_key)
+      : await downloadUrl(f.object_key),
+    inline,
+  });
 });
 api.use("/admin", (req, _res, next) => {
   if ((req as AuthRequest).account.role !== "admin")
     fail(403, "Administrator access required.");
   next();
 });
+api.get("/admin/notifications/stream", notificationStream);
+api.post("/admin/realtime/ticket", realtimeTicket);
+api.post("/admin/notifications/read", async (req, res) => {
+  await pool.query(
+    "UPDATE notifications SET read=true WHERE user_id=$1 AND NOT read",
+    [req.account.id],
+  );
+  res.json({ ok: true });
+});
+api.get("/admin/workspace", async (q, r) => r.json(await workspace(q.account)));
+api.use("/admin", adminConsole);
+api.use("/admin/support", supportRouter(true));
 api.post("/admin/profiles/:id", async (req, res) => {
   const q = req as AuthRequest;
   const { suspended } = z
@@ -658,6 +1010,57 @@ api.post("/admin/profiles/:id", async (req, res) => {
       q.account.id,
       suspended ? "suspend" : "restore",
       String(q.params.id),
+    );
+    await notify(
+      c,
+      String(q.params.id),
+      suspended ? "Business profile suspended" : "Business profile restored",
+      "Open your business profile or contact support for help.",
+      { page: "profile" },
+    );
+  });
+  res.json({ ok: true });
+});
+api.post("/admin/profiles/:id/review", async (req, res) => {
+  const q = req as AuthRequest;
+  const decision = z
+    .object({
+      status: z.enum(["approved", "changes_requested", "rejected"]),
+      note: z.string().trim().max(2000),
+    })
+    .strict()
+    .parse(q.body);
+  if (decision.status !== "approved" && decision.note.length < 10)
+    fail(400, "Explain what the professional needs to change.");
+  await transaction(async (c) => {
+    await c.query("SELECT id FROM profiles WHERE id=$1 FOR UPDATE", [
+      q.params.id,
+    ]);
+    if (decision.status !== "changes_requested")
+      await releasePublication(c, String(q.params.id));
+    const profile = (
+      await c.query(
+        "UPDATE profiles SET review_status=$2,listed=($2='approved' OR ($2='changes_requested' AND published_profile IS NOT NULL)),review_note=NULLIF($3,''),reviewed_at=now(),reviewed_by=$4 WHERE id=$1 AND review_status='pending' RETURNING business",
+        [q.params.id, decision.status, decision.note, q.account.id],
+      )
+    ).rows[0];
+    if (!profile) fail(409, "This profile is not awaiting review.");
+    await audit(
+      c,
+      q.account.id,
+      "profile_review_" + decision.status,
+      String(q.params.id),
+    );
+    await notify(
+      c,
+      String(q.params.id),
+      decision.status === "approved"
+        ? "Business profile approved"
+        : "Business profile review updated",
+      decision.status === "approved"
+        ? "Your listing is approved. Keep your subscription active and availability current to appear in search."
+        : decision.note,
+      { page: "profile" },
     );
   });
   res.json({ ok: true });
@@ -710,7 +1113,7 @@ api.post("/admin/tickets/:id", async (req, res) => {
       ]);
     } else if (t.project_id)
       await c.query(
-        "UPDATE projects SET status=COALESCE(previous_status,'completed'),previous_status=NULL WHERE id=$1 AND status='disputed'",
+        "UPDATE projects SET status=COALESCE(previous_status,'completed'),previous_status=NULL,version=version+1 WHERE id=$1 AND status='disputed'",
         [t.project_id],
       );
     await c.query(
@@ -718,7 +1121,28 @@ api.post("/admin/tickets/:id", async (req, res) => {
       [t.id, resolution],
     );
     await audit(c, q.account.id, refund ? "refund" : "resolve", t.id);
-    await notify(c, t.user_id, "Support case resolved", resolution);
+    await notify(c, t.user_id, "Support case resolved", resolution, {
+      page: "messages",
+      id: "support:" + t.id,
+    });
+    if (t.project_id) {
+      const p = await getProject(c, t.project_id);
+      await recordProjectActivity(
+        c,
+        p.id,
+        q.account.id,
+        "resolve_issue",
+        "Support case resolved",
+        resolution,
+      );
+      await notify(
+        c,
+        t.user_id === p.customerId ? p.proId : p.customerId,
+        "Project issue resolved",
+        "Open your project for its updated status.",
+        { page: "project", id: p.id },
+      );
+    }
   });
   res.json({ ok: true });
 });

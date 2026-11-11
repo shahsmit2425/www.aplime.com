@@ -13,7 +13,9 @@ export async function request<T = any>(
   body?: unknown,
   method?: string,
 ): Promise<T> {
-  const token = await auth().currentUser?.getIdToken();
+  const token = path.startsWith("/intake/locations/")
+    ? undefined
+    : await auth().currentUser?.getIdToken();
   const base = (window.__CONFIG__ || fallbackConfig).apiUrl;
   const response = await fetch(base + "/api" + path, {
     method: method || (body === undefined ? "GET" : "POST"),
@@ -27,7 +29,11 @@ export async function request<T = any>(
   const data = await response.json();
   if (!response.ok)
     throw new ApiError(
-      data.error || "Something went wrong. Please try again.",
+      (data.error || "Something went wrong. Please try again.") +
+        (typeof data.requestId === "string" &&
+        /^req_[A-Za-z0-9]{1,80}$/.test(data.requestId)
+          ? " Support reference: " + data.requestId
+          : ""),
       response.status,
     );
   return data;
@@ -41,4 +47,37 @@ export async function openExternal(url: string) {
     const { Browser } = await import("@capacitor/browser");
     await Browser.open({ url });
   } else window.location.assign(url);
+}
+
+export async function uploadImageContent(
+  path: string,
+  file: File,
+  signal: AbortSignal,
+) {
+  const token = await auth().currentUser?.getIdToken();
+  const base = (window.__CONFIG__ || fallbackConfig).apiUrl;
+  let response: Response;
+  try {
+    response = await fetch(base + "/api" + path, {
+      method: "PUT",
+      headers: {
+        ...(token ? { Authorization: "Bearer " + token } : {}),
+        "Content-Type": file.type,
+      },
+      body: file,
+      signal,
+    });
+  } catch (error) {
+    if (signal.aborted)
+      throw new Error("Upload stopped. You can retry or choose another image.");
+    throw new Error(
+      "Could not reach image storage. Check your connection and retry.",
+    );
+  }
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok)
+    throw new ApiError(
+      data.error || "Image upload failed. Please retry.",
+      response.status,
+    );
 }

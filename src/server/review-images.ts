@@ -1,0 +1,148 @@
+import { imageUploadBody } from "./upload-body.js";
+import { Router } from "express";
+import { randomUUID } from "node:crypto";
+import { z } from "zod";
+import { pool, transaction } from "./db/index.js";
+import { fail } from "./errors.js";
+import { env } from "./config.js";
+import { sanitizeImage } from "./image-processing.js";
+import {
+  imageUrl,
+  storeBusinessImage,
+  removeObject,
+} from "./integrations/storage.js";
+import { IMAGE_TYPES } from "../shared/uploads.js";
+export const reviewImages = Router();
+const projectId = (value: unknown) => z.string().uuid().parse(value);
+const slotId = (value: unknown) =>
+  z.coerce.number().int().min(1).max(5).parse(value);
+export async function reviewPhotos(id: string) {
+  const rows = (
+    await pool.query(
+      "SELECT slot,object_key FROM review_images WHERE project_id=$1 ORDER BY slot",
+      [id],
+    )
+  ).rows;
+  return Promise.all(
+    rows.map(async (r) => ({
+      slot: r.slot,
+      url: await imageUrl(r.object_key),
+    })),
+  );
+}
+reviewImages.get("/projects/:id/review-photos", async (req, res) => {
+  const id = projectId(req.params.id);
+  const access = (
+    await pool.query(
+      "SELECT 1 FROM projects p WHERE p.id=$1 AND (p.customer_id=$2 OR (p.pro_id=$2 AND EXISTS(SELECT 1 FROM reviews r WHERE r.project_id=p.id)))",
+      [id, req.account.id],
+    )
+  ).rowCount;
+  if (!access) fail(404, "Project unavailable.");
+  res.set("Cache-Control", "no-store").json(await reviewPhotos(id));
+});
+reviewImages.put(
+  "/projects/:id/review-photos/:slot",
+  async (req, res, next) => {
+    const id = projectId(req.params.id);
+    slotId(req.params.slot);
+    if (
+      !(
+        await pool.query(
+          "SELECT 1 FROM projects WHERE id=$1 AND customer_id=$2 AND status='completed' AND pro_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM reviews WHERE project_id=projects.id)",
+          [id, req.account.id],
+        )
+      ).rowCount
+    )
+      fail(403, "Only the customer can add review photos for completed work.");
+    if (
+      !(IMAGE_TYPES as readonly string[]).includes(
+        req.get("content-type") || "",
+      )
+    )
+      fail(415, "Choose JPG, PNG or WebP images.");
+    next();
+  },
+  imageUploadBody(),
+  async (req, res) => {
+    const id = projectId(req.params.id),
+      slot = slotId(req.params.slot),
+      key = `${env.APP_ENV}/reviews/${id}/${randomUUID()}`;
+    let old: string | undefined,
+      stored = false;
+    try {
+      if (!Buffer.isBuffer(req.body) || !req.body.length)
+        fail(400, "Choose a non-empty image.");
+      const clean = await sanitizeImage(req.body, req.get("content-type")!);
+      await transaction(async (c) => {
+        // Match account deletion's lock order so uploads cannot survive deletion.
+        const user = (
+          await c.query("SELECT deleted_at FROM users WHERE id=$1 FOR UPDATE", [
+            req.account.id,
+          ])
+        ).rows[0];
+        if (!user || user.deleted_at) fail(403, "Account unavailable.");
+        const p = (
+          await c.query(
+            "SELECT customer_id,status FROM projects WHERE id=$1 FOR UPDATE",
+            [id],
+          )
+        ).rows[0];
+        if (!p || p.customer_id !== req.account.id || p.status !== "completed")
+          fail(403, "Project unavailable.");
+        if ((await c.query("SELECT 1 FROM reviews WHERE project_id=$1", [id])).rowCount)
+          fail(409, "Submitted review photos cannot be changed.");
+        old = (
+          await c.query(
+            "SELECT object_key FROM review_images WHERE project_id=$1 AND slot=$2",
+            [id, slot],
+          )
+        ).rows[0]?.object_key;
+        if (!old && (await c.query("SELECT count(*)::int AS count FROM review_images WHERE project_id=$1", [id])).rows[0].count >= 5)
+          fail(400, "Reviews allow up to five photos. Remove an existing photo first.");
+        await storeBusinessImage(key, req.get("content-type")!, clean);
+        stored = true;
+        await c.query(
+          "INSERT INTO review_images(project_id,slot,object_key) VALUES($1,$2,$3) ON CONFLICT(project_id,slot) DO UPDATE SET object_key=$3,created_at=now()",
+          [id, slot, key],
+        );
+      });
+      if (old)
+        void removeObject(old).catch(() =>
+          console.error("Review image cleanup deferred"),
+        );
+      res.json({ ok: true });
+    } catch (error) {
+      if (stored) await removeObject(key).catch(() => {});
+      throw error;
+    } finally {
+      res.locals.releaseUpload?.();
+    }
+  },
+);
+reviewImages.delete("/projects/:id/review-photos/:slot", async (req, res) => {
+  const id = projectId(req.params.id),
+    slot = z.coerce.number().int().min(1).max(10).parse(req.params.slot);
+  const row = await transaction(async (c) => {
+    const p = (
+      await c.query("SELECT customer_id FROM projects WHERE id=$1 FOR UPDATE", [
+        id,
+      ])
+    ).rows[0];
+    if (!p || p.customer_id !== req.account.id)
+      fail(403, "Only the customer can remove these photos.");
+    if ((await c.query("SELECT 1 FROM reviews WHERE project_id=$1", [id])).rowCount)
+      fail(409, "Submitted review photos cannot be changed.");
+    return (
+      await c.query(
+        "DELETE FROM review_images WHERE project_id=$1 AND slot=$2 RETURNING object_key",
+        [id, slot],
+      )
+    ).rows[0];
+  });
+  if (row)
+    void removeObject(row.object_key).catch(() =>
+      console.error("Review image cleanup deferred"),
+    );
+  res.json({ ok: true });
+});
