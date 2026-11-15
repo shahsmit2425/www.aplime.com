@@ -8,21 +8,34 @@ type Contact = {
   consentAt?: string | null;
 };
 
-export function ProjectContact({ projectId }: { projectId: string }) {
+export function ProjectContact({
+  projectId,
+  readOnly = false,
+}: {
+  projectId: string;
+  readOnly?: boolean;
+}) {
   const [contact, setContact] = useState<Contact | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const path = `/projects/${projectId}/contact`;
   useEffect(() => {
     let active = true;
-    request<Contact | null>(path + "?preview=1")
-      .then((result) => {
-        if (active) setContact(result);
-      })
-      .catch(() => {
-        if (active) setError("Could not load project contact details.");
-      });
+    const load = () =>
+      request<Contact | null>(path + "?preview=1")
+        .then((result) => {
+          if (active) {
+            setContact(result);
+            setError("");
+          }
+        })
+        .catch(() => {
+          if (active) setError("Could not load project contact details.");
+        });
+    void load();
+    window.addEventListener("aplime:contact-updated", load);
     return () => {
+      window.removeEventListener("aplime:contact-updated", load);
       active = false;
     };
   }, [path]);
@@ -44,6 +57,7 @@ export function ProjectContact({ projectId }: { projectId: string }) {
     setError("");
     try {
       setContact(await request<Contact>(path, { sharePhone }, "PATCH"));
+      window.dispatchEvent(new Event("aplime:contact-updated"));
     } catch (e) {
       setError(
         e instanceof Error
@@ -71,11 +85,26 @@ export function ProjectContact({ projectId }: { projectId: string }) {
       )}
       {error && <span role="alert">{error}</span>}
       {contact && "consentAt" in contact ? (
-        <PhoneSharingChoice
-          value={!!contact.consentAt}
-          onChange={changeSharing}
-          disabled={busy}
-        />
+        readOnly ? (
+          <p>
+            <strong>Phone sharing: </strong>
+            {contact.consentAt
+              ? "Agreed � matching professionals may call or text about this project."
+              : "Not agreed � your number is private. Professionals can message you in Aplime."}
+          </p>
+        ) : (
+          <div>
+            <PhoneSharingChoice
+              value={!!contact.consentAt}
+              onChange={changeSharing}
+              disabled={busy}
+            />
+            <small role="status">
+              Sharing preferences save immediately, independently of other
+              project changes.
+            </small>
+          </div>
+        )
       ) : (
         contact && (
           <small>

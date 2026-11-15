@@ -1,3 +1,4 @@
+import { ProjectContact } from "./project-contact.js";
 import { T } from "../shared/language.js";
 import { discussionRoute } from "../shared/chat.js";
 import {
@@ -304,6 +305,19 @@ export function EditDetails({
   const dollars = (n: number | null) => (n === null ? "" : String(n / 100));
   const cents = (v: FormDataEntryValue | null) =>
     String(v ?? "").trim() === "" ? null : Math.round(Number(v) * 100);
+  if (!["requested", "quoted"].includes(p.status))
+    return (
+      <Panel title="Project privacy">
+        <p>
+          Project fields and photos are locked at this stage. You can still
+          change whether professionals may contact you by phone.
+        </p>
+        <ProjectContact projectId={p.id} />
+        <button type="button" className="secondary" onClick={onDone}>
+          Done
+        </button>
+      </Panel>
+    );
   return (
     <Panel title="Edit project details">
       <p>
@@ -311,6 +325,7 @@ export function EditDetails({
         the request. Address and category stay the same; start a new project to
         change them.
       </p>
+      <ProjectContact projectId={p.id} />
       <Form
         busy={busy}
         onSubmit={(f) =>

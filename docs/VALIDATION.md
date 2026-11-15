@@ -805,3 +805,12 @@ A disposable PostgreSQL 16 cluster applied the migrations through 031. A custom-
 - Validation: TypeScript and full web/SSR/admin build passed. 18 focused tests passed across marketplace-cards, project-hub, domain, membership-flow and service-questionnaires.
 - Full npm test attempted; local HTTP-based tests failed with fetch failed in this restricted environment and the run was stopped. Full suite is not a pass. Existing dynamic-import build warning remains.
 - Boundary: signed-in desktop/mobile visual inspection, live account workflows and signed iOS/Android builds were not exercised. No deployment performed.
+
+### 2026-11-15 — Compact customer project controls and dialogs
+
+- Moved project photos and read-only contact-sharing status inside expanded Project details. Removed the large duplicate title/metadata block and summary tiles; title, service, ZIP and posting date remain in the detail rows (with a screen-reader page heading).
+- Management controls now sit at the upper right on desktop and stack on narrow screens. Edit, lifecycle confirmations, cancellation responses and appointment forms use native modal dialogs with Escape handling, focus restoration and in-dialog action errors.
+- Phone-sharing changes are available through Edit details and explicitly save immediately using the existing protected contact endpoint. Customers can still revoke consent after booking/completion; fields/photos remain locked outside requested/quoted stages. The detail display refreshes after consent changes. Pro phone-reveal authorization and audit logic are unchanged.
+- Validation: 23 focused tests passed (domain, project-hub, marketplace-cards, project-intake). Full npm test attempted but local HTTP tests failed with fetch failed; stopped the incomplete run. TypeScript and web/SSR/admin build passed before the final privacy-stage refinement; final build result recorded below.
+- Not verified: signed-in browser visual/keyboard interaction, live contact updates and signed native builds. No deployment or commit performed for this change.
+- Final verification after the privacy-stage refinement: npm run build passed, including TypeScript, web client/SSR and admin builds. Existing dynamic-import warning remains.

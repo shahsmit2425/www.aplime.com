@@ -1007,34 +1007,6 @@ input[type="radio"] {
   > .project-details-chips {
   display: none;
 }
-.customer-project .project-summary-tiles {
-  order: 5;
-  flex: 0 0 100%;
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-}
-.project-summary-tiles > span {
-  display: flex;
-  gap: 8px;
-  border: 1px solid #dbe4f5;
-  border-radius: 12px;
-  background: #f8faff;
-  padding: 14px 10px;
-  font-size: 13px;
-  color: #455477;
-}
-.project-summary-tiles svg {
-  flex-shrink: 0;
-  color: #064bff;
-}
-.project-summary-tiles strong {
-  display: block;
-  margin-top: 5px;
-  color: #090f42;
-  font-size: 14px;
-  overflow-wrap: anywhere;
-}
 .project-status-panel h2 {
   display: flex;
   gap: 10px;
@@ -1110,9 +1082,6 @@ input[type="radio"] {
   .customer-project .customer-project-sidebar {
     grid-template-columns: minmax(0, 1fr);
   }
-  .customer-project .project-summary-tiles {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
   .customer-project .project-pro-results,
   .customer-project .project-details-disclosure > summary {
     padding: 14px;
@@ -1153,5 +1122,130 @@ input[type="radio"] {
     width: 72px;
     height: 72px;
     flex-basis: 72px;
+  }
+}
+
+/* Compact customer header; project content lives in the expandable details. */
+.customer-project {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 20px;
+}
+.customer-project > * {
+  grid-column: 1 / -1;
+}
+.customer-project > .customer-project-hero {
+  grid-column: 1;
+  grid-row: 1;
+  padding: 10px 0;
+  margin: 0;
+  border: 0;
+  align-self: start;
+}
+.customer-project > .customer-project-toolbar {
+  grid-column: 2;
+  grid-row: 1;
+  margin: 0 0 20px;
+  max-width: 680px;
+}
+.customer-project .customer-project-toolbar > .panel {
+  margin: 0;
+  padding: 12px 16px;
+}
+.customer-project .customer-project-toolbar .actions {
+  justify-content: flex-end;
+}
+.customer-project .customer-project-toolbar > .panel > h2 {
+  font-size: 15px;
+  text-align: right;
+  margin-bottom: 10px;
+}
+.customer-project .project-detail-columns {
+  grid-template-rows: auto 1fr;
+}
+.customer-project .project-details-disclosure {
+  align-self: start;
+}
+.customer-project .project-details-disclosure .project-contact-card {
+  display: block;
+  margin: 18px 0;
+  padding: 16px;
+  background: #f5f8ff;
+  border: 1px solid #d6e1f5;
+  border-radius: 12px;
+}
+.customer-project .project-details-disclosure .project-contact-card > a {
+  display: block;
+  margin-top: 8px;
+}
+.customer-project .project-details-disclosure .project-photo-panel {
+  margin-top: 20px;
+}
+.project-management-dialog {
+  width: min(720px, calc(100vw - 32px));
+  max-height: 88dvh;
+  overflow: auto;
+  padding: 24px;
+  border: 1px solid #bdcdeb;
+  border-radius: 20px;
+  color: #090f42;
+  background: #fff;
+  box-shadow: 0 24px 80px #07143740;
+}
+.project-management-dialog::backdrop {
+  background: #07143780;
+}
+.project-dialog-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+.project-dialog-heading h2 {
+  margin: 0;
+  font-size: 23px;
+}
+.project-management-dialog .panel {
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+  margin: 0;
+}
+.project-management-dialog .panel > h2 {
+  display: none;
+}
+.project-management-dialog .project-contact-card {
+  display: block;
+  padding: 16px;
+  margin: 16px 0;
+  border: 1px solid #d6e1f5;
+  border-radius: 12px;
+  background: #f5f8ff;
+}
+.project-management-dialog .project-contact-card > a {
+  display: block;
+  margin: 8px 0;
+}
+.project-management-dialog button:focus-visible {
+  outline: 3px solid #064bff;
+  outline-offset: 3px;
+}
+@media (max-width: 850px) {
+  .customer-project {
+    display: block;
+  }
+  .customer-project > .customer-project-toolbar {
+    max-width: none;
+    margin: 12px 0 20px;
+  }
+  .customer-project .customer-project-toolbar .actions {
+    justify-content: flex-start;
+  }
+  .customer-project .customer-project-toolbar > .panel > h2 {
+    text-align: left;
+  }
+  .project-management-dialog {
+    padding: 18px;
   }
 }

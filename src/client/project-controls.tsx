@@ -1,3 +1,4 @@
+import { ProjectDialog } from "./project-dialog.js";
 import { T } from "../shared/language.js";
 import { useEffect, useState, type ReactNode } from "react";
 import {
@@ -94,6 +95,10 @@ export function ProjectControls({
 }) {
   const { data, run, busy } = useWorkspace();
   const [intent, setIntent] = useState<Intent | null>(null);
+  const [cancellationAction, setCancellationAction] = useState<{
+    title: string;
+    body: object;
+  } | null>(null);
   const allowed = (type: ProjectAction["type"]) =>
     allowedTransition(p, data.user, type);
   const underway =
@@ -127,12 +132,14 @@ export function ProjectControls({
           expectedVersion: p.version,
         });
         setIntent(null);
+        setCancellationAction(null);
       },
       outcomes[(body as { type: ProjectAction["type"] }).type] ||
         "Project updated.",
     );
   useEffect(() => {
     setIntent(null);
+    setCancellationAction(null);
   }, [p.id, p.version]);
   const icons = {
     start: Play,
@@ -206,10 +213,13 @@ export function ProjectControls({
                   <button
                     disabled={busy}
                     onClick={() =>
-                      void submit({
-                        type: "respond_cancellation",
-                        requestId: p.cancellationRequestId,
-                        accept: true,
+                      setCancellationAction({
+                        title: "Agree to cancellation",
+                        body: {
+                          type: "respond_cancellation",
+                          requestId: p.cancellationRequestId,
+                          accept: true,
+                        },
                       })
                     }
                   >
@@ -219,10 +229,13 @@ export function ProjectControls({
                     className="secondary"
                     disabled={busy}
                     onClick={() =>
-                      void submit({
-                        type: "respond_cancellation",
-                        requestId: p.cancellationRequestId,
-                        accept: false,
+                      setCancellationAction({
+                        title: "Keep project open",
+                        body: {
+                          type: "respond_cancellation",
+                          requestId: p.cancellationRequestId,
+                          accept: false,
+                        },
                       })
                     }
                   >
@@ -234,7 +247,12 @@ export function ProjectControls({
                 <button
                   className="secondary"
                   disabled={busy}
-                  onClick={() => void submit({ type: "withdraw_cancellation" })}
+                  onClick={() =>
+                    setCancellationAction({
+                      title: "Withdraw cancellation request",
+                      body: { type: "withdraw_cancellation" },
+                    })
+                  }
                 >
                   Withdraw my cancellation request
                 </button>
@@ -243,13 +261,11 @@ export function ProjectControls({
           </div>
         )}
         <div className="actions">
-          {onEdit &&
-            p.customerId === data.user.id &&
-            ["requested", "quoted"].includes(p.status) && (
-              <button className="secondary" disabled={busy} onClick={onEdit}>
-                <Pencil size={17} /> <T>{"Edit details"}</T>{" "}
-              </button>
-            )}
+          {onEdit && p.customerId === data.user.id && (
+            <button className="secondary" disabled={busy} onClick={onEdit}>
+              <Pencil size={17} /> <T>{"Edit details"}</T>{" "}
+            </button>
+          )}
           {(Object.keys(icons) as (keyof typeof icons)[])
             .filter(
               (type) =>
@@ -276,41 +292,67 @@ export function ProjectControls({
             })}
         </div>
         {extraActions}
-        {intent && (
-          <Form
+        {cancellationAction && (
+          <ProjectDialog
+            title={cancellationAction.title}
             busy={busy}
-            onSubmit={(f) =>
-              submit({
-                type: intent,
-                ...(needsReason.has(intent) ? { reason: f.get("reason") } : {}),
-              })
-            }
+            onClose={() => setCancellationAction(null)}
           >
-            <h3>{descriptions[intent][0]}</h3>
-            <p>{descriptions[intent][1]}</p>
-            {needsReason.has(intent) && (
-              <Field label="Reason">
-                <textarea
-                  name="reason"
-                  required
-                  maxLength={intent === "dispute" ? 2000 : 1000}
-                />
-              </Field>
-            )}
-            <div className="actions">
-              <button disabled={busy}>
-                <T>{"Confirm"}</T> {descriptions[intent][0].toLowerCase()}
-              </button>
-              <button
-                disabled={busy}
-                type="button"
-                className="text-button"
-                onClick={() => setIntent(null)}
-              >
-                Go back
-              </button>
-            </div>
-          </Form>
+            <p>
+              Confirm your response to this cancellation request. The other
+              participant will be notified.
+            </p>
+            <button
+              disabled={busy}
+              onClick={() => void submit(cancellationAction.body)}
+            >
+              Confirm
+            </button>
+          </ProjectDialog>
+        )}
+        {intent && (
+          <ProjectDialog
+            title={descriptions[intent][0]}
+            busy={busy}
+            onClose={() => setIntent(null)}
+          >
+            <Form
+              busy={busy}
+              onSubmit={(f) =>
+                submit({
+                  type: intent,
+                  ...(needsReason.has(intent)
+                    ? { reason: f.get("reason") }
+                    : {}),
+                })
+              }
+            >
+              <h3>{descriptions[intent][0]}</h3>
+              <p>{descriptions[intent][1]}</p>
+              {needsReason.has(intent) && (
+                <Field label="Reason">
+                  <textarea
+                    name="reason"
+                    required
+                    maxLength={intent === "dispute" ? 2000 : 1000}
+                  />
+                </Field>
+              )}
+              <div className="actions">
+                <button disabled={busy}>
+                  <T>{"Confirm"}</T> {descriptions[intent][0].toLowerCase()}
+                </button>
+                <button
+                  disabled={busy}
+                  type="button"
+                  className="text-button"
+                  onClick={() => setIntent(null)}
+                >
+                  Go back
+                </button>
+              </div>
+            </Form>
+          </ProjectDialog>
         )}
       </Panel>
       {!hideActivity && <ProjectActivity project={p} />}

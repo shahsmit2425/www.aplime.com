@@ -1,3 +1,4 @@
+import { ProjectDialog } from "./project-dialog.js";
 import { ReviewPhotoEditor } from "./review-photos.js";
 import { PushSettings } from "./push.js";
 import { ProjectContact } from "./project-contact.js";
@@ -14,7 +15,6 @@ import {
   CustomerProjectHeader,
   CustomerProjectDetails,
   CustomerProjectStatus,
-  CustomerProjectSummary,
 } from "./project-presentation.js";
 import { CustomerDashboard } from "./customer-dashboard.js";
 import { ProDashboard } from "./pro-dashboard.js";
@@ -499,7 +499,6 @@ function ProjectDetail() {
                 hasOwnEstimate={false}
                 onPropose={() => {
                   setAction("reschedule");
-                  jumpTo("project-details");
                 }}
                 onEdit={() => setEditing(true)}
               />
@@ -507,7 +506,7 @@ function ProjectDetail() {
           />
         </div>
       )}
-      <ProjectContact key={p.id} projectId={p.id} />
+      {!customer && <ProjectContact key={p.id} projectId={p.id} />}
       {data.marketplacePreview &&
         data.user.role === "pro" &&
         !!data.discoveryRequirements?.length && (
@@ -531,14 +530,83 @@ function ProjectDetail() {
           onEdit={() => setEditing(true)}
         />
       )}
+      {action && (
+        <ProjectDialog
+          title={
+            action === "reschedule"
+              ? "Propose an appointment"
+              : "Project action"
+          }
+          busy={busy}
+          onClose={() => setAction("")}
+        >
+          <Form
+            busy={busy}
+            onSubmit={(f) =>
+              run(async () => {
+                await submit(
+                  action === "reschedule"
+                    ? {
+                        type: action,
+                        scheduledAt: new Date(
+                          String(f.get("time")),
+                        ).toISOString(),
+                      }
+                    : { type: action, reason: f.get("reason") },
+                );
+                setAction("");
+              }, "Project updated.")
+            }
+          >
+            <h3>
+              {action === "reschedule"
+                ? "Propose an appointment"
+                : action === "cancel"
+                  ? "Confirm cancellation"
+                  : "Tell us what happened"}
+            </h3>
+            {action === "reschedule" &&
+              data.profiles.find((profile) => profile.id === p.proId) && (
+                <Availability
+                  profile={data.profiles.find(
+                    (profile) => profile.id === p.proId,
+                  )!}
+                />
+              )}
+            {action === "reschedule" ? (
+              <Field label="One-hour visit (your device time zone)">
+                <input name="time" type="datetime-local" required />
+              </Field>
+            ) : (
+              <Field label="Reason">
+                <textarea name="reason" maxLength={2000} required />
+              </Field>
+            )}
+            <button>
+              <T>{"Confirm"}</T> {action}
+            </button>
+            <button
+              type="button"
+              className="text-button"
+              onClick={() => setAction("")}
+            >
+              <T>{"Keep current details"}</T>{" "}
+            </button>
+          </Form>
+        </ProjectDialog>
+      )}
       {editing && customer && (
-        <section id="project-edit" aria-label="Edit project details">
+        <ProjectDialog
+          title="Edit project details"
+          busy={busy}
+          onClose={() => setEditing(false)}
+        >
           <EditDetails
             project={p}
             submit={submit}
             onDone={() => setEditing(false)}
           />
-        </section>
+        </ProjectDialog>
       )}
       {customer && p.proId && open && (
         <Panel title="Waiting on your chosen professional">
@@ -660,7 +728,6 @@ function ProjectDetail() {
                     <span key={i}>{v}</span>
                   ))}
               </span>
-              <CustomerProjectSummary project={p} />
               <span className="project-expand-label">
                 <span className="expand-copy">
                   <T>{"Expand details"}</T>
@@ -674,7 +741,22 @@ function ProjectDetail() {
           )}
           <Panel title={customer ? undefined : "Project details"}>
             {customer ? (
-              <CustomerProjectDetails project={p} />
+              <>
+                <CustomerProjectDetails project={p} />
+                <ProjectContact key={p.id} projectId={p.id} readOnly />
+                <ProjectPhotoGallery key={p.id} files={projectPhotos} />
+                {open && (
+                  <button
+                    className="secondary project-add-photos"
+                    onClick={() => setEditing(true)}
+                  >
+                    <Upload size={16} />
+                    {projectPhotos.length
+                      ? "Manage project photos"
+                      : "Add project photos"}
+                  </button>
+                )}
+              </>
             ) : (
               <>
                 <p className="project-description">{p.description}</p>
@@ -754,61 +836,6 @@ function ProjectDetail() {
                 </dl>
               </>
             )}
-            {action && (
-              <Form
-                busy={busy}
-                onSubmit={(f) =>
-                  run(async () => {
-                    await submit(
-                      action === "reschedule"
-                        ? {
-                            type: action,
-                            scheduledAt: new Date(
-                              String(f.get("time")),
-                            ).toISOString(),
-                          }
-                        : { type: action, reason: f.get("reason") },
-                    );
-                    setAction("");
-                  }, "Project updated.")
-                }
-              >
-                <h3>
-                  {action === "reschedule"
-                    ? "Propose an appointment"
-                    : action === "cancel"
-                      ? "Confirm cancellation"
-                      : "Tell us what happened"}
-                </h3>
-                {action === "reschedule" &&
-                  data.profiles.find((profile) => profile.id === p.proId) && (
-                    <Availability
-                      profile={data.profiles.find(
-                        (profile) => profile.id === p.proId,
-                      )!}
-                    />
-                  )}
-                {action === "reschedule" ? (
-                  <Field label="One-hour visit (your device time zone)">
-                    <input name="time" type="datetime-local" required />
-                  </Field>
-                ) : (
-                  <Field label="Reason">
-                    <textarea name="reason" maxLength={2000} required />
-                  </Field>
-                )}
-                <button>
-                  <T>{"Confirm"}</T> {action}
-                </button>
-                <button
-                  type="button"
-                  className="text-button"
-                  onClick={() => setAction("")}
-                >
-                  <T>{"Keep current details"}</T>{" "}
-                </button>
-              </Form>
-            )}
           </Panel>
           {!customer && (
             <ProjectPhotoGallery key={p.id} files={projectPhotos} />
@@ -817,18 +844,6 @@ function ProjectDetail() {
         {customer && (
           <aside className="customer-project-sidebar">
             <CustomerProjectStatus project={p} />
-            <ProjectPhotoGallery key={p.id} files={projectPhotos} />
-            {open && (
-              <button
-                className="secondary project-add-photos"
-                onClick={() => setEditing(true)}
-              >
-                <Upload size={16} />
-                {projectPhotos.length
-                  ? "Manage project photos"
-                  : "Add project photos"}
-              </button>
-            )}
             <ProjectActivity project={p} />
           </aside>
         )}

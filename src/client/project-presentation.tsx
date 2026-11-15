@@ -38,49 +38,30 @@ export function CustomerProjectHeader({
 }) {
   return (
     <header className="customer-project-hero">
+      <h1 className="sr-only">{p.title}</h1>
       <div className="project-hero-copy">
         <button className="text-button project-back" onClick={onBack}>
           <ArrowLeft size={16} />
           Back to dashboard
         </button>
-        <div className="project-hero-title">
-          <h1>{p.title}</h1>
-          <Badge>{p.status.replace("_", " ")}</Badge>
-        </div>
-        <div className="project-hero-meta">
-          <span>
-            <ServiceIcon service={p.category} size={16} />
-            {p.category}
-          </span>
-          <span>
-            <House size={16} />
-            {property[p.propertyType]}
-          </span>
-          <span>
-            <MapPin size={16} />
-            {p.zip}
-          </span>
-          <span>
-            <CalendarDays size={16} />
-            Posted{" "}
-            {new Date(p.createdAt).toLocaleDateString(undefined, {
-              month: "short",
-              day: "numeric",
-              year: "numeric",
-            })}
-          </span>
-        </div>
-        <p className="project-description-desktop">{p.description}</p>
-        <details className="project-description-mobile">
-          <summary>Project description</summary>
-          <p>{p.description}</p>
-        </details>
       </div>
     </header>
   );
 }
 export function CustomerProjectDetails({ project: p }: { project: Project }) {
   const rows: { label: string; value: ReactNode; icon: ReactNode }[] = [
+    { label: "Project title", value: p.title, icon: <FileText size={17} /> },
+    {
+      label: "Service",
+      value: p.category,
+      icon: <ServiceIcon service={p.category} size={17} />,
+    },
+    { label: "ZIP code", value: p.zip, icon: <MapPin size={17} /> },
+    {
+      label: "Posted",
+      value: new Date(p.createdAt).toLocaleDateString(),
+      icon: <CalendarDays size={17} />,
+    },
     ...Object.entries(p.intake || {}).map(([key, value]) => ({
       label: questionLabel(p.category as ServiceCategory, key),
       value,
@@ -173,39 +154,6 @@ export function CustomerProjectDetails({ project: p }: { project: Project }) {
         ))}
       </dl>
     </>
-  );
-}
-
-export function CustomerProjectSummary({ project: p }: { project: Project }) {
-  return (
-    <span className="project-summary-tiles">
-      {[
-        {
-          label: "Service",
-          value: p.category,
-          icon: <ServiceIcon service={p.category} size={18} />,
-        },
-        { label: "Location", value: p.zip, icon: <MapPin size={18} /> },
-        {
-          label: "Property",
-          value: property[p.propertyType],
-          icon: <House size={18} />,
-        },
-        {
-          label: "Timing",
-          value: timing[p.urgency],
-          icon: <Clock3 size={18} />,
-        },
-      ].map((item) => (
-        <span key={item.label}>
-          {item.icon}
-          <span>
-            {item.label}
-            <strong>{item.value}</strong>
-          </span>
-        </span>
-      ))}
-    </span>
   );
 }
 

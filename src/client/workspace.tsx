@@ -68,6 +68,7 @@ type WorkspaceContext = {
     after?: () => void,
   ) => Promise<void>;
   busy: boolean;
+  actionError?: string;
 };
 const Context = createContext<WorkspaceContext | null>(null);
 export function useWorkspace() {
@@ -1032,7 +1033,7 @@ export default function Workspace() {
   );
   return (
     <Context.Provider
-      value={{ data, page: route.page, id: route.id, go, run, busy }}
+      value={{ data, page: route.page, id: route.id, go, run, busy, actionError: error }}
     >
       <MeetingProvider key={data.user.id} userId={data.user.id}>
         <NativePush userId={data.user.id} go={go} />
