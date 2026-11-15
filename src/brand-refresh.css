@@ -858,3 +858,300 @@ input[type="radio"] {
     height: 110px;
   }
 }
+
+/* Shared category accents: the label remains visible so color is never the only cue. */
+[data-service] {
+  --category-ink: #1847aa;
+  --category-soft: #edf3ff;
+  --category-border: #a9bfe9;
+}
+[data-service="Handyman"] {
+  --category-ink: #234cba;
+  --category-soft: #edf2ff;
+  --category-border: #a5b9eb;
+}
+[data-service="Cleaning"] {
+  --category-ink: #08677e;
+  --category-soft: #e8faff;
+  --category-border: #91ccd9;
+}
+[data-service="Plumbing"] {
+  --category-ink: #075eae;
+  --category-soft: #e9f5ff;
+  --category-border: #94bfe5;
+}
+[data-service="Electrical"] {
+  --category-ink: #855000;
+  --category-soft: #fff7df;
+  --category-border: #dfbf71;
+}
+[data-service="Painting"] {
+  --category-ink: #7435a1;
+  --category-soft: #f6edff;
+  --category-border: #c8a5e2;
+}
+[data-service="Landscaping"] {
+  --category-ink: #116763;
+  --category-soft: #e7f8f5;
+  --category-border: #91c7bf;
+}
+[data-service="Junk Removal"] {
+  --category-ink: #98401d;
+  --category-soft: #fff0e8;
+  --category-border: #e2af95;
+}
+[data-service="HVAC"] {
+  --category-ink: #3e459f;
+  --category-soft: #efefff;
+  --category-border: #b0b3df;
+}
+[data-service="Roofing"] {
+  --category-ink: #82424e;
+  --category-soft: #fff0f3;
+  --category-border: #d8aab4;
+}
+[data-service="Tree Services"] {
+  --category-ink: #356071;
+  --category-soft: #edf6fa;
+  --category-border: #a2c2d0;
+}
+[data-service="Appliance Repair"] {
+  --category-ink: #535389;
+  --category-soft: #f1f1fa;
+  --category-border: #b8b8d6;
+}
+[data-service="Pest Control"] {
+  --category-ink: #8b3979;
+  --category-soft: #fceefa;
+  --category-border: #d9a5ce;
+}
+.workspace .project-card,
+.workspace .pro-listing {
+  border: 1px solid var(--category-border, #b4c5e5);
+  border-top: 4px solid var(--category-ink, #2455b4);
+  background: linear-gradient(155deg, var(--category-soft, #eef3ff), #fff 48%);
+  box-shadow: 0 5px 18px #102b6010;
+}
+.workspace .project-card:hover,
+.workspace .pro-listing:hover {
+  border-color: var(--category-ink, #2455b4);
+}
+.workspace .project-card .service-emblem {
+  background: var(--category-soft);
+  color: var(--category-ink);
+}
+.workspace .project-card-visual {
+  background: var(--category-soft);
+  color: var(--category-ink);
+}
+.workspace
+  .customer-project
+  :is(.panel, .project-details-disclosure, .project-pro-results) {
+  border: 1px solid #ccd9ef;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 4px 20px #1b3e7810;
+}
+.customer-project .customer-project-toolbar {
+  display: block;
+  margin: 0 0 20px;
+}
+.customer-project .customer-project-toolbar > .panel {
+  padding: 16px 20px;
+}
+.customer-project .customer-project-toolbar .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.customer-project .customer-project-toolbar .actions button {
+  width: auto;
+}
+.customer-project .project-detail-columns {
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: 20px;
+}
+.customer-project .project-details-disclosure {
+  grid-column: 2;
+  grid-row: 1;
+}
+.customer-project .customer-project-sidebar {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+}
+.customer-project .project-estimates {
+  grid-column: 2;
+  grid-row: 2;
+}
+.customer-project .project-pro-results {
+  padding: 20px;
+  margin-bottom: 20px;
+}
+.customer-project .project-estimates .pro-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+.customer-project .project-details-disclosure > summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 20px;
+}
+.customer-project
+  .project-details-disclosure
+  > summary
+  > .project-details-chips {
+  display: none;
+}
+.customer-project .project-summary-tiles {
+  order: 5;
+  flex: 0 0 100%;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+.project-summary-tiles > span {
+  display: flex;
+  gap: 8px;
+  border: 1px solid #dbe4f5;
+  border-radius: 12px;
+  background: #f8faff;
+  padding: 14px 10px;
+  font-size: 13px;
+  color: #455477;
+}
+.project-summary-tiles svg {
+  flex-shrink: 0;
+  color: #064bff;
+}
+.project-summary-tiles strong {
+  display: block;
+  margin-top: 5px;
+  color: #090f42;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.project-status-panel h2 {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.project-status-panel h2 svg {
+  color: #064bff;
+}
+.project-status-track {
+  list-style: none;
+  padding: 0;
+  margin: 22px 0 0;
+}
+.project-status-track li {
+  position: relative;
+  padding: 0 0 25px 30px;
+  border-left: 2px solid #d9e3f7;
+  margin-left: 10px;
+}
+.project-status-track li:last-child {
+  padding-bottom: 0;
+  border-left-color: transparent;
+}
+.project-status-track li::before {
+  content: "";
+  position: absolute;
+  left: -9px;
+  top: 0;
+  width: 16px;
+  height: 16px;
+  border: 2px solid #adbbd5;
+  border-radius: 50%;
+  background: white;
+}
+.project-status-track li[data-state="current"]::before {
+  background: #064bff;
+  border-color: #064bff;
+  box-shadow: 0 0 0 4px #eaf0ff;
+}
+.project-status-track li[data-state="past"]::before {
+  background: #dce8ff;
+  border-color: #5275bd;
+}
+.project-status-track li[data-state="current"] strong {
+  color: #064bff;
+}
+.project-status-track small {
+  display: block;
+  color: #455477;
+  margin-top: 4px;
+  line-height: 1.5;
+}
+.customer-project-sidebar .project-activity {
+  max-height: 360px;
+  overflow: auto;
+}
+@media (max-width: 1050px) {
+  .customer-project .project-detail-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .customer-project .project-details-disclosure,
+  .customer-project .customer-project-sidebar,
+  .customer-project .project-estimates {
+    grid-column: 1;
+    grid-row: auto;
+    order: initial;
+  }
+  .customer-project .customer-project-sidebar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 600px) {
+  .customer-project .customer-project-sidebar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .customer-project .project-summary-tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .customer-project .project-pro-results,
+  .customer-project .project-details-disclosure > summary {
+    padding: 14px;
+  }
+}
+@media (min-width: 1100px) {
+  .customer-project .pro-listing[data-layout="horizontal"] {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 210px;
+    gap: 10px 20px;
+    padding: 18px;
+  }
+  .customer-project .pro-listing[data-layout="horizontal"] > * {
+    grid-column: 1;
+    margin: 0;
+  }
+  .customer-project
+    .pro-listing[data-layout="horizontal"]
+    > .pro-listing-footer {
+    grid-column: 2;
+    grid-row: 1 / span 4;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: space-between;
+    border: 0;
+    padding: 0;
+  }
+  .customer-project
+    .pro-listing[data-layout="horizontal"]
+    > :is(.pro-listing-project, .business-portfolio, .pro-listing-ad) {
+    grid-column: 1 / -1;
+  }
+  .customer-project .pro-listing-title h2 {
+    font-size: 20px;
+  }
+  .customer-project .pro-listing-logo {
+    width: 72px;
+    height: 72px;
+    flex-basis: 72px;
+  }
+}

@@ -126,6 +126,7 @@ export function ProjectCard({
     <button
       type="button"
       className="project-card"
+      data-service={p.category}
       onClick={onOpen}
       aria-label={"View project: " + p.title}
     >

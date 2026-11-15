@@ -175,3 +175,96 @@ export function CustomerProjectDetails({ project: p }: { project: Project }) {
     </>
   );
 }
+
+export function CustomerProjectSummary({ project: p }: { project: Project }) {
+  return (
+    <span className="project-summary-tiles">
+      {[
+        {
+          label: "Service",
+          value: p.category,
+          icon: <ServiceIcon service={p.category} size={18} />,
+        },
+        { label: "Location", value: p.zip, icon: <MapPin size={18} /> },
+        {
+          label: "Property",
+          value: property[p.propertyType],
+          icon: <House size={18} />,
+        },
+        {
+          label: "Timing",
+          value: timing[p.urgency],
+          icon: <Clock3 size={18} />,
+        },
+      ].map((item) => (
+        <span key={item.label}>
+          {item.icon}
+          <span>
+            {item.label}
+            <strong>{item.value}</strong>
+          </span>
+        </span>
+      ))}
+    </span>
+  );
+}
+
+export function CustomerProjectStatus({ project: p }: { project: Project }) {
+  const steps = [
+    {
+      status: "requested",
+      label: "Requested",
+      text: "Find matching professionals",
+    },
+    { status: "quoted", label: "Estimates", text: "Review written estimates" },
+    {
+      status: "booked",
+      label: "Professional chosen",
+      text: "Confirm the project arrangements",
+    },
+    {
+      status: "in_progress",
+      label: "In progress",
+      text: "Keep in touch as work progresses",
+    },
+    {
+      status: "completed",
+      label: "Completed",
+      text: "Share your experience in a review",
+    },
+  ];
+  const stage = p.status === "paused" ? p.pausedFrom : p.status;
+  const index = steps.findIndex((step) => step.status === stage);
+  return (
+    <section
+      className="panel project-status-panel"
+      aria-labelledby="project-status-heading"
+    >
+      <h2 id="project-status-heading">
+        <Clock3 size={21} /> Project status
+      </h2>
+      {["paused", "cancelled", "disputed"].includes(p.status) && (
+        <p>
+          <Badge>{p.status}</Badge>
+        </p>
+      )}
+      <ol className="project-status-track">
+        {steps.map((step, i) => (
+          <li
+            key={step.status}
+            data-state={i === index ? "current" : i < index ? "past" : "future"}
+            aria-current={i === index ? "step" : undefined}
+          >
+            <strong>{step.label}</strong>
+            <small>{step.text}</small>
+          </li>
+        ))}
+      </ol>
+      {p.scheduledAt && (
+        <p className="muted">
+          Appointment: {new Date(p.scheduledAt).toLocaleString()}
+        </p>
+      )}
+    </section>
+  );
+}

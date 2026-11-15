@@ -1,5 +1,5 @@
 import { ReviewPhotoEditor } from "./review-photos.js";
-import { PushSettings } from './push.js';
+import { PushSettings } from "./push.js";
 import { ProjectContact } from "./project-contact.js";
 import { RatingPicker, ReviewCard } from "./reviews.js";
 import { T } from "../shared/language.js";
@@ -13,6 +13,8 @@ import { ProjectPhotoGallery } from "./project-photo-gallery.js";
 import {
   CustomerProjectHeader,
   CustomerProjectDetails,
+  CustomerProjectStatus,
+  CustomerProjectSummary,
 } from "./project-presentation.js";
 import { CustomerDashboard } from "./customer-dashboard.js";
 import { ProDashboard } from "./pro-dashboard.js";
@@ -23,7 +25,7 @@ import { Subscription } from "./subscription.js";
 import { MessagesInbox } from "./messages.js";
 import { BusinessNavigation } from "./business-navigation.js";
 import { AwardResponse } from "./award-response.js";
-import { ProjectControls } from "./project-controls.js";
+import { ProjectControls, ProjectActivity } from "./project-controls.js";
 import { Preferences } from "./preferences.js";
 import { AccountData } from "./account-data.js";
 import { Availability } from "./availability.js";
@@ -479,6 +481,32 @@ function ProjectDetail() {
           {p.category} · {p.zip}
         </Head>
       )}
+      {customer && (
+        <div className="customer-project-controls customer-project-toolbar">
+          <ProjectControls
+            key={p.id}
+            hideActivity
+            project={p}
+            onEdit={() => setEditing(true)}
+            extraActions={
+              <ProjectActionBar
+                compact
+                project={p}
+                canRespond={false}
+                hasEstimates={quotes.some(
+                  (q) => !q.assessmentRequired && q.status === "pending",
+                )}
+                hasOwnEstimate={false}
+                onPropose={() => {
+                  setAction("reschedule");
+                  jumpTo("project-details");
+                }}
+                onEdit={() => setEditing(true)}
+              />
+            }
+          />
+        </div>
+      )}
       <ProjectContact key={p.id} projectId={p.id} />
       {data.marketplacePreview &&
         data.user.role === "pro" &&
@@ -632,6 +660,7 @@ function ProjectDetail() {
                     <span key={i}>{v}</span>
                   ))}
               </span>
+              <CustomerProjectSummary project={p} />
               <span className="project-expand-label">
                 <span className="expand-copy">
                   <T>{"Expand details"}</T>
@@ -787,6 +816,7 @@ function ProjectDetail() {
         </DetailsContainer>
         {customer && (
           <aside className="customer-project-sidebar">
+            <CustomerProjectStatus project={p} />
             <ProjectPhotoGallery key={p.id} files={projectPhotos} />
             {open && (
               <button
@@ -799,29 +829,7 @@ function ProjectDetail() {
                   : "Add project photos"}
               </button>
             )}
-            <div className="customer-project-controls">
-              <ProjectControls
-                key={p.id}
-                project={p}
-                onEdit={() => setEditing(true)}
-                extraActions={
-                  <ProjectActionBar
-                    compact
-                    project={p}
-                    canRespond={false}
-                    hasEstimates={quotes.some(
-                      (q) => !q.assessmentRequired && q.status === "pending",
-                    )}
-                    hasOwnEstimate={false}
-                    onPropose={() => {
-                      setAction("reschedule");
-                      jumpTo("project-details");
-                    }}
-                    onEdit={() => setEditing(true)}
-                  />
-                }
-              />
-            </div>
+            <ProjectActivity project={p} />
           </aside>
         )}
         <div id="project-estimates" className="project-estimates">
@@ -1123,8 +1131,8 @@ function Reviews() {
       {data.user.role === "customer" && (
         <p className="muted">
           <T>
-            One review per completed project. You can review the same professional
-            again after a different project is completed.
+            One review per completed project. You can review the same
+            professional again after a different project is completed.
           </T>
         </p>
       )}
@@ -1159,14 +1167,24 @@ function Reviews() {
               editable
               onBusy={setPhotosBusy}
             />
-            <p className="review-submit-notice">Check your rating, message and photos before submitting. You can submit once per project. Your review and photos cannot be edited or added to afterward.</p>
+            <p className="review-submit-notice">
+              Check your rating, message and photos before submitting. You can
+              submit once per project. Your review and photos cannot be edited
+              or added to afterward.
+            </p>
             <button>
               <T>{"Submit review"}</T>
             </button>
           </Form>
         </Panel>
       ))}
-      <Panel title={data.user.role === "customer" ? "Your submitted reviews" : "Customer reviews"}>
+      <Panel
+        title={
+          data.user.role === "customer"
+            ? "Your submitted reviews"
+            : "Customer reviews"
+        }
+      >
         {data.reviews.length ? (
           data.reviews.map((r) => (
             <article className="review" key={r.id}>
@@ -1183,7 +1201,11 @@ function Reviews() {
                 context={data.projects.find((p) => p.id === r.projectId)?.title}
               />
               <ReviewPhotoEditor projectId={r.projectId} />
-              {data.user.role === "customer" && <p className="muted">Submitted - Your rating, message and photos are final.</p>}
+              {data.user.role === "customer" && (
+                <p className="muted">
+                  Submitted - Your rating, message and photos are final.
+                </p>
+              )}
               {!r.reply && r.proId === data.user.id && (
                 <Form
                   busy={busy}
@@ -1197,7 +1219,10 @@ function Reviews() {
                     )
                   }
                 >
-                  <p className="review-submit-notice">You can post one public reply. Once submitted, it cannot be edited.</p>
+                  <p className="review-submit-notice">
+                    You can post one public reply. Once submitted, it cannot be
+                    edited.
+                  </p>
                   <Field label="Your reply">
                     <textarea name="reply" maxLength={1500} required />
                   </Field>

@@ -114,13 +114,13 @@ const navigation = {
     ["schedule", "Schedule"],
     ["messages", "Messages"],
     ["saved", "Saved pros"],
-    ["reviews", "My reviews"],
   ],
   pro: [
     ["dashboard", "Dashboard"],
     ["schedule", "Schedule"],
     ["messages", "Messages"],
     ["profile", "My business"],
+    ["subscription", "Subscription"],
     ["reviews", "Reviews"],
   ],
   admin: [],
@@ -956,7 +956,6 @@ export default function Workspace() {
           p === "profile" &&
           [
             "verification",
-            "subscription",
             "availability",
             "onboarding",
             "payments",

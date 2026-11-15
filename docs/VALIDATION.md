@@ -796,3 +796,12 @@ A disposable PostgreSQL 16 cluster applied the migrations through 031. A custom-
 - Added 12 optimized, lazy-loaded illustrative service photographs and landing-page sections about request preparation, estimate scope, calls/visits, New Jersey availability, verification limits, direct payment arrangements, and FAQs. No provider availability, licensing, insurance, prices or reviews are fabricated.
 - Validation: TypeScript and web/admin production builds passed. All 29 targeted marketplace-card, SEO, intake, language and domain tests passed. Static scan found no legacy green hues in src/apps-admin stylesheets; git diff --check passed.
 - Full npm test was attempted but localhost HTTP tests failed with fetch errors under the current network restriction; stopped the blocked runs. The earlier 227-test result does not represent this change. Browser visual verification remains incomplete (local HTTP preview unavailable; user stopped Computer Use). Signed mobile and deployed environments remain unverified.
+
+### 2026-11-15 — Customer project layout and role navigation
+
+- Removed customer Reviews from shared desktop/mobile navigation. Completed projects retain Leave a review and now offer View my reviews after submission. Added pro Subscription navigation with its own active state.
+- Reorganized customer project details into a status/photos/activity sidebar and details/professionals main column, with management controls near the header. Preserved server-authorized actions, confirmations, estimate acceptance, contact controls, and optional call flow.
+- Added labeled, service-specific accents and visible borders to shared customer/pro project and professional cards. No sample providers, ratings, prices or project photos were added.
+- Validation: TypeScript and full web/SSR/admin build passed. 18 focused tests passed across marketplace-cards, project-hub, domain, membership-flow and service-questionnaires.
+- Full npm test attempted; local HTTP-based tests failed with fetch failed in this restricted environment and the run was stopped. Full suite is not a pass. Existing dynamic-import build warning remains.
+- Boundary: signed-in desktop/mobile visual inspection, live account workflows and signed iOS/Android builds were not exercised. No deployment performed.

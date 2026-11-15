@@ -85,15 +85,15 @@ export function ProjectControls({
   project: p,
   onEdit,
   extraActions,
+  hideActivity = false,
 }: {
   project: Project;
   onEdit?: () => void;
   extraActions?: ReactNode;
+  hideActivity?: boolean;
 }) {
   const { data, run, busy } = useWorkspace();
   const [intent, setIntent] = useState<Intent | null>(null);
-  const [activity, setActivity] = useState<Activity[]>([]),
-    [problem, setProblem] = useState("");
   const allowed = (type: ProjectAction["type"]) =>
     allowedTransition(p, data.user, type);
   const underway =
@@ -134,38 +134,6 @@ export function ProjectControls({
   useEffect(() => {
     setIntent(null);
   }, [p.id, p.version]);
-  useEffect(() => {
-    let active = true;
-    let pending = false;
-    const load = async () => {
-      if (pending) return;
-      pending = true;
-      try {
-        const rows = await request<Activity[]>(
-          "/projects/" + p.id + "/activity",
-        );
-        if (active) {
-          setActivity(rows);
-          setProblem("");
-        }
-      } catch (error) {
-        if (active)
-          setProblem(
-            error instanceof Error ? error.message : "Could not load activity.",
-          );
-      } finally {
-        pending = false;
-      }
-    };
-    void load();
-    window.addEventListener("aplime:updates", load);
-    window.addEventListener("aplime:meetings", load);
-    return () => {
-      active = false;
-      window.removeEventListener("aplime:updates", load);
-      window.removeEventListener("aplime:meetings", load);
-    };
-  }, [p.id, p.version, data.user.id]);
   const icons = {
     start: Play,
     complete: CheckCircle2,
@@ -345,26 +313,67 @@ export function ProjectControls({
           </Form>
         )}
       </Panel>
-      <Panel title="Project activity">
-        {problem ? (
-          <p role="status">{problem}</p>
-        ) : activity.length ? (
-          <ol className="project-activity">
-            {activity.map((event) => (
-              <li key={event.id}>
-                <strong>{event.summary}</strong>
-                <small>
-                  {event.actor_name} ·{" "}
-                  {new Date(event.created_at).toLocaleString()}
-                </small>
-                {event.reason && <p>{event.reason}</p>}
-              </li>
-            ))}
-          </ol>
-        ) : (
-          <p>New project actions will appear here.</p>
-        )}
-      </Panel>
+      {!hideActivity && <ProjectActivity project={p} />}
     </>
+  );
+}
+
+export function ProjectActivity({ project: p }: { project: Project }) {
+  const { data } = useWorkspace();
+  const [activity, setActivity] = useState<Activity[]>([]),
+    [problem, setProblem] = useState("");
+  useEffect(() => {
+    let active = true;
+    let pending = false;
+    const load = async () => {
+      if (pending) return;
+      pending = true;
+      try {
+        const rows = await request<Activity[]>(
+          "/projects/" + p.id + "/activity",
+        );
+        if (active) {
+          setActivity(rows);
+          setProblem("");
+        }
+      } catch (error) {
+        if (active)
+          setProblem(
+            error instanceof Error ? error.message : "Could not load activity.",
+          );
+      } finally {
+        pending = false;
+      }
+    };
+    void load();
+    window.addEventListener("aplime:updates", load);
+    window.addEventListener("aplime:meetings", load);
+    return () => {
+      active = false;
+      window.removeEventListener("aplime:updates", load);
+      window.removeEventListener("aplime:meetings", load);
+    };
+  }, [p.id, p.version, data.user.id]);
+  return (
+    <Panel title="Project activity">
+      {problem ? (
+        <p role="status">{problem}</p>
+      ) : activity.length ? (
+        <ol className="project-activity">
+          {activity.map((event) => (
+            <li key={event.id}>
+              <strong>{event.summary}</strong>
+              <small>
+                {event.actor_name} ·{" "}
+                {new Date(event.created_at).toLocaleString()}
+              </small>
+              {event.reason && <p>{event.reason}</p>}
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p>New project actions will appear here.</p>
+      )}
+    </Panel>
   );
 }

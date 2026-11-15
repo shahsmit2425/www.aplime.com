@@ -263,13 +263,12 @@ export function ProjectActionBar({
       </button>,
     );
   if (customer && p.status === "completed" && p.proId) {
-    if (!reviewed)
-      add(
-        "review",
-        <button onClick={() => go("reviews")}>
-          <Star size={17} /> Leave a review
-        </button>,
-      );
+    add(
+      "review",
+      <button onClick={() => go("reviews")}>
+        <Star size={17} /> {reviewed ? "View my reviews" : "Leave a review"}
+      </button>,
+    );
     add("save", <SavePro proId={p.proId} label />);
   } else if (customer && live && p.proId)
     add("save", <SavePro proId={p.proId} label />);
@@ -349,12 +348,7 @@ export function EditDetails({
         }
       >
         <Field label="Project title">
-          <input
-            name="title"
-            defaultValue={p.title}
-            maxLength={120}
-            required
-          />
+          <input name="title" defaultValue={p.title} maxLength={120} required />
         </Field>
         <Field label="Description">
           <textarea
