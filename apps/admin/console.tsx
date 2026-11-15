@@ -281,7 +281,7 @@ export function TrendChart({ trend }: { trend: AdminOverview["trend"] }) {
     ...trend.flatMap((r) => [r.users, r.projects, r.messages]),
   );
   const series = [
-    { key: "users", label: "New accounts", color: "#0c8054" },
+    { key: "users", label: "New accounts", color: "#064bff" },
     { key: "projects", label: "Projects", color: "#1675bc" },
     { key: "messages", label: "Messages", color: "#b56d14" },
   ] as const;
@@ -301,9 +301,9 @@ export function TrendChart({ trend }: { trend: AdminOverview["trend"] }) {
                 x2="708"
                 y1={175 - i * 50}
                 y2={175 - i * 50}
-                stroke="#e2ebe5"
+                stroke="#eef3ff"
               />
-              <text x="0" y={179 - i * 50} fontSize="11" fill="#62766b">
+              <text x="0" y={179 - i * 50} fontSize="11" fill="#455477">
                 {Math.round((max * i) / 3)}
               </text>
             </g>
@@ -324,10 +324,10 @@ export function TrendChart({ trend }: { trend: AdminOverview["trend"] }) {
               <title>{label}</title>
             </polyline>
           ))}
-          <text x="38" y="204" fontSize="11" fill="#62766b">
+          <text x="38" y="204" fontSize="11" fill="#455477">
             {trend[0]?.day}
           </text>
-          <text x="630" y="204" fontSize="11" fill="#62766b">
+          <text x="630" y="204" fontSize="11" fill="#455477">
             {trend.at(-1)?.day}
           </text>
         </svg>
@@ -456,7 +456,7 @@ function Interactions({
                     <path
                       key={r.customerId + ":" + r.proId}
                       d={`M250 ${y1} C450 ${y1},490 ${y2},650 ${y2}`}
-                      stroke="#77b89a"
+                      stroke="#8392b0"
                       fill="none"
                       opacity="0.65"
                       strokeWidth={
@@ -480,7 +480,7 @@ function Interactions({
                         cx={right ? 650 : 250}
                         cy={60 + 32 * i}
                         r="5"
-                        fill={right ? "#1675bc" : "#0c8054"}
+                        fill={right ? "#1675bc" : "#064bff"}
                       />
                       <text x={right ? 670 : 16} y={65 + 32 * i}>
                         {name.length > 30 ? name.slice(0, 27) + "…" : name}

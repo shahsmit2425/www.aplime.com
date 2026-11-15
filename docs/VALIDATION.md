@@ -788,3 +788,11 @@ A disposable PostgreSQL 16 cluster applied the migrations through 031. A custom-
 - Identity-check and admin-review language does not claim licensing or insurance verification.
 - Validation: TypeScript passed; all 227 tests passed with local HTTP permission enabled; web and admin production builds passed. No environment settings, migrations, or native dependencies changed.
 - Browser visual verification could not complete: headless Chrome exited during startup and the in-app browser timed out connecting to the local preview. Desktop/mobile visual review and signed iOS/Android device testing remain unverified. No deployment or commit performed.
+
+## Site-wide palette and informative landing page (2026-11-15)
+
+- Replaced legacy green values at their source across customer/pro/shared CSS, including intake choices, progress bars, navigation, chat, settings and listings. Audited the separate admin bundle and updated its palette without importing admin code into the customer app. Error/warning colors remain semantic.
+- Corrected the higher-specificity header selection rule that previously preserved a green/gold active tab. Updated web icons, manifest theme/background and notification email styling to match the blue/navy/teal brand.
+- Added 12 optimized, lazy-loaded illustrative service photographs and landing-page sections about request preparation, estimate scope, calls/visits, New Jersey availability, verification limits, direct payment arrangements, and FAQs. No provider availability, licensing, insurance, prices or reviews are fabricated.
+- Validation: TypeScript and web/admin production builds passed. All 29 targeted marketplace-card, SEO, intake, language and domain tests passed. Static scan found no legacy green hues in src/apps-admin stylesheets; git diff --check passed.
+- Full npm test was attempted but localhost HTTP tests failed with fetch errors under the current network restriction; stopped the blocked runs. The earlier 227-test result does not represent this change. Browser visual verification remains incomplete (local HTTP preview unavailable; user stopped Computer Use). Signed mobile and deployed environments remain unverified.

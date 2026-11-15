@@ -175,7 +175,7 @@ export function EmailAlerts({
               style={{
                 width: "100%",
                 height: 520,
-                border: "1px solid #d5e3da",
+                border: "1px solid #dce3f2",
               }}
             />
             <p>

@@ -1,7 +1,18 @@
 import { T } from "./shared/language.js";
 import { serviceSlug } from "./shared/service-questionnaires.js";
 import { ArrowUpRight } from "lucide-react";
-import { Menu, MessageCircle, FileText, ShieldCheck } from "lucide-react";
+import {
+  Menu,
+  MessageCircle,
+  FileText,
+  ShieldCheck,
+  ClipboardList,
+  UsersRound,
+  CalendarCheck,
+  Camera,
+  Video,
+  Check,
+} from "lucide-react";
 import { BusinessDisplay } from "./client/business-display.js";
 import { categories, type Profile } from "./shared/domain.js";
 import { Brand, LinkButton, ServiceIcon } from "./client/ui.js";
@@ -684,6 +695,10 @@ export function PublicPage({
                 <h2>
                   <T>{"Find the right pro for your home project."}</T>
                 </h2>
+                <p>
+                  Browse popular home services and connect with local
+                  professionals for your next project.
+                </p>
               </div>
               <div className="home-service-grid">
                 {categories.map((c) => (
@@ -692,10 +707,17 @@ export function PublicPage({
                     className="home-service-tile"
                     key={c}
                   >
-                    <span className="home-service-symbol">
-                      <ServiceIcon service={c} size={36} />
-                    </span>
-                    <span>
+                    <img
+                      className="home-service-photo"
+                      src={"/services/" + serviceSlug(c) + ".webp"}
+                      alt=""
+                      width="600"
+                      height="400"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                    <span className="home-service-label">
+                      <ServiceIcon service={c} size={22} />
                       <T>{c === "HVAC" ? "Heating & cooling" : c}</T>
                     </span>
                   </a>
@@ -711,8 +733,12 @@ export function PublicPage({
                   <T>{"FROM IDEA TO DONE"}</T>
                 </p>
                 <h2>
-                  <T>{"A simpler way to care for your home."}</T>
+                  <T>{"A simple way to complete your home project."}</T>
                 </h2>
+                <p>
+                  Go from a project idea to an informed choice in just a few
+                  steps.
+                </p>
               </div>
               {[
                 "Tell us what you need",
@@ -720,7 +746,16 @@ export function PublicPage({
                 "Keep the details together",
               ].map((s, i) => (
                 <article key={s}>
-                  <span>0{i + 1}</span>
+                  <div className="home-step-symbol">
+                    <span>0{i + 1}</span>
+                    {i === 0 ? (
+                      <ClipboardList />
+                    ) : i === 1 ? (
+                      <UsersRound />
+                    ) : (
+                      <CalendarCheck />
+                    )}
+                  </div>
                   <h3>
                     <T>{s}</T>
                   </h3>
@@ -735,6 +770,144 @@ export function PublicPage({
                   </p>
                 </article>
               ))}
+            </section>
+            <section
+              className="home-estimate-guide"
+              aria-labelledby="estimate-guide-title"
+            >
+              <div className="home-guide-intro">
+                <p className="eyebrow">A BETTER START TO YOUR PROJECT</p>
+                <h2 id="estimate-guide-title">
+                  Know what you�re comparing before you choose.
+                </h2>
+                <p>
+                  A useful estimate starts with clear details. Aplime keeps your
+                  request, written estimates, and conversations together so you
+                  can ask the right questions.
+                </p>
+                <a href="/services">
+                  Explore the service guides <ArrowUpRight size={18} />
+                </a>
+              </div>
+              <div className="home-guide-cards">
+                <article>
+                  <Camera />
+                  <h3>Show the job</h3>
+                  <p>
+                    Add clear photos, approximate measurements, and the parts of
+                    the project that matter most. Mention access, materials, and
+                    your preferred timing.
+                  </p>
+                </article>
+                <article>
+                  <Video />
+                  <h3>Talk through the details</h3>
+                  <p>
+                    Message professionals or schedule a call to discuss the
+                    work. Some jobs need an on-site assessment before a final
+                    price can be confirmed.
+                  </p>
+                </article>
+                <article>
+                  <FileText />
+                  <h3>Compare the full scope</h3>
+                  <p>
+                    Check labor, materials, exclusions, timing, and cleanup�not
+                    just the total. Confirm any visit or diagnostic fees
+                    directly with the professional.
+                  </p>
+                </article>
+              </div>
+            </section>
+            <section
+              className="home-confidence"
+              aria-labelledby="home-confidence-title"
+            >
+              <div>
+                <p className="eyebrow">
+                  LOCAL CONNECTIONS. CLEAR EXPECTATIONS.
+                </p>
+                <h2 id="home-confidence-title">
+                  Built for New Jersey homeowners.
+                </h2>
+                <p>
+                  Start with your ZIP code to tell us where the work is needed.
+                  Professional availability varies by service and location.
+                </p>
+              </div>
+              <ul>
+                <li>
+                  <Check />
+                  <span>
+                    <strong>You choose your professional</strong>Review profiles
+                    and written estimates before deciding who to hire.
+                  </span>
+                </li>
+                <li>
+                  <ShieldCheck />
+                  <span>
+                    <strong>Understand the verification</strong>Identity checks
+                    and profile review do not verify licensing or insurance. Ask
+                    the professional for relevant credentials.
+                  </span>
+                </li>
+                <li>
+                  <MessageCircle />
+                  <span>
+                    <strong>Agree on the details directly</strong>Confirm the
+                    scope and payment terms with your professional. Aplime does
+                    not process payments for the work.
+                  </span>
+                </li>
+              </ul>
+            </section>
+            <section
+              className="home-questions"
+              aria-labelledby="home-questions-title"
+            >
+              <div>
+                <p className="eyebrow">BEFORE YOU GET STARTED</p>
+                <h2 id="home-questions-title">A few helpful answers.</h2>
+                <a href="/faq">
+                  Read all FAQs <ArrowUpRight size={17} />
+                </a>
+              </div>
+              <div>
+                {[
+                  [
+                    "Is it free to request estimates?",
+                    "Yes. Customers can post a project and request estimates for free. Professionals set their own charges for the work; ask about any diagnostic or on-site assessment fees before agreeing to a visit.",
+                  ],
+                  [
+                    "Can I get an estimate without an in-person visit?",
+                    "Photos, messages, and scheduled calls can help a professional understand the project. Whether they can give a reliable estimate remotely depends on the work. Some projects require an inspection before a final price.",
+                  ],
+                  [
+                    "Am I committed to hiring someone when I post?",
+                    "No. Posting lets you explain your project and discuss it with professionals. You decide whether to proceed after reviewing the available estimates and details.",
+                  ],
+                  [
+                    "What should I include in my project request?",
+                    "Start with your ZIP code, the service you need, and a clear description. Photos, measurements, preferred timing, and details about materials or access help professionals understand the scope.",
+                  ],
+                ].map(([question, answer]) => (
+                  <details key={question}>
+                    <summary>{question}</summary>
+                    <p>{answer}</p>
+                  </details>
+                ))}
+              </div>
+            </section>
+            <section className="home-final-cta">
+              <div>
+                <h2>Ready to take the next step?</h2>
+                <p>
+                  Share your project. Ask questions. Choose with confidence.
+                </p>
+              </div>
+              <a className="button" href="/app/projects/new">
+                Start a free request <ArrowUpRight size={18} />
+              </a>
             </section>
           </>
         )}

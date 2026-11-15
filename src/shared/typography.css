@@ -4,5 +4,5 @@
   --text-small: 1rem;
   --text-body: 1.125rem;
   --text-lead: 1.25rem;
-  --section-border: #b6cbb5;
+  --section-border: var(--line);
 }

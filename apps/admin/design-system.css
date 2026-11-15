@@ -1,12 +1,12 @@
 /* Admin presentation stays isolated from the customer bundle. */
 :root {
   color: #142e36;
-  background: #f7f9f7;
+  background: #f8faff;
   font-family: Inter, "Segoe UI", system-ui, sans-serif;
   line-height: 1.6;
 }
 body {
-  background: #f7f9f7;
+  background: #f8faff;
 }
 h1,
 h2,
@@ -26,35 +26,35 @@ input,
 select,
 textarea {
   border-radius: 10px !important;
-  border-color: #d5e0d1 !important;
+  border-color: #dce3f2 !important;
 }
 button:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
-  outline: 3px solid #7da47b;
+  outline: 3px solid #8392b0;
   outline-offset: 3px;
 }
 .admin-shell > header {
   padding: 18px 32px;
   background: #fff;
   color: #142a2e;
-  border-bottom: 1px solid #e2e9e5;
+  border-bottom: 1px solid #eef3ff;
   gap: 20px;
   min-height: 76px;
 }
 .admin-shell > header button {
-  color: #234d37;
-  background: #f5f9f0;
+  color: #090f42;
+  background: #f8faff;
   border-color: transparent;
   font-size: 13px;
 }
 .admin-shell > header strong::before {
-  background: #689456;
+  background: #455477;
   border-radius: 12px;
 }
 .admin-shell > header small {
-  color: #526b5c;
+  color: #455477;
   font-size: 12px;
 }
 .admin-workspace {
@@ -62,7 +62,7 @@ textarea:focus-visible {
 }
 .admin-sidebar {
   background: #fff;
-  border-color: #e1e7da;
+  border-color: #eef3ff;
   padding: 28px 16px;
 }
 .admin-sidebar-intro {
@@ -73,7 +73,7 @@ textarea:focus-visible {
   letter-spacing: -0.04em;
 }
 .admin-eyebrow {
-  color: #58774c;
+  color: #455477;
   font-size: 10px;
   letter-spacing: 0.12em;
 }
@@ -82,18 +82,18 @@ textarea:focus-visible {
   padding: 12px 13px;
   font-size: 13px;
   min-height: 44px;
-  color: #526a49;
+  color: #455477;
 }
 .admin-sidebar nav button[aria-current],
 .admin-sidebar nav button:hover {
-  background: #e3f2ee;
-  color: #086e64;
+  background: #eef3ff;
+  color: #064bff;
 }
 .admin-sidebar nav b {
-  background: #587b42;
+  background: #455477;
 }
 .admin-sidebar-person {
-  border-color: #e2e9dc;
+  border-color: #eef3ff;
 }
 .admin-content {
   padding: 34px;
@@ -120,11 +120,11 @@ textarea:focus-visible {
   border-radius: 18px;
   border-color: #dce5e8;
   padding: 23px;
-  box-shadow: 0 4px 20px #21432104;
+  box-shadow: 0 4px 20px #090f4204;
 }
 .admin-metrics article > svg {
-  background: #edf3e5;
-  color: #628447;
+  background: #eef3ff;
+  color: #455477;
   border-radius: 11px;
   padding: 9px;
 }
@@ -137,7 +137,7 @@ textarea:focus-visible {
   color: #a08750;
 }
 .admin-metrics p {
-  color: #657856;
+  color: #455477;
 }
 .admin-metrics strong {
   font-size: 34px;
@@ -149,7 +149,7 @@ textarea:focus-visible {
   border-radius: 20px;
   border-color: #dce5e8;
   padding: 26px;
-  box-shadow: 0 4px 20px #21432104;
+  box-shadow: 0 4px 20px #090f4204;
 }
 .admin-card-heading h2 {
   font-weight: 650;
@@ -163,22 +163,22 @@ textarea:focus-visible {
 }
 .admin-table-wrap {
   border-radius: 14px;
-  border-color: #e4eadf;
+  border-color: #eef3ff;
 }
 .admin-table-wrap th {
   background: #f0f5f7;
-  color: #586e47;
+  color: #455477;
   font-size: 11px;
   padding: 15px;
   letter-spacing: 0.025em;
 }
 .admin-table-wrap td {
   padding: 17px 15px;
-  border-color: #edf0e7;
+  border-color: #eef3ff;
   font-size: 13px;
 }
 .admin-table-wrap tr:hover {
-  background: #fafcf7;
+  background: #f8faff;
 }
 .admin-status {
   border-radius: 7px;
@@ -191,7 +191,7 @@ textarea:focus-visible {
 }
 .admin-filters label {
   font-size: 12px;
-  color: #546e43;
+  color: #455477;
 }
 .admin-filters input,
 .admin-filters select {
@@ -204,17 +204,17 @@ textarea:focus-visible {
 }
 .admin-facts > div {
   background: #f3f7f8;
-  border-color: #e6ebde;
+  border-color: #eef3ff;
   border-radius: 12px;
   padding: 16px;
 }
 .admin-facts dt {
-  color: #677b54;
+  color: #455477;
   font-size: 11px;
 }
 .admin-facts dd {
   font-size: 14px;
-  color: #34502a;
+  color: #090f42;
 }
 .admin-tabs {
   gap: 8px;
@@ -226,12 +226,12 @@ textarea:focus-visible {
 .admin-business-media figure {
   border-radius: 16px;
   overflow: hidden;
-  border-color: #e1e8d8;
+  border-color: #eef3ff;
 }
 .admin-empty {
   padding: 35px;
   background: #f7fafb;
-  border: 1px dashed #d6e0ca;
+  border: 1px dashed #dce3f2;
   border-radius: 16px;
   color: #526571;
 }
@@ -242,21 +242,21 @@ textarea:focus-visible {
   margin-bottom: 22px;
 }
 .admin-auth-note {
-  color: #65765d;
+  color: #455477;
 }
 .login {
   border-radius: 24px;
-  border-color: #dde6d6;
-  box-shadow: 0 14px 45px #193c2607;
+  border-color: #eef3ff;
+  box-shadow: 0 14px 45px #090f4207;
 }
 .admin-auth-steps span {
-  background: #edf2e7;
+  background: #eef3ff;
 }
 .admin-auth-steps [aria-current] span {
-  background: #42743d;
+  background: #455477;
 }
 .admin-auth-steps [aria-current] {
-  color: #386b32;
+  color: #455477;
 }
 @media (max-width: 1100px) {
   .admin-content {
@@ -296,7 +296,7 @@ textarea:focus-visible {
     margin: 0;
     padding: 8px;
     border: 0;
-    background: #f1f5eb;
+    background: #f8faff;
     border-radius: 12px;
   }
   .admin-sidebar .admin-business-nav button {
@@ -454,7 +454,7 @@ textarea:focus-visible {
 }
 @media (max-width: 900px) {
   .admin-sidebar .admin-business-nav {
-    background: #f4f8f4;
+    background: #f8faff;
   }
   .admin-sidebar nav button {
     font-size: 13px;
@@ -487,62 +487,62 @@ textarea:focus-visible {
   box-shadow: none;
 }
 .admin-sidebar nav button[aria-current] {
-  color: #087647;
-  background: #edf5ee;
+  color: #064bff;
+  background: #f8faff;
 }
 
 /* Expressive Aplime brand; dense records retain quiet, readable surfaces. */
 :root,
 body {
   background: #f3f6e9;
-  color: #143e2c;
+  color: #090f42;
 }
 .admin-shell > header {
   background:
-    radial-gradient(ellipse at top right, #277646, transparent 65%), #0a412d;
+    radial-gradient(ellipse at top right, #455477, transparent 65%), #064bff;
   border-bottom: 4px solid #e0b936;
   color: #fff9df;
 }
 .admin-shell > header small {
-  color: #e1edc9;
+  color: #dce3f2;
 }
 .admin-shell > header strong::before {
   background: #f0cd49;
-  color: #16452e;
+  color: #090f42;
   border-radius: 13px 5px 13px 5px;
 }
 .admin-shell > header button {
   background: #fff8df;
-  color: #174d30;
+  color: #090f42;
   border: 1px solid #e5d894;
 }
 .admin-sidebar {
-  background: #ecf2db;
-  border-color: #cbdcb8;
+  background: #eef3ff;
+  border-color: #dce3f2;
 }
 .admin-sidebar-intro p {
-  color: #164b2e;
+  color: #090f42;
   font-family: Georgia, serif;
   font-size: 23px;
 }
 .admin-sidebar nav button {
-  color: #355b3d;
+  color: #090f42;
   font-weight: 650;
 }
 .admin-sidebar nav button[aria-current] {
   color: #fff7d9;
-  background: #155c37;
+  background: #064bff;
   box-shadow: 0 3px 0 #d6b336;
 }
 .admin-sidebar nav button:hover:not([aria-current]) {
-  background: #dce9c8;
-  color: #164e2e;
+  background: #dce3f2;
+  color: #090f42;
 }
 .admin-page-heading h1,
 .login h1 {
   font-family: Georgia, "Times New Roman", serif;
   font-weight: 800;
-  color: #123e2c;
+  color: #090f42;
   letter-spacing: -0.04em;
   font-size: clamp(32px, 3.4vw, 47px);
 }
@@ -557,21 +557,21 @@ body {
   transform: rotate(-2deg);
 }
 .admin-page-heading p {
-  color: #45634d;
+  color: #455477;
 }
 .admin-card {
   background: #fffef9;
-  border: 1px solid #d8e1c9;
+  border: 1px solid #dce3f2;
   border-radius: 18px;
-  box-shadow: 0 5px 20px #23472a08;
+  box-shadow: 0 5px 20px #090f4208;
 }
 .admin-card-heading h2 {
-  color: #195234;
+  color: #090f42;
 }
 .admin-metrics article {
-  background: #e4f0d3;
-  border: 1px solid #c4d7af;
-  border-top: 4px solid #569454;
+  background: #eef3ff;
+  border: 1px solid #dce3f2;
+  border-top: 4px solid #455477;
   border-radius: 15px;
 }
 .admin-metrics article:nth-child(3n + 2) {
@@ -585,26 +585,26 @@ body {
   border-top-color: #9879b0;
 }
 .admin-metrics strong {
-  color: #16482f;
+  color: #090f42;
   font-weight: 800;
 }
 .admin-metrics p {
-  color: #46603d;
+  color: #455477;
 }
 .admin-metrics article > svg {
   background: #ffffff9c;
-  color: #3f7943;
+  color: #455477;
 }
 .admin-table-wrap th {
-  background: #edf3e2;
-  color: #365538;
+  background: #eef3ff;
+  color: #090f42;
 }
 .admin-table-wrap td {
   background: #fffefb;
-  color: #294936;
+  color: #090f42;
 }
 .admin-table-wrap tbody tr:hover td {
-  background: #f3f7e9;
+  background: #f8faff;
 }
 .admin-filters {
   background: #fffdf2;
@@ -617,12 +617,12 @@ body {
 .login {
   background: #fffef8;
   border: 2px solid #fff;
-  border-top: 6px solid #d9b237;
+  border-top: 6px solid #064bff;
   border-radius: 22px;
-  box-shadow: 0 15px 40px #23462d10;
+  box-shadow: 0 15px 40px #090f4210;
 }
 .admin-auth-steps [aria-current] span {
-  background: #155c37;
+  background: #064bff;
   color: white;
 }
 @media (max-width: 600px) {
@@ -631,3 +631,11 @@ body {
     font-size: 34px;
   }
 }
+
+/* Same brand palette as customer and professional pages; admin stays isolated. */
+:root { --ink:#090f42; --muted:#455477; --line:#dce3f2; --blue:#064bff; --canvas:#f8faff; }
+body {background:var(--canvas);color:var(--ink);}
+.admin-page-heading h1,.login h1 {color:var(--ink);}
+.login {background:white;border-top-color:var(--blue);}
+header {background:var(--ink);}
+header strong::before {background:linear-gradient(145deg,#00cabb,#064bff);}
