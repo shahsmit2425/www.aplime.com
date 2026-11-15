@@ -3,7 +3,14 @@ import { statuses, type Project } from "../shared/domain.js";
 import { T } from "../shared/language.js";
 import { useState } from "react";
 import { quotePrice, quoteTiming } from "../shared/estimates.js";
-import { SlidersHorizontal, ArrowUpRight } from "lucide-react";
+import {
+  SlidersHorizontal,
+  ArrowUpRight,
+  FileText,
+  Clock3,
+  Trophy,
+  BriefcaseBusiness,
+} from "lucide-react";
 import { useWorkspace } from "./workspace.js";
 import { Head, Empty, Badge } from "./ui.js";
 import { CollectionHeading, ProjectCard } from "./marketplace-cards.js";
@@ -71,6 +78,44 @@ export function ProDashboard() {
           onContinue={() => go("profile")}
         />
       )}
+      <div className="dashboard-metrics" aria-label="Project overview">
+        {[
+          {
+            label: "Open requests",
+            value: allProjects.filter(
+              (p) => !p.archived && p.status === "requested",
+            ).length,
+            Icon: FileText,
+          },
+          {
+            label: "Reviewing estimates",
+            value: allProjects.filter(
+              (p) => !p.archived && p.status === "quoted",
+            ).length,
+            Icon: Clock3,
+          },
+          {
+            label: "Active projects",
+            value: assigned.filter(
+              (p) => !p.archived && inProjectGroup(p, "active"),
+            ).length,
+            Icon: BriefcaseBusiness,
+          },
+          {
+            label: "Completed projects",
+            value: assigned.filter((p) => p.status === "completed").length,
+            Icon: Trophy,
+          },
+        ].map(({ label, value, Icon }) => (
+          <div className="dashboard-metric" key={label}>
+            <Icon aria-hidden="true" />
+            <span>
+              <strong>{value}</strong>
+              <small>{label}</small>
+            </span>
+          </div>
+        ))}
+      </div>
       <div className="pro-dashboard-filters" aria-label="Project filters">
         <label>
           Status
@@ -98,7 +143,10 @@ export function ProDashboard() {
         .filter((group) => group.projects.length > 0)
         .map((group) => (
           <section
-            className="project-collection"
+            className={
+              "project-collection" +
+              (group.title === "Past projects" ? " past-projects" : "")
+            }
             aria-label={group.title}
             key={group.title}
           >
@@ -112,6 +160,12 @@ export function ProDashboard() {
                   key={p.id}
                   project={p}
                   quotes={estimates}
+                  photo={data.uploads.find(
+                    (file) =>
+                      file.projectId === p.id &&
+                      file.status === "ready" &&
+                      file.contentType.startsWith("image/"),
+                  )}
                   onOpen={() => go("project", p.id)}
                 />
               ))}

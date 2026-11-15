@@ -1,7 +1,7 @@
 import { T } from "./shared/language.js";
 import { serviceSlug } from "./shared/service-questionnaires.js";
 import { ArrowUpRight } from "lucide-react";
-import { Menu, MessageCircle, FileText } from "lucide-react";
+import { Menu, MessageCircle, FileText, ShieldCheck } from "lucide-react";
 import { BusinessDisplay } from "./client/business-display.js";
 import { categories, type Profile } from "./shared/domain.js";
 import { Brand, LinkButton, ServiceIcon } from "./client/ui.js";
@@ -591,9 +591,9 @@ export function PublicPage({
                   <T>{"FREE ESTIMATES. LOCAL PROFESSIONALS."}</T>
                 </p>
                 <h1>
-                  <T>{"Your next home project."}</T> <br />
+                  <T>{"Plan your next home project with"}</T>{" "}
                   <em>
-                    <T>{"In good hands."}</T>
+                    <T>{"trusted local pros."}</T>
                   </em>
                 </h1>
                 <p className="lede">
@@ -634,28 +634,47 @@ export function PublicPage({
                     </T>{" "}
                   </small>
                 </form>
-                <a href="/app/register?role=pro">
-                  <T>{"Grow your business →"}</T>
-                </a>
-                <div className="trust-row" aria-label="Project tools">
-                  <span>
-                    <MessageCircle size={17} />
-                    <strong>
-                      <T>{"Direct conversations"}</T>
-                    </strong>
-                  </span>
-                  <span>
-                    <FileText size={17} />
-                    <strong>
-                      <T>{"Clear estimates"}</T>
-                    </strong>
-                  </span>
-                </div>
               </div>
               <figure className="estimate-hero-photo">
-                <img src="/free-estimate-consultation.webp" alt="Illustrative scene of a homeowner discussing a project estimate with a home-service professional" width="1200" height="800" decoding="async" fetchPriority="high" />
-                <figcaption><strong>Start with a free estimate.</strong><span>Share your project, compare options, and choose your professional.</span></figcaption>
+                <img
+                  src="/free-estimate-consultation.webp"
+                  alt="Illustrative scene of a homeowner discussing a project estimate with a home-service professional"
+                  width="1200"
+                  height="800"
+                  decoding="async"
+                  fetchPriority="high"
+                />
+                <figcaption>
+                  <strong>Start with a free estimate.</strong>
+                  <span>
+                    Share your project, compare options, and choose your
+                    professional.
+                  </span>
+                </figcaption>
               </figure>
+            </section>
+            <section className="home-benefits" aria-label="Why Aplime">
+              <div>
+                <MessageCircle />
+                <span>
+                  <strong>Direct conversations</strong>
+                  <small>Talk with local pros, not a call center.</small>
+                </span>
+              </div>
+              <div>
+                <FileText />
+                <span>
+                  <strong>Clear estimates</strong>
+                  <small>Compare written options with confidence.</small>
+                </span>
+              </div>
+              <div>
+                <ShieldCheck />
+                <span>
+                  <strong>Verified identities</strong>
+                  <small>Identity checks and admin-reviewed profiles.</small>
+                </span>
+              </div>
             </section>
             <section id="services">
               <div className="section-heading">
@@ -663,7 +682,7 @@ export function PublicPage({
                   <T>{"SERVICES FOR YOUR HOME"}</T>
                 </p>
                 <h2>
-                  <T>{"What can we help you with?"}</T>
+                  <T>{"Find the right pro for your home project."}</T>
                 </h2>
               </div>
               <div className="home-service-grid">

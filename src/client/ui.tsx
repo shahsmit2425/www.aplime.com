@@ -49,16 +49,21 @@ export function Brand({
   return (
     <a className="brand" href={href} onClick={onClick || openHome}>
       <svg className="brand-mark" viewBox="0 0 64 64" aria-hidden="true">
-        <path className="mark-left" d="M7 50 26 14h10L18 50Z" />
-        <path className="mark-right" d="m31 14 22 36H41L25 24Z" />
         <path
-          className="mark-leaf"
-          d="M35 19C40 7 50 5 58 7c-1 10-7 19-20 19 4-6 9-11 15-15-7 2-13 6-18 12Z"
+          d="M8 53V29L32 9"
+          fill="none"
+          stroke="#00cabb"
+          strokeWidth="7"
+          strokeLinejoin="round"
         />
         <path
-          className="mark-window"
-          d="M27 39h5v5h-5zm7 0h5v5h-5zm-7 7h5v5h-5zm7 0h5v5h-5z"
+          d="M32 9L56 29V53"
+          fill="none"
+          stroke="#064bff"
+          strokeWidth="7"
+          strokeLinejoin="round"
         />
+        <path d="M23 53H42" fill="none" stroke="#00cabb" strokeWidth="7" />
       </svg>
       <span className="brand-type">
         <b>Aplime</b>

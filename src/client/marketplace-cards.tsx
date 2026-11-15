@@ -1,5 +1,6 @@
+import { request } from "./api.js";
 import { T } from "../shared/language.js";
-import { useState, type ReactNode } from "react";
+import { useState, useEffect, useRef, type ReactNode } from "react";
 import { BusinessPortfolio } from "./business-portfolio.js";
 import { portfolioImages } from "../shared/business-images.js";
 import { ImagePreview } from "./image-preview.js";
@@ -16,6 +17,7 @@ import {
   type Project,
   type Profile,
   type Quote,
+  type Upload,
 } from "../shared/domain.js";
 import { ServiceIcon } from "./ui.js";
 const statusLabels: Record<Project["status"], string> = {
@@ -34,14 +36,68 @@ const urgencyLabels = {
   this_month: "This month",
   flexible: "Flexible timing",
 };
+function ProjectVisual({
+  category,
+  photo,
+}: {
+  category: string;
+  photo?: Upload;
+}) {
+  const element = useRef<HTMLSpanElement>(null);
+  const [image, setImage] = useState<{ id: string; url: string } | null>(null);
+  useEffect(() => {
+    if (!photo || !element.current) return;
+    let active = true;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) return;
+        observer.disconnect();
+        void request<{ url: string }>("/uploads/" + photo.id)
+          .then(({ url }) => {
+            if (active) setImage({ id: photo.id, url });
+          })
+          .catch(() => {
+            /* Keep the service illustration if access or loading fails. */
+          });
+      },
+      { rootMargin: "200px" },
+    );
+    observer.observe(element.current);
+    return () => {
+      active = false;
+      observer.disconnect();
+    };
+  }, [photo?.id]);
+  return (
+    <span
+      ref={element}
+      className="project-card-visual"
+      aria-hidden="true"
+      data-service={category}
+    >
+      {image && image.id === photo?.id ? (
+        <img
+          src={image.url}
+          alt=""
+          loading="lazy"
+          onError={() => setImage(null)}
+        />
+      ) : (
+        <ServiceIcon service={category} size={54} />
+      )}
+    </span>
+  );
+}
 export function ProjectCard({
   project: p,
   onOpen,
   quotes = [],
+  photo,
 }: {
   project: Project;
   onOpen: () => void;
   quotes?: Quote[];
+  photo?: Upload;
 }) {
   const pendingEstimates = quotes.filter(
     (q) =>
@@ -73,6 +129,7 @@ export function ProjectCard({
       onClick={onOpen}
       aria-label={"View project: " + p.title}
     >
+      <ProjectVisual key={p.id} category={p.category} photo={photo} />
       <span className="project-card-top">
         <span className="service-emblem" data-service={p.category}>
           <ServiceIcon service={p.category} size={23} />

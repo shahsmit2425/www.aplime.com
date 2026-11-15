@@ -779,3 +779,12 @@ A disposable PostgreSQL 16 cluster applied the migrations through 031. A custom-
 - Updated only the stagging iOS Bundle ID to com.aplime.app.stagging. Development, Android and production identifiers are unchanged.
 - Validation: all five deployment configuration tests and git diff --check passed. Full checks were interrupted in the preceding attempt; no full-suite result is claimed for this change.
 - Signed iOS build, Firebase sign-in and TestFlight installation require verification in the new stagging workflow run.
+
+## Blue / navy / teal UI refresh (2026-11-15)
+
+- Updated the shared Aplime house mark and presentation, homepage split hero, ZIP entry panel, benefit strip, service tiles, and three-step explanation to follow the supplied design references.
+- Professional dashboard summary counts use actual workspace projects. Active projects remain first; the only project filter is status. Past projects use compact cards at desktop sizes.
+- Shared project cards load an authorized uploaded image when supplied by the workspace; image URL requests wait until the card approaches the viewport. Failed/unauthorized images retain a service illustration. No stock photos represent customer projects. Homepage service tiles use illustrations rather than the reference's stock photography.
+- Identity-check and admin-review language does not claim licensing or insurance verification.
+- Validation: TypeScript passed; all 227 tests passed with local HTTP permission enabled; web and admin production builds passed. No environment settings, migrations, or native dependencies changed.
+- Browser visual verification could not complete: headless Chrome exited during startup and the in-app browser timed out connecting to the local preview. Desktop/mobile visual review and signed iOS/Android device testing remain unverified. No deployment or commit performed.
