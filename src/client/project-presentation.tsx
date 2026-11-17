@@ -38,12 +38,54 @@ export function CustomerProjectHeader({
 }) {
   return (
     <header className="customer-project-hero">
-      <h1 className="sr-only">{p.title}</h1>
-      <div className="project-hero-copy">
-        <button className="text-button project-back" onClick={onBack}>
-          <ArrowLeft size={16} />
-          Back to dashboard
-        </button>
+      <button className="text-button project-back" onClick={onBack}>
+        <ArrowLeft size={16} /> Back to dashboard
+      </button>
+      <div className="project-brief-header">
+        <div className="project-brief-identity">
+          <span className="project-brief-icon">
+            <ServiceIcon service={p.category} size={30} />
+          </span>
+          <div>
+            <div className="project-brief-title">
+              <h1>{p.title}</h1>
+              <Badge>{p.status.replaceAll("_", " ")}</Badge>
+            </div>
+            <p>{p.description}</p>
+          </div>
+        </div>
+        <dl className="project-brief-meta">
+          <div>
+            <dt>
+              <ServiceIcon service={p.category} size={20} /> Category
+            </dt>
+            <dd>{p.category}</dd>
+          </div>
+          <div>
+            <dt>
+              <House size={20} /> Property type
+            </dt>
+            <dd>{property[p.propertyType]}</dd>
+          </div>
+          <div>
+            <dt>
+              <MapPin size={20} /> ZIP
+            </dt>
+            <dd>{p.zip}</dd>
+          </div>
+          <div>
+            <dt>
+              <CalendarDays size={20} /> Posted
+            </dt>
+            <dd>
+              {new Date(p.createdAt).toLocaleDateString(undefined, {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+              })}
+            </dd>
+          </div>
+        </dl>
       </div>
     </header>
   );

@@ -481,31 +481,6 @@ function ProjectDetail() {
           {p.category} · {p.zip}
         </Head>
       )}
-      {customer && (
-        <div className="customer-project-controls customer-project-toolbar">
-          <ProjectControls
-            key={p.id}
-            hideActivity
-            project={p}
-            onEdit={() => setEditing(true)}
-            extraActions={
-              <ProjectActionBar
-                compact
-                project={p}
-                canRespond={false}
-                hasEstimates={quotes.some(
-                  (q) => !q.assessmentRequired && q.status === "pending",
-                )}
-                hasOwnEstimate={false}
-                onPropose={() => {
-                  setAction("reschedule");
-                }}
-                onEdit={() => setEditing(true)}
-              />
-            }
-          />
-        </div>
-      )}
       {!customer && <ProjectContact key={p.id} projectId={p.id} />}
       {data.marketplacePreview &&
         data.user.role === "pro" &&
@@ -705,45 +680,184 @@ function ProjectDetail() {
           </Panel>
         )}
       <div className="two-columns project-detail-columns">
-        <DetailsContainer
-          id="project-details"
-          key={p.id}
-          className={customer ? "project-details-disclosure" : undefined}
+        <div
+          className={
+            customer ? "project-brief-sidebar" : "project-brief-passthrough"
+          }
         >
           {customer && (
-            <summary>
-              <FileText size={20} />
-              <span>
-                <strong>
-                  <T>{"Project details"}</T>
-                </strong>
-                <small>
-                  {p.category} · {p.zip} · {p.propertyType.replaceAll("_", " ")}
-                </small>
-              </span>
-              <span className="project-details-chips" aria-hidden="true">
-                {Object.values(p.intake || {})
-                  .slice(0, 3)
-                  .map((v, i) => (
-                    <span key={i}>{v}</span>
-                  ))}
-              </span>
-              <span className="project-expand-label">
-                <span className="expand-copy">
-                  <T>{"Expand details"}</T>
-                </span>
-                <span className="collapse-copy">
-                  <T>{"Collapse details"}</T>
-                </span>
-              </span>
-              <ChevronDown size={20} className="disclosure-chevron" />
-            </summary>
+            <h2 className="project-sidebar-title">
+              <FileText size={22} /> Project details
+            </h2>
           )}
-          <Panel title={customer ? undefined : "Project details"}>
-            {customer ? (
-              <>
-                <CustomerProjectDetails project={p} />
-                <ProjectContact key={p.id} projectId={p.id} readOnly />
+          <DetailsContainer
+            id="project-details"
+            key={p.id}
+            className={customer ? "project-details-disclosure" : undefined}
+            {...(customer ? { open: true } : {})}
+          >
+            {customer && (
+              <summary>
+                <FileText size={20} />
+                <span>
+                  <strong>
+                    <T>{"Project overview"}</T>
+                  </strong>
+                  <small>
+                    {p.category} · {p.zip} ·{" "}
+                    {p.propertyType.replaceAll("_", " ")}
+                  </small>
+                </span>
+                <span className="project-details-chips" aria-hidden="true">
+                  {Object.values(p.intake || {})
+                    .slice(0, 3)
+                    .map((v, i) => (
+                      <span key={i}>{v}</span>
+                    ))}
+                </span>
+                <span className="project-expand-label">
+                  <span className="expand-copy">
+                    <T>{"Expand details"}</T>
+                  </span>
+                  <span className="collapse-copy">
+                    <T>{"Collapse details"}</T>
+                  </span>
+                </span>
+                <ChevronDown size={20} className="disclosure-chevron" />
+              </summary>
+            )}
+            <Panel title={customer ? undefined : "Project details"}>
+              {customer ? (
+                <>
+                  <CustomerProjectDetails project={p} />
+                  <ProjectContact key={p.id} projectId={p.id} readOnly />
+                </>
+              ) : (
+                <>
+                  <p className="project-description">{p.description}</p>
+                  {p.intake && Object.keys(p.intake).length > 0 && (
+                    <section
+                      className="intake-summary"
+                      aria-labelledby="intake-title"
+                    >
+                      <h3 id="intake-title">
+                        <T>{"Service questionnaire"}</T>
+                      </h3>
+                      <dl>
+                        {Object.entries(p.intake).map(([key, value]) => (
+                          <div key={key}>
+                            <dt>
+                              {questionLabel(
+                                p.category as ServiceCategory,
+                                key,
+                              )}
+                            </dt>
+                            <dd>{value}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                    </section>
+                  )}
+                  <dl>
+                    <dt>
+                      <T>{"Customer"}</T>
+                    </dt>
+                    <dd>{p.customerName || "Private until booked"}</dd>
+                    <dt>
+                      <T>{"Professional"}</T>
+                    </dt>
+                    <dd>{p.proName || "Choosing the right fit"}</dd>
+                    {own && p.address && (
+                      <>
+                        <dt>
+                          <T>{"Service address"}</T>
+                        </dt>
+                        <dd>
+                          {p.address} {p.addressUnit}
+                        </dd>
+                      </>
+                    )}
+                    <dt>
+                      <T>{"Appointment"}</T>
+                    </dt>
+                    <dd>{date(p.scheduledAt)}</dd>
+                    <dt>
+                      <T>{"Timing"}</T>
+                    </dt>
+                    <dd>{p.urgency.replace("_", " ")}</dd>
+                    <dt>
+                      <T>{"Property type"}</T>
+                    </dt>
+                    <dd>{p.propertyType}</dd>
+                    <dt>
+                      <T>{"Customer budget"}</T>
+                    </dt>
+                    <dd>
+                      {p.budgetMin === null && p.budgetMax === null
+                        ? "Not specified"
+                        : `${p.budgetMin === null ? "Any" : money(p.budgetMin)} – ${p.budgetMax === null ? "Any" : money(p.budgetMax)}`}
+                    </dd>
+                    <dt>
+                      {p.amount
+                        ? "Agreed total"
+                        : ownQuote
+                          ? "Your estimate"
+                          : "Agreed total"}
+                    </dt>
+                    <dd>
+                      {p.amount
+                        ? money(p.amount)
+                        : ownQuote && ownQuote.status === "pending"
+                          ? quotePrice(ownQuote)
+                          : "Awaiting an estimate"}
+                    </dd>
+                  </dl>
+                </>
+              )}
+            </Panel>
+            {!customer && (
+              <ProjectPhotoGallery key={p.id} files={projectPhotos} />
+            )}
+          </DetailsContainer>
+          {customer && (
+            <details
+              className="project-sidebar-section customer-project-controls"
+              open
+            >
+              <summary>
+                Edit / manage project
+                <ChevronDown size={18} />
+              </summary>
+              <ProjectControls
+                key={p.id}
+                hideActivity
+                project={p}
+                onEdit={() => setEditing(true)}
+                extraActions={
+                  <ProjectActionBar
+                    compact
+                    project={p}
+                    canRespond={false}
+                    hasEstimates={quotes.some(
+                      (q) => !q.assessmentRequired && q.status === "pending",
+                    )}
+                    hasOwnEstimate={false}
+                    onPropose={() => {
+                      setAction("reschedule");
+                    }}
+                    onEdit={() => setEditing(true)}
+                  />
+                }
+              />
+            </details>
+          )}
+          {customer && (
+            <>
+              <details className="project-sidebar-section" open>
+                <summary>
+                  Project photos
+                  <ChevronDown size={18} />
+                </summary>
                 <ProjectPhotoGallery key={p.id} files={projectPhotos} />
                 {open && (
                   <button
@@ -756,97 +870,24 @@ function ProjectDetail() {
                       : "Add project photos"}
                   </button>
                 )}
-              </>
-            ) : (
-              <>
-                <p className="project-description">{p.description}</p>
-                {p.intake && Object.keys(p.intake).length > 0 && (
-                  <section
-                    className="intake-summary"
-                    aria-labelledby="intake-title"
-                  >
-                    <h3 id="intake-title">
-                      <T>{"Service questionnaire"}</T>
-                    </h3>
-                    <dl>
-                      {Object.entries(p.intake).map(([key, value]) => (
-                        <div key={key}>
-                          <dt>
-                            {questionLabel(p.category as ServiceCategory, key)}
-                          </dt>
-                          <dd>{value}</dd>
-                        </div>
-                      ))}
-                    </dl>
-                  </section>
-                )}
-                <dl>
-                  <dt>
-                    <T>{"Customer"}</T>
-                  </dt>
-                  <dd>{p.customerName || "Private until booked"}</dd>
-                  <dt>
-                    <T>{"Professional"}</T>
-                  </dt>
-                  <dd>{p.proName || "Choosing the right fit"}</dd>
-                  {own && p.address && (
-                    <>
-                      <dt>
-                        <T>{"Service address"}</T>
-                      </dt>
-                      <dd>
-                        {p.address} {p.addressUnit}
-                      </dd>
-                    </>
-                  )}
-                  <dt>
-                    <T>{"Appointment"}</T>
-                  </dt>
-                  <dd>{date(p.scheduledAt)}</dd>
-                  <dt>
-                    <T>{"Timing"}</T>
-                  </dt>
-                  <dd>{p.urgency.replace("_", " ")}</dd>
-                  <dt>
-                    <T>{"Property type"}</T>
-                  </dt>
-                  <dd>{p.propertyType}</dd>
-                  <dt>
-                    <T>{"Customer budget"}</T>
-                  </dt>
-                  <dd>
-                    {p.budgetMin === null && p.budgetMax === null
-                      ? "Not specified"
-                      : `${p.budgetMin === null ? "Any" : money(p.budgetMin)} – ${p.budgetMax === null ? "Any" : money(p.budgetMax)}`}
-                  </dd>
-                  <dt>
-                    {p.amount
-                      ? "Agreed total"
-                      : ownQuote
-                        ? "Your estimate"
-                        : "Agreed total"}
-                  </dt>
-                  <dd>
-                    {p.amount
-                      ? money(p.amount)
-                      : ownQuote && ownQuote.status === "pending"
-                        ? quotePrice(ownQuote)
-                        : "Awaiting an estimate"}
-                  </dd>
-                </dl>
-              </>
-            )}
-          </Panel>
-          {!customer && (
-            <ProjectPhotoGallery key={p.id} files={projectPhotos} />
+              </details>
+              <details className="project-sidebar-section">
+                <summary>
+                  Project status
+                  <ChevronDown size={18} />
+                </summary>
+                <CustomerProjectStatus project={p} />
+              </details>
+              <details className="project-sidebar-section" open>
+                <summary>
+                  Activity
+                  <ChevronDown size={18} />
+                </summary>
+                <ProjectActivity project={p} />
+              </details>
+            </>
           )}
-        </DetailsContainer>
-        {customer && (
-          <aside className="customer-project-sidebar">
-            <CustomerProjectStatus project={p} />
-            <ProjectActivity project={p} />
-          </aside>
-        )}
+        </div>
         <div id="project-estimates" className="project-estimates">
           {customer ? (
             <>

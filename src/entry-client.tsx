@@ -110,3 +110,11 @@ if (config.sentryDsn)
       console.warn("Browser monitoring unavailable."),
     );
   }, 0);
+
+// Separate root keeps this available on public, sign-in and account pages without
+// changing server-rendered markup or requiring authentication initialization.
+const feedbackRoot = document.createElement("div");
+document.body.appendChild(feedbackRoot);
+void import("./client/website-feedback.js").then(({ default: WebsiteFeedback }) => {
+  createRoot(feedbackRoot).render(<WebsiteFeedback />);
+});

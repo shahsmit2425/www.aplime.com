@@ -52,6 +52,7 @@ const items = [
   ["projects", "Projects", BriefcaseBusiness],
   ["interactions", "Interactions", Network],
   ["support", "Support inbox", MessageCircle],
+  ["feedback", "Website feedback", MessageCircle],
   ["audit", "Audit trail", Activity],
   ["updates", "Notifications", Bell],
   ["emails", "Email & alerts", Bell],
@@ -1707,6 +1708,8 @@ export function AdminConsole({
             <Overview request={request} revision={session} go={go} />
           ) : route.page === "emails" ? (
             <EmailAlerts request={request} run={run} busy={busy} go={go} />
+          ) : route.page === "feedback" ? (
+            <WebsiteFeedbackInbox request={request} run={run} />
           ) : route.page === "support" ? (
             <SupportInbox
               id={route.id}
@@ -1767,5 +1770,82 @@ export function AdminConsole({
         </p>
       </div>
     </div>
+  );
+}
+
+function WebsiteFeedbackInbox({
+  request,
+  run,
+}: {
+  request: Requester;
+  run: Runner;
+}) {
+  const [page, setPage] = useState(1);
+  const [revision, setRevision] = useState(0);
+  const { value, error, loading } = useRemote<{
+    rows: {
+      id: string;
+      category: string;
+      message: string;
+      email: string;
+      page: string;
+      reviewed: boolean;
+      created_at: string;
+    }[];
+    hasMore: boolean;
+  }>("/feedback?page=" + page, request, revision);
+  return (
+    <section>
+      <button disabled={loading} onClick={() => setRevision((x) => x + 1)}>
+        Refresh feedback
+      </button>
+      <p>
+        Public website feedback. Messages and email addresses are unverified
+        visitor submissions.
+      </p>
+      <Loading error={error} loading={loading} />
+      {!loading && value?.rows.length === 0 && <p>No feedback yet.</p>}
+      {value?.rows.map((row) => (
+        <article className="admin-panel" key={row.id}>
+          <h3>
+            {row.category} � {row.reviewed ? "Reviewed" : "New"}
+          </h3>
+          <p>
+            {date(row.created_at)} � Page: {row.page}
+          </p>
+          <p style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
+            {row.message}
+          </p>
+          {row.email && <p>Contact email: {row.email}</p>}
+          {!row.reviewed && (
+            <button
+              onClick={() =>
+                void run(async () => {
+                  await request("/feedback/" + row.id + "/reviewed", {});
+                  setRevision((x) => x + 1);
+                })
+              }
+            >
+              Mark reviewed
+            </button>
+          )}
+        </article>
+      ))}
+      <div className="actions">
+        <button
+          disabled={page === 1 || loading}
+          onClick={() => setPage((p) => p - 1)}
+        >
+          Previous
+        </button>
+        <span>Page {page}</span>
+        <button
+          disabled={!value?.hasMore || loading}
+          onClick={() => setPage((p) => p + 1)}
+        >
+          Next
+        </button>
+      </div>
+    </section>
   );
 }

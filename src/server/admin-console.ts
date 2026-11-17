@@ -623,3 +623,29 @@ adminConsole.get("/files/:id", async (req, res) => {
       : null,
   });
 });
+
+// Mounted behind the existing administrator identity and session protections.
+adminConsole.get("/feedback", async (req, res) => {
+  const page = z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(100000)
+    .default(1)
+    .parse(req.query.page);
+  const result = await pool.query(
+    "SELECT id,category,message,email,page,reviewed,created_at FROM website_feedback ORDER BY created_at DESC, id DESC LIMIT 26 OFFSET $1",
+    [(page - 1) * 25],
+  );
+  res.json({
+    rows: result.rows.slice(0, 25),
+    hasMore: result.rows.length > 25,
+  });
+});
+adminConsole.post("/feedback/:id/reviewed", async (req, res) => {
+  const id = z.string().uuid().parse(req.params.id);
+  await pool.query("UPDATE website_feedback SET reviewed=true WHERE id=$1", [
+    id,
+  ]);
+  res.json({ ok: true });
+});

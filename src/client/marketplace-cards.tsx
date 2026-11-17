@@ -216,6 +216,19 @@ export function ProfessionalCard({
       data-layout={layout}
       data-service={p.category}
     >
+      {layout === "horizontal" && (
+        <div className="pro-listing-featured-media">
+          {cover || logo || photos[0] ? (
+            <img
+              src={(cover || logo || photos[0])!.url}
+              alt={p.business}
+              loading="lazy"
+            />
+          ) : (
+            <ServiceIcon service={p.category} size={42} />
+          )}
+        </div>
+      )}
       <header className="pro-listing-header">
         <div className="pro-listing-logo">
           {logo ? (
@@ -286,7 +299,10 @@ export function ProfessionalCard({
       </div>
       {p.bio && <p className="pro-listing-bio">{p.bio}</p>}
       {photos.length > 0 ? (
-        <BusinessPortfolio images={p.images} business={p.business} compact />
+        <details className="pro-listing-portfolio-disclosure">
+          <summary>View work photos ({photos.length})</summary>
+          <BusinessPortfolio images={p.images} business={p.business} compact />
+        </details>
       ) : (
         cover && (
           <button

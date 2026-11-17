@@ -25,6 +25,8 @@ export class FixedWindowBudget {
   }
 }
 const policies = {
+  feedbackNetwork: { limit: 5, seconds: 3600 },
+  feedbackGlobal: { limit: 1000, seconds: 86400 },
   signupIp: { limit: 5, seconds: 3600 },
   signupUser: { limit: 3, seconds: 3600 },
   projectIp: { limit: 20, seconds: 3600 },

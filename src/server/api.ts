@@ -1,3 +1,4 @@
+import { publicFeedback } from "./feedback.js";
 import { checkAuthenticatedLimit } from "./abuse-limits.js";
 import { reviewImages } from "./review-images.js";
 import { pushRouter } from "./push.js";
@@ -105,6 +106,7 @@ declare global {
 }
 type AuthRequest = Request;
 export const api = Router();
+api.use("/feedback", publicFeedback);
 api.use(publicBusinessImages);
 api.use("/intake/locations", publicIntake);
 api.get("/config", (_q, r) => r.json(publicConfig));

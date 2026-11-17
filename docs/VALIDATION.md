@@ -814,3 +814,19 @@ A disposable PostgreSQL 16 cluster applied the migrations through 031. A custom-
 - Validation: 23 focused tests passed (domain, project-hub, marketplace-cards, project-intake). Full npm test attempted but local HTTP tests failed with fetch failed; stopped the incomplete run. TypeScript and web/SSR/admin build passed before the final privacy-stage refinement; final build result recorded below.
 - Not verified: signed-in browser visual/keyboard interaction, live contact updates and signed native builds. No deployment or commit performed for this change.
 - Final verification after the privacy-stage refinement: npm run build passed, including TypeScript, web client/SSR and admin builds. Existing dynamic-import warning remains.
+
+### 2026-11-17 — Reference-based customer project workspace
+
+- Restored a compact project identity/header with actual status, category, property, ZIP and posting date, following the new reference. Reorganized the left sidebar into expandable overview, management, photos, status and activity sections.
+- Kept existing management dialogs, contact-sharing privacy controls, review access and project/estimate lifecycle logic. Main column uses horizontal professional cards with actual business imagery, rates and reviews, plus expandable work photos. No fabricated best-match label, provider claims or data added.
+- TypeScript, web/SSR/admin build and 23 focused domain/project-hub/marketplace-cards/project-intake tests passed. Final CSS-only adjustments ensure header block layout, sidebar alignment and visible keyboard focus.
+- Full npm test attempted; local HTTP fetch failures prevented a full pass. Signed-in browser visual verification, native builds and live workflows were not exercised. Not deployed.
+
+### 2026-11-17 — Public website feedback
+
+- Added a persistent Feedback control to the customer/public client entry point (including sign-in and native shared client pages). Anonymous JSON submission does not initialize authentication or send account credentials. Messages are plain text, 10–2,000 characters; optional email is validated. Page context is a fixed category, not URLs/query parameters or project IDs.
+- Added public POST /api/feedback before authentication, with a 12KB parser bound, local/shared 5-per-network/hour and 1,000-global/day limits, honeypot and UUID duplicate-write protection. Production fails closed when shared limiting is unavailable. Uses existing trusted-proxy network normalization; no IP is stored in the feedback table.
+- Added authenticated admin Feedback inbox with pagination and reviewed state; unverified visitor text is React-escaped. No feedback emails are automatically sent. Privacy information describes the stored feedback.
+- Deployment prerequisite: apply forward migration 032_website_feedback.sql before using the form. Existing Upstash rate-limit configuration is required in production; no new secrets introduced.
+- Four focused feedback/schema/privacy/local-budget/shared-limiter tests passed. Full npm test attempted; local HTTP tests remain blocked by fetch failures. Database migration execution, live anonymous submissions, admin inbox access and browser/native visual interaction remain unverified locally.
+- Final feedback build: npm run build passed, including TypeScript, web/SSR and admin. Existing dynamic-import warning remains.

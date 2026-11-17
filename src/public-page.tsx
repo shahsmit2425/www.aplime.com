@@ -563,6 +563,16 @@ export function PublicPage({
               Aplime through support conversations in Messages. Aplime does not
               record audio or video calls in this application.
             </p>
+            {path === "/privacy" && (
+              <p>
+                Website feedback can be submitted without an account. We store
+                the message, feedback type, general page category and any email
+                address you choose to provide so the Aplime team can review it
+                and follow up. Feedback is not published publicly. Network-based
+                abuse limits protect the form; please do not include sensitive
+                personal information.
+              </p>
+            )}
             <p>
               For questions about your information or a service experience,
               contact Aplime through Messages in your account.
