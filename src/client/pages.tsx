@@ -13,6 +13,7 @@ import { CallMeetings } from "./call-meetings.js";
 import { ProjectPhotoGallery } from "./project-photo-gallery.js";
 import {
   CustomerProjectHeader,
+  ProjectDetailsSurface,
   CustomerProjectDetails,
   CustomerProjectStatus,
 } from "./project-presentation.js";
@@ -425,6 +426,7 @@ function ProjectDetail() {
   const p = [...data.projects, ...data.leads].find((p) => p.id === id);
   const [action, setAction] = useState("");
   const [editing, setEditing] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   useEffect(() => {
     setAction("");
   }, [id, p?.version]);
@@ -469,7 +471,10 @@ function ProjectDetail() {
     });
   return (
     <div
-      className={"project-detail-page" + (customer ? " customer-project" : "")}
+      className={
+        "project-detail-page" +
+        (customer ? " customer-project compact-customer-project" : "")
+      }
     >
       {customer ? (
         <CustomerProjectHeader project={p} onBack={() => go("dashboard")} />
@@ -481,6 +486,39 @@ function ProjectDetail() {
           {p.category} · {p.zip}
         </Head>
       )}
+      {customer && (
+        <div className="compact-project-management">
+          <button
+            className="secondary project-details-button"
+            onClick={() => setDetailsOpen(true)}
+          >
+            <FileText size={18} /> View project details
+          </button>
+          <ProjectControls
+            key={p.id}
+            hideActivity
+            iconOnly
+            project={p}
+            onEdit={() => setEditing(true)}
+            extraActions={
+              <ProjectActionBar
+                compact
+                project={p}
+                canRespond={false}
+                hasEstimates={quotes.some(
+                  (q) => !q.assessmentRequired && q.status === "pending",
+                )}
+                hasOwnEstimate={false}
+                onPropose={() => {
+                  setAction("reschedule");
+                }}
+                onEdit={() => setEditing(true)}
+              />
+            }
+          />
+        </div>
+      )}
+
       {!customer && <ProjectContact key={p.id} projectId={p.id} />}
       {data.marketplacePreview &&
         data.user.role === "pro" &&
@@ -680,16 +718,11 @@ function ProjectDetail() {
           </Panel>
         )}
       <div className="two-columns project-detail-columns">
-        <div
-          className={
-            customer ? "project-brief-sidebar" : "project-brief-passthrough"
-          }
+        <ProjectDetailsSurface
+          customer={customer}
+          open={detailsOpen}
+          onClose={() => setDetailsOpen(false)}
         >
-          {customer && (
-            <h2 className="project-sidebar-title">
-              <FileText size={22} /> Project details
-            </h2>
-          )}
           <DetailsContainer
             id="project-details"
             key={p.id}
@@ -820,38 +853,6 @@ function ProjectDetail() {
             )}
           </DetailsContainer>
           {customer && (
-            <details
-              className="project-sidebar-section customer-project-controls"
-              open
-            >
-              <summary>
-                Edit / manage project
-                <ChevronDown size={18} />
-              </summary>
-              <ProjectControls
-                key={p.id}
-                hideActivity
-                project={p}
-                onEdit={() => setEditing(true)}
-                extraActions={
-                  <ProjectActionBar
-                    compact
-                    project={p}
-                    canRespond={false}
-                    hasEstimates={quotes.some(
-                      (q) => !q.assessmentRequired && q.status === "pending",
-                    )}
-                    hasOwnEstimate={false}
-                    onPropose={() => {
-                      setAction("reschedule");
-                    }}
-                    onEdit={() => setEditing(true)}
-                  />
-                }
-              />
-            </details>
-          )}
-          {customer && (
             <>
               <details className="project-sidebar-section" open>
                 <summary>
@@ -887,12 +888,15 @@ function ProjectDetail() {
               </details>
             </>
           )}
-        </div>
+        </ProjectDetailsSurface>
         <div id="project-estimates" className="project-estimates">
           {customer ? (
             <>
               <ProjectProfessionals project={p} submit={submit} />
-              <CallMeetings projectId={p.id} compact />
+              <details className="compact-project-calls">
+                <summary>Project calls</summary>
+                <CallMeetings projectId={p.id} compact />
+              </details>
             </>
           ) : (
             <Panel title="Estimates">

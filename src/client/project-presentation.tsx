@@ -1,3 +1,4 @@
+import { ProjectDialog } from "./project-dialog.js";
 import { T } from "../shared/language.js";
 import {
   ArrowLeft,
@@ -257,4 +258,24 @@ export function CustomerProjectStatus({ project: p }: { project: Project }) {
       )}
     </section>
   );
+}
+
+export function ProjectDetailsSurface({
+  customer,
+  open,
+  onClose,
+  children,
+}: {
+  customer: boolean;
+  open: boolean;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  if (!customer)
+    return <div className="project-brief-passthrough">{children}</div>;
+  return open ? (
+    <ProjectDialog title="Project details" onClose={onClose}>
+      <div className="project-detail-dialog-content">{children}</div>
+    </ProjectDialog>
+  ) : null;
 }

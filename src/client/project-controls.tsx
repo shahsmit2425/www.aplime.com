@@ -87,11 +87,13 @@ export function ProjectControls({
   onEdit,
   extraActions,
   hideActivity = false,
+  iconOnly = false,
 }: {
   project: Project;
   onEdit?: () => void;
   extraActions?: ReactNode;
   hideActivity?: boolean;
+  iconOnly?: boolean;
 }) {
   const { data, run, busy } = useWorkspace();
   const [intent, setIntent] = useState<Intent | null>(null);
@@ -262,8 +264,17 @@ export function ProjectControls({
         )}
         <div className="actions">
           {onEdit && p.customerId === data.user.id && (
-            <button className="secondary" disabled={busy} onClick={onEdit}>
-              <Pencil size={17} /> <T>{"Edit details"}</T>{" "}
+            <button
+              className="secondary"
+              disabled={busy}
+              onClick={onEdit}
+              title="Edit details"
+              aria-label="Edit details"
+            >
+              <Pencil size={17} />{" "}
+              <span className={iconOnly ? "sr-only" : undefined}>
+                <T>{"Edit details"}</T>
+              </span>
             </button>
           )}
           {(Object.keys(icons) as (keyof typeof icons)[])
@@ -279,6 +290,8 @@ export function ProjectControls({
               return (
                 <button
                   key={type}
+                  title={descriptions[type][0]}
+                  aria-label={descriptions[type][0]}
                   className={
                     type === "start" || type === "complete" ? "" : "secondary"
                   }
@@ -286,7 +299,9 @@ export function ProjectControls({
                   onClick={() => setIntent(type)}
                 >
                   <Icon size={17} />
-                  {descriptions[type][0]}
+                  <span className={iconOnly ? "sr-only" : undefined}>
+                    {descriptions[type][0]}
+                  </span>
                 </button>
               );
             })}

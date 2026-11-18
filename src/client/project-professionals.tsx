@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { ProjectDialog } from "./project-dialog.js";
 import { T } from "../shared/language.js";
 import { quotePrice, quoteTiming } from "../shared/estimates.js";
 import { ProfessionalCard } from "./marketplace-cards.js";
@@ -16,6 +18,7 @@ export function ProjectProfessionals({
   submit: (body: unknown) => Promise<unknown>;
 }) {
   const { data, run, busy } = useWorkspace();
+  const [estimatePro, setEstimatePro] = useState<string | null>(null);
   const quotes = data.quotes.filter((q) => q.projectId === p.id);
   const profiles = projectProfessionals(p, data.profiles, quotes, false);
   // Retain estimate records even if a professional's profile is no longer available.
@@ -174,6 +177,7 @@ export function ProjectProfessionals({
               key={proId}
               profile={profile}
               layout="horizontal"
+              compact
               preview={data.marketplacePreview && !profile.canRespond}
               save={<SavePro proId={proId} />}
               actions={
@@ -184,14 +188,24 @@ export function ProjectProfessionals({
                 />
               }
             >
-              {(assigned || matched) && (
-                <p className="professional-relationship">
-                  {assigned
-                    ? "Selected professional"
-                    : `${p.category} · Covers your project area`}
-                </p>
+              {assigned && <small>Selected professional</small>}
+              {estimates.length > 0 && (
+                <button
+                  className="text-button"
+                  onClick={() => setEstimatePro(proId)}
+                >
+                  View estimates ({estimates.length})
+                </button>
               )}
-              {estimatesContent}
+              {estimatePro === proId && (
+                <ProjectDialog
+                  title={business + " � estimates"}
+                  busy={busy}
+                  onClose={() => setEstimatePro(null)}
+                >
+                  {estimatesContent}
+                </ProjectDialog>
+              )}
             </ProfessionalCard>
           ) : (
             <article

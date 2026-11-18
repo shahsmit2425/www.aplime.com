@@ -191,9 +191,11 @@ export function ProfessionalCard({
   save,
   children,
   layout = "vertical",
+  compact = false,
 }: {
   profile: Profile;
   layout?: "vertical" | "horizontal";
+  compact?: boolean;
   preview?: boolean;
   actions: ReactNode;
   save: ReactNode;
@@ -210,6 +212,39 @@ export function ProfessionalCard({
   const categories = p.serviceCategories.length
     ? p.serviceCategories
     : [p.category];
+  if (compact)
+    return (
+      <article className="compact-professional" data-service={p.category}>
+        <div className="compact-professional-main">
+          <div className="compact-professional-avatar">
+            {logo ? (
+              <img src={logo.url} alt="" loading="lazy" />
+            ) : (
+              <ServiceIcon service={p.category} size={25} />
+            )}
+          </div>
+          <div>
+            <h3>{p.business}</h3>
+            <p className="compact-professional-rating">
+              <Star size={15} />{" "}
+              {p.reviewCount > 0
+                ? `${p.rating.toFixed(1)} (${p.reviewCount} reviews)`
+                : "No reviews yet"}{" "}
+              {p.verified && <span> � Identity verified</span>}
+            </p>
+            <small>
+              {p.category} � {p.zip}
+            </small>
+          </div>
+          <div className="compact-professional-save">{save}</div>
+        </div>
+        {preview && <small>Not accepting requests yet</small>}
+        <div className="compact-professional-actions">{actions}</div>
+        {children && (
+          <div className="compact-professional-estimates">{children}</div>
+        )}
+      </article>
+    );
   return (
     <article
       className="pro-listing"

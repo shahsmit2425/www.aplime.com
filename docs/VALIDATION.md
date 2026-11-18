@@ -830,3 +830,10 @@ A disposable PostgreSQL 16 cluster applied the migrations through 031. A custom-
 - Deployment prerequisite: apply forward migration 032_website_feedback.sql before using the form. Existing Upstash rate-limit configuration is required in production; no new secrets introduced.
 - Four focused feedback/schema/privacy/local-budget/shared-limiter tests passed. Full npm test attempted; local HTTP tests remain blocked by fetch failures. Database migration execution, live anonymous submissions, admin inbox access and browser/native visual interaction remain unverified locally.
 - Final feedback build: npm run build passed, including TypeScript, web/SSR and admin. Existing dynamic-import warning remains.
+
+### 2026-11-17 — Simplified two-section customer project view
+
+- Removed the persistent details sidebar. Main page contains the compact project summary/action strip followed by short professional rows. Full project facts, contact-sharing preference, photos, status and activity are reachable through View project details in a native dialog.
+- Customer edit/lifecycle buttons use icons with accessible labels/tooltips and retain existing confirmations. Professional rows show real business identity, rating and short service/location context; full bios, advertising, portfolios and starting-rate panels remain on profiles. Estimates open in a separate dialog with existing acceptance checks and decline actions; project calls are collapsed by default.
+- Validation: TypeScript and web/SSR/admin builds passed; 12 marketplace-card/project-hub/domain tests passed, including compact-card privacy and verification assertions. Full npm test attempted; local HTTP fetch failures prevent claiming a complete pass.
+- Signed-in browser visual/keyboard testing and live/native workflows remain unverified. No deployment performed.

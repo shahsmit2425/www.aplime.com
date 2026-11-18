@@ -74,4 +74,18 @@ test("professional cards preserve fractional rates and do not imply verification
   assert.match(html, /\$42\.5/);
   assert.match(html, /Not accepting requests yet/);
   assert.doesNotMatch(html, /Identity verified|PRIVATE STREET ADDRESS/);
+  const compactHtml = renderToStaticMarkup(
+    createElement(ProfessionalCard, {
+      profile,
+      compact: true,
+      save: null,
+      actions: null,
+    }),
+  );
+  assert.match(compactHtml, /compact-professional/);
+  assert.match(compactHtml, /No reviews yet/);
+  assert.doesNotMatch(
+    compactHtml,
+    /Identity verified|PRIVATE STREET ADDRESS|pro-listing-featured-media|Starting rate/,
+  );
 });
