@@ -17,6 +17,7 @@ import {
   type ServiceCategory,
 } from "../shared/service-questionnaires.js";
 import { Badge, ServiceIcon } from "./ui.js";
+import { projectStatusLabel } from "./marketplace-cards.js";
 const property = {
   home: "Single-family home",
   apartment: "Apartment",
@@ -50,7 +51,7 @@ export function CustomerProjectHeader({
           <div>
             <div className="project-brief-title">
               <h1>{p.title}</h1>
-              <Badge>{p.status.replaceAll("_", " ")}</Badge>
+              <Badge>{projectStatusLabel(p)}</Badge>
             </div>
             <p>{p.description}</p>
           </div>

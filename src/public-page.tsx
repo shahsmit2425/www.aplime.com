@@ -788,7 +788,7 @@ export function PublicPage({
               <div className="home-guide-intro">
                 <p className="eyebrow">A BETTER START TO YOUR PROJECT</p>
                 <h2 id="estimate-guide-title">
-                  Know what you�re comparing before you choose.
+                  Know what you’re comparing before you choose.
                 </h2>
                 <p>
                   A useful estimate starts with clear details. Aplime keeps your
@@ -822,7 +822,7 @@ export function PublicPage({
                   <FileText />
                   <h3>Compare the full scope</h3>
                   <p>
-                    Check labor, materials, exclusions, timing, and cleanup�not
+                    Check labor, materials, exclusions, timing, and cleanup—not
                     just the total. Confirm any visit or diagnostic fees
                     directly with the professional.
                   </p>

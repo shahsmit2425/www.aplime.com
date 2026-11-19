@@ -1808,10 +1808,10 @@ function WebsiteFeedbackInbox({
       {value?.rows.map((row) => (
         <article className="admin-panel" key={row.id}>
           <h3>
-            {row.category} � {row.reviewed ? "Reviewed" : "New"}
+            {row.category} · {row.reviewed ? "Reviewed" : "New"}
           </h3>
           <p>
-            {date(row.created_at)} � Page: {row.page}
+            {date(row.created_at)} · Page: {row.page}
           </p>
           <p style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
             {row.message}

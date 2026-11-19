@@ -199,7 +199,7 @@ export function ProjectProfessionals({
               )}
               {estimatePro === proId && (
                 <ProjectDialog
-                  title={business + " � estimates"}
+                  title={business + " · estimates"}
                   busy={busy}
                   onClose={() => setEstimatePro(null)}
                 >

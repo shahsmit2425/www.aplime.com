@@ -89,8 +89,8 @@ export function ProjectContact({
           <p>
             <strong>Phone sharing: </strong>
             {contact.consentAt
-              ? "Agreed � matching professionals may call or text about this project."
-              : "Not agreed � your number is private. Professionals can message you in Aplime."}
+              ? "Agreed — matching professionals may call or text about this project."
+              : "Not agreed — your number is private. Professionals can message you in Aplime."}
           </p>
         ) : (
           <div>

@@ -1810,3 +1810,292 @@ input[type="radio"] {
 .compact-project-management .actions button { min-width: 40px; min-height: 40px; }
 .compact-project-calls { margin-top: 18px; border-top: 1px solid #dce5f5; padding-top: 14px; }
 .compact-project-calls > summary { cursor: pointer; font-weight: 650; color: #1645b5; }
+
+/* Interface polish: denser project cards, consistent project page rhythm and
+   readable text on light surfaces. */
+.workspace .project-card-grid {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+}
+.customer-dashboard nav[aria-label="Project status"] {
+  margin-bottom: 20px;
+}
+.workspace .project-card {
+  height: auto;
+  min-height: 0;
+  padding: 18px;
+  gap: 0;
+}
+.workspace .project-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 0 14px;
+}
+.project-card-service {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.workspace .project-card .service-emblem {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: 10px;
+}
+.workspace .project-card .card-kicker {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 650;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.workspace .project-status {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.workspace .project-card-copy {
+  padding: 0;
+}
+.workspace .project-card-title {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.35;
+}
+.workspace .project-card-description {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 0;
+  margin: 6px 0 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.workspace .project-card-details {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin: 14px 0 16px;
+  padding: 0;
+  border: 0;
+}
+.workspace .project-card-details svg {
+  flex-shrink: 0;
+}
+.workspace .project-card-details > span {
+  align-items: center;
+  font-size: 13px;
+}
+.workspace .project-card-footer {
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  order: 2;
+  margin-top: auto;
+  padding: 14px 0 0;
+  border-top: 1px solid var(--section-border);
+}
+.workspace .project-card-footer > span:first-child {
+  min-width: 0;
+}
+.workspace .project-card-footer strong {
+  font-size: 16px;
+  line-height: 1.35;
+}
+.workspace .project-card-footer .card-open {
+  position: static;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 9px;
+  background: var(--brand-soft);
+  color: #063dce;
+  font-size: 13px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.workspace .project-card:hover:not(:disabled) .card-open {
+  background: var(--blue);
+  color: #fff;
+}
+.workspace .project-card-updates {
+  order: 1;
+  margin: 0 0 16px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 9px;
+  background: #f3f6ff;
+  color: #123ca5;
+  font-size: 13px;
+  font-weight: 600;
+}
+.workspace .project-card-updates strong {
+  color: #6b4a00;
+}
+.workspace .project-card-visual {
+  height: 132px;
+  flex-shrink: 0;
+}
+@media (min-width: 851px) {
+  .past-projects .project-card:not([data-photo]) {
+    display: flex;
+  }
+  .past-projects .project-card[data-photo] {
+    column-gap: 16px;
+  }
+  .workspace .past-projects .project-card-visual {
+    height: 100%;
+  }
+}
+
+/* The project page uses the same type and spacing as every other page. */
+.customer-project,
+.customer-project h1,
+.customer-project h2,
+.customer-project h3 {
+  font-family: inherit;
+}
+.customer-project .panel h2,
+.customer-project button,
+.customer-project input,
+.customer-project select,
+.customer-project textarea {
+  font-family: inherit;
+}
+.workspace-main.customer-project-main {
+  padding-top: 24px;
+}
+.project-brief-title .badge {
+  text-transform: none;
+}
+.workspace .customer-project .project-pro-results {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.customer-project .compact-professional-main h3 {
+  font-size: 18px;
+  line-height: 1.3;
+}
+.customer-project .compact-professional-rating {
+  font-size: 14px;
+  line-height: 1.4;
+}
+.customer-project .compact-professional-main small {
+  font-size: 13px;
+}
+.compact-professional-estimates {
+  padding-top: 12px;
+  border-top: 1px solid var(--section-border);
+}
+.compact-professional-estimates .text-button {
+  min-height: 36px;
+  padding: 7px 12px;
+  border-radius: 9px;
+  background: var(--brand-soft);
+  color: #063dce;
+  font-size: 13px;
+  font-weight: 650;
+  text-decoration: none;
+}
+.compact-professional-estimates > small {
+  color: #006c78;
+  font-size: 13px;
+  font-weight: 650;
+}
+.compact-professional-verified {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  color: #006c78;
+  font-weight: 600;
+}
+.compact-professional-estimates:empty {
+  display: none;
+}
+@media (max-width: 760px) {
+  .workspace-main.customer-project-main {
+    padding-top: 14px;
+  }
+  .compact-professional-actions > * {
+    flex: 1 1 0;
+    min-width: max-content;
+    justify-content: center;
+  }
+}
+
+/* Light surfaces need dark text: these inherited a former dark-panel palette. */
+.service-guide-link {
+  color: #063dce;
+  font-weight: 650;
+}
+.seo-callout h2 {
+  color: var(--ink);
+}
+.seo-callout p {
+  color: var(--muted);
+}
+.service-number {
+  color: #56677a;
+}
+.auth-steps li {
+  color: #56655f;
+}
+.public-footer {
+  max-width: none;
+  padding-inline: max(32px, calc((100% - 1216px) / 2));
+}
+@media (max-width: 600px) {
+  .public-footer {
+    padding-inline: 20px;
+  }
+  .workspace .mobile-bottom-nav button {
+    font-size: 11px;
+  }
+}
+.pro-dashboard-filters select {
+  padding: 0 12px;
+  border: 1px solid #bac4cc;
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 500;
+}
+.pro-dashboard-filters select:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px #064bff18;
+}
+/* Pages without the app tab bar keep the feedback button near the corner. */
+@media (max-width: 760px) {
+  body:not(:has(.mobile-bottom-nav)) .website-feedback-trigger {
+    bottom: calc(16px + env(safe-area-inset-bottom));
+  }
+}
+/* Sub-sections inside a panel are separated from the form or note above. */
+.workspace .panel > :is(form, p) + h3 {
+  margin-top: 28px;
+  padding-top: 22px;
+  border-top: 1px solid var(--section-border);
+}
+.compact-project-management .actions + * {
+  margin-top: 8px;
+}

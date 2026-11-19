@@ -147,6 +147,12 @@ export function CustomerDashboard() {
               key={p.id}
               project={p}
               quotes={data.quotes}
+              photo={data.uploads.find(
+                (file) =>
+                  file.projectId === p.id &&
+                  file.status === "ready" &&
+                  file.contentType.startsWith("image/"),
+              )}
               onOpen={() => go("project", p.id)}
             />
           ))}

@@ -30,6 +30,15 @@ const statusLabels: Record<Project["status"], string> = {
   cancelled: "Cancelled",
   disputed: "Under review",
 };
+export function projectStatusLabel(p: Project) {
+  return p.status === "booked"
+    ? p.awardAccepted === false
+      ? "Awaiting pro confirmation"
+      : p.scheduledAt
+        ? "Scheduled"
+        : "Accepted · choose a time"
+    : statusLabels[p.status];
+}
 const urgencyLabels = {
   urgent: "As soon as possible",
   this_week: "This week",
@@ -114,40 +123,46 @@ export function ProjectCard({
         minute: "2-digit",
       })
     : null;
+  // A zero amount means the customer left that side of the budget open.
   const budget =
-    p.budgetMin != null && p.budgetMax != null
+    p.budgetMin && p.budgetMax
       ? money(p.budgetMin) + " – " + money(p.budgetMax)
-      : p.budgetMax != null
+      : p.budgetMax
         ? "Up to " + money(p.budgetMax)
-        : p.budgetMin != null
+        : p.budgetMin
           ? "From " + money(p.budgetMin)
           : "Discuss an estimate";
+  const hasUpdates =
+    pendingEstimates > 0 ||
+    !!p.archived ||
+    !!p.completionRequested ||
+    !!p.cancellationRequestedBy ||
+    !!p.proposedAt;
   return (
     <button
       type="button"
       className="project-card"
       data-service={p.category}
+      data-photo={photo ? "true" : undefined}
       onClick={onOpen}
       aria-label={"View project: " + p.title}
     >
-      <ProjectVisual key={p.id} category={p.category} photo={photo} />
+      {photo && (
+        <ProjectVisual key={p.id} category={p.category} photo={photo} />
+      )}
       <span className="project-card-top">
-        <span className="service-emblem" data-service={p.category}>
-          <ServiceIcon service={p.category} size={23} />
+        <span className="project-card-service">
+          <span className="service-emblem" data-service={p.category}>
+            <ServiceIcon service={p.category} size={20} />
+          </span>
+          <span className="card-kicker">{p.category}</span>
         </span>
         <span className={"project-status status-" + p.status}>
           <i aria-hidden="true" />
-          {p.status === "booked"
-            ? p.awardAccepted === false
-              ? "Awaiting pro confirmation"
-              : p.scheduledAt
-                ? "Scheduled"
-                : "Accepted · choose a time"
-            : statusLabels[p.status]}
+          {projectStatusLabel(p)}
         </span>
       </span>
       <span className="project-card-copy">
-        <span className="card-kicker">{p.category}</span>
         <strong className="project-card-title">{p.title}</strong>
         <span className="project-card-description">{p.description}</span>
       </span>
@@ -167,20 +182,27 @@ export function ProjectCard({
           <strong>{budget}</strong>
         </span>
         <span className="card-open">
-          <T>{"View project"}</T> <ArrowUpRight size={18} />
+          <T>{"View project"}</T> <ArrowUpRight size={16} />
         </span>
       </span>
-      <span className="project-card-updates">
-        <span>{pendingEstimates} pending estimates</span>
-        {p.archived && (
-          <strong>
-            <T>{"Archived"}</T>
-          </strong>
-        )}
-        {p.completionRequested && <strong>Completion requested</strong>}
-        {p.cancellationRequestedBy && <strong>Cancellation requested</strong>}
-        {p.proposedAt && <strong>Appointment proposed</strong>}
-      </span>
+      {hasUpdates && (
+        <span className="project-card-updates">
+          {pendingEstimates > 0 && (
+            <span>
+              {pendingEstimates} pending{" "}
+              {pendingEstimates === 1 ? "estimate" : "estimates"}
+            </span>
+          )}
+          {p.archived && (
+            <strong>
+              <T>{"Archived"}</T>
+            </strong>
+          )}
+          {p.completionRequested && <strong>Completion requested</strong>}
+          {p.cancellationRequestedBy && <strong>Cancellation requested</strong>}
+          {p.proposedAt && <strong>Appointment proposed</strong>}
+        </span>
+      )}
     </button>
   );
 }
@@ -228,12 +250,16 @@ export function ProfessionalCard({
             <p className="compact-professional-rating">
               <Star size={15} />{" "}
               {p.reviewCount > 0
-                ? `${p.rating.toFixed(1)} (${p.reviewCount} reviews)`
-                : "No reviews yet"}{" "}
-              {p.verified && <span> � Identity verified</span>}
+                ? `${p.rating.toFixed(1)} (${p.reviewCount} ${p.reviewCount === 1 ? "review" : "reviews"})`
+                : "No reviews yet"}
+              {p.verified && (
+                <span className="compact-professional-verified">
+                  <ShieldCheck size={14} aria-hidden="true" /> Identity verified
+                </span>
+              )}
             </p>
             <small>
-              {p.category} � {p.zip}
+              {p.category} · {p.zip}
             </small>
           </div>
           <div className="compact-professional-save">{save}</div>
