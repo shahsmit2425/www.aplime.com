@@ -137,6 +137,14 @@ const textOptions: Record<string, string[]> = {
     "Not sure",
   ],
 };
+const timings: Record<string, IntakeDraft["urgency"]> = {
+  "As soon as possible": "urgent",
+  "This week": "this_week",
+  "This month": "this_month",
+  Flexible: "flexible",
+};
+const timingLabel = (urgency: IntakeDraft["urgency"]) =>
+  Object.keys(timings).find((label) => timings[label] === urgency) || "";
 export function ProjectIntake(props: Props) {
   const [session, setSession] = useState(() => startingSession(props));
   const [photos, setPhotos] = useProjectPhotos();
@@ -152,6 +160,7 @@ export function ProjectIntake(props: Props) {
   const finished = useRef(false);
   const photoWrites = useRef(Promise.resolve());
   const photoSnapshot = useRef(photos);
+  const advance = useRef<ReturnType<typeof setTimeout>>(undefined);
   const persistPhotoSnapshot = () => {
     if (finished.current) return Promise.resolve();
     const snapshot = photoSnapshot.current;
@@ -173,11 +182,25 @@ export function ProjectIntake(props: Props) {
   const patch = (values: Partial<IntakeDraft>) =>
     setSession((s) => ({ ...s, draft: { ...s.draft, ...values } }));
   const move = (next: string) => {
+    clearTimeout(advance.current);
     setSession((s) => ({ ...s, step: next }));
     setError("");
     setNotice("");
     setOther(false);
   };
+  // A complete answer picked from a list moves on by itself; the short pause shows the selection first.
+  const choose = (values: Partial<IntakeDraft>) => {
+    clearTimeout(advance.current);
+    patch(values);
+    const chosen = { ...draft, ...values };
+    if (stepProblem(step, chosen)) return;
+    const following = intakeSteps(chosen);
+    advance.current = setTimeout(
+      () => move(following[following.indexOf(step) + 1]),
+      220,
+    );
+  };
+  useEffect(() => () => clearTimeout(advance.current), []);
   useEffect(() => {
     let disposed = false;
     if (!session.photoCount) {
@@ -246,6 +269,7 @@ export function ProjectIntake(props: Props) {
   }, [photos, ready]);
   async function perform(action: () => Promise<void>) {
     if (operation.current) return;
+    clearTimeout(advance.current);
     operation.current = true;
     setBusy(true);
     setError("");
@@ -463,8 +487,9 @@ export function ProjectIntake(props: Props) {
   const budgetChoice = customBudget
     ? "Set my own budget"
     : intakeBudgetChoice(draft);
-  const changeAnswer = (value: string) =>
-    patch({ intake: { ...draft.intake, [question!.id]: value } });
+  const answerValue = (value: string) => ({
+    intake: { ...draft.intake, [question!.id]: value },
+  });
   if (!ready)
     return (
       <p role="status">
@@ -475,22 +500,19 @@ export function ProjectIntake(props: Props) {
     <section className="project-intake" aria-label="Project request">
       <div className="intake-topline">
         <span>
-          <T>{"YOUR HOME. YOUR NEXT PROJECT."}</T>
+          Step {index + 1} of {steps.length}
         </span>
-        <span>
-          {index + 1} / {steps.length}
-        </span>
+        {!session.savedProjectId && (
+          <button
+            type="button"
+            className="text-button intake-restart"
+            disabled={busy}
+            onClick={() => void perform(startOver)}
+          >
+            Start over
+          </button>
+        )}
       </div>
-      {!session.savedProjectId && (
-        <button
-          type="button"
-          className="text-button intake-restart"
-          disabled={busy}
-          onClick={() => void perform(startOver)}
-        >
-          Start over
-        </button>
-      )}
       <progress
         className="intake-progress"
         aria-label="Project request progress"
@@ -502,43 +524,29 @@ export function ProjectIntake(props: Props) {
           <MapPin size={16} />
           {draft.zipLabel || "New Jersey"}
         </span>
-        <span>{step !== "zip" && <T>{draft.category}</T>}</span>
+        {index > 1 && (
+          <span>
+            <ServiceIcon service={draft.category} />
+            <T>{draft.category}</T>
+          </span>
+        )}
       </div>
       <h1 ref={heading} tabIndex={-1}>
         <T>{title}</T>
       </h1>
-      {step === "zip" && (
-        <p>
-          <T>
-            {
-              "Start with your ZIP. Tell us about the job, then sign in to publish and meet matching pros."
-            }
-          </T>{" "}
-        </p>
-      )}
-      {step === "category" && (
-        <p>
-          <T>
-            {
-              "Choose the main service. Your next questions will fit the work you need."
-            }
-          </T>{" "}
-        </p>
-      )}
       {step === "address" && (
         <p>
           <T>
             {
-              "Your exact address is shared only with your selected professional. Other matching pros see your ZIP."
+              "Only the professional you select sees your exact address. Other matching pros see your ZIP."
             }
           </T>{" "}
         </p>
       )}
-      {step === "review" && (
+      {step === "review" && !props.data && (
         <p>
-          {props.data
-            ? "Review your answers and publish when you’re ready."
-            : "One last step: sign in or create a customer account. Your answers and photos will come with you."}
+          Sign in or create a customer account to publish. Your answers and
+          photos come with you.
         </p>
       )}
       <form
@@ -551,34 +559,6 @@ export function ProjectIntake(props: Props) {
           disabled={busy || !!session.savedProjectId}
           className="intake-fields"
         >
-          {step === "zip" && (
-            <div className="intake-request-mode">
-              <h2>How would you like to post?</h2>
-              <Choices
-                options={["Standard project", "Emergency / urgent request"]}
-                value={
-                  draft.emergency
-                    ? "Emergency / urgent request"
-                    : "Standard project"
-                }
-                onChange={(value) =>
-                  patch({ emergency: value === "Emergency / urgent request" })
-                }
-              />
-              <p>
-                {draft.emergency
-                  ? "A shorter form: tell us the essentials and discuss the rest with a professional."
-                  : "Answer a few questions so professionals can understand your project."}
-              </p>
-            </div>
-          )}
-          {draft.emergency && step === "zip" && (
-            <p className="intake-urgent-notice">
-              Need immediate help for a fire, gas leak, or danger to someone?
-              Call 911 or your utility. Aplime connects you with professionals;
-              availability and response times are not guaranteed.
-            </p>
-          )}
           {step === "zip" && (
             <Field label="Project ZIP code">
               <span className="intake-location-input">
@@ -599,12 +579,30 @@ export function ProjectIntake(props: Props) {
                   placeholder="e.g. 08859"
                 />
               </span>
-              <small className="intake-field-hint">
-                <T>
-                  {"Enter the five-digit ZIP where you need the work done."}
-                </T>{" "}
-              </small>
             </Field>
+          )}
+          {step === "zip" && (
+            <div className="intake-request-mode">
+              <h2>How would you like to post?</h2>
+              <Choices
+                options={["Standard project", "Emergency / urgent request"]}
+                value={
+                  draft.emergency
+                    ? "Emergency / urgent request"
+                    : "Standard project"
+                }
+                onChange={(value) =>
+                  patch({ emergency: value === "Emergency / urgent request" })
+                }
+              />
+            </div>
+          )}
+          {draft.emergency && step === "zip" && (
+            <p className="intake-urgent-notice">
+              Need immediate help for a fire, gas leak, or danger to someone?
+              Call 911 or your utility. Aplime connects you with professionals;
+              availability and response times are not guaranteed.
+            </p>
           )}
           {step === "category" && (
             <div className="intake-choices category-choices">
@@ -619,15 +617,20 @@ export function ProjectIntake(props: Props) {
                   }
                   key={category}
                   onClick={() =>
-                    category !== draft.category &&
-                    patch({ category, intake: {}, title: "", proId: null })
+                    choose(
+                      category === draft.category
+                        ? {}
+                        : { category, intake: {}, title: "", proId: null },
+                    )
                   }
                 >
                   <ServiceIcon service={category} />
                   <span>
                     <T>{category}</T>
                   </span>
-                  {draft.category === category && <Check size={18} />}
+                  <span className="choice-check" aria-hidden="true">
+                    {draft.category === category && <Check size={18} />}
+                  </span>
                 </button>
               ))}
             </div>
@@ -647,7 +650,7 @@ export function ProjectIntake(props: Props) {
                   value={customAnswer ? "Other" : answer}
                   onChange={(value) => {
                     setOther(value === "Other");
-                    changeAnswer(value === "Other" ? "Other: " : value);
+                    choose(answerValue(value === "Other" ? "Other: " : value));
                   }}
                 />
               )}
@@ -656,6 +659,7 @@ export function ProjectIntake(props: Props) {
                 <Field label={customAnswer ? "Tell us more" : "Your answer"}>
                   <textarea
                     required
+                    autoFocus={other}
                     maxLength={1490}
                     rows={3}
                     value={
@@ -667,54 +671,33 @@ export function ProjectIntake(props: Props) {
                       question.placeholder || "Describe what you need",
                     )}
                     onChange={(e) =>
-                      changeAnswer(
-                        (customAnswer ? "Other: " : "") + e.target.value,
+                      patch(
+                        answerValue(
+                          (customAnswer ? "Other: " : "") + e.target.value,
+                        ),
                       )
                     }
                   />
                 </Field>
               )}
               {(draft.category === "Electrical" ||
-                draft.category === "Plumbing") && (
-                <small>
-                  <T>
-                    {
-                      "Aplime is not an emergency service. For immediate danger, contact emergency services or your utility."
-                    }
-                  </T>{" "}
-                </small>
-              )}
+                draft.category === "Plumbing") &&
+                question.id === intakeQuestions(draft.category)[0].id && (
+                  <small>
+                    <T>
+                      {
+                        "Aplime is not an emergency service. For immediate danger, contact emergency services or your utility."
+                      }
+                    </T>{" "}
+                  </small>
+                )}
             </>
           )}
           {step === "timing" && (
             <Choices
-              options={[
-                "As soon as possible",
-                "This week",
-                "This month",
-                "Flexible",
-              ]}
-              value={
-                {
-                  urgent: "As soon as possible",
-                  this_week: "This week",
-                  this_month: "This month",
-                  flexible: "Flexible",
-                  "": "",
-                }[draft.urgency]
-              }
-              onChange={(value) =>
-                patch({
-                  urgency: (
-                    {
-                      "As soon as possible": "urgent",
-                      "This week": "this_week",
-                      "This month": "this_month",
-                      Flexible: "flexible",
-                    } as Record<string, IntakeDraft["urgency"]>
-                  )[value],
-                })
-              }
+              options={Object.keys(timings)}
+              value={timingLabel(draft.urgency)}
+              onChange={(value) => choose({ urgency: timings[value] })}
             />
           )}
           {step === "budget" && (
@@ -730,8 +713,9 @@ export function ProjectIntake(props: Props) {
                 value={budgetChoice}
                 onChange={(v) => {
                   setCustomBudget(v === "Set my own budget");
-                  if (v !== "Set my own budget")
-                    patch(
+                  if (v === "Set my own budget") clearTimeout(advance.current);
+                  else
+                    choose(
                       v === "Under $500"
                         ? { budgetMin: null, budgetMax: 50000 }
                         : v === "$500–$2,000"
@@ -772,9 +756,7 @@ export function ProjectIntake(props: Props) {
                 </div>
               )}
               <p className="muted">
-                <T>
-                  {"This helps pros prepare estimates. No payment is taken."}
-                </T>{" "}
+                <T>{"No payment is taken."}</T>{" "}
               </p>
             </>
           )}
@@ -895,7 +877,7 @@ export function ProjectIntake(props: Props) {
                     draft.intake[q.id],
                     "question:" + q.id,
                   ]),
-                  ["Timing", draft.urgency.replaceAll("_", " "), "timing"],
+                  ["Timing", timingLabel(draft.urgency), "timing"],
                   [
                     "Budget",
                     draft.budgetMin === null && draft.budgetMax === null
@@ -947,7 +929,7 @@ export function ProjectIntake(props: Props) {
                 <p>
                   <T>
                     {
-                      "We match your service and location with professionals’ preferences, service radius and current eligibility. We alert up to five matches first. You choose who to contact and hire; publishing does not book a service."
+                      "We alert up to five matching professionals first. You choose who to contact and hire; publishing does not book a service."
                     }
                   </T>{" "}
                 </p>
@@ -1025,16 +1007,6 @@ export function ProjectIntake(props: Props) {
             <T>{"Save for later"}</T>{" "}
           </button>
         )}
-        <small className="intake-storage-note">
-          <T>
-            {
-              "Before publishing, answers and selected photos are kept temporarily in this browser tab for up to 24 hours."
-            }
-          </T>{" "}
-          {props.data
-            ? "Use Save for later to keep draft details on your dashboard."
-            : "No account is needed until the final step."}
-        </small>
       </form>
     </section>
   );

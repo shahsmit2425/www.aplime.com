@@ -2315,3 +2315,59 @@ input[type="radio"] {
 .home-guide-cards {
   align-self: start;
 }
+
+/* Project request form: one-line step header, a hover state that cannot be
+   mistaken for the selected answer, and tighter spacing around the actions. */
+.intake-topline {
+  align-items: center;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.intake-topline .intake-restart {
+  margin: 0;
+  padding: 0;
+  min-height: 0;
+  font-size: 14px;
+}
+.intake-progress {
+  margin: 12px 0 16px;
+}
+.intake-context svg {
+  width: 16px;
+  height: 16px;
+}
+.intake-choice {
+  transition:
+    background-color 0.15s,
+    border-color 0.15s;
+}
+.intake-choice:not(.selected):hover {
+  background: #fff;
+  border-color: var(--blue);
+}
+@media (hover: none) {
+  .intake-choice:not(.selected):hover {
+    border-color: var(--brand-border);
+  }
+}
+@media (max-width: 600px) {
+  .intake-choices {
+    gap: 10px;
+  }
+  .intake-choice {
+    min-height: 56px;
+    padding: 14px 16px;
+  }
+}
+.category-choices .intake-choice > .choice-check {
+  flex: 0 0 24px;
+}
+.intake-request-mode {
+  margin: 24px 0 0;
+}
+.intake-request-mode .intake-choices {
+  margin-bottom: 0;
+}
+.project-intake .intake-save {
+  margin: 16px auto 0;
+}

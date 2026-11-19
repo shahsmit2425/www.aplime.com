@@ -4081,13 +4081,6 @@ blockquote {
   display: block;
   margin: 16px auto;
 }
-.intake-storage-note {
-  display: block;
-  text-align: center;
-  color: var(--muted);
-  font-size: 13px;
-  line-height: 1.6;
-}
 .intake-review dl > div {
   display: grid;
   grid-template-columns: minmax(100px, 1fr) minmax(100px, 1.6fr) auto;
