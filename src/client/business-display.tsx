@@ -66,7 +66,9 @@ export function BusinessDisplay({
           )}
         </div>
         <div className="profile-brand-copy">
-          <p className="eyebrow">{profile.category} PROFESSIONAL</p>
+          <p className="eyebrow">
+            {profile.category.toUpperCase()} PROFESSIONAL
+          </p>
           <h1>{profile.business}</h1>
           <p className="profile-location">
             <MapPin size={16} /> {location} <span>·</span> Travels up to{" "}
@@ -107,7 +109,6 @@ export function BusinessDisplay({
             business={profile.business}
           />
           <section className="profile-content-card">
-            <p className="eyebrow">GET TO KNOW US</p>
             <h2>
               <T>{"About"}</T> {profile.business}
             </h2>
@@ -125,12 +126,12 @@ export function BusinessDisplay({
                   ${profile.rate}
                   <small> / hour</small>
                 </strong>
-                <span>Starting rate · final price agreed with you</span>
+                <span>Starting rate</span>
               </div>
               {profile.details?.yearsExperience !== undefined && (
                 <div>
                   <strong>{profile.details.yearsExperience} years</strong>
-                  <span>Experience reported by the business</span>
+                  <span>Experience (self-reported)</span>
                 </div>
               )}
               {profile.details?.teamSize !== undefined && (
@@ -182,12 +183,6 @@ export function BusinessDisplay({
                   </dl>
                 </section>
               ))}
-          <p className="profile-payment-note">
-            Agree on appointments and final pricing directly with your
-            professional. Aplime does not collect payments for home services.
-            Identity verification confirms the account holder’s identity; it
-            does not certify the business’s work.
-          </p>
         </div>
         <aside
           className="profile-sidebar"
@@ -198,7 +193,6 @@ export function BusinessDisplay({
               <h2>
                 <T>{"Discuss your project"}</T>
               </h2>
-              <p>Share your needs and agree on the next step.</p>
               {actions}
             </section>
           )}
@@ -277,6 +271,11 @@ export function BusinessDisplay({
           </section>
         </aside>
       </div>
+      <p className="profile-payment-note">
+        Agree on scheduling and pricing directly with the professional. Aplime
+        doesn’t collect payments, and identity verification doesn’t certify
+        licensing, insurance or the quality of work.
+      </p>
       {view && (
         <dialog
           ref={dialog}

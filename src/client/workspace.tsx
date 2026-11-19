@@ -780,7 +780,7 @@ export default function Workspace() {
                   <p className="auth-intro">
                     <T>
                       {
-                        "Choose how you plan to use Aplime. You can’t change the account type after finishing registration."
+                        "The account type can’t be changed after registration."
                       }
                     </T>{" "}
                   </p>
@@ -795,15 +795,6 @@ export default function Workspace() {
                     />
                   )}
                 </>
-              )}
-              {route.page === "login" && (
-                <p className="auth-intro">
-                  <T>
-                    {
-                      "Pick up where you left off. We’ll open your account or help you finish verification automatically."
-                    }
-                  </T>{" "}
-                </p>
               )}
               <Form
                 busy={busy}
@@ -859,12 +850,7 @@ export default function Workspace() {
                       onChange={(e) => setRemember(e.target.checked)}
                     />
                     <span>
-                      <T>{"Keep me signed in"}</T>{" "}
-                      <small>
-                        <T>
-                          {"Uncheck on a shared device to use this tab only."}
-                        </T>{" "}
-                      </small>
+                      <T>{"Keep me signed in on this device"}</T>
                     </span>
                   </label>
                 )}
@@ -920,9 +906,6 @@ export default function Workspace() {
               {notice}
             </p>
           )}
-          <p className="auth-foot">
-            <T>{"Your projects. Your conversations. All together."}</T>{" "}
-          </p>
         </section>
         <a href="/">
           <T>{"Back to home"}</T>

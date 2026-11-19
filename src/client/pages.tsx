@@ -397,10 +397,6 @@ function ProProfile() {
                   </button>
                 </>
               )}
-              <small className="muted">
-                Chat and scheduled calls are available in your project
-                conversation.
-              </small>
             </>
           ) : undefined
         }
@@ -1189,9 +1185,8 @@ function Reviews() {
       </Head>
       <p className="review-trust-note">
         <T>
-          Reviews come from customers with a completed project on Aplime. This
-          verifies the project connection, not payment or the quality of the
-          work. Both positive and negative feedback are welcome.
+          Only customers with a completed Aplime project can leave a review.
+          Aplime doesn’t verify payment or the quality of the work.
         </T>
       </p>
       {data.user.role === "customer" && (

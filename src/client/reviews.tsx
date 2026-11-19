@@ -144,9 +144,8 @@ export function BusinessReviews({ proId }: { proId: string }) {
       </h2>
       <p className="review-trust-note">
         <T>
-          Reviews come from customers with a completed project on Aplime. This
-          verifies the project connection, not payment or the quality of the
-          work. Both positive and negative feedback are welcome.
+          Only customers with a completed Aplime project can leave a review.
+          Aplime doesn’t verify payment or the quality of the work.
         </T>
       </p>
       {page && page.total > 0 && (
@@ -186,10 +185,7 @@ export function BusinessReviews({ proId }: { proId: string }) {
       )}
       {page?.total === 0 && (
         <p>
-          <T>
-            No customer reviews yet. Completed projects can be reviewed by their
-            customers.
-          </T>
+          <T>No customer reviews yet.</T>
         </p>
       )}
       {loading && (

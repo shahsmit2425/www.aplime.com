@@ -54,6 +54,7 @@ function ProjectVisual({
 }) {
   const element = useRef<HTMLSpanElement>(null);
   const [image, setImage] = useState<{ id: string; url: string } | null>(null);
+  const [failed, setFailed] = useState(false);
   useEffect(() => {
     if (!photo || !element.current) return;
     let active = true;
@@ -66,7 +67,7 @@ function ProjectVisual({
             if (active) setImage({ id: photo.id, url });
           })
           .catch(() => {
-            /* Keep the service illustration if access or loading fails. */
+            if (active) setFailed(true);
           });
       },
       { rootMargin: "200px" },
@@ -77,6 +78,8 @@ function ProjectVisual({
       observer.disconnect();
     };
   }, [photo?.id]);
+  // Without a loadable photo the card keeps its plain, photo-free layout.
+  if (failed) return null;
   return (
     <span
       ref={element}
@@ -89,10 +92,10 @@ function ProjectVisual({
           src={image.url}
           alt=""
           loading="lazy"
-          onError={() => setImage(null)}
+          onError={() => setFailed(true)}
         />
       ) : (
-        <ServiceIcon service={category} size={54} />
+        <ServiceIcon service={category} size={26} />
       )}
     </span>
   );
@@ -147,9 +150,6 @@ export function ProjectCard({
       onClick={onOpen}
       aria-label={"View project: " + p.title}
     >
-      {photo && (
-        <ProjectVisual key={p.id} category={p.category} photo={photo} />
-      )}
       <span className="project-card-top">
         <span className="project-card-service">
           <span className="service-emblem" data-service={p.category}>
@@ -162,9 +162,14 @@ export function ProjectCard({
           {projectStatusLabel(p)}
         </span>
       </span>
-      <span className="project-card-copy">
-        <strong className="project-card-title">{p.title}</strong>
-        <span className="project-card-description">{p.description}</span>
+      <span className="project-card-body">
+        <span className="project-card-copy">
+          <strong className="project-card-title">{p.title}</strong>
+          <span className="project-card-description">{p.description}</span>
+        </span>
+        {photo && (
+          <ProjectVisual key={p.id} category={p.category} photo={photo} />
+        )}
       </span>
       <span className="project-card-details">
         <span>

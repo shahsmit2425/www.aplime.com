@@ -12,6 +12,12 @@ import {
   Camera,
   Video,
   Check,
+  BriefcaseBusiness,
+  CircleCheck,
+  House,
+  Info,
+  Siren,
+  WalletCards,
 } from "lucide-react";
 import { BusinessDisplay } from "./client/business-display.js";
 import { categories, type Profile } from "./shared/domain.js";
@@ -227,19 +233,19 @@ function InformationPage({ path }: { path: string }) {
     path === "/how-it-works"
       ? [
           [
-            "1. Describe the project",
+            "Describe the project",
             "Choose a service, answer detailed questions, add a budget or preferred time when useful, and upload up to five photos.",
           ],
           [
-            "2. Discuss and compare",
+            "Discuss and compare",
             "Use private messages, audio or video calls, and itemized written estimates to understand the scope.",
           ],
           [
-            "3. Choose and schedule",
+            "Choose and schedule",
             "Accept the estimate that fits, then use appointment proposals so both people confirm the time.",
           ],
           [
-            "4. Track and finish",
+            "Track and finish",
             "Keep updates with the project. The professional requests completion and the customer confirms it before reviewing.",
           ],
         ]
@@ -295,39 +301,68 @@ function InformationPage({ path }: { path: string }) {
                 "Professionals pay Aplime for membership. Customers and professionals arrange service payment directly; Aplime does not process project payments.",
               ],
             ];
+  const steps = path === "/how-it-works";
+  const professionals = path === "/for-professionals";
+  const icons = steps
+    ? [ClipboardList, MessageCircle, CalendarCheck, CircleCheck]
+    : professionals
+      ? [FileText, ShieldCheck, UsersRound, MessageCircle]
+      : path === "/trust-and-safety"
+        ? [ShieldCheck, Info, FileText, Siren]
+        : [House, BriefcaseBusiness, WalletCards];
+  const action = (
+    <LinkButton
+      href={professionals ? "/app/register?role=pro" : "/app/projects/new"}
+    >
+      {professionals ? "Join as a professional" : "Start a project"}
+    </LinkButton>
+  );
   return (
     <>
       <Breadcrumbs current={page.title} />
-      <section className="seo-intro">
-        <p className="eyebrow">APLIME</p>
-        <h1>{page.heading}</h1>
-        <p className="lede">{page.description}</p>
+      <section className="seo-intro info-hero">
+        <div>
+          <p className="eyebrow">
+            {steps
+              ? "HOW IT WORKS"
+              : professionals
+                ? "FOR PROFESSIONALS"
+                : path === "/trust-and-safety"
+                  ? "TRUST & SAFETY"
+                  : "ABOUT APLIME"}
+          </p>
+          <h1>{page.heading}</h1>
+        </div>
+        <div>
+          <p className="lede">{page.description}</p>
+          {action}
+        </div>
       </section>
-      <section className="seo-editorial-grid">
-        {sections.map(([title, body]) => (
-          <article key={title}>
-            <h2>{title}</h2>
-            <p>{body}</p>
-          </article>
-        ))}
+      <section
+        className="seo-editorial-grid info-cards"
+        data-count={sections.length}
+      >
+        {sections.map(([title, body], i) => {
+          const Icon = icons[i];
+          return (
+            <article key={title}>
+              <div className="info-card-symbol">
+                <Icon aria-hidden="true" />
+                {steps && <span>Step {i + 1}</span>}
+              </div>
+              <h2>{title}</h2>
+              <p>{body}</p>
+            </article>
+          );
+        })}
       </section>
       <section className="seo-callout">
         <h2>
-          {path === "/for-professionals"
+          {professionals
             ? "Ready to build your business profile?"
             : "Ready to plan a home project?"}
         </h2>
-        <LinkButton
-          href={
-            path === "/for-professionals"
-              ? "/app/register?role=pro"
-              : "/app/projects/new"
-          }
-        >
-          {path === "/for-professionals"
-            ? "Join as a professional"
-            : "Start a project"}
-        </LinkButton>
+        {action}
       </section>
     </>
   );
@@ -648,11 +683,7 @@ export function PublicPage({
                     </button>
                   </div>
                   <small>
-                    <T>
-                      {
-                        "Serving New Jersey · Start now, sign in at the last step."
-                      }
-                    </T>{" "}
+                    <T>{"Serving New Jersey"}</T>
                   </small>
                 </form>
               </div>
@@ -667,10 +698,6 @@ export function PublicPage({
                 />
                 <figcaption>
                   <strong>Start with a free estimate.</strong>
-                  <span>
-                    Share your project, compare options, and choose your
-                    professional.
-                  </span>
                 </figcaption>
               </figure>
             </section>
@@ -705,10 +732,6 @@ export function PublicPage({
                 <h2>
                   <T>{"Find the right pro for your home project."}</T>
                 </h2>
-                <p>
-                  Browse popular home services and connect with local
-                  professionals for your next project.
-                </p>
               </div>
               <div className="home-service-grid">
                 {categories.map((c) => (
@@ -745,10 +768,6 @@ export function PublicPage({
                 <h2>
                   <T>{"A simple way to complete your home project."}</T>
                 </h2>
-                <p>
-                  Go from a project idea to an informed choice in just a few
-                  steps.
-                </p>
               </div>
               {[
                 "Tell us what you need",
@@ -791,9 +810,8 @@ export function PublicPage({
                   Know what you’re comparing before you choose.
                 </h2>
                 <p>
-                  A useful estimate starts with clear details. Aplime keeps your
-                  request, written estimates, and conversations together so you
-                  can ask the right questions.
+                  Aplime keeps your request, written estimates, and
+                  conversations together.
                 </p>
                 <a href="/services">
                   Explore the service guides <ArrowUpRight size={18} />
@@ -804,18 +822,16 @@ export function PublicPage({
                   <Camera />
                   <h3>Show the job</h3>
                   <p>
-                    Add clear photos, approximate measurements, and the parts of
-                    the project that matter most. Mention access, materials, and
-                    your preferred timing.
+                    Add clear photos, approximate measurements, and your
+                    preferred timing.
                   </p>
                 </article>
                 <article>
                   <Video />
                   <h3>Talk through the details</h3>
                   <p>
-                    Message professionals or schedule a call to discuss the
-                    work. Some jobs need an on-site assessment before a final
-                    price can be confirmed.
+                    Message professionals or schedule a call. Some jobs need an
+                    on-site visit before a final price.
                   </p>
                 </article>
                 <article>
@@ -823,8 +839,7 @@ export function PublicPage({
                   <h3>Compare the full scope</h3>
                   <p>
                     Check labor, materials, exclusions, timing, and cleanup—not
-                    just the total. Confirm any visit or diagnostic fees
-                    directly with the professional.
+                    just the total.
                   </p>
                 </article>
               </div>
@@ -840,10 +855,7 @@ export function PublicPage({
                 <h2 id="home-confidence-title">
                   Built for New Jersey homeowners.
                 </h2>
-                <p>
-                  Start with your ZIP code to tell us where the work is needed.
-                  Professional availability varies by service and location.
-                </p>
+                <p>Professional availability varies by service and location.</p>
               </div>
               <ul>
                 <li>
@@ -909,12 +921,7 @@ export function PublicPage({
               </div>
             </section>
             <section className="home-final-cta">
-              <div>
-                <h2>Ready to take the next step?</h2>
-                <p>
-                  Share your project. Ask questions. Choose with confidence.
-                </p>
-              </div>
+              <h2>Ready to take the next step?</h2>
               <a className="button" href="/app/projects/new">
                 Start a free request <ArrowUpRight size={18} />
               </a>

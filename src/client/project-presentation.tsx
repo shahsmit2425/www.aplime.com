@@ -1,15 +1,5 @@
 import { ProjectDialog } from "./project-dialog.js";
-import { T } from "../shared/language.js";
-import {
-  ArrowLeft,
-  CalendarDays,
-  CircleDollarSign,
-  Clock3,
-  FileText,
-  House,
-  MapPin,
-  UserRound,
-} from "lucide-react";
+import { ArrowLeft, CalendarDays, Clock3, House, MapPin } from "lucide-react";
 import type { ReactNode } from "react";
 import { money, type Project } from "../shared/domain.js";
 import {
@@ -93,111 +83,68 @@ export function CustomerProjectHeader({
   );
 }
 export function CustomerProjectDetails({ project: p }: { project: Project }) {
-  const rows: { label: string; value: ReactNode; icon: ReactNode }[] = [
-    { label: "Project title", value: p.title, icon: <FileText size={17} /> },
-    {
-      label: "Service",
-      value: p.category,
-      icon: <ServiceIcon service={p.category} size={17} />,
-    },
-    { label: "ZIP code", value: p.zip, icon: <MapPin size={17} /> },
+  const rows: { label: string; value: ReactNode; wide?: boolean }[] = [
+    { label: "Service", value: p.category },
+    { label: "Status", value: <Badge>{projectStatusLabel(p)}</Badge> },
+    { label: "ZIP code", value: p.zip },
     {
       label: "Posted",
-      value: new Date(p.createdAt).toLocaleDateString(),
-      icon: <CalendarDays size={17} />,
+      value: new Date(p.createdAt).toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      }),
     },
-    ...Object.entries(p.intake || {}).map(([key, value]) => ({
-      label: questionLabel(p.category as ServiceCategory, key),
-      value,
-      icon: <ServiceIcon service={p.category} size={17} />,
-    })),
-    {
-      label: "Property type",
-      value: property[p.propertyType],
-      icon: <House size={17} />,
-    },
-    {
-      label: "Preferred timing",
-      value: timing[p.urgency],
-      icon: <Clock3 size={17} />,
-    },
+    { label: "Property type", value: property[p.propertyType] },
+    { label: "Preferred timing", value: timing[p.urgency] },
     {
       label: "Appointment",
       value: p.scheduledAt
-        ? new Date(p.scheduledAt).toLocaleString()
+        ? new Date(p.scheduledAt).toLocaleString(undefined, {
+            dateStyle: "medium",
+            timeStyle: "short",
+          })
         : "Not scheduled",
-      icon: <CalendarDays size={17} />,
     },
     {
-      label: "Customer",
-      value: p.customerName || "You",
-      icon: <UserRound size={17} />,
+      label: "Budget",
+      value:
+        p.budgetMin && p.budgetMax
+          ? `${money(p.budgetMin)} – ${money(p.budgetMax)}`
+          : p.budgetMax
+            ? "Up to " + money(p.budgetMax)
+            : p.budgetMin
+              ? "From " + money(p.budgetMin)
+              : "Not specified",
     },
+    ...(p.proName ? [{ label: "Professional", value: p.proName }] : []),
+    ...(p.amount !== null
+      ? [{ label: "Agreed total", value: money(p.amount) }]
+      : []),
     ...(p.address
       ? [
           {
             label: "Service address",
             value: [p.address, p.addressUnit].filter(Boolean).join(" "),
-            icon: <MapPin size={17} />,
+            wide: true,
           },
         ]
       : []),
-    {
-      label: "Customer budget",
-      value:
-        p.budgetMin === null && p.budgetMax === null
-          ? "Not specified"
-          : `${p.budgetMin === null ? "Any" : money(p.budgetMin)} – ${p.budgetMax === null ? "Any" : money(p.budgetMax)}`,
-      icon: <CircleDollarSign size={17} />,
-    },
-    {
-      label: "Status",
-      value: <Badge>{p.status.replace("_", " ")}</Badge>,
-      icon: <Clock3 size={17} />,
-    },
-    ...(p.proName
-      ? [
-          {
-            label: "Professional",
-            value: p.proName,
-            icon: <UserRound size={17} />,
-          },
-        ]
-      : []),
-    ...(p.amount !== null
-      ? [
-          {
-            label: "Agreed total",
-            value: money(p.amount),
-            icon: <CircleDollarSign size={17} />,
-          },
-        ]
-      : []),
-    {
-      label: "Project note",
-      value: p.description,
-      icon: <FileText size={17} />,
-    },
+    ...Object.entries(p.intake || {}).map(([key, value]) => ({
+      label: questionLabel(p.category as ServiceCategory, key),
+      value,
+    })),
+    { label: "Description", value: p.description, wide: true },
   ];
   return (
-    <>
-      <div className="project-section-heading">
-        <h2>
-          <T>{"Project details"}</T>
-        </h2>
-      </div>
-      <dl className="project-detail-rows">
-        {rows.map((r, i) => (
-          <div key={r.label + i}>
-            <dt>
-              <span>{r.icon}</span>
-              {r.label}
-            </dt>
-            <dd>{r.value}</dd>
-          </div>
-        ))}
-      </dl>
-    </>
+    <dl className="project-facts">
+      {rows.map((r, i) => (
+        <div key={r.label + i} data-wide={r.wide ? "true" : undefined}>
+          <dt>{r.label}</dt>
+          <dd>{r.value}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 

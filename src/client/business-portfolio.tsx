@@ -1,7 +1,7 @@
 import { ZoomableImage } from "./zoomable-image.js";
 import { T } from "../shared/language.js";
 import { useEffect, useRef, useState, useId } from "react";
-import { Images, Expand, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { Expand, ChevronLeft, ChevronRight, X } from "lucide-react";
 import {
   portfolioImages,
   type BusinessImage,
@@ -46,11 +46,6 @@ export function BusinessPortfolio({
     >
       <div className="business-work-heading">
         <div>
-          {!compact && (
-            <p className="eyebrow">
-              <Images size={16} aria-hidden="true" /> THEIR WORK, UP CLOSE
-            </p>
-          )}
           <h2>
             Past work{" "}
             <span>

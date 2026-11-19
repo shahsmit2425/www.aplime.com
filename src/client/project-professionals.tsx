@@ -57,18 +57,13 @@ export function ProjectProfessionals({
             {ids.length} {ids.length === 1 ? "professional" : "professionals"}{" "}
             for this project
           </h2>
-          <p>
-            Compare profiles and estimates. Matching professionals may respond
-            here; a call is optional.
-          </p>
         </div>
       </div>
       <div id="project-professionals" className="pro-grid">
         {!ids.length && (
           <p>
-            No eligible professionals match your service and area yet. Your
-            project is saved. New matches and estimates will appear here; you
-            can return from your dashboard.
+            No matching professionals yet. New matches and estimates will appear
+            here.
           </p>
         )}
         {ordered.map((proId) => {
