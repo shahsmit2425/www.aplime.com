@@ -4,6 +4,7 @@ import {
   ArrowDown,
   ArrowLeft,
   MessageCircle,
+  MoreVertical,
   Search,
   Send,
   ShieldCheck,
@@ -209,7 +210,7 @@ export function ChatHeader({
         {context || <small>{subtitle}</small>}
       </div>
       {actions && <details className="chat-actions-disclosure">
-        <summary aria-label="Conversation actions">Actions <span aria-hidden="true">⌄</span></summary>
+        <summary aria-label="Conversation actions"><MoreVertical size={20} aria-hidden="true" /><span>Actions</span></summary>
         <div className="chat-header-actions">{actions}</div>
       </details>}
     </header>
@@ -271,28 +272,45 @@ export function ChatLog({
             <T>{"No messages yet. Say hello."}</T>
           </p>
         )}
-        {messages.map((m, i) => (
-          <div key={m.id}>
-            {(i === 0 ||
-              new Date(messages[i - 1].time).toDateString() !==
-                new Date(m.time).toDateString()) && (
-              <div className="chat-day">
-                {new Date(m.time).toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                })}
-              </div>
-            )}
-            <article className={"chat-bubble" + (m.mine ? " mine" : "")}>
-              <strong>{m.mine ? t(ownLabel) : m.name}</strong>
-              <p>{m.body}</p>
-              <time dateTime={m.time} title={new Date(m.time).toLocaleString()}>
-                {chatTime(m.time)}
-              </time>
-            </article>
-          </div>
-        ))}
+        {messages.map((m, i) => {
+          const last = messages[i - 1];
+          const newDay =
+            !last ||
+            new Date(last.time).toDateString() !==
+              new Date(m.time).toDateString();
+          // Consecutive messages from one sender read as a single group.
+          const follows =
+            !newDay && last.mine === m.mine && last.name === m.name;
+          return (
+            <div key={m.id}>
+              {newDay && (
+                <div className="chat-day">
+                  {new Date(m.time).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })}
+                </div>
+              )}
+              <article
+                className={
+                  "chat-bubble" +
+                  (m.mine ? " mine" : "") +
+                  (follows ? " follows" : "")
+                }
+              >
+                <strong>{m.mine ? t(ownLabel) : m.name}</strong>
+                <p>{m.body}</p>
+                <time
+                  dateTime={m.time}
+                  title={new Date(m.time).toLocaleString()}
+                >
+                  {chatTime(m.time)}
+                </time>
+              </article>
+            </div>
+          );
+        })}
       </div>
       {more && (
         <button className="chat-new-messages" onClick={bottom}>
@@ -316,6 +334,14 @@ export function ChatComposer({
   placeholder?: string;
 }) {
   const t = useT();
+  const input = useRef<HTMLTextAreaElement>(null);
+  // The field grows with the message; its stylesheet maximum keeps it scrollable.
+  useEffect(() => {
+    const el = input.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = el.scrollHeight + 2 + "px";
+  }, [value]);
   return (
     <form
       className="chat-composer"
@@ -330,7 +356,8 @@ export function ChatComposer({
         </label>
         <textarea
           id="chat-message-input"
-          rows={2}
+          ref={input}
+          rows={1}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           maxLength={4000}
@@ -348,9 +375,11 @@ export function ChatComposer({
             }
           }}
         />
-        <small>
-          <T>{"Shift + Enter for a new line ·"}</T> {value.length}/4,000
-        </small>
+        {value.length > 3600 && (
+          <small role="status">
+            {value.length.toLocaleString("en-US")}/4,000
+          </small>
+        )}
       </div>
       <button
         type="submit"

@@ -32,13 +32,17 @@ export function discoverySql(profile = "f", project = "p") {
 }
 
 // Aliases are application constants, never request values. All inputs use SQL parameters.
-export function matchSql(profile = "f", project = "p") {
+// Scope is the service and service-area half of a match, without eligibility.
+export function scopeSql(profile = "f", project = "p") {
   return `(${profile}.service_categories ? ${project}.category OR
     (jsonb_array_length(${profile}.service_categories)=0 AND ${profile}.category=${project}.category))
-    AND ${eligibleProSql(profile)} AND ${unblockedSql(profile, project + ".customer_id")}
     AND ((${profile}.latitude IS NOT NULL AND ${project}.latitude IS NOT NULL
       AND ${distanceSql(profile, project)} <= ${profile}.service_radius_miles)
       OR ((${profile}.latitude IS NULL OR ${project}.latitude IS NULL) AND ${profile}.zip=${project}.zip))`;
+}
+export function matchSql(profile = "f", project = "p") {
+  return `${scopeSql(profile, project)}
+    AND ${eligibleProSql(profile)} AND ${unblockedSql(profile, project + ".customer_id")}`;
 }
 // Great-circle miles between a profile and a project; NULL when either has no coordinates.
 export function distanceSql(profile = "f", project = "p") {
@@ -67,6 +71,21 @@ export async function assertMatch(
       env.MARKETPLACE_DISCOVERY_MODE === "open"
         ? "This professional is not currently eligible to respond to this project."
         : "This project does not match the professional’s active services and service area.",
+    );
+}
+// A customer may not move a request out of reach of the professional it is addressed to or one with a pending estimate.
+export async function assertStillServed(c: pg.PoolClient, projectId: string) {
+  if (env.MARKETPLACE_DISCOVERY_MODE === "open") return;
+  const stranded = await c.query(
+    `SELECT 1 FROM profiles f JOIN projects p ON p.id=$1
+     WHERE (f.id=p.pro_id OR EXISTS(SELECT 1 FROM quotes q WHERE q.project_id=p.id AND q.pro_id=f.id AND q.status='pending'))
+     AND (${scopeSql()}) IS NOT TRUE LIMIT 1`,
+    [projectId],
+  );
+  if (stranded.rowCount)
+    fail(
+      409,
+      "A professional already responding to this project does not offer this service at this address. Decline their estimate or open the request to other professionals first, or start a new project.",
     );
 }
 // Open requests a professional may inspect before quoting: matching leads and requests they already quoted.

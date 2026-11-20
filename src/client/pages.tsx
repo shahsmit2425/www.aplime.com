@@ -42,6 +42,7 @@ import {
 } from "./project-actions.js";
 import { useEffect, useState } from "react";
 import {
+  ArrowLeft,
   CalendarDays,
   ChevronDown,
   FileText,
@@ -268,7 +269,7 @@ function Directory() {
               <ProfessionalCard
                 key={p.id}
                 profile={p}
-                layout={page === "saved" ? "horizontal" : "vertical"}
+                compact={page === "saved"}
                 preview={data.marketplacePreview && !p.canRespond}
                 save={<SavePro proId={p.id} />}
                 actions={
@@ -351,7 +352,7 @@ function ProProfile() {
     <>
       <div className="profile-page-toolbar">
         <button className="secondary" onClick={() => go("discover")}>
-          <Search size={17} /> <T>{"Back to professionals"}</T>{" "}
+          <ArrowLeft size={17} /> <T>{"Back to professionals"}</T>{" "}
         </button>
         <SavePro proId={p.id} label />
       </div>

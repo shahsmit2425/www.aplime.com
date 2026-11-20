@@ -217,6 +217,46 @@ export const profileSchema = z
       .max(7),
   })
   .strict();
+// Questionnaire answers are validated identically when a project is created or edited.
+function checkIntake(
+  context: z.RefinementCtx,
+  project: {
+    category: ServiceCategory;
+    intake: Record<string, string>;
+    urgency: string;
+  },
+) {
+  const questions = questionsFor(project.category);
+  const allowed = new Set(questions.map((question) => question.id));
+  for (const question of questions) {
+    const answer = project.intake[question.id]?.trim();
+    // Urgent requests may use the short intake; provided answers remain validated.
+    if (question.required && !answer && project.urgency !== "urgent")
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["intake", question.id],
+        message: `Answer “${question.label}”`,
+      });
+    if (
+      answer &&
+      question.options &&
+      !question.options.includes(answer) &&
+      !/^Other: .{1,1493}$/s.test(answer)
+    )
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["intake", question.id],
+        message: "Choose one of the available answers",
+      });
+  }
+  for (const key of Object.keys(project.intake))
+    if (!allowed.has(key))
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["intake", key],
+        message: "Unexpected questionnaire answer",
+      });
+}
 export const projectSchema = z
   .object({
     contactPhone: z.string().max(40).optional(),
@@ -247,36 +287,7 @@ export const projectSchema = z
         path: ["budgetMax"],
         message: "Maximum budget must be at least the minimum budget",
       });
-    const questions = questionsFor(project.category as ServiceCategory);
-    const allowed = new Set(questions.map((question) => question.id));
-    for (const question of questions) {
-      const answer = project.intake[question.id]?.trim();
-      // Urgent requests may use the short intake; provided answers remain validated.
-      if (question.required && !answer && project.urgency !== "urgent")
-        context.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["intake", question.id],
-          message: `Answer “${question.label}”`,
-        });
-      if (
-        answer &&
-        question.options &&
-        !question.options.includes(answer) &&
-        !/^Other: .{1,1493}$/s.test(answer)
-      )
-        context.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["intake", question.id],
-          message: "Choose one of the available answers",
-        });
-    }
-    for (const key of Object.keys(project.intake))
-      if (!allowed.has(key))
-        context.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["intake", key],
-          message: "Unexpected questionnaire answer",
-        });
+    checkIntake(context, project);
   });
 export const actionSchema = z
   .discriminatedUnion("type", [
@@ -319,6 +330,14 @@ export const actionSchema = z
         urgency: z.enum(["urgent", "this_week", "this_month", "flexible"]),
         budgetMin: z.number().int().min(0).max(10000000).nullable(),
         budgetMax: z.number().int().min(0).max(10000000).nullable(),
+        // Optional so earlier app versions keep saving; omitted fields stay unchanged.
+        category: z.enum(categories).optional(),
+        intake: z.record(z.string().max(64), text(1, 1500)).optional(),
+        propertyType: z
+          .enum(["home", "apartment", "condo", "commercial", "other"])
+          .optional(),
+        placeId: text(3, 300).optional(),
+        addressUnit: z.string().trim().max(100).optional(),
       })
       .strict(),
     z.object({ type: z.literal("accept_award") }).strict(),
@@ -411,6 +430,21 @@ export const actionSchema = z
         message: "Maximum budget must be at least the minimum budget",
         path: ["budgetMax"],
       });
+    if (action.type === "update_details") {
+      // Answers only make sense for one service, so the two change together.
+      if (action.category && action.intake)
+        checkIntake(context, {
+          category: action.category,
+          intake: action.intake,
+          urgency: action.urgency,
+        });
+      else if (action.category || action.intake)
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Send the service category together with its answers",
+          path: [action.category ? "intake" : "category"],
+        });
+    }
   });
 export type ProjectAction = z.infer<typeof actionSchema>;
 export function allowedTransition(

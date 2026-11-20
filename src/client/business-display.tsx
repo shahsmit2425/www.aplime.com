@@ -11,6 +11,7 @@ import {
   Expand,
   X,
   Star,
+  Navigation,
   BriefcaseBusiness,
 } from "lucide-react";
 import { Availability } from "./availability.js";
@@ -66,13 +67,19 @@ export function BusinessDisplay({
           )}
         </div>
         <div className="profile-brand-copy">
-          <p className="eyebrow">
-            {profile.category.toUpperCase()} PROFESSIONAL
-          </p>
           <h1>{profile.business}</h1>
           <p className="profile-location">
-            <MapPin size={16} /> {location} <span>·</span> Travels up to{" "}
-            {profile.serviceRadiusMiles} miles
+            <span>
+              <ServiceIcon service={profile.category} size={16} />{" "}
+              {profile.category} professional
+            </span>
+            <span>
+              <MapPin size={16} /> {location}
+            </span>
+            <span>
+              <Navigation size={16} /> Travels up to{" "}
+              {profile.serviceRadiusMiles} miles
+            </span>
           </p>
           <div className="profile-trust-row">
             <span
@@ -93,13 +100,40 @@ export function BusinessDisplay({
               <Clock3 size={16} />{" "}
               {accepting ? "Accepting requests" : "Not accepting requests"}
             </span>
-            {profile.reviewCount > 0 && (
-              <span className="profile-trust">
-                <Star size={16} /> {profile.rating.toFixed(1)} ·{" "}
-                {profile.reviewCount} reviews
-              </span>
-            )}
           </div>
+        </div>
+        <div className="profile-fact-strip">
+          {profile.reviewCount > 0 && (
+            <div>
+              <strong>
+                <Star size={20} fill="currentColor" aria-hidden="true" />{" "}
+                {profile.rating.toFixed(1)}
+              </strong>
+              <span>
+                {profile.reviewCount}{" "}
+                {profile.reviewCount === 1 ? "review" : "reviews"}
+              </span>
+            </div>
+          )}
+          <div>
+            <strong>
+              ${profile.rate}
+              <small> / hour</small>
+            </strong>
+            <span>Starting rate</span>
+          </div>
+          {profile.details?.yearsExperience !== undefined && (
+            <div>
+              <strong>{profile.details.yearsExperience} years</strong>
+              <span>Experience (self-reported)</span>
+            </div>
+          )}
+          {profile.details?.teamSize !== undefined && (
+            <div>
+              <strong>{profile.details.teamSize}</strong>
+              <span>Team members</span>
+            </div>
+          )}
         </div>
       </header>
       <div className="profile-content-grid">
@@ -113,39 +147,16 @@ export function BusinessDisplay({
               <T>{"About"}</T> {profile.business}
             </h2>
             <p className="business-description">{profile.bio}</p>
+            <h3>Services</h3>
             <div className="profile-service-tags">
               {services.map((service) => (
                 <span key={service}>
-                  <ServiceIcon service={service} size={18} /> {service}
+                  <ServiceIcon service={service} size={16} /> {service}
                 </span>
               ))}
             </div>
-            <div className="profile-fact-strip">
-              <div>
-                <strong>
-                  ${profile.rate}
-                  <small> / hour</small>
-                </strong>
-                <span>Starting rate</span>
-              </div>
-              {profile.details?.yearsExperience !== undefined && (
-                <div>
-                  <strong>{profile.details.yearsExperience} years</strong>
-                  <span>Experience (self-reported)</span>
-                </div>
-              )}
-              {profile.details?.teamSize !== undefined && (
-                <div>
-                  <strong>{profile.details.teamSize}</strong>
-                  <span>Team members</span>
-                </div>
-              )}
-            </div>
           </section>
           {!preview && <BusinessReviews key={profile.id} proId={profile.id} />}
-          <section className="profile-content-card">
-            <Availability profile={profile} />
-          </section>
           {profile.details &&
             businessFieldGroups
               .filter(
@@ -227,13 +238,13 @@ export function BusinessDisplay({
             <h2>Contact & service area</h2>
             <div className="profile-contact-list">
               {profile.details?.phone && (
-                <div>
+                <a href={"tel:" + profile.details.phone.replace(/[^\d+]/g, "")}>
                   <Phone size={18} />
                   <span>
                     <small>Business phone</small>
                     {profile.details.phone}
                   </span>
-                </div>
+                </a>
               )}
               {profile.details?.email && (
                 <a href={"mailto:" + profile.details.email}>
@@ -268,6 +279,9 @@ export function BusinessDisplay({
                 </span>
               </div>
             </div>
+          </section>
+          <section className="profile-content-card">
+            <Availability profile={profile} />
           </section>
         </aside>
       </div>

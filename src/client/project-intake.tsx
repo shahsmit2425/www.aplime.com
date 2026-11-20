@@ -499,9 +499,12 @@ export function ProjectIntake(props: Props) {
   return (
     <section className="project-intake" aria-label="Project request">
       <div className="intake-topline">
-        <span>
-          Step {index + 1} of {steps.length}
-        </span>
+        <progress
+          className="intake-progress"
+          aria-label="Project request progress"
+          value={index + 1}
+          max={steps.length}
+        />
         {!session.savedProjectId && (
           <button
             type="button"
@@ -513,12 +516,6 @@ export function ProjectIntake(props: Props) {
           </button>
         )}
       </div>
-      <progress
-        className="intake-progress"
-        aria-label="Project request progress"
-        value={index + 1}
-        max={steps.length}
-      />
       <div className="intake-context">
         <span>
           <MapPin size={16} />

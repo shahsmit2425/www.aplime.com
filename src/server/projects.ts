@@ -8,12 +8,17 @@ import {
   notifyProjectObservers,
   notifyMatchingProfessionals,
 } from "./project-events.js";
-import { assertMatch, assertIndependentParties } from "./matching.js";
+import {
+  assertMatch,
+  assertIndependentParties,
+  assertStillServed,
+} from "./matching.js";
+import { locateAddress, assertServiceArea } from "./integrations/address.js";
 import { assertAppointment } from "./scheduling.js";
 import { randomUUID } from "node:crypto";
 import type { User, ProjectAction } from "../shared/domain.js";
 import { allowedTransition, assertFuture } from "../shared/domain.js";
-import { transaction } from "./db/index.js";
+import { pool, transaction } from "./db/index.js";
 import { getProject, audit, notifyMany } from "./repository.js";
 import { fail } from "./errors.js";
 export async function projectAction(
@@ -23,6 +28,26 @@ export async function projectAction(
   expectedVersion?: number,
 ) {
   const removedKeys: string[] = [];
+  // The address provider is consulted before the transaction, and only for the owner's changed address.
+  let location: Awaited<ReturnType<typeof locateAddress>> | undefined;
+  if (action.type === "update_details" && action.placeId) {
+    const current = (
+      await pool.query(
+        "SELECT customer_id,place_id,status FROM projects WHERE id=$1",
+        [id],
+      )
+    ).rows[0];
+    if (
+      current &&
+      user.role === "customer" &&
+      current.customer_id === user.id &&
+      ["requested", "quoted"].includes(current.status) &&
+      current.place_id !== action.placeId
+    ) {
+      location = await locateAddress(action.placeId);
+      assertServiceArea(location);
+    }
+  }
   const result = await transaction(async (c) => {
     await lockActiveAccount(c, user.id);
     const p = await getProject(c, id);
@@ -35,6 +60,7 @@ export async function projectAction(
       return { ok: true };
     }
     let extraRecipient: string | undefined;
+    let rescoped = false;
     if (action.type === "quote") {
       extraRecipient = user.id;
       await assertIndependentParties(c, p.customerId, user.id);
@@ -168,8 +194,11 @@ export async function projectAction(
         removedKeys.push(
           ...(await commitProjectPhotos(c, id, user.id, action.photos)),
         );
+      const moved = !!action.placeId && action.placeId !== p.placeId;
+      if (moved && !location)
+        fail(409, "This project changed. Refresh it before trying again.");
       await c.query(
-        "UPDATE projects SET title=$2,description=$3,urgency=$4,budget_min=$5,budget_max=$6 WHERE id=$1",
+        "UPDATE projects SET title=$2,description=$3,urgency=$4,budget_min=$5,budget_max=$6,category=COALESCE($7,category),intake=COALESCE($8::jsonb,intake),property_type=COALESCE($9,property_type),address_unit=COALESCE($10,address_unit) WHERE id=$1",
         [
           id,
           action.title,
@@ -177,8 +206,26 @@ export async function projectAction(
           action.urgency,
           action.budgetMin,
           action.budgetMax,
+          action.category ?? null,
+          action.intake ? JSON.stringify(action.intake) : null,
+          action.propertyType ?? null,
+          action.addressUnit ?? null,
         ],
       );
+      if (moved && location)
+        await c.query(
+          "UPDATE projects SET zip=$2,latitude=$3,longitude=$4,address=$5,place_id=$6,town='',region='' WHERE id=$1",
+          [
+            id,
+            location.zip,
+            location.lat,
+            location.lng,
+            location.label,
+            location.placeId,
+          ],
+        );
+      rescoped = moved || (!!action.category && action.category !== p.category);
+      if (rescoped) await assertStillServed(c, id);
       const interested = (
         await c.query(
           "SELECT pro_id AS id FROM quotes WHERE project_id=$1 AND status='pending' UNION SELECT pro_id FROM project_discussions WHERE project_id=$1",
@@ -294,6 +341,8 @@ export async function projectAction(
       action.type === "withdraw_award"
     )
       await notifyMatchingProfessionals(c, id, "Project open for estimates");
+    // A new service or address reaches professionals who now match; the outreach caps still apply.
+    if (rescoped) await notifyMatchingProfessionals(c, id);
     return { ok: true };
   });
   // Cleanup must not turn a committed edit into a failed HTTP response.

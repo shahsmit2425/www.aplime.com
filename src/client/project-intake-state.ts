@@ -88,6 +88,15 @@ export function intakeSteps(draft: IntakeDraft) {
     "review",
   ];
 }
+export function propertyTypeFor(answer: string) {
+  return answer.includes("Commercial")
+    ? "commercial"
+    : answer.includes("Apartment")
+      ? "apartment"
+      : answer.startsWith("Other")
+        ? "other"
+        : "home";
+}
 export function projectPayload(draft: IntakeDraft) {
   const questions = questionsFor(draft.category);
   const property = draft.intake.propertyType || "";
@@ -113,15 +122,7 @@ export function projectPayload(draft: IntakeDraft) {
     addressUnit: draft.addressUnit,
     urgency: draft.emergency ? "urgent" : draft.urgency || "flexible",
     propertyType:
-      draft.emergency && !property
-        ? "other"
-        : property.includes("Commercial")
-          ? "commercial"
-          : property.includes("Apartment")
-            ? "apartment"
-            : property.startsWith("Other")
-              ? "other"
-              : "home",
+      draft.emergency && !property ? "other" : propertyTypeFor(property),
     budgetMin: draft.emergency ? null : draft.budgetMin,
     budgetMax: draft.emergency ? null : draft.budgetMax,
     proId: draft.proId,

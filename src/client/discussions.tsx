@@ -266,45 +266,58 @@ export function Discussions({
                       }}
                     >
                       {blocked ? <ShieldCheck size={17} /> : <Ban size={17} />}
+                      <span>
+                        <T>
+                          {blocked
+                            ? "Unblock conversation"
+                            : "Block conversation"}
+                        </T>
+                      </span>
                     </button>
                   </>
                 }
               />
-
-              <button
-                type="button"
-                className="secondary"
-                disabled={busy || historyEnd[thread.id]}
-                onClick={() =>
-                  void run(async () => {
-                    const first = older[thread.id]?.[0] || thread.messages[0];
-                    const query = first
-                      ? `?beforeAt=${encodeURIComponent(first.created_at)}&beforeId=${first.id}`
-                      : "";
-                    const result = await request<{
-                      messages: Discussion["messages"];
-                      hasMore: boolean;
-                    }>(`/discussions/${thread.id}/history${query}`);
-                    setOlder((current) => ({
-                      ...current,
-                      [thread.id]: [
-                        ...result.messages,
-                        ...(current[thread.id] || []),
-                      ],
-                    }));
-                    setHistoryEnd((current) => ({
-                      ...current,
-                      [thread.id]: !result.hasMore,
-                    }));
-                  })
-                }
-              >
-                {historyEnd[thread.id]
-                  ? "Beginning of conversation"
-                  : "Load earlier messages"}
-              </button>
               <ChatLog
                 threadKey={thread.id}
+                before={
+                  historyEnd[thread.id] ? (
+                    <p className="chat-history-end">
+                      Beginning of conversation
+                    </p>
+                  ) : (
+                    <button
+                      type="button"
+                      className="chat-load-earlier"
+                      disabled={busy}
+                      onClick={() =>
+                        void run(async () => {
+                          const first =
+                            older[thread.id]?.[0] || thread.messages[0];
+                          const query = first
+                            ? `?beforeAt=${encodeURIComponent(first.created_at)}&beforeId=${first.id}`
+                            : "";
+                          const result = await request<{
+                            messages: Discussion["messages"];
+                            hasMore: boolean;
+                          }>(`/discussions/${thread.id}/history${query}`);
+                          setOlder((current) => ({
+                            ...current,
+                            [thread.id]: [
+                              ...result.messages,
+                              ...(current[thread.id] || []),
+                            ],
+                          }));
+                          setHistoryEnd((current) => ({
+                            ...current,
+                            [thread.id]: !result.hasMore,
+                          }));
+                        }, "")
+                      }
+                    >
+                      Load earlier messages
+                    </button>
+                  )
+                }
                 messages={[
                   ...new Map(
                     [...(older[thread.id] || []), ...thread.messages].map(

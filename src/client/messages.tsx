@@ -104,28 +104,20 @@ export function MessagesInbox({
       error={error}
       onSelect={(key) => go("messages", key)}
       footer={
-        <>
-          <span>
-            {projects.length} conversations · {total} support conversations
-          </span>
-          {total > 25 && (
-            <div className="chat-pager">
-              <button
-                disabled={page <= 1}
-                onClick={() => setPage((p) => p - 1)}
-              >
-                Previous support
-              </button>
-              <span>{page}</span>
-              <button
-                disabled={page * 25 >= total}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                <T>{"Next"}</T>{" "}
-              </button>
-            </div>
-          )}
-        </>
+        total > 25 && (
+          <div className="chat-pager">
+            <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+              Previous support
+            </button>
+            <span>{page}</span>
+            <button
+              disabled={page * 25 >= total}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              <T>{"Next"}</T>{" "}
+            </button>
+          </div>
+        )
       }
     >
       {id === "new-support" ? (

@@ -2316,21 +2316,28 @@ input[type="radio"] {
   align-self: start;
 }
 
-/* Project request form: one-line step header, a hover state that cannot be
-   mistaken for the selected answer, and tighter spacing around the actions. */
+/* Project request form: progress bar instead of a step count, a hover state
+   that cannot be mistaken for the selected answer, and tighter spacing around
+   the actions. */
 .intake-topline {
   align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
   font-weight: 600;
   letter-spacing: 0;
 }
 .intake-topline .intake-restart {
+  flex: none;
   margin: 0;
   padding: 0;
   min-height: 0;
   font-size: 14px;
 }
-.intake-progress {
-  margin: 12px 0 16px;
+.intake-topline .intake-progress {
+  flex: 1;
+  min-width: 0;
+  height: 6px;
+  margin: 0;
 }
 .intake-context svg {
   width: 16px;
@@ -2370,4 +2377,1030 @@ input[type="radio"] {
 }
 .project-intake .intake-save {
   margin: 16px auto 0;
+}
+
+/* Saved professionals: a grid of small cards instead of one full-width listing. */
+.saved-professionals-page > .pro-grid {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+  gap: 16px;
+}
+.saved-professionals-page .compact-professional {
+  grid-template-columns: minmax(0, 1fr);
+  align-content: space-between;
+  gap: 14px;
+  border: 1px solid var(--line);
+}
+.saved-professionals-page .compact-professional-main {
+  align-items: flex-start;
+}
+.saved-professionals-page .compact-professional-main h3 {
+  margin-bottom: 4px;
+  font-size: 17px;
+  line-height: 1.3;
+}
+.saved-professionals-page .compact-professional-rating,
+.saved-professionals-page .compact-professional-main small {
+  font-size: 13px;
+  line-height: 1.4;
+}
+.saved-professionals-page .compact-professional-verified {
+  flex-basis: 100%;
+  margin: 2px 0 0;
+  font-size: 13px;
+}
+.saved-professionals-page .compact-professional-actions {
+  flex-wrap: nowrap;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.saved-professionals-page .compact-professional-actions > button {
+  flex: 1 1 auto;
+  justify-content: center;
+  min-width: 0;
+  min-height: 40px;
+  padding: 8px 10px;
+  white-space: nowrap;
+}
+.saved-professionals-page .compact-professional-actions svg {
+  flex: none;
+}
+
+/* Messages: a familiar chat layout. A quiet conversation list, grouped bubbles
+   with your own messages in brand blue, and a single-line composer that grows. */
+.workspace .workspace-main .chat-inbox {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  color: var(--ink);
+}
+.workspace .workspace-main .chat-sidebar {
+  border-right: 1px solid var(--line);
+}
+.workspace .workspace-main .chat-sidebar-heading {
+  padding: 18px 20px 12px;
+  border-bottom: 0;
+  background: #fff;
+}
+.workspace .workspace-main .chat-sidebar-heading small {
+  display: none;
+}
+.workspace .workspace-main .chat-sidebar-heading h2 {
+  margin: 0;
+  font: inherit;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.workspace .workspace-main .chat-conversations {
+  padding: 4px 8px 8px;
+}
+.workspace .workspace-main .chat-choice {
+  gap: 12px;
+  min-height: 0;
+  margin-bottom: 2px;
+  padding: 10px 12px !important;
+  border-bottom: 0 !important;
+  border-radius: 12px !important;
+  color: var(--ink) !important;
+}
+.workspace .workspace-main .chat-choice.selected {
+  border-left: 0 !important;
+  background: var(--brand-soft) !important;
+}
+.workspace .workspace-main .chat-avatar {
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
+  border: 0;
+  background: var(--brand-soft);
+  color: var(--blue);
+  font-size: 14px;
+  font-weight: 700;
+}
+.workspace .workspace-main .chat-choice.selected .chat-avatar {
+  background: #fff;
+}
+.workspace .workspace-main .chat-avatar.is-support,
+.workspace .workspace-main .chat-choice.selected .chat-avatar.is-support {
+  background: var(--blue);
+  color: #fff;
+}
+.workspace .workspace-main .chat-choice-top strong {
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.35;
+}
+.workspace .workspace-main .chat-choice-top time {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted);
+}
+.workspace .workspace-main .chat-choice-copy > small {
+  margin: 1px 0 2px;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.35;
+  color: var(--muted);
+}
+.workspace .workspace-main .chat-choice-preview {
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.4;
+  color: var(--muted);
+}
+.workspace .workspace-main .chat-choice-preview b {
+  min-width: 20px;
+  padding: 1px 6px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 18px;
+}
+.workspace .workspace-main .chat-sidebar-footer {
+  border-top: 1px solid var(--line);
+}
+.workspace .workspace-main .chat-main {
+  background: #f5f7fb;
+}
+.workspace .workspace-main .chat-header {
+  gap: 12px;
+  min-height: 64px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--line);
+  background: #fff;
+}
+.workspace .workspace-main .chat-header-copy h3 {
+  margin: 0 0 2px !important;
+  font-size: 16px;
+  line-height: 1.3;
+  color: var(--ink);
+}
+.workspace .workspace-main .chat-header-copy small {
+  display: block;
+  font-size: 13px;
+  line-height: 1.3;
+  color: var(--muted);
+}
+.workspace .workspace-main .chat-header .chat-project-context {
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+  max-width: 360px;
+  margin-top: 4px;
+}
+.workspace .workspace-main .chat-header .chat-project-context > span {
+  flex: none;
+  font-size: 13px;
+  color: var(--muted);
+}
+.workspace .workspace-main .chat-header .chat-project-context select {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 32px;
+  min-height: 32px;
+  padding: 2px 28px 2px 10px;
+  border-radius: 8px;
+  font-size: 14px;
+}
+.workspace .workspace-main .chat-header:has(.chat-project-context) .chat-header-copy small {
+  display: none;
+}
+.workspace .workspace-main .chat-actions-disclosure > summary {
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  min-height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: var(--ink);
+}
+.workspace .workspace-main .chat-actions-disclosure > summary:hover,
+.workspace .workspace-main .chat-actions-disclosure[open] > summary {
+  background: var(--brand-soft);
+}
+.workspace .workspace-main .chat-actions-disclosure > summary > span {
+  display: none;
+}
+.workspace .workspace-main .chat-actions-disclosure[open] .chat-header-actions {
+  gap: 2px;
+  width: 240px;
+  padding: 6px;
+  border-color: var(--line);
+  border-radius: 12px;
+}
+.workspace .workspace-main .chat-actions-disclosure[open] .chat-header-actions button {
+  justify-content: flex-start;
+  gap: 10px;
+  width: 100%;
+  height: auto;
+  min-height: 42px;
+  padding: 8px 12px !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  background: transparent !important;
+  color: var(--ink) !important;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+}
+.workspace .workspace-main .chat-actions-disclosure[open] .chat-header-actions button:hover:not(:disabled) {
+  background: var(--brand-soft) !important;
+}
+.workspace .workspace-main .chat-actions-disclosure[open] .chat-header-actions button span {
+  display: inline;
+}
+.workspace .workspace-main .chat-actions-disclosure[open] .chat-header-actions .chat-block-action {
+  color: #9a4242 !important;
+}
+.workspace .workspace-main .chat-log {
+  padding: 16px 20px;
+  background: #f5f7fb;
+}
+.workspace .workspace-main .chat-privacy {
+  margin: 0 auto 8px !important;
+  font-size: 12px !important;
+  line-height: 1.4;
+}
+.chat-load-earlier,
+.chat-history-end {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  margin: 0 auto 12px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.workspace .workspace-main .chat-log .chat-load-earlier {
+  min-height: 36px;
+  padding: 6px 16px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--blue);
+  font-size: 13px;
+  font-weight: 600;
+}
+.chat-history-end {
+  color: var(--muted);
+  text-align: center;
+}
+.workspace .workspace-main .chat-day {
+  margin: 14px auto 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: #e8ecf5;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.workspace .workspace-main .chat-bubble {
+  max-width: min(72%, 560px);
+  margin: 10px 0 0;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 18px 18px 18px 6px;
+  background: #fff;
+  box-shadow: 0 1px 2px #090f4214;
+}
+.workspace .workspace-main .chat-bubble.follows {
+  margin-top: 3px;
+}
+.workspace .workspace-main .chat-bubble > strong {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.35;
+  color: var(--blue);
+}
+.workspace .workspace-main .chat-bubble.mine > strong,
+.workspace .workspace-main .chat-bubble.follows > strong {
+  display: none;
+}
+.workspace .workspace-main .chat-bubble p {
+  margin: 0 !important;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--ink);
+}
+.workspace .workspace-main .chat-bubble time {
+  margin-top: 2px;
+  font-size: 12px;
+  line-height: 1.3;
+  color: var(--muted);
+}
+.workspace .workspace-main .chat-bubble.mine {
+  margin-left: auto;
+  border-radius: 18px 18px 6px 18px;
+  background: var(--blue);
+}
+.workspace .workspace-main .chat-bubble.mine p {
+  color: #fff;
+}
+.workspace .workspace-main .chat-bubble.mine time {
+  color: #e3eaff;
+}
+.workspace .workspace-main .chat-composer {
+  align-items: flex-end;
+  gap: 10px;
+  padding: 12px 16px !important;
+  border-top: 1px solid var(--line);
+  background: #fff;
+}
+.workspace .workspace-main .chat-composer textarea {
+  display: block;
+  min-height: 44px !important;
+  max-height: 140px;
+  padding: 10px 16px !important;
+  border: 1px solid transparent !important;
+  border-radius: 22px !important;
+  background: #f1f4f9 !important;
+  font-size: 15px;
+  line-height: 1.45;
+  resize: none;
+}
+.workspace .workspace-main .chat-composer textarea:focus {
+  border-color: var(--blue) !important;
+  background: #fff !important;
+}
+.workspace .workspace-main .chat-composer small {
+  display: block;
+  margin: 4px 8px 0;
+  text-align: right;
+}
+.workspace .workspace-main .chat-composer button {
+  flex: none;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0 !important;
+  border-radius: 50% !important;
+}
+.workspace .workspace-main .chat-composer button span {
+  display: none;
+}
+/* The floating feedback button would cover the send button. */
+body:has(.workspace-main[data-page="messages"]) .website-feedback-trigger {
+  display: none;
+}
+@media (max-width: 720px) {
+  .workspace .workspace-main .chat-header {
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 8px;
+    min-height: 56px;
+    padding: 8px 12px;
+  }
+  .workspace .workspace-main .chat-header > .chat-avatar {
+    display: inline-flex;
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    font-size: 13px;
+  }
+  .workspace .workspace-main .chat-header .chat-back {
+    flex: none;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    min-height: 40px;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 50% !important;
+    color: var(--ink) !important;
+  }
+  .workspace .workspace-main .chat-header .chat-project-context select {
+    height: 32px;
+    min-height: 32px;
+    background: #f1f4f9;
+  }
+  .workspace .workspace-main .chat-log {
+    padding: 12px;
+  }
+  .workspace .workspace-main .chat-bubble {
+    max-width: 84%;
+  }
+  .workspace .workspace-main .chat-bubble p,
+  .workspace .workspace-main .chat-composer textarea {
+    font-size: 16px;
+  }
+  .workspace .workspace-main .chat-composer {
+    padding: 8px 12px !important;
+  }
+}
+
+/* Edit project: every field of the request, grouped under short headings. */
+.project-management-dialog .edit-section {
+  margin: 24px 0 12px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+  font: inherit;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: 0;
+  color: var(--ink);
+}
+.project-management-dialog .edit-address {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 16px;
+  margin: 0 0 16px;
+}
+.project-management-dialog .edit-address > span {
+  flex-basis: 100%;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.project-management-dialog .edit-address > p {
+  flex: 1 1 200px;
+  min-width: 0;
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.project-management-dialog .edit-address > .text-button {
+  flex: none;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+}
+.project-management-dialog .address-autocomplete + .text-button {
+  margin: 0 0 16px;
+  padding: 0;
+  min-height: 0;
+}
+.workspace .customer-project .project-management-dialog .panel {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.project-management-dialog .panel > p:first-of-type {
+  margin: 0 0 4px;
+  font-size: 15px;
+  line-height: 1.5;
+}
+.project-management-dialog fieldset:has(.edit-section) {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: end;
+  gap: 0 16px;
+}
+.project-management-dialog fieldset:has(.edit-section) > * {
+  grid-column: 1 / -1;
+}
+.project-management-dialog fieldset:has(.edit-section) > .field:has(> select:not([name])),
+.project-management-dialog fieldset:has(.edit-section) > .field:has(> input[type="number"]) {
+  grid-column: auto;
+}
+.project-management-dialog fieldset:has(.edit-section) > .edit-section:first-child {
+  margin-top: 12px;
+}
+.project-management-dialog fieldset:has(.edit-section) .field > span {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--ink);
+}
+.project-management-dialog fieldset:has(.edit-section) .field :is(input, select, textarea) {
+  font-size: 16px;
+  font-weight: 400;
+}
+.project-management-dialog fieldset:has(.edit-section) > button:not(.text-button) {
+  margin-top: 8px;
+}
+@media (max-width: 600px) {
+  .project-management-dialog fieldset:has(.edit-section) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.project-management-dialog fieldset:has(.edit-section) > .project-photos {
+  margin-top: 8px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+.project-management-dialog fieldset:has(.edit-section) .address-autocomplete > label {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--ink);
+}
+.project-management-dialog fieldset:has(.edit-section) > .text-button {
+  justify-self: start;
+}
+
+/* Professional profile: banded header with the key numbers, a borderless
+   photo mosaic, an uncropped advertisement and quieter side cards. */
+.profile-page-toolbar {
+  align-items: center;
+  margin-bottom: 14px;
+}
+.profile-page-toolbar > button.secondary:first-child {
+  min-height: 40px;
+  padding: 6px 10px 6px 4px;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  color: var(--blue);
+  font-size: 15px;
+}
+.profile-page-toolbar > button.secondary:first-child:hover {
+  background: var(--brand-soft);
+}
+.business-profile-design .profile-brand-header {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 0 24px;
+  padding: 0 28px 26px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 6px 24px #090f420a;
+  margin-bottom: 20px;
+}
+.business-profile-design .profile-brand-header::before {
+  content: "";
+  grid-column: 1 / -1;
+  height: 84px;
+  margin: 0 -28px;
+  background: linear-gradient(115deg, #dfe8ff 0%, #eef3ff 48%, #dcf7f0 100%);
+}
+.business-profile-design .profile-brand-mark {
+  width: 108px;
+  height: 108px;
+  margin-top: -42px;
+  padding: 6px;
+  align-self: start;
+  position: relative;
+  border: 0;
+  border-radius: 24px;
+  background: #fff;
+  box-shadow:
+    0 0 0 1px var(--line),
+    0 8px 22px #090f421f;
+}
+.business-profile-design .profile-brand-mark button {
+  display: block;
+  border-radius: 18px;
+  overflow: hidden;
+}
+.business-profile-design .profile-brand-mark img {
+  display: block;
+  border-radius: 18px;
+}
+.business-profile-design .profile-brand-copy {
+  padding-top: 18px;
+}
+.business-profile-design .profile-brand-copy h1 {
+  margin: 0 0 8px;
+  font-size: clamp(26px, 3vw, 34px);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+.business-profile-design .profile-location {
+  gap: 6px 18px;
+  font-size: 15px;
+}
+.business-profile-design .profile-location > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.business-profile-design .profile-location svg {
+  flex-shrink: 0;
+  color: var(--blue);
+}
+.business-profile-design .profile-trust-row {
+  margin-top: 14px;
+}
+.business-profile-design .profile-trust {
+  padding: 5px 11px 5px 9px;
+  border: 1px solid #bfe3cf;
+  border-radius: 999px;
+  background: #effaf3;
+  color: #0c5a34;
+  font-size: 13px;
+  font-weight: 600;
+}
+.business-profile-design .profile-trust.pending {
+  border-color: #ecdcae;
+  background: #fbf6e6;
+  color: #6f5215;
+}
+.business-profile-design .profile-brand-header .profile-fact-strip {
+  flex-wrap: nowrap;
+  gap: 0;
+  margin: 0;
+  padding: 18px 0 0;
+  border: 0;
+}
+.business-profile-design .profile-brand-header .profile-fact-strip > div {
+  flex: 0 0 auto;
+  gap: 2px;
+  padding: 0 22px;
+  border-left: 1px solid var(--line);
+}
+.business-profile-design .profile-brand-header .profile-fact-strip > div:first-child {
+  padding-left: 0;
+  border-left: 0;
+}
+.business-profile-design .profile-brand-header .profile-fact-strip > div:last-child {
+  padding-right: 0;
+}
+.business-profile-design .profile-fact-strip strong {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink);
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+.business-profile-design .profile-fact-strip strong svg {
+  color: #c27803;
+}
+.business-profile-design .profile-fact-strip strong small {
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+.business-profile-design .profile-fact-strip span {
+  font-size: 13px;
+  line-height: 1.4;
+}
+.business-profile-design .profile-content-grid {
+  grid-template-columns: minmax(0, 1.7fr) minmax(300px, 1fr);
+  gap: 20px;
+}
+.business-profile-design .profile-content-card {
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: 0 2px 10px #090f4206;
+}
+.business-profile-design .profile-content-card h2 {
+  margin: 0 0 14px;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.business-profile-design .profile-content-card h3 {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.business-profile-design .profile-content-card .business-description {
+  margin: 0 0 20px;
+  font-size: 16px;
+}
+.business-profile-design .profile-service-tags > span {
+  gap: 7px;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  font-size: 14px;
+  font-weight: 500;
+}
+.business-profile-design .profile-service-tags svg {
+  color: var(--blue);
+}
+
+/* Past work */
+.business-profile-design .business-work-section {
+  overflow: visible;
+}
+.business-profile-design .business-work-heading {
+  margin-bottom: 14px;
+}
+.business-profile-design .business-work-heading h2 {
+  gap: 10px;
+  font-size: 19px;
+}
+.business-profile-design .business-work-heading h2 span {
+  padding: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 500;
+}
+.business-profile-design .business-work-heading button.secondary {
+  min-height: 36px;
+  padding: 6px 12px;
+  border-color: transparent;
+  border-radius: 999px;
+  background: var(--brand-soft);
+  box-shadow: none;
+  color: var(--blue);
+  font-size: 14px;
+}
+.business-profile-design .business-work-heading button.secondary:hover {
+  background: #e0e9ff;
+}
+.business-profile-design .business-work-mosaic {
+  grid-template-rows: repeat(2, 176px);
+  gap: 6px;
+  overflow: hidden;
+  border-radius: 16px;
+}
+.business-profile-design .business-work-mosaic[data-count="1"] {
+  grid-template-rows: 360px;
+}
+.business-profile-design .business-work-mosaic[data-count="2"] {
+  grid-template-rows: 300px;
+}
+.business-profile-design .business-work-mosaic .business-work-tile {
+  border: 0;
+  border-radius: 0;
+  cursor: zoom-in;
+}
+.business-profile-design .business-work-tile::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: #090f42;
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+.business-profile-design .business-work-tile:hover::after {
+  opacity: 0.12;
+}
+.business-profile-design .business-work-tile:focus-visible {
+  outline: 3px solid var(--blue);
+  outline-offset: -3px;
+}
+.business-profile-design .business-work-photo-label {
+  inset: 0;
+  z-index: 1;
+  padding: 12px;
+  border-radius: 0;
+  background: #090f42b8;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+}
+.business-profile-design .business-work-empty {
+  border: 1px dashed var(--line);
+  border-radius: 14px;
+  background: var(--canvas);
+  text-align: center;
+}
+
+/* Side cards */
+.business-profile-design .profile-contact-actions {
+  border-top: 1px solid var(--line);
+}
+.business-profile-design .profile-contact-actions > button {
+  min-height: 48px;
+  margin-bottom: 0;
+  border-radius: 12px;
+}
+.business-profile-design .profile-contact-actions > p {
+  margin: 0 0 14px;
+}
+.business-profile-design .profile-card-heading {
+  margin-bottom: 14px;
+}
+.business-profile-design .profile-card-heading > span {
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--canvas);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+.business-profile-design .profile-contact-actions label {
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+}
+.business-profile-design .profile-contact-actions select {
+  font-size: 16px;
+  font-weight: 500;
+}
+.business-profile-design .profile-advertisement {
+  padding: 24px;
+}
+.business-profile-design .profile-advertisement-image {
+  position: relative;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  cursor: zoom-in;
+}
+.business-profile-design .profile-advertisement-image img {
+  max-height: 560px;
+  object-fit: cover;
+  object-position: top;
+}
+.business-profile-design .profile-advertisement-image span {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: #fffffff2;
+  box-shadow: 0 2px 10px #090f4233;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+.business-profile-design .profile-contact-list {
+  gap: 14px;
+}
+.business-profile-design .profile-contact-list > a,
+.business-profile-design .profile-contact-list > div {
+  align-items: center;
+  font-size: 15px;
+}
+.business-profile-design .profile-contact-list svg {
+  box-sizing: content-box;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 10px;
+  border-radius: 12px;
+  background: var(--brand-soft);
+  color: var(--blue);
+}
+.business-profile-design .profile-contact-list span {
+  font-size: 15px;
+  line-height: 1.4;
+}
+.business-profile-design .profile-contact-list small {
+  margin: 0;
+  font-size: 13px;
+}
+.business-profile-design .published-hours h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 6px;
+  color: var(--ink);
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-transform: none;
+}
+.business-profile-design .published-hours h3 svg {
+  color: var(--blue);
+}
+.business-profile-design .availability-list > div {
+  border-color: var(--line);
+  font-size: 15px;
+}
+
+/* Reviews */
+.business-profile-design .review-trust-note {
+  margin: -4px 0 14px;
+  font-size: 14px;
+}
+.business-profile-design .review-summary {
+  margin: 4px 0 18px;
+  padding: 18px 20px;
+  border-radius: 14px;
+  background: var(--canvas);
+}
+.business-profile-design .review-summary strong {
+  color: var(--ink);
+  font-size: 40px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+.business-profile-design .review-summary strong small {
+  color: var(--muted);
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+.business-profile-design .review-distribution {
+  display: grid;
+  gap: 4px;
+  font-size: 14px;
+}
+.business-profile-design .review-distribution meter {
+  height: 8px;
+  border: 0;
+  border-radius: 999px;
+  background: #e3e8f4;
+}
+.business-profile-design .review-distribution meter::-webkit-meter-bar {
+  height: 8px;
+  border: 0;
+  border-radius: 999px;
+  background: #e3e8f4;
+}
+.business-profile-design .review-distribution meter::-webkit-meter-optimum-value {
+  border-radius: 999px;
+  background: #c27803;
+}
+.business-profile-design .review-distribution meter::-moz-meter-bar {
+  border-radius: 999px;
+  background: #c27803;
+}
+.business-profile-design .trusted-review blockquote {
+  border-left: 0;
+  border-radius: 12px;
+}
+.business-profile-design .profile-payment-note {
+  text-align: center;
+}
+
+@media (max-width: 1000px) {
+  .business-profile-design .profile-brand-header {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .business-profile-design .profile-brand-header .profile-fact-strip {
+    grid-column: 1 / -1;
+    margin-top: 20px;
+    border-top: 1px solid var(--line);
+  }
+  .business-profile-design .profile-content-grid {
+    grid-template-columns: 1fr;
+  }
+  .business-profile-design .profile-advertisement-image {
+    max-width: 420px;
+    margin-inline: auto;
+  }
+}
+@media (max-width: 600px) {
+  .business-profile-design .profile-brand-header {
+    grid-template-columns: 1fr;
+    padding: 0 18px 20px;
+  }
+  .business-profile-design .profile-brand-header::before {
+    height: 68px;
+    margin: 0 -18px;
+  }
+  .business-profile-design .profile-brand-mark {
+    width: 88px;
+    height: 88px;
+    margin-top: -44px;
+    border-radius: 20px;
+  }
+  .business-profile-design .profile-brand-mark button,
+  .business-profile-design .profile-brand-mark img {
+    border-radius: 15px;
+  }
+  .business-profile-design .profile-brand-copy {
+    padding-top: 14px;
+  }
+  .business-profile-design .profile-brand-header .profile-fact-strip {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px 0;
+  }
+  .business-profile-design .profile-brand-header .profile-fact-strip > div {
+    padding: 0 0 0 16px;
+  }
+  .business-profile-design .profile-brand-header .profile-fact-strip > div:nth-child(odd) {
+    padding-left: 0;
+    border-left: 0;
+  }
+  .business-profile-design .profile-fact-strip strong {
+    font-size: 21px;
+  }
+  .business-profile-design .profile-content-card,
+  .business-profile-design .profile-advertisement {
+    padding: 18px;
+  }
+  .business-profile-design .business-work-mosaic {
+    grid-template-rows: 210px;
+    grid-auto-rows: 120px;
+    gap: 4px;
+    border-radius: 14px;
+  }
+  .business-profile-design .business-work-mosaic[data-count="1"] {
+    grid-template-rows: 240px;
+  }
+  .business-profile-design .business-work-mosaic[data-count="2"] {
+    grid-template-rows: 170px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .business-profile-design .business-work-tile::after {
+    transition: none;
+  }
+}
+.business-profile-design .profile-preview-label + .profile-brand-header {
+  border-radius: 0 0 20px 20px;
 }

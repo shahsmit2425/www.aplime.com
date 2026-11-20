@@ -48,9 +48,11 @@ export function BusinessPortfolio({
         <div>
           <h2>
             Past work{" "}
-            <span>
-              {photos.length} {photos.length === 1 ? "photo" : "photos"}
-            </span>
+            {!!photos.length && (
+              <span>
+                {photos.length} {photos.length === 1 ? "photo" : "photos"}
+              </span>
+            )}
           </h2>
         </div>
         {!!photos.length && (
@@ -82,12 +84,14 @@ export function BusinessPortfolio({
                 loading="lazy"
                 decoding="async"
               />
-              <span className="business-work-photo-label">
-                <Expand size={15} aria-hidden="true" />{" "}
-                {i === 4 && photos.length > 5
-                  ? `+${photos.length - 5} more photos`
-                  : `Photo ${i + 1}`}
-              </span>
+              {(compact || (i === 4 && photos.length > 5)) && (
+                <span className="business-work-photo-label">
+                  <Expand size={15} aria-hidden="true" />{" "}
+                  {i === 4 && photos.length > 5
+                    ? `+${photos.length - 5} more photos`
+                    : `Photo ${i + 1}`}
+                </span>
+              )}
             </button>
           ))}
         </div>

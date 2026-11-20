@@ -20,6 +20,14 @@ import {
 } from "lucide-react";
 import type { Project } from "../shared/domain.js";
 import { money } from "../shared/domain.js";
+import {
+  categories,
+  questionsFor,
+  type ServiceCategory,
+  type ServiceQuestion,
+} from "../shared/service-questionnaires.js";
+import { propertyTypeFor } from "./project-intake-state.js";
+import { AddressAutocomplete } from "./address-autocomplete.js";
 import { request, openExternal } from "./api.js";
 import { useWorkspace } from "./workspace.js";
 import { Panel, Form, Field } from "./ui.js";
@@ -281,6 +289,87 @@ export function ProjectActionBar({
   );
 }
 
+// Stored answers that no longer match the questionnaire are kept as a written answer.
+function storedAnswers(p: Project, category: ServiceCategory) {
+  return Object.fromEntries(
+    questionsFor(category).flatMap((q) => {
+      const answer = p.intake?.[q.id]?.trim();
+      if (!answer) return [];
+      const known =
+        !q.options ||
+        q.options.includes(answer) ||
+        answer.startsWith("Other: ");
+      return [[q.id, known ? answer : ("Other: " + answer).slice(0, 1500)]];
+    }),
+  ) as Record<string, string>;
+}
+
+function EditAnswer({
+  question: q,
+  value,
+  required,
+  onChange,
+}: {
+  question: ServiceQuestion;
+  value: string;
+  required: boolean;
+  onChange: (value: string) => void;
+}) {
+  if (q.type === "select" && q.options) {
+    const custom = value === "Other" || value.startsWith("Other:");
+    return (
+      <>
+        <Field label={q.label}>
+          <select
+            value={custom ? "Other" : value}
+            required={required}
+            onChange={(e) =>
+              onChange(e.target.value === "Other" ? "Other: " : e.target.value)
+            }
+          >
+            <option value="">Choose an answer</option>
+            {[...q.options.filter((o) => o !== "Other"), "Other"].map((o) => (
+              <option key={o}>{o}</option>
+            ))}
+          </select>
+        </Field>
+        {custom && (
+          <Field label="Describe your answer">
+            <input
+              value={value.replace(/^Other: ?/, "").replace(/^Other$/, "")}
+              maxLength={1493}
+              pattern=".*\S.*"
+              required
+              onChange={(e) => onChange("Other: " + e.target.value)}
+            />
+          </Field>
+        )}
+      </>
+    );
+  }
+  return (
+    <Field label={q.label}>
+      {q.type === "textarea" ? (
+        <textarea
+          value={value}
+          maxLength={1500}
+          placeholder={q.placeholder}
+          required={required}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      ) : (
+        <input
+          value={value}
+          maxLength={1500}
+          placeholder={q.placeholder}
+          required={required}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      )}
+    </Field>
+  );
+}
+
 export function EditDetails({
   project: p,
   submit,
@@ -302,6 +391,18 @@ export function EditDetails({
   const [existing, setExisting] = useState(original);
   const [photos, setPhotos] = useProjectPhotos(true);
   const [uploading, setUploading] = useState("");
+  const saved = (categories as readonly string[]).includes(p.category)
+    ? (p.category as ServiceCategory)
+    : "";
+  const [category, setCategory] = useState<ServiceCategory | "">(saved);
+  const [answers, setAnswers] = useState(() =>
+    saved ? storedAnswers(p, saved) : {},
+  );
+  const [urgency, setUrgency] = useState(p.urgency);
+  const [propertyType, setPropertyType] = useState(p.propertyType);
+  const [moving, setMoving] = useState(false);
+  const questions = category ? questionsFor(category) : [];
+  const asksProperty = questions.some((q) => q.id === "propertyType");
   const dollars = (n: number | null) => (n === null ? "" : String(n / 100));
   const cents = (v: FormDataEntryValue | null) =>
     String(v ?? "").trim() === "" ? null : Math.round(Number(v) * 100);
@@ -322,14 +423,14 @@ export function EditDetails({
     <Panel title="Edit project details">
       <p>
         Professionals who sent estimates or messages will be told you changed
-        the request. Address and category stay the same; start a new project to
-        change them.
+        the request.
       </p>
       <ProjectContact projectId={p.id} />
       <Form
         busy={busy}
         onSubmit={(f) =>
           run(async () => {
+            const placeId = String(f.get("placeId") || "");
             try {
               for (let i = 0; i < photos.length; i++) {
                 setUploading(`Uploading photo ${i + 1} of ${photos.length}…`);
@@ -350,9 +451,26 @@ export function EditDetails({
                 },
                 title: f.get("title"),
                 description: f.get("description"),
-                urgency: f.get("urgency"),
+                urgency,
                 budgetMin: cents(f.get("budgetMin")),
                 budgetMax: cents(f.get("budgetMax")),
+                ...(category
+                  ? {
+                      category,
+                      intake: Object.fromEntries(
+                        questions
+                          .map((q) => [q.id, (answers[q.id] || "").trim()])
+                          .filter(([, answer]) => answer),
+                      ),
+                    }
+                  : {}),
+                propertyType: !asksProperty
+                  ? propertyType
+                  : answers.propertyType
+                    ? propertyTypeFor(answers.propertyType)
+                    : undefined,
+                addressUnit: f.get("addressUnit"),
+                ...(placeId && placeId !== p.placeId ? { placeId } : {}),
               });
               for (const photo of photos) photo.saved = true;
               onDone();
@@ -362,6 +480,48 @@ export function EditDetails({
           }, "Project details and photos updated.")
         }
       >
+        <h3 className="edit-section">Service</h3>
+        <Field label="Service">
+          <select
+            value={category}
+            onChange={(e) => {
+              const next = e.target.value as ServiceCategory;
+              setCategory(next);
+              setAnswers(next === saved ? storedAnswers(p, next) : {});
+            }}
+          >
+            {!saved && <option value="">{p.category}</option>}
+            {categories.map((c) => (
+              <option key={c}>{c}</option>
+            ))}
+          </select>
+        </Field>
+        {questions.map((q) => (
+          <EditAnswer
+            key={category + q.id}
+            question={q}
+            value={answers[q.id] || ""}
+            required={!!q.required && urgency !== "urgent"}
+            onChange={(value) => setAnswers({ ...answers, [q.id]: value })}
+          />
+        ))}
+        {!asksProperty && (
+          <Field label="Property type">
+            <select
+              value={propertyType}
+              onChange={(e) =>
+                setPropertyType(e.target.value as Project["propertyType"])
+              }
+            >
+              <option value="home">Single-family home or townhome</option>
+              <option value="apartment">Apartment</option>
+              <option value="condo">Condo</option>
+              <option value="commercial">Commercial property</option>
+              <option value="other">Other</option>
+            </select>
+          </Field>
+        )}
+        <h3 className="edit-section">Project</h3>
         <Field label="Project title">
           <input name="title" defaultValue={p.title} maxLength={120} required />
         </Field>
@@ -373,8 +533,46 @@ export function EditDetails({
             required
           />
         </Field>
+        <h3 className="edit-section">Location</h3>
+        {moving ? (
+          <>
+            <AddressAutocomplete label="New project address" />
+            <button
+              type="button"
+              className="text-button"
+              onClick={() => setMoving(false)}
+            >
+              Keep current address
+            </button>
+          </>
+        ) : (
+          <div className="edit-address">
+            <span>Project address</span>
+            <p>{p.address || "ZIP " + p.zip}</p>
+            <button
+              type="button"
+              className="text-button"
+              onClick={() => setMoving(true)}
+            >
+              Change address
+            </button>
+          </div>
+        )}
+        <Field label="Apartment, suite or unit (optional)">
+          <input
+            name="addressUnit"
+            defaultValue={p.addressUnit || ""}
+            maxLength={100}
+            autoComplete="address-line2"
+          />
+        </Field>
+        <h3 className="edit-section">Timing and budget</h3>
         <Field label="Timing">
-          <select name="urgency" defaultValue={p.urgency}>
+          <select
+            name="urgency"
+            value={urgency}
+            onChange={(e) => setUrgency(e.target.value as Project["urgency"])}
+          >
             <option value="urgent">Urgent</option>
             <option value="this_week">
               <T>{"This week"}</T>

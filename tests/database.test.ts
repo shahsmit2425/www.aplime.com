@@ -2807,6 +2807,138 @@ test("customers edit an open request, interested pros are told, and locked state
   await assert.rejects(projectAction(id, customer, edit), /not available/);
 });
 
+test("customers change an open request's service, answers and address under server checks", async () => {
+  const { env } = await import("../src/server/config.js");
+  const { questionsFor } =
+    await import("../src/shared/service-questionnaires.js");
+  const quoter = await approvedPro("rescope-quoter");
+  const specialist = await approvedPro("rescope-specialist");
+  await query("UPDATE profiles SET category='Pest Control' WHERE id=$1", [
+    specialist.id,
+  ]);
+  const id = await lifecycleProject("requested", false);
+  await projectAction(id, quoter, estimate);
+  const intake = Object.fromEntries(
+    questionsFor("Pest Control")
+      .filter((q) => q.required)
+      .map((q) => [q.id, q.options?.[0] ?? "Seen twice this week"]),
+  );
+  const edit = {
+    type: "update_details" as const,
+    title: "Pest visit",
+    description: "Ants along the kitchen wall and under the sink.",
+    urgency: "this_week" as const,
+    budgetMin: null,
+    budgetMax: null,
+    category: "Pest Control" as const,
+    intake,
+    propertyType: "commercial" as const,
+    addressUnit: "Suite 9",
+  };
+  // A pending estimate from a professional outside the new service blocks the change.
+  await assert.rejects(
+    projectAction(id, customer, edit),
+    /does not offer this service at this address/,
+  );
+  assert.equal((await projectRow(id)).category, "Handyman");
+  await projectAction(id, quoter, {
+    type: "withdraw_quote",
+    reason: "No longer offered",
+  });
+  await projectAction(id, customer, edit);
+  let row = await projectRow(id);
+  assert.equal(row.category, "Pest Control");
+  assert.deepEqual(row.intake, intake);
+  assert.equal(row.property_type, "commercial");
+  assert.equal(row.address_unit, "Suite 9");
+  assert.equal(row.zip, "10001");
+  const alerted = async (userId: string) =>
+    (
+      await query(
+        "SELECT 1 FROM notifications WHERE user_id=$1 AND target_id=$2 AND title='New service opportunity'",
+        [userId, id],
+      )
+    ).rows.length;
+  assert.equal(await alerted(specialist.id), 1);
+  assert.equal(await alerted(quoter.id), 0);
+  // Earlier app versions send only the original fields; everything else is kept.
+  await projectAction(id, customer, {
+    type: "update_details",
+    title: "Pest visit",
+    description: "Ants along the kitchen wall and under the sink.",
+    urgency: "flexible",
+    budgetMin: null,
+    budgetMax: null,
+  });
+  row = await projectRow(id);
+  assert.equal(row.category, "Pest Control");
+  assert.deepEqual(row.intake, intake);
+  assert.equal(row.address_unit, "Suite 9");
+
+  const original = globalThis.fetch,
+    key = env.GOOGLE_MAPS_SERVER_KEY;
+  let lookups = 0,
+    region = "NJ";
+  env.GOOGLE_MAPS_SERVER_KEY = "server-only-test-key";
+  globalThis.fetch = (async (input: any) => {
+    lookups++;
+    assert.match(String(input), /places\/moved-place$/);
+    return Response.json({
+      id: "moved-place",
+      formattedAddress: "5 Oak Ave, Edison, " + region + " 08817, USA",
+      addressComponents: [
+        { types: ["country"], shortText: "US", longText: "United States" },
+        { types: ["street_number"], shortText: "5", longText: "5" },
+        { types: ["route"], shortText: "Oak Ave", longText: "Oak Avenue" },
+        { types: ["postal_code"], shortText: "08817", longText: "08817" },
+        {
+          types: ["administrative_area_level_1"],
+          shortText: region,
+          longText: region,
+        },
+      ],
+      location: { latitude: 40.52, longitude: -74.41 },
+    });
+  }) as typeof fetch;
+  try {
+    const move = { ...edit, placeId: "moved-place" };
+    // Only the owner of an open request triggers the paid address lookup.
+    await assert.rejects(projectAction(id, outsider, move), /not available/);
+    await assert.rejects(projectAction(id, specialist, move), /not available/);
+    assert.equal(lookups, 0);
+    region = "PA";
+    await assert.rejects(projectAction(id, customer, move), /New Jersey only/);
+    assert.equal((await projectRow(id)).zip, "10001");
+    region = "NJ";
+    // The specialist now has a pending estimate and works in the old ZIP only.
+    await projectAction(id, specialist, estimate);
+    await assert.rejects(
+      projectAction(id, customer, move),
+      /does not offer this service at this address/,
+    );
+    assert.equal((await projectRow(id)).zip, "10001");
+    await projectAction(id, specialist, {
+      type: "withdraw_quote",
+      reason: "Outside my area",
+    });
+    lookups = 0;
+    await projectAction(id, customer, move);
+    row = await projectRow(id);
+    assert.equal(lookups, 1);
+    assert.equal(row.zip, "08817");
+    assert.equal(row.place_id, "moved-place");
+    assert.equal(row.address, "5 Oak Ave, Edison, NJ 08817, USA");
+    assert.equal(Number(row.latitude), 40.52);
+    assert.equal(Number(row.longitude), -74.41);
+    // Saving again with the same address does not repeat the lookup.
+    await projectAction(id, customer, move);
+    assert.equal(lookups, 1);
+  } finally {
+    globalThis.fetch = original;
+    env.GOOGLE_MAPS_SERVER_KEY = key;
+  }
+});
+
 test("saved, estimating and blocked professionals resolve correctly in the customer workspace", async () => {
   const prefix = "saved-" + randomUUID();
   const shopper = {
