@@ -39,6 +39,8 @@ import {
   LogOut,
   ChevronDown,
   Heart,
+  MailCheck,
+  ArrowLeft,
 } from "lucide-react";
 import type { Workspace as Data } from "../shared/domain.js";
 import { fallbackConfig } from "../shared/config.js";
@@ -55,6 +57,12 @@ import {
 } from "./auth.js";
 import { request, ApiError } from "./api.js";
 import { Brand, Field, Form } from "./ui.js";
+import {
+  AuthAside,
+  AuthBadge,
+  GoogleButton,
+  PasswordField,
+} from "./auth-screen.js";
 import { Pages } from "./pages.js";
 import { pageAfterAuthentication } from "./onboarding.js";
 type WorkspaceContext = {
@@ -126,6 +134,22 @@ const navigation = {
   ],
   admin: [],
 };
+// Remembers the account type picked at registration so a professional who
+// verifies in another tab is not offered a customer account by default.
+function rememberSignupRole(role: "customer" | "pro" | null) {
+  try {
+    if (role) localStorage.setItem("aplime-signup-role", role);
+    else localStorage.removeItem("aplime-signup-role");
+  } catch {}
+}
+function initialSignupRole(): "customer" | "pro" {
+  if (hasIntakeResume()) return "customer";
+  let role = new URLSearchParams(location.search).get("role");
+  try {
+    role ||= localStorage.getItem("aplime-signup-role");
+  } catch {}
+  return role === "pro" ? "pro" : "customer";
+}
 function RoleChoice({
   value,
   onChange,
@@ -176,12 +200,7 @@ function RoleChoice({
 }
 export default function Workspace() {
   const [route, setRoute] = useState(readRoute),
-    [signupRole, setSignupRole] = useState<"customer" | "pro">(() =>
-      !hasIntakeResume() &&
-      new URLSearchParams(location.search).get("role") === "pro"
-        ? "pro"
-        : "customer",
-    ),
+    [signupRole, setSignupRole] = useState(initialSignupRole),
     [resendUntil, setResendUntil] = useState(0),
     [remember, setRemember] = useState(true),
     [authEmail, setAuthEmail] = useState(""),
@@ -321,6 +340,7 @@ export default function Workspace() {
   }
   function chooseSignupRole(role: "customer" | "pro") {
     setSignupRole(role);
+    rememberSignupRole(role);
     if (!Capacitor.isNativePlatform() && route.page === "register") {
       const url = new URL(location.href);
       url.searchParams.set("role", role);
@@ -538,10 +558,17 @@ export default function Workspace() {
   }
   function signOutToLogin() {
     setMenu(false);
-    void run(async () => {
-      await logout();
-      replaceRoute("login");
-    }, "Your account is saved. Sign in to continue verification or setup.");
+    const unfinished =
+      needsAccount || (!!firebaseUser && !firebaseUser.emailVerified);
+    void run(
+      async () => {
+        await logout();
+        replaceRoute("login");
+      },
+      unfinished
+        ? "Your account is saved. Sign in to continue verification or setup."
+        : "You’re signed out.",
+    );
   }
   const config = window.__CONFIG__ || fallbackConfig;
   if (loading)
@@ -592,326 +619,339 @@ export default function Workspace() {
         </footer>
       </div>
     );
-  if (!data)
+  if (!data) {
+    const unverified = !!firebaseUser && !firebaseUser.emailVerified;
+    const mode =
+      route.page === "register" || route.page === "recovery"
+        ? route.page
+        : "login";
+    const [title, lead] = needsAccount
+      ? [
+          "One last step",
+          "Confirm your name and how you’ll use Aplime.",
+        ]
+      : unverified
+        ? ["Check your inbox", ""]
+        : firebaseUser
+          ? ["We couldn’t load your account", ""]
+          : mode === "register"
+            ? ["Create your account", "Choose how you’ll use Aplime."]
+            : mode === "recovery"
+              ? [
+                  "Reset your password",
+                  "Enter your account email and we’ll send a link to choose a new password.",
+                ]
+              : ["Welcome back", "Sign in to your Aplime account."];
     return (
-      <div className="auth-page">
-        <Brand />
-        <section className="auth-card">
-          <p className="eyebrow">
-            <T>{"WELCOME TO APLIME"}</T>
-          </p>
-          {hasIntakeResume() && (
-            <div className="intake-auth-notice">
-              <strong>
-                <T>{"Your project is ready."}</T>
-              </strong>
-              <p>
-                <T>
-                  {
-                    "Sign in to review and publish it. Your answers and photos are saved in this tab."
+      <div className="auth-page auth-split">
+        <AuthAside role={signupRole} />
+        <main className="auth-main">
+          <section className="auth-card">
+            {hasIntakeResume() && (
+              <div className="intake-auth-notice">
+                <strong>
+                  <T>{"Your project is ready."}</T>
+                </strong>
+                <p>
+                  <T>
+                    {
+                      "Sign in to review and publish it. Your answers and photos are saved in this tab."
+                    }
+                  </T>{" "}
+                </p>
+                <button
+                  className="text-button"
+                  onClick={() => go("projects", "resume")}
+                >
+                  <T>{"Back to project answers"}</T>{" "}
+                </button>
+              </div>
+            )}
+            {unverified && (
+              <AuthBadge>
+                <MailCheck size={26} />
+              </AuthBadge>
+            )}
+            <h1>{title}</h1>
+            {lead && <p className="auth-lead">{lead}</p>}
+            {(mode === "register" || unverified || needsAccount) && (
+              <ol className="auth-steps" aria-label="Registration progress">
+                <li
+                  className={
+                    mode === "register" && !firebaseUser ? "current" : "complete"
                   }
-                </T>{" "}
-              </p>
-              <button
-                className="text-button"
-                onClick={() => go("projects", "resume")}
-              >
-                <T>{"Back to project answers"}</T>{" "}
-              </button>
-            </div>
-          )}
-          <h1>
-            {needsAccount
-              ? `Finish setting up your ${signupRole === "pro" ? "professional" : "customer"} account.`
-              : firebaseUser && !firebaseUser.emailVerified
-                ? "Check your inbox."
-                : route.page === "register"
-                  ? "Create your Aplime account."
-                  : route.page === "recovery"
-                    ? "Let’s get you back in."
-                    : "Sign in to your account."}
-          </h1>
-          {(route.page === "register" ||
-            (firebaseUser && !firebaseUser.emailVerified) ||
-            needsAccount) && (
-            <ol className="auth-steps" aria-label="Registration progress">
-              <li
-                className={
-                  route.page === "register" && !firebaseUser
-                    ? "current"
-                    : "complete"
-                }
-              >
-                <span>1</span> <T>{"Account"}</T>{" "}
-              </li>
-              <li
-                className={
-                  firebaseUser && !firebaseUser.emailVerified
-                    ? "current"
-                    : needsAccount
-                      ? "complete"
-                      : ""
-                }
-              >
-                <span>2</span> <T>{"Verify"}</T>{" "}
-              </li>
-              <li className={needsAccount ? "current" : ""}>
-                <span>3</span> <T>{"Profile"}</T>{" "}
-              </li>
-            </ol>
-          )}
-          {firebaseUser && !firebaseUser.emailVerified ? (
-            <>
-              <p>
-                <T>{"Verify your email using the link we sent to"}</T>{" "}
-                {firebaseUser.email}. We’ll continue automatically when
-                verification is confirmed. You can also check below.
-              </p>
-              <button
-                disabled={busy}
-                onClick={() =>
-                  void run(async () => {
-                    const verified = await checkVerification();
-                    if (!verified)
-                      setNotice(
-                        "Not verified yet. Open the latest email link, then try again. Check your spam folder too.",
-                      );
-                  }, "")
-                }
-              >
-                <T>{"I’ve verified my email"}</T>{" "}
-              </button>
-              <button
-                className="secondary"
-                disabled={busy || resendUntil > Date.now()}
-                onClick={() =>
-                  void run(async () => {
-                    await verifyEmail(firebaseUser);
-                    setResendUntil(Date.now() + 60000);
-                  }, "Verification email sent.")
-                }
-              >
-                {resendUntil > Date.now()
-                  ? "Email sent — wait a minute to resend"
-                  : "Resend verification email"}
-              </button>
-              <button
-                className="text-button"
-                disabled={busy}
-                onClick={signOutToLogin}
-              >
-                <T>{"Use a different account"}</T>{" "}
-              </button>
-            </>
-          ) : needsAccount ? (
-            <Form
-              busy={busy}
-              onSubmit={(f) =>
-                run(
-                  () =>
-                    request("/account", {
-                      name: f.get("name"),
-                      role: f.get("role"),
-                    }),
-                  "Account created.",
-                )
-              }
-            >
-              <Field label="Your name">
-                <input
-                  name="name"
-                  maxLength={80}
-                  required
-                  autoComplete="name"
-                />
-              </Field>
-              <fieldset className="role-field">
-                <legend>
-                  <T>{"I’m here to"}</T>
-                </legend>
-                <input type="hidden" name="role" value={signupRole} />
-                {hasIntakeResume() ? (
-                  <p>
-                    <T>{"Customer account · Find help for your project"}</T>
-                  </p>
-                ) : (
-                  <RoleChoice value={signupRole} onChange={chooseSignupRole} />
-                )}
-              </fieldset>
-              <p className="muted">
-                <T>
-                  {
-                    "Professionals complete a business profile and identity verification before their listing appears."
+                >
+                  <span>1</span> <T>{"Account"}</T>{" "}
+                </li>
+                <li
+                  className={
+                    unverified ? "current" : needsAccount ? "complete" : ""
                   }
-                </T>{" "}
+                >
+                  <span>2</span> <T>{"Verify"}</T>{" "}
+                </li>
+                <li className={needsAccount ? "current" : ""}>
+                  <span>3</span> <T>{"Profile"}</T>{" "}
+                </li>
+              </ol>
+            )}
+            {error && (
+              <p className="alert error" role="alert">
+                {error}
               </p>
-              <button>
-                <T>{"Create account"}</T>
-              </button>
-              <button
-                type="button"
-                className="text-button"
-                disabled={busy}
-                onClick={signOutToLogin}
-              >
-                <T>{"Sign out"}</T>{" "}
-              </button>
-            </Form>
-          ) : firebaseUser ? (
-            <>
-              <p>
-                <T>
-                  {
-                    "Your account could not be loaded. Check the connection and retry."
+            )}
+            {notice && (
+              <p className="alert" role="status">
+                {notice}
+              </p>
+            )}
+            {unverified ? (
+              <div className="auth-actions">
+                <p>
+                  <T>{"We sent a verification link to"}</T>{" "}
+                  <strong>{firebaseUser.email}</strong>. Open it and we’ll
+                  continue automatically, or confirm below.
+                </p>
+                <button
+                  disabled={busy}
+                  onClick={() =>
+                    void run(async () => {
+                      const verified = await checkVerification();
+                      if (!verified)
+                        setNotice(
+                          "Not verified yet. Open the latest email link, then try again. Check your spam folder too.",
+                        );
+                    }, "")
                   }
-                </T>{" "}
-              </p>
-              <button onClick={() => void run(load, "")}>
-                <T>{"Retry"}</T>
-              </button>
-              <button className="text-button" onClick={signOutToLogin}>
-                <T>{"Sign out"}</T>{" "}
-              </button>
-            </>
-          ) : (
-            <>
-              {route.page === "register" && (
-                <>
-                  <p className="auth-intro">
-                    <T>
-                      {
-                        "The account type can’t be changed after registration."
-                      }
-                    </T>{" "}
-                  </p>
+                >
+                  <T>{"I’ve verified my email"}</T>{" "}
+                </button>
+                <button
+                  className="secondary"
+                  disabled={busy || resendUntil > Date.now()}
+                  onClick={() =>
+                    void run(async () => {
+                      await verifyEmail(firebaseUser);
+                      setResendUntil(Date.now() + 60000);
+                    }, "Verification email sent.")
+                  }
+                >
+                  {resendUntil > Date.now()
+                    ? "Email sent — wait a minute to resend"
+                    : "Resend verification email"}
+                </button>
+                <button
+                  className="text-button"
+                  disabled={busy}
+                  onClick={signOutToLogin}
+                >
+                  <T>{"Use a different account"}</T>{" "}
+                </button>
+              </div>
+            ) : needsAccount ? (
+              <Form
+                busy={busy}
+                onSubmit={(f) =>
+                  run(
+                    () =>
+                      request("/account", {
+                        name: f.get("name"),
+                        role: f.get("role"),
+                      }),
+                    "Account created.",
+                    () => rememberSignupRole(null),
+                  )
+                }
+              >
+                <Field label="Your name">
+                  <input
+                    name="name"
+                    maxLength={80}
+                    required
+                    autoComplete="name"
+                    defaultValue={firebaseUser?.displayName || ""}
+                  />
+                </Field>
+                <fieldset className="role-field">
+                  <legend>
+                    <T>{"I’m here to"}</T>
+                  </legend>
+                  <input type="hidden" name="role" value={signupRole} />
                   {hasIntakeResume() ? (
                     <p>
                       <T>{"Customer account · Find help for your project"}</T>
                     </p>
                   ) : (
-                    <RoleChoice
-                      value={signupRole}
-                      onChange={chooseSignupRole}
-                    />
+                    <RoleChoice value={signupRole} onChange={chooseSignupRole} />
                   )}
-                </>
-              )}
-              <Form
-                busy={busy}
-                onSubmit={(f) =>
-                  run(
-                    async () => {
-                      const email = String(f.get("email"));
-                      if (route.page === "recovery") {
-                        await recover(email);
-                        return;
-                      }
-                      await configureSession(remember);
-                      if (route.page === "register")
-                        await register(email, String(f.get("password")));
-                      else await login(email.trim(), String(f.get("password")));
-                    },
-                    route.page === "recovery"
-                      ? "If an account exists, a recovery email will arrive shortly."
-                      : "",
-                  )
-                }
-              >
-                <Field label="Email address">
-                  <input
-                    type="email"
-                    name="email"
-                    value={authEmail}
-                    onChange={(event) => setAuthEmail(event.target.value)}
-                    required
-                    autoComplete="email"
-                  />
-                </Field>
-                {route.page !== "recovery" && (
-                  <Field label="Password">
-                    <input
-                      type="password"
-                      name="password"
-                      minLength={route.page === "register" ? 12 : 1}
-                      required
-                      autoComplete={
-                        route.page === "register"
-                          ? "new-password"
-                          : "current-password"
-                      }
-                    />
-                  </Field>
-                )}
-                {route.page !== "recovery" && !Capacitor.isNativePlatform() && (
-                  <label className="session-choice">
-                    <input
-                      type="checkbox"
-                      checked={remember}
-                      onChange={(e) => setRemember(e.target.checked)}
-                    />
-                    <span>
-                      <T>{"Keep me signed in on this device"}</T>
-                    </span>
-                  </label>
-                )}
+                </fieldset>
+                <p className="auth-note">
+                  {signupRole === "pro" &&
+                    "Professionals complete a business profile and identity verification before their listing appears. "}
+                  <T>{"The account type can’t be changed later."}</T>
+                </p>
                 <button>
-                  {route.page === "register"
-                    ? "Create your account"
-                    : route.page === "recovery"
-                      ? "Send recovery email"
-                      : "Sign in"}
+                  {signupRole === "pro"
+                    ? "Create professional account"
+                    : "Create customer account"}
+                </button>
+                <button
+                  type="button"
+                  className="text-button"
+                  disabled={busy}
+                  onClick={signOutToLogin}
+                >
+                  <T>{"Sign out"}</T>{" "}
                 </button>
               </Form>
-              {route.page !== "recovery" && (
-                <div className="social-login">
-                  <button
-                    className="secondary"
-                    disabled={busy}
-                    onClick={() =>
-                      void run(async () => {
-                        await configureSession(remember);
-                        await google();
-                      }, "")
+            ) : firebaseUser ? (
+              <div className="auth-actions">
+                <p>
+                  <T>
+                    {
+                      "Your account could not be loaded. Check the connection and retry."
                     }
-                  >
-                    <T>{"Continue with Google"}</T>{" "}
-                  </button>
-
-                </div>
-              )}
-              <div className="auth-links">
-                <button
-                  className="text-button"
-                  onClick={() =>
-                    go(route.page === "register" ? "login" : "register")
-                  }
-                >
-                  {route.page === "register"
-                    ? "Already have an account? Sign in"
-                    : "New here? Create an account"}
+                  </T>{" "}
+                </p>
+                <button disabled={busy} onClick={() => void run(load, "")}>
+                  <T>{"Retry"}</T>
                 </button>
-                <button className="text-button" onClick={() => go("recovery")}>
-                  <T>{"Forgot password?"}</T>{" "}
+                <button className="text-button" onClick={signOutToLogin}>
+                  <T>{"Sign out"}</T>{" "}
                 </button>
               </div>
-            </>
-          )}
-          {error && (
-            <p className="alert error" role="alert">
-              {error}
-            </p>
-          )}
-          {notice && (
-            <p className="alert" role="status">
-              {notice}
-            </p>
-          )}
-        </section>
-        <a href="/">
-          <T>{"Back to home"}</T>
-        </a>
+            ) : (
+              <>
+                {mode === "register" &&
+                  (hasIntakeResume() ? (
+                    <p className="auth-note">
+                      <T>{"Customer account · Find help for your project"}</T>
+                    </p>
+                  ) : (
+                    <>
+                      <RoleChoice
+                        value={signupRole}
+                        onChange={chooseSignupRole}
+                      />
+                      <p className="auth-note">
+                        <T>
+                          {"The account type can’t be changed after registration."}
+                        </T>
+                      </p>
+                    </>
+                  ))}
+                <Form
+                  busy={busy}
+                  onSubmit={(f) =>
+                    run(
+                      async () => {
+                        const email = String(f.get("email")).trim();
+                        if (mode === "recovery") {
+                          await recover(email);
+                          return;
+                        }
+                        await configureSession(remember);
+                        if (mode === "register") {
+                          rememberSignupRole(signupRole);
+                          await register(email, String(f.get("password")));
+                        } else await login(email, String(f.get("password")));
+                      },
+                      mode === "recovery"
+                        ? "If an account exists, a recovery email will arrive shortly."
+                        : "",
+                    )
+                  }
+                >
+                  <Field label="Email address">
+                    <input
+                      type="email"
+                      name="email"
+                      value={authEmail}
+                      onChange={(event) => setAuthEmail(event.target.value)}
+                      required
+                      autoComplete="email"
+                    />
+                  </Field>
+                  {mode !== "recovery" && (
+                    <PasswordField
+                      key={mode}
+                      creating={mode === "register"}
+                    />
+                  )}
+                  {mode !== "recovery" && (
+                    <div className="auth-options">
+                      {!Capacitor.isNativePlatform() && (
+                        <label className="session-choice">
+                          <input
+                            type="checkbox"
+                            checked={remember}
+                            onChange={(e) => setRemember(e.target.checked)}
+                          />
+                          <span>
+                            <T>{"Keep me signed in"}</T>
+                          </span>
+                        </label>
+                      )}
+                      {mode === "login" && (
+                        <button
+                          type="button"
+                          className="text-button"
+                          onClick={() => go("recovery")}
+                        >
+                          <T>{"Forgot password?"}</T>
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  <button>
+                    {mode === "register"
+                      ? "Create account"
+                      : mode === "recovery"
+                        ? "Send recovery email"
+                        : "Sign in"}
+                  </button>
+                </Form>
+                {mode !== "recovery" && (
+                  <div className="social-login">
+                    <p className="auth-divider">
+                      <span>or</span>
+                    </p>
+                    <GoogleButton
+                      disabled={busy}
+                      onClick={() =>
+                        void run(async () => {
+                          await configureSession(remember);
+                          if (mode === "register")
+                            rememberSignupRole(signupRole);
+                          await google();
+                        }, "")
+                      }
+                    />
+                  </div>
+                )}
+                <p className="auth-links">
+                  {mode === "login"
+                    ? "New to Aplime?"
+                    : mode === "register"
+                      ? "Already have an account?"
+                      : "Remembered your password?"}{" "}
+                  <button
+                    className="text-button"
+                    onClick={() => go(mode === "login" ? "register" : "login")}
+                  >
+                    {mode === "login" ? "Create an account" : "Sign in"}
+                  </button>
+                </p>
+              </>
+            )}
+          </section>
+          <a className="auth-home-link" href="/">
+            <ArrowLeft size={16} aria-hidden="true" /> <T>{"Back to home"}</T>
+          </a>
+        </main>
       </div>
     );
+  }
   const links = [
     ...navigation[data.user.role],
     ["settings", "Settings"],

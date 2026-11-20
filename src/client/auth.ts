@@ -102,7 +102,7 @@ export async function reauthenticate(password?: string) {
   await user.getIdToken(true);
 }
 export async function recover(email: string) {
-  await sendPasswordResetEmail(auth(), email);
+  await sendPasswordResetEmail(auth(), email.trim());
 }
 export async function verifyEmail(user: User) {
   await sendEmailVerification(user);
@@ -129,7 +129,12 @@ export function authErrorMessage(error: unknown) {
     case "auth/network-request-failed":
       return "We could not reach the sign-in service. Check your connection and try again.";
     case "auth/popup-closed-by-user":
+    case "auth/cancelled-popup-request":
       return "The sign-in window was closed before authentication finished.";
+    case "auth/popup-blocked":
+      return "Your browser blocked the Google sign-in window. Allow pop-ups for this site, then try again.";
+    case "auth/user-disabled":
+      return "This account has been disabled. Contact support if you think this is a mistake.";
     case "auth/account-exists-with-different-credential":
       return "This email already uses another sign-in method. Sign in using the original method.";
     default:
