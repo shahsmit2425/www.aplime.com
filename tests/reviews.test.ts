@@ -88,14 +88,30 @@ test("public reviews preserve negative feedback, paginate deterministically and 
   );
 });
 
-test("short review text is accepted without a minimum character count",()=>{
- assert.equal(reviewInput.safeParse({rating:5,body:"OK"}).success,true);
+test("short review text is accepted without a minimum character count", () => {
+  assert.equal(reviewInput.safeParse({ rating: 5, body: "OK" }).success, true);
 });
 
 test("only the reviewed professional can reply, and a published reply cannot be replaced", async () => {
-  await db.query("INSERT INTO reviews VALUES ('reply-test','job','owner',5,'Good',NULL,now())");
-  await assert.rejects(() => submitReviewReply(pool, 'reply-test', 'other', 'Forged'));
-  assert.equal(await submitReviewReply(pool, 'reply-test', 'owner', 'Thank you'), 'job');
-  await assert.rejects(() => submitReviewReply(pool, 'reply-test', 'owner', 'Replacement'));
-  assert.equal((await db.query<{ reply: string }>("SELECT reply FROM reviews WHERE id='reply-test'")).rows[0].reply, 'Thank you');
+  await db.query(
+    "INSERT INTO reviews VALUES ('reply-test','job','owner',5,'Good',NULL,now())",
+  );
+  await assert.rejects(() =>
+    submitReviewReply(pool, "reply-test", "other", "Forged"),
+  );
+  assert.equal(
+    await submitReviewReply(pool, "reply-test", "owner", "Thank you"),
+    "job",
+  );
+  await assert.rejects(() =>
+    submitReviewReply(pool, "reply-test", "owner", "Replacement"),
+  );
+  assert.equal(
+    (
+      await db.query<{ reply: string }>(
+        "SELECT reply FROM reviews WHERE id='reply-test'",
+      )
+    ).rows[0].reply,
+    "Thank you",
+  );
 });

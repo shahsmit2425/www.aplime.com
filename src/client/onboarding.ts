@@ -6,9 +6,7 @@ export function accountLandingPage(
   role: Exclude<Role, "admin">,
   hasProfessionalProfile: boolean,
 ) {
-  return role === "pro" && !hasProfessionalProfile
-    ? "onboarding"
-    : "dashboard";
+  return role === "pro" && !hasProfessionalProfile ? "onboarding" : "dashboard";
 }
 
 export function pageAfterAuthentication(

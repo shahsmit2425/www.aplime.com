@@ -5,15 +5,12 @@
   --teal: #008b98;
   --teal-soft: #dcfaf6;
   --canvas: #f8faff;
-  --surface: #ffffff;
   --ink: #090f42;
   --muted: #455477;
   --line: #dce3f2;
   --section-border: #e7ecf6;
   --blue: #064bff;
   --green-dark: #123ca5;
-  --green-deep: #090f42;
-  --green-bright: #e8efff;
   --shadow: 0 5px 18px #183e8510;
 }
 body {
@@ -210,21 +207,6 @@ select:focus-visible {
   box-shadow: var(--shadow);
   overflow: hidden;
   font-size: 15px;
-}
-.home-service-tile .home-service-symbol {
-  width: 100%;
-  height: 116px;
-  border-radius: 0;
-  background: linear-gradient(135deg, #e6f8f7, #edf1ff);
-  color: #00858c;
-}
-.home-service-tile:nth-child(3n + 2) .home-service-symbol {
-  background: linear-gradient(135deg, #eef2ff, #dceaff);
-  color: #2353d3;
-}
-.home-service-tile:nth-child(3n) .home-service-symbol {
-  background: linear-gradient(135deg, #dcf8f6, #f5fbff);
-  color: #008b94;
 }
 .home-service-tile:hover {
   background: white;
@@ -622,8 +604,7 @@ select:focus-visible {
 .intake-progress::-moz-progress-bar {
   background: var(--blue);
 }
-.intake-location-input > svg,
-.intake-address-input > svg {
+.intake-location-input > svg {
   color: var(--blue);
 }
 input[type="checkbox"],
@@ -952,21 +933,6 @@ input[type="radio"] {
   background: #fff;
   box-shadow: 0 4px 20px #1b3e7810;
 }
-.customer-project .customer-project-toolbar {
-  display: block;
-  margin: 0 0 20px;
-}
-.customer-project .customer-project-toolbar > .panel {
-  padding: 16px 20px;
-}
-.customer-project .customer-project-toolbar .actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-.customer-project .customer-project-toolbar .actions button {
-  width: auto;
-}
 .customer-project .project-detail-columns {
   grid-template-columns: 280px minmax(0, 1fr);
   gap: 20px;
@@ -974,13 +940,6 @@ input[type="radio"] {
 .customer-project .project-details-disclosure {
   grid-column: 2;
   grid-row: 1;
-}
-.customer-project .customer-project-sidebar {
-  grid-column: 1;
-  grid-row: 1 / span 2;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 18px;
 }
 .customer-project .project-estimates {
   grid-column: 2;
@@ -1059,29 +1018,18 @@ input[type="radio"] {
   margin-top: 4px;
   line-height: 1.5;
 }
-.customer-project-sidebar .project-activity {
-  max-height: 360px;
-  overflow: auto;
-}
 @media (max-width: 1050px) {
   .customer-project .project-detail-columns {
     grid-template-columns: minmax(0, 1fr);
   }
   .customer-project .project-details-disclosure,
-  .customer-project .customer-project-sidebar,
   .customer-project .project-estimates {
     grid-column: 1;
     grid-row: auto;
     order: initial;
   }
-  .customer-project .customer-project-sidebar {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 }
 @media (max-width: 600px) {
-  .customer-project .customer-project-sidebar {
-    grid-template-columns: minmax(0, 1fr);
-  }
   .customer-project .project-pro-results,
   .customer-project .project-details-disclosure > summary {
     padding: 14px;
@@ -1141,24 +1089,6 @@ input[type="radio"] {
   margin: 0;
   border: 0;
   align-self: start;
-}
-.customer-project > .customer-project-toolbar {
-  grid-column: 2;
-  grid-row: 1;
-  margin: 0 0 20px;
-  max-width: 680px;
-}
-.customer-project .customer-project-toolbar > .panel {
-  margin: 0;
-  padding: 12px 16px;
-}
-.customer-project .customer-project-toolbar .actions {
-  justify-content: flex-end;
-}
-.customer-project .customer-project-toolbar > .panel > h2 {
-  font-size: 15px;
-  text-align: right;
-  margin-bottom: 10px;
 }
 .customer-project .project-detail-columns {
   grid-template-rows: auto 1fr;
@@ -1234,16 +1164,6 @@ input[type="radio"] {
 @media (max-width: 850px) {
   .customer-project {
     display: block;
-  }
-  .customer-project > .customer-project-toolbar {
-    max-width: none;
-    margin: 12px 0 20px;
-  }
-  .customer-project .customer-project-toolbar .actions {
-    justify-content: flex-start;
-  }
-  .customer-project .customer-project-toolbar > .panel > h2 {
-    text-align: left;
   }
   .project-management-dialog {
     padding: 18px;
@@ -1325,60 +1245,6 @@ input[type="radio"] {
   grid-template-rows: auto;
   gap: 26px;
 }
-.customer-project .project-brief-sidebar {
-  display: grid;
-  gap: 14px;
-  padding: 16px;
-  border: 1px solid #d5dff0;
-  border-radius: 18px;
-  background: #fff;
-  min-width: 0;
-}
-.project-sidebar-title {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  font-size: 22px;
-  margin: 0 0 4px;
-}
-.customer-project .project-brief-sidebar .project-details-disclosure {
-  grid-column: auto;
-  grid-row: auto;
-  border-radius: 12px;
-  box-shadow: none;
-}
-.customer-project .project-brief-sidebar .project-details-disclosure > summary {
-  padding: 14px;
-}
-.customer-project
-  .project-brief-sidebar
-  .project-details-disclosure
-  > summary
-  small,
-.customer-project .project-brief-sidebar .project-expand-label,
-.customer-project .project-brief-sidebar .project-section-heading {
-  display: none;
-}
-.customer-project .project-brief-sidebar .project-details-disclosure > .panel {
-  padding: 14px;
-  border: 0;
-  box-shadow: none;
-}
-.customer-project .project-brief-sidebar .project-detail-rows {
-  display: block;
-}
-.customer-project .project-brief-sidebar .project-detail-rows > div {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  padding: 9px 0;
-}
-.customer-project .project-brief-sidebar .project-detail-rows dt,
-.customer-project .project-brief-sidebar .project-detail-rows dd {
-  font-size: 13px;
-  margin: 0;
-  overflow-wrap: anywhere;
-}
 .customer-project .project-sidebar-section {
   margin: 0;
   border: 1px solid #dce5f5;
@@ -1412,28 +1278,6 @@ input[type="radio"] {
 }
 .customer-project .project-sidebar-section > .panel > h2 {
   display: none;
-}
-.customer-project .customer-project-controls .actions {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-.customer-project .customer-project-controls .actions button {
-  width: 100%;
-  padding: 8px;
-  font-size: 12px;
-  min-height: 38px;
-}
-.customer-project .project-brief-sidebar .project-photo-gallery {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-.customer-project .project-brief-sidebar .project-photo-thumbnail img {
-  height: 110px;
-  object-fit: cover;
-}
-.customer-project .project-brief-sidebar .project-activity {
-  max-height: 300px;
-  overflow: auto;
 }
 .customer-project .project-estimates {
   grid-column: 2;
@@ -1552,9 +1396,6 @@ input[type="radio"] {
 }
 .customer-project > .customer-project-hero {
   display: block;
-}
-.customer-project .project-brief-sidebar {
-  align-self: start;
 }
 .customer-project .project-sidebar-section > summary:focus-visible {
   outline: 3px solid #064bff;
@@ -1807,9 +1648,20 @@ input[type="radio"] {
     justify-content: flex-start;
   }
 }
-.compact-project-management .actions button { min-width: 40px; min-height: 40px; }
-.compact-project-calls { margin-top: 18px; border-top: 1px solid #dce5f5; padding-top: 14px; }
-.compact-project-calls > summary { cursor: pointer; font-weight: 650; color: #1645b5; }
+.compact-project-management .actions button {
+  min-width: 40px;
+  min-height: 40px;
+}
+.compact-project-calls {
+  margin-top: 18px;
+  border-top: 1px solid #dce5f5;
+  padding-top: 14px;
+}
+.compact-project-calls > summary {
+  cursor: pointer;
+  font-weight: 650;
+  color: #1645b5;
+}
 
 /* Interface polish: denser project cards, consistent project page rhythm and
    readable text on light surfaces. */
@@ -2562,7 +2414,11 @@ input[type="radio"] {
   border-radius: 8px;
   font-size: 14px;
 }
-.workspace .workspace-main .chat-header:has(.chat-project-context) .chat-header-copy small {
+.workspace
+  .workspace-main
+  .chat-header:has(.chat-project-context)
+  .chat-header-copy
+  small {
   display: none;
 }
 .workspace .workspace-main .chat-actions-disclosure > summary {
@@ -2589,7 +2445,11 @@ input[type="radio"] {
   border-color: var(--line);
   border-radius: 12px;
 }
-.workspace .workspace-main .chat-actions-disclosure[open] .chat-header-actions button {
+.workspace
+  .workspace-main
+  .chat-actions-disclosure[open]
+  .chat-header-actions
+  button {
   justify-content: flex-start;
   gap: 10px;
   width: 100%;
@@ -2604,13 +2464,26 @@ input[type="radio"] {
   font-weight: 500;
   text-align: left;
 }
-.workspace .workspace-main .chat-actions-disclosure[open] .chat-header-actions button:hover:not(:disabled) {
+.workspace
+  .workspace-main
+  .chat-actions-disclosure[open]
+  .chat-header-actions
+  button:hover:not(:disabled) {
   background: var(--brand-soft) !important;
 }
-.workspace .workspace-main .chat-actions-disclosure[open] .chat-header-actions button span {
+.workspace
+  .workspace-main
+  .chat-actions-disclosure[open]
+  .chat-header-actions
+  button
+  span {
   display: inline;
 }
-.workspace .workspace-main .chat-actions-disclosure[open] .chat-header-actions .chat-block-action {
+.workspace
+  .workspace-main
+  .chat-actions-disclosure[open]
+  .chat-header-actions
+  .chat-block-action {
   color: #9a4242 !important;
 }
 .workspace .workspace-main .chat-log {
@@ -2855,11 +2728,17 @@ body:has(.workspace-main[data-page="messages"]) .website-feedback-trigger {
 .project-management-dialog fieldset:has(.edit-section) > * {
   grid-column: 1 / -1;
 }
-.project-management-dialog fieldset:has(.edit-section) > .field:has(> select:not([name])),
-.project-management-dialog fieldset:has(.edit-section) > .field:has(> input[type="number"]) {
+.project-management-dialog
+  fieldset:has(.edit-section)
+  > .field:has(> select:not([name])),
+.project-management-dialog
+  fieldset:has(.edit-section)
+  > .field:has(> input[type="number"]) {
   grid-column: auto;
 }
-.project-management-dialog fieldset:has(.edit-section) > .edit-section:first-child {
+.project-management-dialog
+  fieldset:has(.edit-section)
+  > .edit-section:first-child {
   margin-top: 12px;
 }
 .project-management-dialog fieldset:has(.edit-section) .field > span {
@@ -2868,11 +2747,16 @@ body:has(.workspace-main[data-page="messages"]) .website-feedback-trigger {
   line-height: 1.4;
   color: var(--ink);
 }
-.project-management-dialog fieldset:has(.edit-section) .field :is(input, select, textarea) {
+.project-management-dialog
+  fieldset:has(.edit-section)
+  .field
+  :is(input, select, textarea) {
   font-size: 16px;
   font-weight: 400;
 }
-.project-management-dialog fieldset:has(.edit-section) > button:not(.text-button) {
+.project-management-dialog
+  fieldset:has(.edit-section)
+  > button:not(.text-button) {
   margin-top: 8px;
 }
 @media (max-width: 600px) {
@@ -2885,7 +2769,10 @@ body:has(.workspace-main[data-page="messages"]) .website-feedback-trigger {
   padding-top: 20px;
   border-top: 1px solid var(--line);
 }
-.project-management-dialog fieldset:has(.edit-section) .address-autocomplete > label {
+.project-management-dialog
+  fieldset:has(.edit-section)
+  .address-autocomplete
+  > label {
   font-size: 14px;
   font-weight: 600;
   line-height: 1.4;
@@ -3010,11 +2897,17 @@ body:has(.workspace-main[data-page="messages"]) .website-feedback-trigger {
   padding: 0 22px;
   border-left: 1px solid var(--line);
 }
-.business-profile-design .profile-brand-header .profile-fact-strip > div:first-child {
+.business-profile-design
+  .profile-brand-header
+  .profile-fact-strip
+  > div:first-child {
   padding-left: 0;
   border-left: 0;
 }
-.business-profile-design .profile-brand-header .profile-fact-strip > div:last-child {
+.business-profile-design
+  .profile-brand-header
+  .profile-fact-strip
+  > div:last-child {
   padding-right: 0;
 }
 .business-profile-design .profile-fact-strip strong {
@@ -3309,7 +3202,9 @@ body:has(.workspace-main[data-page="messages"]) .website-feedback-trigger {
   border-radius: 999px;
   background: #e3e8f4;
 }
-.business-profile-design .review-distribution meter::-webkit-meter-optimum-value {
+.business-profile-design
+  .review-distribution
+  meter::-webkit-meter-optimum-value {
   border-radius: 999px;
   background: #c27803;
 }
@@ -3372,7 +3267,10 @@ body:has(.workspace-main[data-page="messages"]) .website-feedback-trigger {
   .business-profile-design .profile-brand-header .profile-fact-strip > div {
     padding: 0 0 0 16px;
   }
-  .business-profile-design .profile-brand-header .profile-fact-strip > div:nth-child(odd) {
+  .business-profile-design
+    .profile-brand-header
+    .profile-fact-strip
+    > div:nth-child(odd) {
     padding-left: 0;
     border-left: 0;
   }

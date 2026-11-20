@@ -39,7 +39,8 @@ export async function listenNotifications() {
       connection.on("notification", (msg) => {
         if (msg.channel === "aplime_notifications" && msg.payload) {
           dispatchNotification(msg.payload);
-          if (redis?.isReady) void redis.publish(redisChannel, msg.payload).catch(() => {});
+          if (redis?.isReady)
+            void redis.publish(redisChannel, msg.payload).catch(() => {});
         }
       });
       client = connection;

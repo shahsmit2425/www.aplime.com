@@ -102,7 +102,10 @@ export function ReviewPhotoEditor({
   return (
     <section className="review-photo-editor">
       <h3>
-        <T>{editable ? "Add photos (optional)" : "Review photos"}</T> <small>{editable ? `${photos.length}/5` : `${photos.length} photos`}</small>
+        <T>{editable ? "Add photos (optional)" : "Review photos"}</T>{" "}
+        <small>
+          {editable ? `${photos.length}/5` : `${photos.length} photos`}
+        </small>
       </h3>
       <ReviewPhotoGallery photos={photos} />
       {editable && (

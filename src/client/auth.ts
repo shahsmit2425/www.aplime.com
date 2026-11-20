@@ -31,7 +31,9 @@ export async function configureSession(remember: boolean) {
     auth(),
     Capacitor.isNativePlatform()
       ? indexedDBLocalPersistence
-      : remember ? browserLocalPersistence : browserSessionPersistence,
+      : remember
+        ? browserLocalPersistence
+        : browserSessionPersistence,
   );
 }
 export function auth() {
@@ -69,7 +71,8 @@ export async function google() {
   );
 }
 export async function logout() {
-  if (Capacitor.isNativePlatform()) await (await import('./push.js')).disconnectPush();
+  if (Capacitor.isNativePlatform())
+    await (await import("./push.js")).disconnectPush();
   await signOut(auth());
   if (Capacitor.isNativePlatform()) await FirebaseAuthentication.signOut();
 }
@@ -144,11 +147,17 @@ export function authErrorMessage(error: unknown) {
   }
 }
 
-export async function changePassword(current: string, next: string, confirmation: string) {
+export async function changePassword(
+  current: string,
+  next: string,
+  confirmation: string,
+) {
   if (!usesPassword()) throw new Error("Your password is managed by Google.");
   if (next !== confirmation) throw new Error("New passwords do not match.");
-  if (next.length < 12) throw new Error("Use at least 12 characters for your new password.");
-  if (next === current) throw new Error("Choose a different password from your current password.");
+  if (next.length < 12)
+    throw new Error("Use at least 12 characters for your new password.");
+  if (next === current)
+    throw new Error("Choose a different password from your current password.");
   try {
     await reauthenticate(current);
     const user = auth().currentUser;

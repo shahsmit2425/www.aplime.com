@@ -90,7 +90,10 @@ reviewImages.put(
         ).rows[0];
         if (!p || p.customer_id !== req.account.id || p.status !== "completed")
           fail(403, "Project unavailable.");
-        if ((await c.query("SELECT 1 FROM reviews WHERE project_id=$1", [id])).rowCount)
+        if (
+          (await c.query("SELECT 1 FROM reviews WHERE project_id=$1", [id]))
+            .rowCount
+        )
           fail(409, "Submitted review photos cannot be changed.");
         old = (
           await c.query(
@@ -98,8 +101,19 @@ reviewImages.put(
             [id, slot],
           )
         ).rows[0]?.object_key;
-        if (!old && (await c.query("SELECT count(*)::int AS count FROM review_images WHERE project_id=$1", [id])).rows[0].count >= 5)
-          fail(400, "Reviews allow up to five photos. Remove an existing photo first.");
+        if (
+          !old &&
+          (
+            await c.query(
+              "SELECT count(*)::int AS count FROM review_images WHERE project_id=$1",
+              [id],
+            )
+          ).rows[0].count >= 5
+        )
+          fail(
+            400,
+            "Reviews allow up to five photos. Remove an existing photo first.",
+          );
         await storeBusinessImage(key, req.get("content-type")!, clean);
         stored = true;
         await c.query(
@@ -131,7 +145,10 @@ reviewImages.delete("/projects/:id/review-photos/:slot", async (req, res) => {
     ).rows[0];
     if (!p || p.customer_id !== req.account.id)
       fail(403, "Only the customer can remove these photos.");
-    if ((await c.query("SELECT 1 FROM reviews WHERE project_id=$1", [id])).rowCount)
+    if (
+      (await c.query("SELECT 1 FROM reviews WHERE project_id=$1", [id]))
+        .rowCount
+    )
       fail(409, "Submitted review photos cannot be changed.");
     return (
       await c.query(

@@ -7,8 +7,14 @@ import {
 
 test("new customers and returning users enter the expected workspace", () => {
   assert.equal(accountLandingPage("customer", false), "dashboard");
-  assert.equal(pageAfterAuthentication("login", "customer", false), "dashboard");
-  assert.equal(pageAfterAuthentication("projects", "customer", false), "projects");
+  assert.equal(
+    pageAfterAuthentication("login", "customer", false),
+    "dashboard",
+  );
+  assert.equal(
+    pageAfterAuthentication("projects", "customer", false),
+    "projects",
+  );
 });
 
 test("professionals complete onboarding before entering their dashboard", () => {

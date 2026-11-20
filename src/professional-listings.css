@@ -309,4 +309,6 @@
   }
 }
 
-.pro-listing-trust .pro-listing-pending { color: #69777c; }
+.pro-listing-trust .pro-listing-pending {
+  color: #69777c;
+}

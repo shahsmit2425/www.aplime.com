@@ -722,65 +722,6 @@ small {
   font-size: var(--text-small);
   padding: 12px 0;
 }
-.admin-thread-row {
-  display: flex !important;
-  width: 100%;
-  text-align: left;
-  justify-content: initial !important;
-  gap: 16px !important;
-  padding: 18px !important;
-  border-radius: 9px;
-  margin-bottom: 10px;
-}
-.admin-thread-row > span:first-of-type {
-  flex: 1;
-  min-width: 0;
-}
-.admin-thread-row strong {
-  display: block;
-  overflow-wrap: anywhere;
-}
-.admin-thread-row small {
-  display: block;
-  color: #455477;
-  font-weight: 400;
-  margin-top: 7px;
-}
-.admin-thread-row:hover small {
-  color: inherit;
-}
-.admin-chat {
-  display: grid;
-  gap: 14px;
-  max-height: 550px;
-  overflow: auto;
-  padding: 18px 4px;
-  margin-top: 18px;
-}
-.admin-chat article {
-  max-width: 85%;
-  background: #f8faff;
-  border: 1px solid #eef3ff;
-  padding: 16px;
-  border-radius: 10px;
-}
-.admin-chat article.from-admin {
-  margin-left: auto;
-  background: #f8faff;
-}
-.admin-chat strong {
-  font-size: var(--text-small);
-}
-.admin-chat p {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  margin: 8px 0;
-  font-size: var(--text-body);
-}
-.admin-chat small {
-  color: #455477;
-  font-size: var(--text-caption);
-}
 .admin-notice {
   margin: 16px 0;
 }
@@ -879,9 +820,6 @@ small {
   }
   .admin-business-media img {
     height: 220px;
-  }
-  .admin-thread-row {
-    flex-wrap: wrap;
   }
   .admin-data-note {
     align-items: flex-start;

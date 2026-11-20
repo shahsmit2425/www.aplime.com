@@ -1,6 +1,6 @@
 import { T } from "../shared/language.js";
 import { useState } from "react";
-import { CalendarDays, MapPin, Check } from "lucide-react";
+import { MapPin, Check } from "lucide-react";
 import { weekdays, type WeeklyHours } from "../shared/preferences.js";
 import { categories, type Profile } from "../shared/domain.js";
 import { useWorkspace } from "./workspace.js";

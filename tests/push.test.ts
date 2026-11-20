@@ -43,8 +43,8 @@ test("push outbox queues only registered devices, retries, and isolates account 
     let sent = 0;
     await deliverPush(async (m) => {
       sent++;
-      assert.deepEqual(m.data, {notificationId:id});
-      assert.ok('token' in m && m.token === 'test-device');
+      assert.deepEqual(m.data, { notificationId: id });
+      assert.ok("token" in m && m.token === "test-device");
       return "sent";
     });
     assert.equal(sent, 1);

@@ -47,9 +47,9 @@ export function EmailAlerts({
         </button>
       </div>
       <p>
-        Automatic alerts are sent through Resend. Direct administrator
-        messages appear in the user's support inbox and send an email. Security,
-        billing and direct Aplime support notices remain enabled.
+        Automatic alerts are sent through Resend. Direct administrator messages
+        appear in the user's support inbox and send an email. Security, billing
+        and direct Aplime support notices remain enabled.
       </p>
       {error && (
         <p role="alert" className="error">

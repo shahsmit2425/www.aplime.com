@@ -1,5 +1,5 @@
 import { T } from "../shared/language.js";
-import { NativePush } from './push.js';
+import { NativePush } from "./push.js";
 import { IntakeAccountNotice } from "./intake-account-notice.js";
 import { ProjectIntake } from "./project-intake.js";
 import { hasIntakeResume } from "./project-intake-state.js";
@@ -13,7 +13,6 @@ import {
   useEffect,
   useState,
   useRef,
-  type ReactNode,
   type CSSProperties,
 } from "react";
 import { onAuthStateChanged, type User as FirebaseUser } from "firebase/auth";
@@ -219,8 +218,14 @@ export default function Workspace() {
   useEffect(() => {
     const viewport = window.visualViewport;
     const updateViewport = () => {
-      document.documentElement.style.setProperty("--app-viewport-height", `${viewport?.height || window.innerHeight}px`);
-      document.documentElement.classList.toggle("app-keyboard-open", window.innerHeight - (viewport?.height || window.innerHeight) > 150);
+      document.documentElement.style.setProperty(
+        "--app-viewport-height",
+        `${viewport?.height || window.innerHeight}px`,
+      );
+      document.documentElement.classList.toggle(
+        "app-keyboard-open",
+        window.innerHeight - (viewport?.height || window.innerHeight) > 150,
+      );
     };
     updateViewport();
     viewport?.addEventListener("resize", updateViewport);
@@ -578,13 +583,25 @@ export default function Workspace() {
         {!sessionDelayed && <div className="auth-loader" aria-hidden="true" />}
         <div>
           <h1>
-            <T>{sessionDelayed ? "Your session is taking longer than expected" : "Opening your Aplime account…"}</T>
+            <T>
+              {sessionDelayed
+                ? "Your session is taking longer than expected"
+                : "Opening your Aplime account…"}
+            </T>
           </h1>
           <p>
-            <T>{sessionDelayed ? "Check your internet connection and try again. Your saved account and projects will not be removed." : "Checking your secure session."}</T>
+            <T>
+              {sessionDelayed
+                ? "Check your internet connection and try again. Your saved account and projects will not be removed."
+                : "Checking your secure session."}
+            </T>
           </p>
           {sessionDelayed && (
-            <button type="button" className="button primary" onClick={() => window.location.reload()}>
+            <button
+              type="button"
+              className="button primary"
+              onClick={() => window.location.reload()}
+            >
               Try again
             </button>
           )}
@@ -596,7 +613,7 @@ export default function Workspace() {
       <div className="guest-intake-page">
         <header className="guest-intake-header">
           <Brand />
-            <span>
+          <span>
             <T>{"Plan your project · Sign in at the final step"}</T>
           </span>
         </header>
@@ -626,10 +643,7 @@ export default function Workspace() {
         ? route.page
         : "login";
     const [title, lead] = needsAccount
-      ? [
-          "One last step",
-          "Confirm your name and how you’ll use Aplime.",
-        ]
+      ? ["One last step", "Confirm your name and how you’ll use Aplime."]
       : unverified
         ? ["Check your inbox", ""]
         : firebaseUser
@@ -678,7 +692,9 @@ export default function Workspace() {
               <ol className="auth-steps" aria-label="Registration progress">
                 <li
                   className={
-                    mode === "register" && !firebaseUser ? "current" : "complete"
+                    mode === "register" && !firebaseUser
+                      ? "current"
+                      : "complete"
                   }
                 >
                   <span>1</span> <T>{"Account"}</T>{" "}
@@ -782,7 +798,10 @@ export default function Workspace() {
                       <T>{"Customer account · Find help for your project"}</T>
                     </p>
                   ) : (
-                    <RoleChoice value={signupRole} onChange={chooseSignupRole} />
+                    <RoleChoice
+                      value={signupRole}
+                      onChange={chooseSignupRole}
+                    />
                   )}
                 </fieldset>
                 <p className="auth-note">
@@ -835,7 +854,9 @@ export default function Workspace() {
                       />
                       <p className="auth-note">
                         <T>
-                          {"The account type can’t be changed after registration."}
+                          {
+                            "The account type can’t be changed after registration."
+                          }
                         </T>
                       </p>
                     </>
@@ -873,10 +894,7 @@ export default function Workspace() {
                     />
                   </Field>
                   {mode !== "recovery" && (
-                    <PasswordField
-                      key={mode}
-                      creating={mode === "register"}
-                    />
+                    <PasswordField key={mode} creating={mode === "register"} />
                   )}
                   {mode !== "recovery" && (
                     <div className="auth-options">
@@ -1056,7 +1074,15 @@ export default function Workspace() {
   );
   return (
     <Context.Provider
-      value={{ data, page: route.page, id: route.id, go, run, busy, actionError: error }}
+      value={{
+        data,
+        page: route.page,
+        id: route.id,
+        go,
+        run,
+        busy,
+        actionError: error,
+      }}
     >
       <MeetingProvider key={data.user.id} userId={data.user.id}>
         <NativePush userId={data.user.id} go={go} />

@@ -41,6 +41,7 @@ For local Postgres, set `POSTGRES_PASSWORD` in your shell and run `docker compos
 npm test
 npm run build
 npm run config:check   # validates deployed configuration; expects HTTPS and all services
+npm run format         # applies Prettier to source, tests and scripts
 ```
 
 ## One source, three environments

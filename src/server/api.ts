@@ -736,8 +736,15 @@ api.post("/projects/:id/review", async (req, res) => {
         .rowCount
     )
       fail(409, "You already reviewed this project.");
-    const photos = await c.query("SELECT count(*)::int AS count FROM review_images WHERE project_id=$1", [p.id]);
-    if (photos.rows[0].count > 5) fail(400, "Remove extra photos before submitting. Reviews allow up to five photos.");
+    const photos = await c.query(
+      "SELECT count(*)::int AS count FROM review_images WHERE project_id=$1",
+      [p.id],
+    );
+    if (photos.rows[0].count > 5)
+      fail(
+        400,
+        "Remove extra photos before submitting. Reviews allow up to five photos.",
+      );
     await assertIndependentParties(c, p.customerId, p.proId!);
     await c.query(
       "INSERT INTO reviews(id,project_id,pro_id,rating,body) VALUES($1,$2,$3,$4,$5)",
@@ -760,11 +767,14 @@ api.post("/reviews/:id/reply", async (req, res) => {
     .strict()
     .parse(q.body);
   await transaction(async (c) => {
-    const projectId = await submitReviewReply(c, z.string().uuid().parse(q.params.id), q.account.id, reply);
+    const projectId = await submitReviewReply(
+      c,
+      z.string().uuid().parse(q.params.id),
+      q.account.id,
+      reply,
+    );
     const p = (
-      await c.query("SELECT customer_id FROM projects WHERE id=$1", [
-        projectId,
-      ])
+      await c.query("SELECT customer_id FROM projects WHERE id=$1", [projectId])
     ).rows[0];
     await notify(
       c,

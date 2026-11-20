@@ -11,7 +11,7 @@ import { errorResponse } from "./error-response.js";
 import { AddressError } from "./integrations/address-error.js";
 import { StorageError } from "./integrations/storage-error.js";
 import { IdentityError } from "./integrations/identity-error.js";
-import { env, publicConfig, validateDeployment } from "./config.js";
+import { env, validateDeployment } from "./config.js";
 import { api } from "./api.js";
 import { webhooks } from "./webhooks.js";
 import { pool } from "./db/index.js";

@@ -633,9 +633,28 @@ body {
 }
 
 /* Same brand palette as customer and professional pages; admin stays isolated. */
-:root { --ink:#090f42; --muted:#455477; --line:#dce3f2; --blue:#064bff; --canvas:#f8faff; }
-body {background:var(--canvas);color:var(--ink);}
-.admin-page-heading h1,.login h1 {color:var(--ink);}
-.login {background:white;border-top-color:var(--blue);}
-header {background:var(--ink);}
-header strong::before {background:linear-gradient(145deg,#00cabb,#064bff);}
+:root {
+  --ink: #090f42;
+  --muted: #455477;
+  --line: #dce3f2;
+  --blue: #064bff;
+  --canvas: #f8faff;
+}
+body {
+  background: var(--canvas);
+  color: var(--ink);
+}
+.admin-page-heading h1,
+.login h1 {
+  color: var(--ink);
+}
+.login {
+  background: white;
+  border-top-color: var(--blue);
+}
+header {
+  background: var(--ink);
+}
+header strong::before {
+  background: linear-gradient(145deg, #00cabb, #064bff);
+}

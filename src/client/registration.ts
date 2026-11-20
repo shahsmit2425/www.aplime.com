@@ -6,8 +6,13 @@ export async function createOrResume<T>(
   try {
     return { credential: await create(), created: true };
   } catch (error) {
-    if (!(error && typeof error === "object" && "code" in error &&
-      error.code === "auth/email-already-in-use")) throw error;
+    if (!(
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      error.code === "auth/email-already-in-use"
+    ))
+      throw error;
     return { credential: await signIn(), created: false };
   }
 }

@@ -240,7 +240,9 @@ export async function workspace(user: User): Promise<Workspace> {
         )
       : Promise.resolve({ rows: [] }),
   ]);
-  const { rows: [unread] } = await pool.query(
+  const {
+    rows: [unread],
+  } = await pool.query(
     `SELECT count(*)::int AS total,
      count(*) FILTER (WHERE target_page='messages' OR (target_page='help' AND target_id IS NOT NULL))::int AS messages
      FROM notifications WHERE user_id=$1 AND NOT read`,

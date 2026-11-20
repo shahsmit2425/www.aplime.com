@@ -6,8 +6,13 @@ test("repeat registration authenticates once and returns the existing account di
   let attempts = 0;
   const user = { emailVerified: false };
   const result = await createOrResume(
-    async () => { throw { code: "auth/email-already-in-use" }; },
-    async () => { attempts++; return user; },
+    async () => {
+      throw { code: "auth/email-already-in-use" };
+    },
+    async () => {
+      attempts++;
+      return user;
+    },
   );
   assert.equal(result.credential, user);
   assert.equal(result.created, false);
@@ -15,14 +20,31 @@ test("repeat registration authenticates once and returns the existing account di
 });
 
 test("wrong password never grants access to an existing account", async () => {
-  await assert.rejects(createOrResume(
-    async () => { throw { code: "auth/email-already-in-use" }; },
-    async () => { throw new Error("invalid credential"); },
-  ), /invalid credential/);
+  await assert.rejects(
+    createOrResume(
+      async () => {
+        throw { code: "auth/email-already-in-use" };
+      },
+      async () => {
+        throw new Error("invalid credential");
+      },
+    ),
+    /invalid credential/,
+  );
 });
 
 test("new registration and network errors do not trigger a second authentication attempt", async () => {
-  const unexpected = async () => { throw new Error("unexpected sign-in"); };
-  assert.equal((await createOrResume(async () => "new", unexpected)).created, true);
-  await assert.rejects(createOrResume(async () => { throw new Error("network"); }, unexpected), /network/);
+  const unexpected = async () => {
+    throw new Error("unexpected sign-in");
+  };
+  assert.equal(
+    (await createOrResume(async () => "new", unexpected)).created,
+    true,
+  );
+  await assert.rejects(
+    createOrResume(async () => {
+      throw new Error("network");
+    }, unexpected),
+    /network/,
+  );
 });

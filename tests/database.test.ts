@@ -4736,12 +4736,25 @@ test("project contact and review photos enforce ownership, publication, five-pho
       (await (await get("/review-photos", "pro")).json()).length,
       10,
     );
-    assert.equal((await fetch(base + "/review-photos/1", { method: "DELETE" })).status, 409);
-    assert.equal((await fetch(base + "/review-photos/1", {
-      method: "PUT", headers: { "Content-Type": "image/png" }, body: new Uint8Array(image),
-    })).status, 403);
-    assert.equal((await (await get("/review-photos")).json()).length, 10,
-      "Existing published photos remain intact and read-only");
+    assert.equal(
+      (await fetch(base + "/review-photos/1", { method: "DELETE" })).status,
+      409,
+    );
+    assert.equal(
+      (
+        await fetch(base + "/review-photos/1", {
+          method: "PUT",
+          headers: { "Content-Type": "image/png" },
+          body: new Uint8Array(image),
+        })
+      ).status,
+      403,
+    );
+    assert.equal(
+      (await (await get("/review-photos")).json()).length,
+      10,
+      "Existing published photos remain intact and read-only",
+    );
     assert.equal(
       (
         await fetch(base + "/review-photos/1", {
@@ -4759,17 +4772,33 @@ test("project contact and review photos enforce ownership, publication, five-pho
   }
 });
 
-
 test("customers can review two completed projects with the same pro but cannot review a project twice", async () => {
   const { api } = await import("../src/server/api.js");
-  const route = api.stack.find((layer: any) => layer.route?.path === "/projects/:id/review");
+  const route = api.stack.find(
+    (layer: any) => layer.route?.path === "/projects/:id/review",
+  );
   const handler = route!.route!.stack[0].handle as any;
   const first = await lifecycleProject("completed");
   const second = await lifecycleProject("completed");
-  const submit = (id: string) => handler({ params: { id }, account: customer,
-    body: { rating: 5, body: "Good work" } }, { json() {} });
+  const submit = (id: string) =>
+    handler(
+      {
+        params: { id },
+        account: customer,
+        body: { rating: 5, body: "Good work" },
+      },
+      { json() {} },
+    );
   await submit(first);
   await submit(second);
   await assert.rejects(() => submit(first), /already reviewed this project/);
-  assert.equal((await query("SELECT count(*)::int AS count FROM reviews WHERE project_id=ANY($1::uuid[])", [[first, second]])).rows[0].count, 2);
+  assert.equal(
+    (
+      await query(
+        "SELECT count(*)::int AS count FROM reviews WHERE project_id=ANY($1::uuid[])",
+        [[first, second]],
+      )
+    ).rows[0].count,
+    2,
+  );
 });

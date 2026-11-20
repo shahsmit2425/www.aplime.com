@@ -46,25 +46,16 @@ import {
   CalendarDays,
   ChevronDown,
   FileText,
-  MessageCircle,
   Plus,
   Search,
-  CheckCircle2,
   Upload,
-  Phone,
-  Video,
 } from "lucide-react";
-import {
-  categories,
-  money,
-  type Project,
-  type Profile,
-} from "../shared/domain.js";
+import { money, type Project } from "../shared/domain.js";
 import {
   questionLabel,
   type ServiceCategory,
 } from "../shared/service-questionnaires.js";
-import { request, openExternal } from "./api.js";
+import { request } from "./api.js";
 import { useWorkspace } from "./workspace.js";
 import { Empty, Head, Panel, Badge, Field, Form } from "./ui.js";
 const date = (s: string | null) =>
@@ -176,7 +167,7 @@ function Dashboard() {
   return data.user.role === "pro" ? <ProDashboard /> : <CustomerDashboard />;
 }
 function Directory() {
-  const { data, page, id, run, go, busy } = useWorkspace();
+  const { data, page, id, go } = useWorkspace();
   const openDiscovery = data.discoveryMode === "open";
   const [projectId, setProjectId] = useState(id || "");
   const openProjects = data.projects.filter(
@@ -1306,9 +1297,6 @@ function Reviews() {
 }
 function Business() {
   return <BusinessProfile />;
-}
-function CreditIcon() {
-  return <CheckCircle2 />;
 }
 function Settings() {
   const { data, run, busy } = useWorkspace();

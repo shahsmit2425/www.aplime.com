@@ -28,9 +28,6 @@ const transport = {
   upload: (path: string, file: File) =>
     uploadImageContent(path, file, AbortSignal.timeout(120000)),
 };
-export async function sendProjectPhoto(projectId: string, photo: ProjectPhoto) {
-  await publishPhotos(projectId, [photo], transport);
-}
 export async function publishProjectPhotos(
   projectId: string,
   photos: ProjectPhoto[],

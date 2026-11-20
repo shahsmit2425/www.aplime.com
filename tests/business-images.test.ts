@@ -24,7 +24,8 @@ test("business images allow only bounded image slots and supported image files",
   assert.equal(businessImageSchema.safeParse(valid).success, true);
   for (let index = 1; index <= 30; index++)
     assert.equal(
-      businessImageSchema.safeParse({ ...valid, slot: `work-${index}` }).success,
+      businessImageSchema.safeParse({ ...valid, slot: `work-${index}` })
+        .success,
       true,
     );
   for (const extra of [

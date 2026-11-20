@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { parse } from "yaml";
 import { spawnSync } from "node:child_process";
 import mapping from "../config/environments.json";

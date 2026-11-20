@@ -45,11 +45,20 @@ export async function publicReviews(
 }
 
 // The conditional update makes simultaneous or repeated replies first-write-only.
-export async function submitReviewReply(c: Pick<PoolClient, "query">, id: string, proId: string, reply: string) {
+export async function submitReviewReply(
+  c: Pick<PoolClient, "query">,
+  id: string,
+  proId: string,
+  reply: string,
+) {
   const result = await c.query(
     "UPDATE reviews SET reply=$3 WHERE id=$1 AND pro_id=$2 AND reply IS NULL RETURNING project_id",
     [id, proId, reply],
   );
-  if (!result.rows[0]) fail(403, "You can reply only once to your own reviews. Published replies cannot be changed.");
+  if (!result.rows[0])
+    fail(
+      403,
+      "You can reply only once to your own reviews. Published replies cannot be changed.",
+    );
   return result.rows[0].project_id as string;
 }

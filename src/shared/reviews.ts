@@ -6,7 +6,7 @@ export const reviewInput = z
   })
   .strict();
 export type PublicReview = {
-  photos?: {slot:number;url:string}[];
+  photos?: { slot: number; url: string }[];
   id: string;
   rating: number;
   body: string;
