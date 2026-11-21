@@ -8,7 +8,11 @@ import {
   membershipSpecs,
   membershipForPrice,
   subscriptionMembership,
+  schedulePhases,
+  scheduledPlan,
+  changePhases,
 } from "../src/server/membership-plans.js";
+import type { MembershipPlan } from "../src/shared/subscription.js";
 import { MembershipCards } from "../src/client/membership-cards.js";
 
 const original = { ...env };
@@ -163,6 +167,70 @@ test("plan cards show the full upfront charge and renewal interval, with accessi
     assert.ok(
       !html.includes("price_"),
       "raw Stripe IDs are absent from the customer selection UI",
+    );
+  } finally {
+    Object.assign(env, original);
+  }
+});
+
+test("a billing period change waits for the paid period to end and is never prorated", () => {
+  try {
+    configure();
+    const plans = [
+      { id: "monthly", label: "Monthly", amount: 4000, months: 1 },
+      { id: "yearly", label: "Annual", amount: 36000, months: 12 },
+    ].map((plan) => ({ ...plan, currency: "usd" })) as MembershipPlan[];
+    const phase = (start: number, end: number, id: string) => ({
+      start_date: start,
+      end_date: end,
+      items: [{ price: id, quantity: 1 }],
+    });
+    const schedule = (phases: unknown[], status = "active") =>
+      ({
+        status,
+        current_phase: { start_date: 100, end_date: 200 },
+        phases,
+      }) as Stripe.SubscriptionSchedule;
+    const current = phase(100, 200, "price_monthly");
+    assert.deepEqual(
+      scheduledPlan(
+        schedule([
+          phase(0, 100, "price_six"),
+          current,
+          phase(200, 300, "price_yearly"),
+        ]),
+        plans,
+      ),
+      { plan: plans[1], effectiveAt: new Date(200000).toISOString() },
+    );
+    for (const unchanged of [
+      schedule([current]),
+      schedule([current, phase(200, 300, "price_monthly")]),
+      schedule([current, phase(200, 300, "price_unknown")]),
+      schedule([current, phase(200, 300, "price_yearly")], "released"),
+    ])
+      assert.equal(scheduledPlan(unchanged, plans), null);
+    assert.equal(
+      schedulePhases(schedule([phase(1, 2, "price_monthly")])),
+      null,
+    );
+    assert.deepEqual(
+      changePhases(
+        current as Stripe.SubscriptionSchedule.Phase,
+        "price_yearly",
+      ),
+      [
+        {
+          items: [{ price: "price_monthly", quantity: 1 }],
+          start_date: 100,
+          end_date: 200,
+        },
+        {
+          items: [{ price: "price_yearly", quantity: 1 }],
+          iterations: 1,
+          proration_behavior: "none",
+        },
+      ],
     );
   } finally {
     Object.assign(env, original);

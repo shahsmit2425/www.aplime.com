@@ -4,11 +4,18 @@ import { stripe } from "./integrations/stripe.js";
 import { env } from "./config.js";
 import { fail, requireValue } from "./errors.js";
 import { createHash } from "node:crypto";
+import type Stripe from "stripe";
 import {
   membershipSpecs,
   membershipPlans,
   subscriptionMembership,
+  schedulePhases,
+  scheduledPlan,
+  changePhases,
 } from "./membership-plans.js";
+import { notify } from "./repository.js";
+import { money } from "../shared/domain.js";
+import type { PoolClient } from "pg";
 import type { MembershipBilling } from "../shared/subscription.js";
 export const subscriptions = Router();
 subscriptions.use((req, _res, next) => {
@@ -38,8 +45,12 @@ subscriptions.get("/", async (req, res) => {
   ).rows[0];
   let currentPlan: MembershipBilling["currentPlan"] = null;
   let periodEnd: string | null = null;
+  let pendingChange: MembershipBilling["pendingChange"] = null;
+  let canChange = false;
   if (row?.subscription_id) {
-    const current = await stripe().subscriptions.retrieve(row.subscription_id);
+    const current = await stripe().subscriptions.retrieve(row.subscription_id, {
+      expand: ["schedule"],
+    });
     const customer =
       typeof current.customer === "string"
         ? current.customer
@@ -50,6 +61,16 @@ subscriptions.get("/", async (req, res) => {
     const end = current.items.data[0]?.current_period_end;
     if (Number.isFinite(end) && end > 0)
       periodEnd = new Date(end * 1000).toISOString();
+    if (
+      plans.length &&
+      current.schedule &&
+      typeof current.schedule === "object"
+    )
+      pendingChange = scheduledPlan(current.schedule, plans);
+    canChange =
+      row.status === "active" &&
+      changeProblem(current) === null &&
+      plans.some((plan) => plan.id !== currentPlan?.id);
   }
   res.json({
     status: row?.status || "none",
@@ -61,6 +82,8 @@ subscriptions.get("/", async (req, res) => {
     pricingProblem,
     currentPlan,
     periodEnd,
+    canChange,
+    pendingChange,
   } satisfies MembershipBilling);
 });
 subscriptions.post("/checkout", async (req, res) => {
@@ -195,6 +218,110 @@ subscriptions.post("/checkout", async (req, res) => {
     return { url: session.url };
   });
   res.json(result);
+});
+// Why this subscription cannot move to another billing period, if it cannot.
+function changeProblem(current: Stripe.Subscription) {
+  if (current.status !== "active")
+    return "Your membership must be active to change billing period. Use Manage billing.";
+  if (current.cancel_at_period_end || current.cancel_at)
+    return "Your membership is set to end. Restore renewal in Manage billing before changing billing period.";
+  if (!subscriptionMembership(current))
+    return "This membership cannot be changed here. Please contact support.";
+  return null;
+}
+// Lock the member's billing row and read the subscription Stripe holds now.
+async function lockedSubscription(c: PoolClient, userId: string) {
+  const row = (
+    await c.query(
+      "SELECT customer_id,subscription_id FROM professional_subscriptions WHERE user_id=$1 FOR UPDATE",
+      [userId],
+    )
+  ).rows[0];
+  if (!row?.subscription_id) fail(409, "Start a subscription first.");
+  const current = await stripe().subscriptions.retrieve(row.subscription_id, {
+    expand: ["schedule"],
+  });
+  const customer =
+    typeof current.customer === "string"
+      ? current.customer
+      : current.customer.id;
+  if (customer !== row.customer_id)
+    fail(503, "Billing information is unavailable. Please contact support.");
+  const schedule =
+    current.schedule &&
+    typeof current.schedule === "object" &&
+    current.schedule.status === "active"
+      ? current.schedule
+      : null;
+  return { current, schedule };
+}
+const longDate = (seconds: number) =>
+  new Date(seconds * 1000).toLocaleDateString("en-US", {
+    dateStyle: "long",
+    timeZone: "UTC",
+  });
+// A new billing period starts when the paid one ends: nothing is charged,
+// credited or prorated today, and the renewal date does not move.
+subscriptions.post("/change", async (req, res) => {
+  const selected = membershipSpecs().find((spec) => spec.id === req.body?.plan);
+  if (!selected) fail(400, "Choose a valid membership plan.");
+  const plan = (await membershipPlans()).find(
+    (item) => item.id === selected.id,
+  );
+  if (!plan) fail(409, "This membership plan is unavailable.");
+  const result = await transaction(async (c) => {
+    const { current, schedule } = await lockedSubscription(c, req.account.id);
+    const problem = changeProblem(current);
+    if (problem) fail(409, problem);
+    if (current.items.data[0].price.id === selected.priceId)
+      fail(
+        409,
+        schedule && schedulePhases(schedule)?.next
+          ? "This is your current billing period. Choose Keep current billing to cancel the scheduled change."
+          : "You are already on this billing period.",
+      );
+    const active =
+      schedule ||
+      (await stripe().subscriptionSchedules.create({
+        from_subscription: current.id,
+      }));
+    const phases = schedulePhases(active);
+    if (!phases)
+      fail(503, "Billing information is unavailable. Please contact support.");
+    await stripe().subscriptionSchedules.update(active.id, {
+      end_behavior: "release",
+      phases: changePhases(phases.current, selected.priceId),
+    });
+    await notify(
+      c,
+      req.account.id,
+      "Billing period change scheduled",
+      `${plan.label} billing (${money(plan.amount)}) starts ${longDate(phases.current.end_date)}. Your current billing period is unchanged until then.`,
+      { page: "subscription" },
+    );
+    return {
+      plan,
+      effectiveAt: new Date(phases.current.end_date * 1000).toISOString(),
+    };
+  });
+  res.json(result);
+});
+subscriptions.post("/change/cancel", async (req, res) => {
+  await transaction(async (c) => {
+    const { schedule } = await lockedSubscription(c, req.account.id);
+    if (!schedule || !schedulePhases(schedule)?.next)
+      fail(409, "No billing period change is scheduled.");
+    // Releasing leaves the subscription renewing on its current price.
+    await stripe().subscriptionSchedules.release(schedule.id);
+    await notify(
+      c,
+      req.account.id,
+      "Billing period change canceled",
+      "Your membership keeps its current billing period and renews as before.",
+      { page: "subscription" },
+    );
+  });
+  res.json({ ok: true });
 });
 subscriptions.post("/portal", async (req, res) => {
   const row = (

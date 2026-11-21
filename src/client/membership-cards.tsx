@@ -13,16 +13,20 @@ export function MembershipCards({
   selected,
   onSelect,
   disabled = false,
+  current,
+  legend = "Choose your billing period",
 }: {
   plans: MembershipPlan[];
   selected: MembershipPlanId | null;
   onSelect: (id: MembershipPlanId) => void;
   disabled?: boolean;
+  current?: MembershipPlanId;
+  legend?: string;
 }) {
   const monthly = plans.find((plan) => plan.id === "monthly");
   return (
     <fieldset className="membership-selector" disabled={disabled}>
-      <legend>Choose your billing period</legend>
+      <legend>{legend}</legend>
       <div className="membership-grid">
         {plans.map((plan) => {
           const saving = monthly
@@ -37,6 +41,9 @@ export function MembershipCards({
             >
               <span className="membership-card-heading">
                 <strong>{plan.label}</strong>
+                {current === plan.id && (
+                  <span className="membership-current">Current</span>
+                )}
                 <input
                   type="radio"
                   name="membership-plan"

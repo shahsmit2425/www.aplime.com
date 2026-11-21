@@ -126,3 +126,61 @@ export function subscriptionMembership(
     ? membershipForPrice(items[0].price)
     : null;
 }
+
+type Phase = Stripe.SubscriptionSchedule.Phase;
+const phasePrice = (phase?: Phase) => {
+  const price = phase?.items.length === 1 ? phase.items[0].price : undefined;
+  return typeof price === "string" ? price : price?.id;
+};
+
+// The phase a schedule is in now and the one that follows it.
+export function schedulePhases(schedule: Stripe.SubscriptionSchedule) {
+  const start = schedule.current_phase?.start_date;
+  const index = schedule.phases.findIndex(
+    (phase) => phase.start_date === start,
+  );
+  return schedule.status === "active" && index >= 0
+    ? { current: schedule.phases[index], next: schedule.phases[index + 1] }
+    : null;
+}
+
+// A different billing period waiting to start when the current period ends.
+export function scheduledPlan(
+  schedule: Stripe.SubscriptionSchedule,
+  plans: MembershipPlan[],
+): { plan: MembershipPlan; effectiveAt: string } | null {
+  const phases = schedulePhases(schedule);
+  const next = phasePrice(phases?.next);
+  if (!phases || !next || next === phasePrice(phases.current)) return null;
+  const spec = membershipSpecs().find((item) => item.priceId === next);
+  const plan = plans.find((item) => item.id === spec?.id);
+  return plan
+    ? {
+        plan,
+        effectiveAt: new Date(phases.current.end_date * 1000).toISOString(),
+      }
+    : null;
+}
+
+// Keep the paid period exactly as it is and start the new price after it.
+// No proration: nothing is charged or credited before the period ends.
+export function changePhases(
+  current: Phase,
+  priceId: string,
+): Stripe.SubscriptionScheduleUpdateParams.Phase[] {
+  return [
+    {
+      items: current.items.map((item) => ({
+        price: typeof item.price === "string" ? item.price : item.price.id,
+        quantity: item.quantity ?? 1,
+      })),
+      start_date: current.start_date,
+      end_date: current.end_date,
+    },
+    {
+      items: [{ price: priceId, quantity: 1 }],
+      iterations: 1,
+      proration_behavior: "none",
+    },
+  ];
+}

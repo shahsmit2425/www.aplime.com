@@ -16,6 +16,9 @@ export interface MembershipBilling {
   pricingProblem: string | null;
   currentPlan: MembershipPlan | null;
   periodEnd: string | null;
+  // A change of billing period starts when the current period ends.
+  canChange: boolean;
+  pendingChange: { plan: MembershipPlan; effectiveAt: string } | null;
 }
 
 // The three billing periods of the one professional membership. The server

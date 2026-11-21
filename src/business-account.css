@@ -561,3 +561,61 @@
     font-size: 34px;
   }
 }
+
+/* Changing billing period: the current badge, a scheduled change and its confirmation. */
+.membership-current {
+  margin-right: auto;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: #edf9f3;
+  color: #14784d;
+  font-size: 12px;
+  font-weight: 700;
+}
+.membership-change,
+.membership-confirm {
+  margin: 0 0 16px;
+  padding: 16px 18px;
+  border: 1px solid #cfe6da;
+  border-radius: 14px;
+  background: #f4fbf7;
+}
+.membership-change {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+.membership-change > svg {
+  flex: none;
+  margin-top: 2px;
+  color: #14784d;
+}
+.membership-change p {
+  margin: 4px 0 12px;
+}
+.membership-confirm {
+  margin-top: 16px;
+}
+.membership-confirm dl {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  margin: 12px 0 16px;
+}
+.membership-confirm dl div {
+  display: grid;
+  grid-template-columns: minmax(120px, 180px) 1fr;
+  gap: 12px;
+}
+.membership-confirm dt {
+  font-weight: 700;
+}
+.membership-confirm dd {
+  margin: 0;
+}
+@media (max-width: 640px) {
+  .membership-confirm dl div {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+}

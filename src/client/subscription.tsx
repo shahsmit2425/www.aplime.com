@@ -11,6 +11,7 @@ import {
   HandCoins,
   Layers,
   CalendarX2,
+  CalendarClock,
 } from "lucide-react";
 import type {
   MembershipBilling,
@@ -70,6 +71,7 @@ export function Subscription() {
   const [problem, setProblem] = useState("");
   const [checking, setChecking] = useState(false);
   const [refreshVersion, setRefreshVersion] = useState(0);
+  const [confirming, setConfirming] = useState(false);
   useEffect(() => {
     if (data.user.role !== "pro") return;
     let active = true;
@@ -83,19 +85,21 @@ export function Subscription() {
         if (active) {
           setBilling(result);
           setSelected((previous) => {
+            // Keep the member's choice while the page refreshes itself.
+            if (result.plans.some((plan) => plan.id === previous))
+              return previous;
             if (
               !["none", "canceled", "incomplete_expired"].includes(
                 result.status,
               )
-            )
-              return result.plans.some(
-                (plan) => plan.id === result.currentPlan?.id,
-              )
-                ? result.currentPlan!.id
+            ) {
+              const shown =
+                result.pendingChange?.plan.id || result.currentPlan?.id;
+              return result.plans.some((plan) => plan.id === shown)
+                ? shown!
                 : null;
-            return result.plans.some((plan) => plan.id === previous)
-              ? previous
-              : result.plans[0]?.id || null;
+            }
+            return result.plans[0]?.id || null;
           });
           setProblem("");
         }
@@ -140,6 +144,14 @@ export function Subscription() {
     !!billing &&
     ["none", "canceled", "incomplete_expired"].includes(billing.status);
   const nextStep = setupSteps(profile, active).find((step) => !step.complete);
+  const longDate = (value: string) =>
+    new Date(value).toLocaleDateString(undefined, { dateStyle: "long" });
+  const current = billing?.currentPlan;
+  const pending = billing?.pendingChange;
+  const changing = !!billing?.canChange && !!current && !!billing.periodEnd;
+  // The period that will be billed next unless the member chooses another.
+  const upcoming = pending?.plan.id || current?.id;
+  const change = changing && plan && plan.id !== upcoming ? plan : null;
   const periodEnd = billing?.periodEnd && (
     <>
       {billing.cancelAtPeriodEnd
@@ -206,6 +218,15 @@ export function Subscription() {
                       billing.currentPlan.amount / billing.currentPlan.months,
                     )}
                     /month equivalent, charged upfront.
+                  </span>
+                </li>
+              )}
+              {pending && (
+                <li>
+                  <CalendarClock size={16} aria-hidden="true" />
+                  <span>
+                    Changes to {pending.plan.label.toLowerCase()} billing on{" "}
+                    {longDate(pending.effectiveAt)}.
                   </span>
                 </li>
               )}
@@ -351,6 +372,115 @@ export function Subscription() {
               )}
             </div>
           </Panel>
+          {changing && current && (
+            <Panel title="Change your billing period">
+              {pending && (
+                <div className="membership-change" role="status">
+                  <CalendarClock size={22} aria-hidden="true" />
+                  <div>
+                    <strong>
+                      {pending.plan.label} billing starts{" "}
+                      {longDate(pending.effectiveAt)}
+                    </strong>
+                    <p>
+                      {money(pending.plan.amount)} will be charged that day,
+                      then every {billingPeriod(pending.plan.months)}. Your{" "}
+                      {current.label.toLowerCase()} billing stays as it is until
+                      then.
+                    </p>
+                    <button
+                      className="secondary"
+                      disabled={busy}
+                      onClick={() =>
+                        void run(async () => {
+                          await request("/subscription/change/cancel", {});
+                          setSelected(current.id);
+                          setConfirming(false);
+                          setRefreshVersion((value) => value + 1);
+                        }, "Scheduled change canceled.")
+                      }
+                    >
+                      Keep {current.label.toLowerCase()} billing
+                    </button>
+                  </div>
+                </div>
+              )}
+              <p>
+                Every billing period includes the same membership. A change
+                starts when your current billing period ends on{" "}
+                {longDate(billing.periodEnd!)}. Nothing is charged or refunded
+                today, and you can cancel the change before that date.
+              </p>
+              <MembershipCards
+                plans={billing.plans}
+                selected={selected}
+                onSelect={(id) => {
+                  setSelected(id);
+                  setConfirming(false);
+                }}
+                disabled={busy || !!problem}
+                current={current.id}
+                legend="Billing periods"
+              />
+              {confirming && change ? (
+                <div className="membership-confirm" role="group">
+                  <strong>
+                    Switch to {change.label.toLowerCase()} billing?
+                  </strong>
+                  <dl>
+                    <div>
+                      <dt>Today</dt>
+                      <dd>
+                        No charge. {current.label} billing continues until{" "}
+                        {longDate(billing.periodEnd!)}.
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>{longDate(billing.periodEnd!)}</dt>
+                      <dd>
+                        {money(change.amount)} charged, then every{" "}
+                        {billingPeriod(change.months)} until canceled.
+                      </dd>
+                    </div>
+                  </dl>
+                  <div className="actions">
+                    <button
+                      disabled={busy}
+                      onClick={() =>
+                        void run(async () => {
+                          await request("/subscription/change", {
+                            plan: change.id,
+                          });
+                          setConfirming(false);
+                          setRefreshVersion((value) => value + 1);
+                        }, "Billing period change scheduled.")
+                      }
+                    >
+                      {busy ? "Scheduling…" : "Confirm change"}
+                    </button>
+                    <button
+                      className="secondary"
+                      disabled={busy}
+                      onClick={() => setConfirming(false)}
+                    >
+                      Not now
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="actions">
+                  <button
+                    disabled={busy || !change || !!problem}
+                    onClick={() => setConfirming(true)}
+                  >
+                    {change
+                      ? `Switch to ${change.label.toLowerCase()} billing`
+                      : "Choose another billing period"}
+                  </button>
+                </div>
+              )}
+            </Panel>
+          )}
           <Panel title="What your membership includes">
             <ul className="membership-included">
               {included.map(({ Icon, title, body }) => (

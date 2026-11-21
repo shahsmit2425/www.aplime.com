@@ -3473,11 +3473,50 @@ test("three-plan checkout selects server prices, safely switches sessions, and a
     session.status = "expired";
     return session;
   }) as any;
+  // An in-memory subscription schedule standing in for Stripe's.
+  let schedule: any = null;
+  let ending = false;
+  const scheduleCalls: any[] = [];
+  const oldSchedules = { ...stripeClient.subscriptionSchedules };
+  stripeClient.subscriptionSchedules.create = (async (parameters: any) => {
+    scheduleCalls.push(["create", parameters]);
+    schedule = {
+      id: "sub_sched_" + suffix,
+      status: "active",
+      current_phase: { start_date: 1790000000, end_date: 1800000000 },
+      phases: [
+        {
+          start_date: 1790000000,
+          end_date: 1800000000,
+          items: [{ price: activePrice.id, quantity: 1 }],
+        },
+      ],
+    };
+    return schedule;
+  }) as any;
+  stripeClient.subscriptionSchedules.update = (async (
+    id: string,
+    parameters: any,
+  ) => {
+    scheduleCalls.push(["update", id, parameters]);
+    schedule = {
+      ...schedule,
+      phases: parameters.phases.map((phase: any, index: number) =>
+        index ? { ...phase, start_date: 1800000000 } : phase,
+      ),
+    };
+    return schedule;
+  }) as any;
+  stripeClient.subscriptionSchedules.release = (async (id: string) => {
+    scheduleCalls.push(["release", id]);
+    schedule = null;
+  }) as any;
   stripeClient.subscriptions.retrieve = (async () => ({
     id: "sub_plans_" + suffix,
     customer: customerId,
     status: "active",
-    cancel_at_period_end: false,
+    cancel_at_period_end: ending,
+    schedule,
     items: {
       data: [
         { quantity: 1, price: activePrice, current_period_end: 1800000000 },
@@ -3604,6 +3643,91 @@ test("three-plan checkout selects server prices, safely switches sessions, and a
       409,
       "existing subscriptions use Manage billing",
     );
+    // Changing billing period: scheduled for the end of the paid period.
+    const before = await (await call()).json();
+    assert.equal(before.canChange, true);
+    assert.equal(before.pendingChange, null);
+    assert.equal((await call("/change", { plan: "weekly" })).status, 400);
+    assert.equal(
+      (await call("/change", { plan: "yearly" })).status,
+      409,
+      "the current billing period is not a change",
+    );
+    assert.equal((await call("/change/cancel", {})).status, 409);
+    ending = true;
+    assert.equal(
+      (await call("/change", { plan: "monthly" })).status,
+      409,
+      "a membership set to end cannot schedule a change",
+    );
+    assert.equal((await (await call()).json()).canChange, false);
+    ending = false;
+    assert.equal(scheduleCalls.length, 0);
+    const scheduled = await (
+      await call("/change", {
+        plan: "monthly",
+        priceId: planIds.six_month,
+        amount: 1,
+      })
+    ).json();
+    assert.equal(scheduled.plan.id, "monthly");
+    assert.equal(
+      scheduled.effectiveAt,
+      new Date(1800000000 * 1000).toISOString(),
+    );
+    assert.deepEqual(scheduleCalls[0], [
+      "create",
+      { from_subscription: "sub_plans_" + suffix },
+    ]);
+    assert.deepEqual(scheduleCalls[1][2], {
+      end_behavior: "release",
+      phases: [
+        {
+          items: [{ price: planIds.yearly, quantity: 1 }],
+          start_date: 1790000000,
+          end_date: 1800000000,
+        },
+        {
+          items: [{ price: planIds.monthly, quantity: 1 }],
+          iterations: 1,
+          proration_behavior: "none",
+        },
+      ],
+    });
+    const waiting = await (await call()).json();
+    assert.equal(waiting.currentPlan.id, "yearly", "nothing changes today");
+    assert.equal(waiting.pendingChange.plan.id, "monthly");
+    assert.equal(waiting.pendingChange.plan.amount, 4000);
+    assert.equal(waiting.pendingChange.effectiveAt, scheduled.effectiveAt);
+    assert.equal((await call("/change", { plan: "six_month" })).status, 200);
+    assert.equal(
+      scheduleCalls.filter(([kind]) => kind === "create").length,
+      1,
+      "a second choice reuses the schedule",
+    );
+    assert.equal(
+      (await (await call()).json()).pendingChange.plan.id,
+      "six_month",
+    );
+    assert.equal(
+      (await call("/change", {}, customer.id)).status,
+      403,
+      "customers have no membership to change",
+    );
+    assert.equal((await call("/change/cancel", {})).status, 200);
+    assert.deepEqual(scheduleCalls.at(-1), ["release", "sub_sched_" + suffix]);
+    assert.equal((await (await call()).json()).pendingChange, null);
+    assert.equal(
+      Number(
+        (
+          await query(
+            "SELECT count(*) FROM notifications WHERE user_id=$1 AND title LIKE 'Billing period change%'",
+            [owner.id],
+          )
+        ).rows[0].count,
+      ),
+      3,
+    );
     activePrice = { ...prices[planIds.yearly], unit_amount: 1 };
     assert.equal((await sendWebhook()).status, 200);
     assert.equal((await (await call()).json()).status, "unrecognized_price");
@@ -3623,6 +3747,7 @@ test("three-plan checkout selects server prices, safely switches sessions, and a
     stripeClient.checkout.sessions.create = oldCreate;
     stripeClient.checkout.sessions.expire = oldExpire;
     stripeClient.subscriptions.retrieve = oldSubscription;
+    Object.assign(stripeClient.subscriptionSchedules, oldSchedules);
     await new Promise<void>((resolve) => server.close(() => resolve()));
   }
 });
