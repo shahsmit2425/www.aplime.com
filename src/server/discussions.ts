@@ -8,7 +8,7 @@ import { getProject, notify } from "./repository.js";
 import { fail } from "./errors.js";
 import type pg from "pg";
 export const discussions = Router();
-export function canReadDiscussion(
+function canReadDiscussion(
   row: { customer_id: string; pro_id: string },
   userId: string,
 ) {
@@ -85,7 +85,7 @@ async function maySend(row: any, userId: string, other: string) {
   )
     fail(403, "This business cannot receive or send messages right now.");
 }
-export const conversationListSql = `WITH pairs AS (
+const conversationListSql = `WITH pairs AS (
   SELECT p.customer_id,d.pro_id,(array_agg(d.id ORDER BY d.created_at,d.id))[1] AS id,
     array_agg(d.id ORDER BY d.created_at,d.id) AS aliases,
     (array_agg(p.id ORDER BY d.created_at DESC,d.id DESC))[1] AS project_id,

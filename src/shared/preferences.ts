@@ -11,7 +11,7 @@ export const weekdays = [
   "Sun",
 ] as const;
 const time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use HH:MM");
-export const weeklyHoursSchema = z
+const weeklyHoursSchema = z
   .record(
     z.enum(weekdays),
     z

@@ -224,7 +224,7 @@ export async function workspace(user: User): Promise<Workspace> {
       params,
     ),
     pool.query(
-      "SELECT * FROM notifications WHERE user_id=$1 ORDER BY created_at DESC LIMIT 100",
+      "SELECT * FROM notifications WHERE user_id=$1 AND cleared_at IS NULL ORDER BY created_at DESC LIMIT 100",
       [user.id],
     ),
     pool.query(

@@ -200,6 +200,12 @@ await db.exec(
     "utf8",
   ),
 );
+await db.exec(
+  await readFile(
+    "src/server/db/migrations/034_cleared_notifications.sql",
+    "utf8",
+  ),
+);
 
 test.after(async () => {
   await db.close();
@@ -4834,4 +4840,64 @@ test("customers can review two completed projects with the same pro but cannot r
     ).rows[0].count,
     2,
   );
+});
+
+test("clearing notifications empties the member's list and keeps the records", async () => {
+  const { api } = await import("../src/server/api.js");
+  const route = api.stack.find(
+    (layer: any) => layer.route?.path === "/notifications/clear",
+  );
+  const clear = (account: unknown, body: unknown) =>
+    (route!.route!.stack[0].handle as any)({ account, body }, { json() {} });
+  const add = (userId: string, title: string, createdAt: string) =>
+    query(
+      "INSERT INTO notifications(id,user_id,title,body,created_at) VALUES($1,$2,$3,'Clear test',$4)",
+      [randomUUID(), userId, title, createdAt],
+    );
+  const listed = async (user: Parameters<typeof workspace>[0]) =>
+    (await workspace(user)).notices
+      .filter((n) => n.body === "Clear test")
+      .map((n) => n.title);
+  await add(customer.id, "Older", "2026-11-20T10:00:00.000Z");
+  // Stored with microseconds, shown to the browser with milliseconds.
+  await add(customer.id, "Newest shown", "2026-11-20T11:00:00.123456Z");
+  await add(customer.id, "Arrived during the click", "2026-11-20T11:00:01Z");
+  await add(professional.id, "Someone else's", "2026-11-20T09:00:00Z");
+  const events: string[] = [];
+  const stop = await db.listen("aplime_notifications", (payload) =>
+    events.push(payload),
+  );
+  try {
+    await assert.rejects(() => clear(customer, { userId: professional.id }));
+    await assert.rejects(() => clear(customer, { through: "yesterday" }));
+    assert.equal((await listed(customer)).length, 3);
+    await clear(customer, { through: "2026-11-20T11:00:00.123Z" });
+    assert.deepEqual(await listed(customer), ["Arrived during the click"]);
+    assert.deepEqual(await listed(professional), ["Someone else's"]);
+    assert.ok(
+      events.includes(customer.id) && !events.includes(professional.id),
+      "the member's other sessions are told to reload",
+    );
+    const kept = await query(
+      "SELECT title,read,cleared_at IS NOT NULL AS cleared FROM notifications WHERE body='Clear test' AND user_id=$1 ORDER BY created_at",
+      [customer.id],
+    );
+    assert.deepEqual(kept.rows, [
+      { title: "Older", read: true, cleared: true },
+      { title: "Newest shown", read: true, cleared: true },
+      { title: "Arrived during the click", read: false, cleared: false },
+    ]);
+    await clear(customer, {});
+    assert.deepEqual(await listed(customer), []);
+    assert.equal(
+      (
+        await query(
+          "SELECT count(*)::int AS n FROM notifications WHERE body='Clear test'",
+        )
+      ).rows[0].n,
+      4,
+    );
+  } finally {
+    await stop();
+  }
 });

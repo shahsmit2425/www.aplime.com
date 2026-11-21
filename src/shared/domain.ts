@@ -126,14 +126,14 @@ export type Quote = {
   createdAt: string;
   projectTitle?: string | null;
 };
-export type Message = {
+type Message = {
   id: string;
   projectId: string;
   senderId: string;
   body: string;
   createdAt: string;
 };
-export type Payment = {
+type Payment = {
   id: string;
   projectId: string;
   amount: number;

@@ -7,7 +7,7 @@ import { stripe } from "./integrations/stripe.js";
 import { removeObject } from "./integrations/storage.js";
 
 const EXPORT_ROW_LIMIT = 5000;
-export const REAUTH_WINDOW_SECONDS = 300;
+const REAUTH_WINDOW_SECONDS = 300;
 const ACTIVE_STATUSES = ["booked", "in_progress", "paused", "disputed"];
 const LIVE_SUBSCRIPTIONS = ["active", "trialing", "past_due", "unpaid"];
 

@@ -32,7 +32,7 @@ export function Preferences() {
     </>
   );
 }
-export function PreferencesForm({
+function PreferencesForm({
   profile,
   run,
   busy,

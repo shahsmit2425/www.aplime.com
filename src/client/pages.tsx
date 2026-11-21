@@ -900,13 +900,7 @@ function ProjectDetail() {
         </ProjectDetailsSurface>
         <div id="project-estimates" className="project-estimates">
           {customer ? (
-            <>
-              <ProjectProfessionals project={p} submit={submit} />
-              <details className="compact-project-calls">
-                <summary>Project calls</summary>
-                <CallMeetings projectId={p.id} compact />
-              </details>
-            </>
+            <ProjectProfessionals project={p} submit={submit} />
           ) : (
             <Panel title="Estimates">
               {quotes.length ? (

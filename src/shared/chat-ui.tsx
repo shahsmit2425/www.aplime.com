@@ -26,7 +26,7 @@ export type ChatMessage = {
   time: string;
   mine: boolean;
 };
-export const chatTime = (value?: string) =>
+const chatTime = (value?: string) =>
   value
     ? new Date(value).toLocaleTimeString([], {
         hour: "numeric",

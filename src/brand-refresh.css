@@ -1187,16 +1187,6 @@ input[type="radio"] {
   min-width: 40px;
   min-height: 40px;
 }
-.compact-project-calls {
-  margin-top: 18px;
-  border-top: 1px solid #dce5f5;
-  padding-top: 14px;
-}
-.compact-project-calls > summary {
-  cursor: pointer;
-  font-weight: 650;
-  color: #1645b5;
-}
 
 /* Interface polish: denser project cards, consistent project page rhythm and
    readable text on light surfaces. */
@@ -1406,20 +1396,188 @@ input[type="radio"] {
   padding-top: 12px;
   border-top: 1px solid var(--section-border);
 }
-.compact-professional-estimates .text-button {
-  min-height: 36px;
-  padding: 7px 12px;
-  border-radius: 9px;
-  background: var(--brand-soft);
-  color: #063dce;
-  font-size: 13px;
-  font-weight: 650;
-  text-decoration: none;
-}
 .compact-professional-estimates > small {
   color: #006c78;
   font-size: 13px;
   font-weight: 650;
+}
+
+/* A professional's estimate: opened from their card, read in full, acted on. */
+.compact-professional-actions .estimate-button {
+  position: relative;
+  border-color: #064bff;
+  color: #063dce;
+}
+.estimate-button.awaiting::after {
+  content: "";
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 11px;
+  height: 11px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: #e8457a;
+}
+.estimate-sheet {
+  padding: 20px;
+  border: 1px solid #d6e1f5;
+  border-radius: 16px;
+  background: #fff;
+}
+.estimate-sheet + .estimate-sheet {
+  margin-top: 16px;
+}
+.estimate-sheet > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin: -20px -20px 16px;
+  padding: 18px 20px;
+  border-bottom: 1px solid #d6e1f5;
+  border-radius: 16px 16px 0 0;
+  background: linear-gradient(135deg, #eef3ff, #f8faff);
+}
+.estimate-sheet > header small {
+  display: block;
+  color: #455477;
+  font-size: 13px;
+  font-weight: 650;
+}
+.estimate-sheet > header strong {
+  display: block;
+  margin-top: 2px;
+  color: #090f42;
+  font-size: 30px;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+.estimate-sheet > header .badge {
+  flex: none;
+  background: #fff;
+  box-shadow: inset 0 0 0 1px #c5d3ee;
+}
+.estimate-pending > header .badge {
+  background: #064bff;
+  box-shadow: none;
+  color: #fff;
+}
+.estimate-accepted > header .badge {
+  background: #e2f6f1;
+  box-shadow: none;
+  color: #00594f;
+}
+.estimate-sheet-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+}
+.estimate-sheet-facts li {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 11px;
+  border-radius: 999px;
+  background: #f1f5fd;
+  color: #24305e;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.estimate-sheet-facts svg {
+  flex: none;
+  color: #064bff;
+}
+.estimate-sheet dl {
+  display: block;
+  margin: 0;
+}
+.estimate-sheet dt {
+  margin-top: 14px;
+  color: #455477;
+  font-size: 13px;
+  font-weight: 650;
+}
+.estimate-sheet dt:first-child {
+  margin-top: 0;
+}
+.estimate-sheet dd {
+  margin: 4px 0 0;
+  color: #090f42;
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+.estimate-sheet-note {
+  margin: 16px 0 0;
+  padding: 11px 14px;
+  border-radius: 12px;
+  background: #f5f8ff;
+  color: #24305e;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.estimate-sheet > .actions,
+.estimate-sheet-confirm .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+.estimate-sheet-confirm {
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid #064bff;
+  border-radius: 12px;
+  background: #f5f8ff;
+}
+.estimate-sheet-confirm p {
+  margin: 0;
+  color: #090f42;
+  font-size: 16px;
+  font-weight: 650;
+}
+.estimate-sheet-confirm .actions {
+  margin-top: 12px;
+}
+.estimate-sheet-empty {
+  display: grid;
+  justify-items: start;
+  gap: 12px;
+  padding: 18px;
+  border: 1px dashed #c5d3ee;
+  border-radius: 14px;
+  background: #f8faff;
+}
+.estimate-sheet-empty p {
+  margin: 0;
+  color: #24305e;
+}
+.unavailable-profile .estimate-sheet,
+.unavailable-profile .estimate-sheet-empty {
+  margin-top: 12px;
+}
+@media (max-width: 560px) {
+  .estimate-sheet {
+    padding: 16px;
+  }
+  .estimate-sheet > header {
+    margin: -16px -16px 14px;
+    padding: 14px 16px;
+  }
+  .estimate-sheet > header strong {
+    font-size: 25px;
+  }
+  .estimate-sheet > .actions > *,
+  .estimate-sheet-confirm .actions > * {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
 }
 .compact-professional-verified {
   display: inline-flex;

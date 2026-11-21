@@ -443,11 +443,9 @@ export function CallScheduler({
 export function CallMeetings({
   projectId,
   conversationProId,
-  compact = false,
 }: {
   projectId?: string;
   conversationProId?: string;
-  compact?: boolean;
 }) {
   const { data, go, id } = useWorkspace();
   const { rows, loading, error: loadError, refresh, now } = useMeetings();
@@ -498,12 +496,8 @@ export function CallMeetings({
       setBusy("");
     }
   };
-  if (compact && !shown.length && !error && !loadError && !loading) return null;
   return (
-    <section
-      className={"call-meetings" + (compact ? " compact" : "")}
-      aria-label="Call meetings"
-    >
+    <section className="call-meetings" aria-label="Call meetings">
       <div className="meeting-section-heading">
         <h2>
           <CalendarDays size={21} />

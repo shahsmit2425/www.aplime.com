@@ -10,7 +10,7 @@ export type SupportTicket = Ticket & {
   unreadCount: number;
   unreadNoticeIds: string[];
 };
-export type SupportMessage = {
+type SupportMessage = {
   id: string;
   body: string;
   senderId: string;

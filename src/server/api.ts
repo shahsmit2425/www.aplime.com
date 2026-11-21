@@ -865,6 +865,19 @@ api.post("/notifications/read", async (req, res) => {
   );
   res.json({ ok: true });
 });
+// Empties the member's list up to the newest notification they were shown, so
+// one that arrives while they click is not lost.
+api.post("/notifications/clear", async (req, res) => {
+  const { through } = z
+    .object({ through: z.string().datetime().optional() })
+    .strict()
+    .parse(req.body);
+  await pool.query(
+    "UPDATE notifications SET read=true,cleared_at=now() WHERE user_id=$1 AND cleared_at IS NULL AND ($2::timestamptz IS NULL OR date_trunc('milliseconds',created_at)<=$2::timestamptz)",
+    [(req as AuthRequest).account.id, through ?? null],
+  );
+  res.json({ ok: true });
+});
 api.post("/support", async (req, res) => {
   const q = req as AuthRequest;
   const data = z

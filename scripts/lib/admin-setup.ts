@@ -67,7 +67,7 @@ export function setupArguments(args: string[]) {
     enableTotp: flags.includes("--enable-totp"),
   };
 }
-export function totpEnabled(config?: MultiFactorConfig) {
+function totpEnabled(config?: MultiFactorConfig) {
   return (
     config?.providerConfigs?.some(
       (provider) =>

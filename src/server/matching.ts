@@ -33,7 +33,7 @@ export function discoverySql(profile = "f", project = "p") {
 
 // Aliases are application constants, never request values. All inputs use SQL parameters.
 // Scope is the service and service-area half of a match, without eligibility.
-export function scopeSql(profile = "f", project = "p") {
+function scopeSql(profile = "f", project = "p") {
   return `(${profile}.service_categories ? ${project}.category OR
     (jsonb_array_length(${profile}.service_categories)=0 AND ${profile}.category=${project}.category))
     AND ((${profile}.latitude IS NOT NULL AND ${project}.latitude IS NOT NULL
@@ -45,7 +45,7 @@ export function matchSql(profile = "f", project = "p") {
     AND ${eligibleProSql(profile)} AND ${unblockedSql(profile, project + ".customer_id")}`;
 }
 // Great-circle miles between a profile and a project; NULL when either has no coordinates.
-export function distanceSql(profile = "f", project = "p") {
+function distanceSql(profile = "f", project = "p") {
   return `(CASE WHEN ${profile}.latitude IS NOT NULL AND ${project}.latitude IS NOT NULL THEN 3959 * acos(greatest(-1,least(1,
         cos(radians(${profile}.latitude))*cos(radians(${project}.latitude))*
         cos(radians(${project}.longitude)-radians(${profile}.longitude))+

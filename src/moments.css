@@ -1,135 +1,51 @@
-/* Moments: a short, distinct animation for each thing that just happened.
-   Every element rests in its final state, so reduced-motion settings (which
-   switch animations off) leave a plain, fully readable message. */
-.moment {
-  --art: var(--blue);
-  --art-soft: var(--brand-soft);
-  position: fixed;
-  top: calc(var(--workspace-header-height, 72px) + 14px);
-  right: 0;
-  left: 0;
-  z-index: 120;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  width: min(440px, calc(100vw - 24px));
-  margin: 0 auto;
-  padding: 16px 46px 20px 16px;
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  background: #fff;
-  box-shadow: 0 18px 50px #090f4230;
-  animation: moment-in 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.25) both;
+/* Moments. A milestone gets a full-screen celebration; everything else gets a
+   compact banner. Every element rests in its final state, so reduced-motion
+   settings (which switch animations off) leave a plain, readable message. */
+:is(.moment-art, .moment-spotlight, .moment-banner) {
+  --art: #064bff;
+  --art-2: #5b8cff;
 }
-.moment-lively {
-  width: min(480px, calc(100vw - 24px));
-  padding: 20px 46px 24px 20px;
+:is(.moment-art, .moment-spotlight, .moment-banner).tone-joy {
+  --art: #f59e0b;
+  --art-2: #ff6b3d;
 }
-.moment.tone-joy,
-.moment-art.tone-joy {
-  --art: #b56a00;
-  --art-soft: #fff1cc;
+:is(.moment-art, .moment-spotlight, .moment-banner).tone-love {
+  --art: #e8457a;
+  --art-2: #ff8fb0;
 }
-.moment.tone-love,
-.moment-art.tone-love {
-  --art: #cf2e63;
-  --art-soft: #ffe6ed;
+:is(.moment-art, .moment-spotlight, .moment-banner).tone-warm {
+  --art: #f97316;
+  --art-2: #fbbf24;
 }
-.moment.tone-warm,
-.moment-art.tone-warm {
-  --art: #bd5208;
-  --art-soft: #ffeedd;
-}
-.moment.tone-calm,
-.moment-art.tone-calm {
+:is(.moment-art, .moment-spotlight, .moment-banner).tone-calm {
   --art: #56617e;
-  --art-soft: #eef0f6;
-}
-.moment.tone-joy {
-  border-color: #efd28a;
-  background: linear-gradient(135deg, #fffaf0, #fff 60%);
-}
-.moment.tone-love {
-  border-color: #f7c5d3;
-  background: linear-gradient(135deg, #fff6f8, #fff 60%);
-}
-.moment.tone-warm {
-  border-color: #f3d2b4;
-  background: linear-gradient(135deg, #fffaf4, #fff 60%);
-}
-.moment-copy {
-  flex: 1;
-  min-width: 0;
-}
-.moment-copy strong {
-  display: block;
-  font-size: 16.5px;
-  line-height: 1.3;
-}
-.moment-copy p {
-  margin: 3px 0 0;
-  color: var(--muted);
-  font-size: 14.5px;
-  line-height: 1.45;
-}
-.moment-copy button {
-  min-height: 38px;
-  margin-top: 10px;
-  padding: 6px 14px;
-  font-size: 14.5px;
-}
-.moment-close {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-}
-.moment-timer {
-  position: absolute;
-  right: 18px;
-  bottom: 8px;
-  left: 18px;
-  height: 3px;
-  border-radius: 3px;
-  background: var(--art);
-  opacity: 0.35;
-  transform: scaleX(0);
-  transform-origin: left;
-  animation: moment-timer 6s linear both;
-}
-.moment-lively .moment-timer {
-  animation-duration: 9s;
-}
-.moment-held .moment-timer {
-  animation: none;
-  transform: none;
+  --art-2: #8b95b0;
 }
 
-/* The icon, its ring and whatever bursts out behind it. */
+/* The emblem: a tinted disc, the event's icon and a pulse behind it. */
 .moment-art {
-  --art: var(--blue);
-  --art-soft: var(--brand-soft);
   position: relative;
   display: grid;
   place-items: center;
   flex: none;
-  width: 56px;
-  height: 56px;
+  width: 42px;
+  height: 42px;
   border-radius: 50%;
-  background: var(--art-soft);
-  color: var(--art);
+  background: linear-gradient(135deg, var(--art), var(--art-2));
+  color: #fff;
 }
-.moment-lively .moment-art {
-  width: 64px;
-  height: 64px;
-}
+.moment-art::before,
 .moment-art::after {
   content: "";
   position: absolute;
   inset: 0;
-  border: 2px solid currentColor;
+  border: 2px solid var(--art-2);
   border-radius: 50%;
   opacity: 0;
-  animation: moment-ring 0.9s ease-out 0.15s;
+  animation: moment-ring 1.3s ease-out 0.2s;
+}
+.moment-art::after {
+  animation-delay: 0.55s;
 }
 .moment-icon {
   display: grid;
@@ -189,180 +105,259 @@
   animation-duration: 0.9s;
 }
 
-.moment-burst {
-  position: absolute;
+/* The celebration: a dimmed screen, a card and whatever fills the sky. */
+.moment-spotlight[open] {
+  position: fixed;
   inset: 0;
+  display: grid;
+  place-items: center;
+  width: 100vw;
+  max-width: none;
+  height: 100dvh;
+  max-height: none;
+  margin: 0;
+  padding: 64px 16px 16px;
+  overflow: hidden;
+  border: 0;
+  background: transparent;
+  color: #090f42;
+}
+.moment-spotlight::backdrop {
+  background: radial-gradient(circle at 50% 42%, #111a5ccc, #050826eb);
+  backdrop-filter: blur(3px);
+  animation: backdrop-in 0.3s ease-out both;
+}
+.moment-card {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  width: min(430px, 100%);
+  padding: 0 28px 30px;
+  border-radius: 28px;
+  background: #fff;
+  box-shadow: 0 30px 90px #00000066;
+  text-align: center;
+  animation: moment-card-in 0.6s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+.moment-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 150px;
+  border-radius: 28px 28px 0 0;
+  background: linear-gradient(var(--art-2), transparent);
+  opacity: 0.2;
   pointer-events: none;
 }
-.moment-burst > * {
+.moment-card .moment-art {
+  width: 108px;
+  height: 108px;
+  margin-top: -54px;
+  border: 6px solid #fff;
+  box-shadow: 0 14px 34px #090f4233;
+}
+.moment-card .moment-art::before,
+.moment-card .moment-art::after {
+  inset: -6px;
+  border-width: 3px;
+}
+.moment-card h2 {
+  position: relative;
+  margin: 18px 0 8px;
+  color: #090f42;
+  font-size: 27px;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+  animation: moment-rise 0.5s ease-out 0.25s both;
+}
+.moment-card p {
+  position: relative;
+  margin: 0;
+  color: #455477;
+  font-size: 16px;
+  line-height: 1.55;
+  text-wrap: balance;
+  animation: moment-rise 0.5s ease-out 0.33s both;
+}
+.moment-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  width: 100%;
+  margin-top: 24px;
+  animation: moment-rise 0.5s ease-out 0.41s both;
+}
+.moment-card-actions button {
+  flex: 1 1 140px;
+  justify-content: center;
+  min-height: 48px;
+  border-radius: 999px;
+  font-size: 16px;
+}
+.moment-card-actions button:focus-visible {
+  outline: 3px solid #064bff;
+  outline-offset: 3px;
+}
+.moment-timer {
   position: absolute;
-  top: 50%;
-  left: 50%;
+  right: 30px;
+  bottom: 12px;
+  left: 30px;
+  height: 3px;
+  border-radius: 3px;
+  background: var(--art);
+  opacity: 0.35;
+  transform: scaleX(0);
+  transform-origin: left;
+  animation: moment-timer 10s linear both;
+}
+.moment-held .moment-timer {
+  animation: none;
+  transform: none;
+}
+
+.moment-sky {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.moment-sky > * {
+  position: absolute;
+  left: calc(var(--x) * 1%);
   opacity: 0;
 }
-.burst-confetti i {
-  width: 7px;
-  height: 11px;
+.sky-confetti i {
+  top: -24px;
+  width: 9px;
+  height: 15px;
   border-radius: 2px;
-  background: var(--c, #064bff);
-  animation: moment-confetti 1.5s cubic-bezier(0.15, 0.7, 0.4, 1) 0.1s;
+  background: var(--color);
+  animation: sky-fall var(--pace) cubic-bezier(0.3, 0.1, 0.7, 1) var(--delay) 2;
 }
-.burst-confetti i:nth-child(1) {
-  --x: -74px;
-  --y: -46px;
-  --r: 210deg;
-}
-.burst-confetti i:nth-child(2) {
-  --x: -52px;
-  --y: -78px;
-  --r: -160deg;
-  --c: #00b8ab;
-}
-.burst-confetti i:nth-child(3) {
-  --x: -24px;
-  --y: -92px;
-  --r: 300deg;
-  --c: #f5a400;
-}
-.burst-confetti i:nth-child(4) {
-  --x: 6px;
-  --y: -100px;
-  --r: -240deg;
-  --c: #e8457a;
-}
-.burst-confetti i:nth-child(5) {
-  --x: 34px;
-  --y: -88px;
-  --r: 190deg;
-}
-.burst-confetti i:nth-child(6) {
-  --x: 60px;
-  --y: -70px;
-  --r: -280deg;
-  --c: #00b8ab;
-}
-.burst-confetti i:nth-child(7) {
-  --x: 82px;
-  --y: -40px;
-  --r: 250deg;
-  --c: #f5a400;
-}
-.burst-confetti i:nth-child(8) {
-  --x: -90px;
-  --y: -14px;
-  --r: -200deg;
-  --c: #e8457a;
-}
-.burst-confetti i:nth-child(9) {
-  --x: 96px;
-  --y: -8px;
-  --r: 170deg;
-  --c: #7a5cff;
-}
-.burst-confetti i:nth-child(10) {
-  --x: -40px;
-  --y: -56px;
-  --r: 320deg;
-  --c: #7a5cff;
-}
-.burst-confetti i:nth-child(11) {
-  --x: 44px;
-  --y: -50px;
-  --r: -310deg;
-  --c: #e8457a;
-}
-.burst-confetti i:nth-child(12) {
-  --x: -8px;
-  --y: -66px;
-  --r: 140deg;
-  --c: #00b8ab;
-}
-.burst-confetti i:nth-child(13) {
-  --x: -64px;
-  --y: -22px;
-  --r: -120deg;
-  --c: #f5a400;
-}
-.burst-confetti i:nth-child(14) {
-  --x: 70px;
-  --y: -24px;
-  --r: 230deg;
-}
-.burst-confetti i:nth-child(3n) {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  animation-delay: 0.18s;
-}
-.burst-confetti i:nth-child(4n) {
-  animation-duration: 1.75s;
-}
-.burst-sparks i {
-  width: 3px;
+.sky-confetti i:nth-child(3n) {
+  width: 10px;
   height: 10px;
-  border-radius: 2px;
-  background: currentColor;
-  animation: moment-spark 0.75s ease-out 0.2s;
+  border-radius: 50%;
 }
-.burst-sparks i:nth-child(2) {
-  --a: 45deg;
+.sky-confetti i:nth-child(4n) {
+  width: 6px;
+  height: 18px;
 }
-.burst-sparks i:nth-child(3) {
-  --a: 90deg;
+.sky-hearts svg {
+  top: 100%;
+  color: #ff5c8d;
+  animation: sky-rise calc(var(--pace) + 1.2s) ease-out var(--delay);
 }
-.burst-sparks i:nth-child(4) {
-  --a: 135deg;
+.sky-hearts svg:nth-child(odd) {
+  color: #ffb3c8;
 }
-.burst-sparks i:nth-child(5) {
-  --a: 180deg;
+.sky-stars svg {
+  top: calc(var(--y) * 1%);
+  color: #ffc53d;
+  animation: sky-twinkle 1.5s ease-in-out var(--delay) 2;
 }
-.burst-sparks i:nth-child(6) {
-  --a: 225deg;
+.sky-stars svg:nth-child(3n) {
+  color: #fff;
 }
-.burst-sparks i:nth-child(7) {
-  --a: 270deg;
+.sky-sparks i {
+  top: 50%;
+  left: 50%;
+  width: 4px;
+  height: 26px;
+  margin: -13px 0 0 -2px;
+  border-radius: 3px;
+  background: var(--color);
+  animation: sky-spark 1.2s cubic-bezier(0.1, 0.6, 0.3, 1) var(--delay) 2;
 }
-.burst-sparks i:nth-child(8) {
-  --a: 315deg;
+
+/* The banner: a dark capsule under the header that says what happened. */
+.moment-banner {
+  position: fixed;
+  top: calc(var(--workspace-header-height, 72px) + 12px);
+  right: 0;
+  left: 0;
+  z-index: 120;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  column-gap: 12px;
+  width: fit-content;
+  min-width: min(340px, calc(100vw - 16px));
+  max-width: min(600px, calc(100vw - 16px));
+  margin: 0 auto;
+  padding: 10px 10px 10px 12px;
+  border-radius: 26px;
+  background: #0b1140;
+  box-shadow:
+    0 18px 44px #090f4259,
+    inset 0 0 0 1px #ffffff24;
+  color: #fff;
+  animation: moment-banner-in 0.55s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
 }
-.burst-hearts svg,
-.burst-stars svg {
-  animation: moment-float 1.5s ease-out 0.15s;
+.moment-copy {
+  min-width: 0;
+  animation: moment-rise 0.4s ease-out 0.15s both;
 }
-.burst-hearts svg:nth-child(1),
-.burst-stars svg:nth-child(1) {
-  --x: -34px;
-  --y: -52px;
+.moment-copy strong {
+  display: block;
+  font-size: 15px;
+  line-height: 1.3;
 }
-.burst-hearts svg:nth-child(2),
-.burst-stars svg:nth-child(2) {
-  --x: 30px;
-  --y: -58px;
-  animation-delay: 0.3s;
+.moment-copy p {
+  margin: 1px 0 0;
+  color: #c9d1f0;
+  font-size: 13.5px;
+  line-height: 1.4;
 }
-.burst-hearts svg:nth-child(3),
-.burst-stars svg:nth-child(3) {
-  --x: -10px;
-  --y: -72px;
-  animation-delay: 0.45s;
+.moment-banner .moment-action {
+  min-height: 36px;
+  padding: 6px 15px;
+  border: 0;
+  border-radius: 999px;
+  background: #fff;
+  color: #090f42;
+  font-size: 13.5px;
+  white-space: nowrap;
+  animation: moment-rise 0.4s ease-out 0.22s both;
 }
-.burst-hearts svg:nth-child(4),
-.burst-stars svg:nth-child(4) {
-  --x: 46px;
-  --y: -30px;
-  animation-delay: 0.55s;
+.moment-banner .moment-close {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  min-height: 0;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #fff;
 }
-.burst-hearts svg:nth-child(5),
-.burst-stars svg:nth-child(5) {
-  --x: -50px;
-  --y: -24px;
-  animation-delay: 0.7s;
+.moment-banner button:focus-visible {
+  outline: 3px solid #8fb0ff;
+  outline-offset: 2px;
 }
-.burst-hearts svg:nth-child(6),
-.burst-stars svg:nth-child(6) {
-  --x: 12px;
-  --y: -64px;
-  animation-delay: 0.85s;
+.moment-close > svg:first-child {
+  position: absolute;
+  inset: 0;
+  transform: rotate(-90deg);
+}
+.moment-close circle {
+  fill: none;
+  stroke: var(--art-2);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-dasharray: 100;
+  animation: moment-drain 6s linear both;
+}
+.with-action .moment-close circle {
+  animation-duration: 9s;
+}
+.moment-held .moment-close circle {
+  animation: none;
 }
 
 /* Everyday feedback */
@@ -398,10 +393,22 @@
   margin: 0;
 }
 
-@keyframes moment-in {
+@keyframes moment-card-in {
   from {
     opacity: 0;
-    transform: translateY(-18px) scale(0.94);
+    transform: translateY(40px) scale(0.86);
+  }
+}
+@keyframes moment-banner-in {
+  from {
+    opacity: 0;
+    transform: translateY(-26px) scale(0.6, 0.8);
+  }
+}
+@keyframes moment-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
   }
 }
 @keyframes moment-timer {
@@ -409,14 +416,68 @@
     transform: scaleX(1);
   }
 }
+@keyframes moment-drain {
+  to {
+    stroke-dashoffset: 100;
+  }
+}
 @keyframes moment-ring {
   from {
-    opacity: 0.5;
+    opacity: 0.7;
     transform: scale(1);
   }
   to {
     opacity: 0;
-    transform: scale(1.7);
+    transform: scale(1.75);
+  }
+}
+@keyframes sky-fall {
+  from {
+    opacity: 1;
+    transform: rotate(0) scale(var(--scale));
+  }
+  to {
+    opacity: 1;
+    transform: translate(calc((var(--turn) - 180) * 0.4px), 112vh)
+      rotate(calc(var(--turn) * 5deg)) scale(var(--scale));
+  }
+}
+@keyframes sky-rise {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  15% {
+    opacity: 0.95;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(calc((var(--turn) - 180) * 0.3px), -92vh)
+      scale(calc(var(--scale) * 1.4));
+  }
+}
+@keyframes sky-twinkle {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(0.2);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(calc(var(--scale) * 1.3)) rotate(40deg);
+  }
+}
+@keyframes sky-spark {
+  0% {
+    opacity: 0;
+    transform: rotate(calc(var(--turn) * 1deg)) translateY(-70px) scaleY(0.3);
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(calc(var(--turn) * 1deg)) translateY(-46vmin) scaleY(1);
   }
 }
 @keyframes moment-pop {
@@ -576,54 +637,6 @@
     transform: rotate(-180deg) scale(0.6);
   }
 }
-@keyframes moment-confetti {
-  0% {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(0.4);
-  }
-  45% {
-    opacity: 1;
-    transform: translate(calc(-50% + var(--x)), calc(-50% + var(--y)))
-      rotate(var(--r));
-  }
-  100% {
-    opacity: 0;
-    transform: translate(
-        calc(-50% + var(--x) * 1.15),
-        calc(-50% + var(--y) + 70px)
-      )
-      rotate(calc(var(--r) * 2));
-  }
-}
-@keyframes moment-spark {
-  0% {
-    opacity: 0;
-    transform: translate(-50%, -50%) rotate(var(--a, 0deg)) translateY(-26px)
-      scaleY(0.4);
-  }
-  30% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-    transform: translate(-50%, -50%) rotate(var(--a, 0deg)) translateY(-46px)
-      scaleY(1);
-  }
-}
-@keyframes moment-float {
-  0% {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(0.4);
-  }
-  25% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-    transform: translate(calc(-50% + var(--x)), calc(-50% + var(--y)))
-      scale(1.1);
-  }
-}
 @keyframes notice-in {
   from {
     opacity: 0;
@@ -649,12 +662,22 @@
 }
 
 @media (max-width: 560px) {
-  .moment {
-    gap: 12px;
+  .moment-card {
+    padding: 0 20px 28px;
   }
-  .moment-art,
-  .moment-lively .moment-art {
-    width: 50px;
-    height: 50px;
+  .moment-card h2 {
+    font-size: 24px;
+  }
+  .moment-banner {
+    width: auto;
+    margin: 0 8px;
+  }
+  .moment-banner.with-action {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    row-gap: 8px;
+  }
+  .with-action .moment-action {
+    grid-area: 2 / 2;
+    justify-self: start;
   }
 }

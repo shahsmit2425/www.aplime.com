@@ -6,7 +6,7 @@ import {
   CalendarDays,
 } from "lucide-react";
 import { useWorkspace } from "./workspace.js";
-export const businessSections = [
+const businessSections = [
   { page: "profile", label: "Profile & images", Icon: Building2 },
   { page: "verification", label: "Identity verification", Icon: ShieldCheck },
   { page: "subscription", label: "Membership", Icon: CreditCard },

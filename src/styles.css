@@ -2907,31 +2907,6 @@ blockquote {
   color: #fff;
   border-color: var(--blue);
 }
-.support-thread-list {
-  display: grid;
-  gap: 10px;
-}
-.support-thread-list > button {
-  display: flex;
-  text-align: left;
-  align-items: center;
-  gap: 14px;
-  width: 100%;
-  padding: 18px;
-  background: var(--canvas);
-  color: var(--ink);
-  border: 1px solid var(--brand-soft);
-}
-.support-thread-list strong,
-.support-thread-list small {
-  display: block;
-}
-.support-thread-list small {
-  font-size: var(--text-small);
-  color: var(--muted);
-  font-weight: 400;
-  margin-top: 7px;
-}
 @media (max-width: 600px) {
   .business-account-navigation {
     padding: 18px;

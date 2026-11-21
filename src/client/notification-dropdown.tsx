@@ -119,20 +119,28 @@ export function NotificationDropdown({
           {!notices.length && (
             <p className="notification-popover-empty">You’re all caught up.</p>
           )}
-          <footer>
-            <button
-              className="text-button"
-              type="button"
-              disabled={busy || !unread}
-              onClick={() =>
-                void run(() => request("/notifications/read", {}), "")
-              }
-            >
-              <CheckCheck size={16} />
-              Mark all read
-            </button>
-            <small>Latest {Math.min(notices.length, 8)} updates</small>
-          </footer>
+          {notices.length > 0 && (
+            <footer>
+              <button
+                className="text-button"
+                type="button"
+                disabled={busy}
+                onClick={() =>
+                  void run(
+                    () =>
+                      request("/notifications/clear", {
+                        through: notices[0].createdAt,
+                      }),
+                    "",
+                  )
+                }
+              >
+                <CheckCheck size={16} />
+                Clear all
+              </button>
+              <small>Latest {Math.min(notices.length, 8)} updates</small>
+            </footer>
+          )}
         </section>
       )}
     </div>

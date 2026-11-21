@@ -38,7 +38,7 @@ export async function recordProjectActivity(
 
 // The best-ranked eligible professionals are alerted (capped so one request cannot flood the outbox).
 export const ALERT_LIMIT = 5;
-export const OUTREACH_LIMIT = 15;
+const OUTREACH_LIMIT = 15;
 export async function notifyMatchingProfessionals(
   c: pg.PoolClient,
   projectId: string,

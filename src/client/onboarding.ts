@@ -1,6 +1,6 @@
 import type { Role } from "../shared/domain.js";
 
-export const authPages = new Set(["login", "register", "recovery"]);
+const authPages = new Set(["login", "register", "recovery"]);
 
 export function accountLandingPage(
   role: Exclude<Role, "admin">,

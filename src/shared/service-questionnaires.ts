@@ -32,7 +32,7 @@ const propertyTypes = [
   "Other",
 ] as const;
 
-export const serviceQuestionnaires: Record<
+const serviceQuestionnaires: Record<
   ServiceCategory,
   readonly ServiceQuestion[]
 > = {

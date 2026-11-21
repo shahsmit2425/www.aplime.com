@@ -1864,60 +1864,6 @@ button:hover:not(:disabled),
   display: grid;
   gap: 16px;
 }
-.project-pro-estimate {
-  border-top: 1px solid var(--line);
-  padding-top: 12px;
-  margin-top: 12px;
-}
-.project-pro-price {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.project-pro-price > strong {
-  color: var(--blue);
-  font-size: 24px;
-}
-.project-pro-timeline {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: var(--text-small);
-}
-.project-pro-estimate summary {
-  cursor: pointer;
-  font-size: var(--text-small);
-  color: var(--ink);
-  min-height: 38px;
-  padding: 8px 0;
-}
-.project-pro-estimate details p,
-.project-pro-estimate dl {
-  font-size: var(--text-small);
-}
-.project-pro-estimate dl {
-  display: grid;
-  grid-template-columns: 100px minmax(0, 1fr);
-  gap: 7px;
-}
-.project-pro-estimate dd {
-  margin: 0;
-  overflow-wrap: anywhere;
-}
-.project-pro-estimate .actions {
-  margin-top: 10px;
-  gap: 9px;
-}
-.project-pro-estimate .actions button {
-  font-size: var(--text-small);
-  padding: 9px 13px;
-}
-.project-pro-waiting {
-  margin-bottom: 0;
-  font-size: var(--text-small);
-}
 .project-operation-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2073,64 +2019,6 @@ button:hover:not(:disabled),
 .customer-project .project-pro-list {
   gap: 14px;
 }
-.customer-project .project-pro-estimate {
-  border: 0;
-  margin: 0;
-  padding: 0;
-}
-.customer-project .project-pro-price {
-  display: block;
-}
-.customer-project .project-pro-price > strong {
-  display: block;
-  font-size: 23px;
-  color: #172d3d;
-  margin-bottom: 7px;
-}
-.customer-project .project-pro-price .badge {
-  font-size: var(--text-caption);
-}
-.customer-project .project-pro-timeline {
-  font-size: var(--text-caption);
-  line-height: 1.5;
-  margin: 10px 0;
-  align-items: start;
-}
-.customer-project .project-pro-estimate summary {
-  font-size: var(--text-caption);
-  line-height: 1.5;
-}
-.customer-project .project-pro-estimate dl {
-  display: block;
-  font-size: var(--text-caption);
-}
-.customer-project .project-pro-estimate dt {
-  margin-top: 7px;
-}
-.customer-project .project-pro-estimate dd {
-  font-weight: 600;
-}
-.customer-project .project-pro-estimate .actions {
-  flex-direction: column;
-  gap: 7px;
-}
-.customer-project .project-pro-estimate .actions button {
-  width: 100%;
-  font-size: var(--text-caption);
-  padding: 8px;
-  min-height: 36px;
-}
-.customer-project .project-pro-waiting {
-  font-size: var(--text-caption);
-  line-height: 1.65;
-  margin: 0;
-}
-.customer-project .project-pro-waiting strong {
-  display: block;
-  color: #1b3444;
-  font-size: var(--text-body);
-  margin-bottom: 8px;
-}
 @media (max-width: 600px) {
   .workspace-main.customer-project-main {
     padding: 0 12px 28px;
@@ -2159,17 +2047,6 @@ button:hover:not(:disabled),
   }
   .project-pro-results-heading > div {
     flex: 1 1 calc(100% - 60px);
-  }
-  .customer-project .project-pro-estimate .actions {
-    flex-direction: row;
-    flex-wrap: wrap;
-  }
-  .customer-project .project-pro-estimate .actions button {
-    width: auto;
-    font-size: var(--text-small);
-  }
-  .customer-project .project-pro-price {
-    display: flex;
   }
 }
 
@@ -2983,9 +2860,6 @@ button:hover:not(:disabled),
 .call-meetings {
   margin-bottom: 24px;
 }
-.call-meetings.compact {
-  margin-top: 20px;
-}
 .meeting-section-heading,
 .meeting-card-heading {
   display: flex;
@@ -3143,7 +3017,6 @@ body {
 }
 :is(
   .panel,
-  .stat,
   .project-card,
   .professional-card,
   .membership-card,
@@ -3196,21 +3069,6 @@ body {
 .favorite-button:focus-visible {
   outline: 3px solid #b7203e;
   outline-offset: 3px;
-}
-.professional-card .project-pro-estimate {
-  border: 1px solid var(--section-border);
-  border-radius: 12px;
-  padding: 14px;
-  margin: 12px 0;
-}
-.professional-card .project-pro-estimate dl {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-.professional-card .project-pro-estimate dd {
-  margin: 0;
-  overflow-wrap: anywhere;
 }
 .project-card {
   min-width: 0;
@@ -4027,7 +3885,6 @@ summary:focus-visible {
 }
 :is(
   .panel,
-  .stat,
   .project-card,
   .professional-card,
   .membership-card,

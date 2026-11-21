@@ -9,7 +9,7 @@ import {
   serviceSeoContent,
 } from "./shared/seo-content.js";
 
-export function escapeHtml(value: string) {
+function escapeHtml(value: string) {
   return value.replace(
     /[&<>"']/g,
     (character) =>

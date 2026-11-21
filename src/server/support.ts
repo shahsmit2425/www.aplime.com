@@ -8,12 +8,7 @@ import { z } from "zod";
 import { pool, camel, transaction } from "./db/index.js";
 import { audit, notify, notifyAdministrators } from "./repository.js";
 import { fail } from "./errors.js";
-export const supportPage = z.coerce
-  .number()
-  .int()
-  .min(1)
-  .max(100000)
-  .default(1);
+const supportPage = z.coerce.number().int().min(1).max(100000).default(1);
 const ticketSelect = (
   viewer: string,
 ) => `SELECT t.*,u.name AS user_name,u.email AS user_email,COALESCE(op.name,u.name) AS opened_by_name,

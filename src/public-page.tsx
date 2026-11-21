@@ -26,7 +26,7 @@ import {
   informationalPages,
   serviceSeoContent,
 } from "./shared/seo-content.js";
-export const serviceCopy: Record<string, string> = {
+const serviceCopy: Record<string, string> = {
   Handyman:
     "Get help with assembly, wall mounting, minor repairs, and the small improvements that make a home work better.",
   Cleaning:

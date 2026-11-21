@@ -275,7 +275,7 @@ function Table({
     </div>
   );
 }
-export function TrendChart({ trend }: { trend: AdminOverview["trend"] }) {
+function TrendChart({ trend }: { trend: AdminOverview["trend"] }) {
   const max = Math.max(
     1,
     ...trend.flatMap((r) => [r.users, r.projects, r.messages]),

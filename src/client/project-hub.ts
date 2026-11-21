@@ -1,5 +1,5 @@
 import type { Profile, Project, Quote } from "../shared/domain.js";
-export const projectGroups = [
+const projectGroups = [
   "all",
   "active",
   "paused",
