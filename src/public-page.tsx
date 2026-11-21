@@ -21,6 +21,7 @@ import { BusinessDisplay } from "./client/business-display.js";
 import { categories, type Profile } from "./shared/domain.js";
 import { Brand, LinkButton, ServiceIcon } from "./client/ui.js";
 import { HomePage } from "./public-page-home.js";
+import { ProfessionalsPage } from "./public-page-pricing.js";
 import {
   generalFaqs,
   informationalPages,
@@ -248,73 +249,47 @@ function InformationPage({ path }: { path: string }) {
             "Keep updates with the project. The professional requests completion and the customer confirms it before reviewing.",
           ],
         ]
-      : path === "/for-professionals"
+      : path === "/trust-and-safety"
         ? [
             [
-              "Build a complete listing",
-              "Add business details, service coverage, policies, credentials, a logo or cover, and examples of work.",
+              "Identity and profile review",
+              "Stripe Identity verifies the account holder. Aplime separately reviews business-profile content before publication.",
             ],
             [
-              "Complete review",
-              "Verify your identity through Stripe Identity and submit the saved listing for Aplime administrator review.",
+              "Know the limits",
+              "Identity verification does not prove licensing, insurance, qualifications, or work quality. Confirm those items with the business and issuing authority.",
             ],
             [
-              "Receive relevant opportunities",
-              "Approved, subscribed businesses receive matching projects in their category and configured service radius.",
+              "Keep records together",
+              "Use project discussions for scope, estimates, appointment proposals, and important changes. Block or report concerning communication.",
             ],
             [
-              "Set clear expectations",
-              "Ask questions, use private calls, send itemized estimates, and confirm appointment and completion updates.",
+              "Handle urgent danger elsewhere",
+              "Aplime is not an emergency service. Contact emergency services or the appropriate utility for fire, flooding, gas, live wiring, or immediate danger.",
             ],
           ]
-        : path === "/trust-and-safety"
-          ? [
-              [
-                "Identity and profile review",
-                "Stripe Identity verifies the account holder. Aplime separately reviews business-profile content before publication.",
-              ],
-              [
-                "Know the limits",
-                "Identity verification does not prove licensing, insurance, qualifications, or work quality. Confirm those items with the business and issuing authority.",
-              ],
-              [
-                "Keep records together",
-                "Use project discussions for scope, estimates, appointment proposals, and important changes. Block or report concerning communication.",
-              ],
-              [
-                "Handle urgent danger elsewhere",
-                "Aplime is not an emergency service. Contact emergency services or the appropriate utility for fire, flooding, gas, live wiring, or immediate danger.",
-              ],
-            ]
-          : [
-              [
-                "For customers",
-                "Aplime turns a broad home project into a structured request that professionals can understand and discuss.",
-              ],
-              [
-                "For professionals",
-                "Aplime provides a business profile and workspace for relevant opportunities, estimates, conversations, scheduling, and reviews.",
-              ],
-              [
-                "A subscription marketplace",
-                "Professionals pay Aplime for membership. Customers and professionals arrange service payment directly; Aplime does not process project payments.",
-              ],
-            ];
+        : [
+            [
+              "For customers",
+              "Aplime turns a broad home project into a structured request that professionals can understand and discuss.",
+            ],
+            [
+              "For professionals",
+              "Aplime provides a business profile and workspace for relevant opportunities, estimates, conversations, scheduling, and reviews.",
+            ],
+            [
+              "A subscription marketplace",
+              "Professionals pay Aplime for membership. Customers and professionals arrange service payment directly; Aplime does not process project payments.",
+            ],
+          ];
   const steps = path === "/how-it-works";
-  const professionals = path === "/for-professionals";
   const icons = steps
     ? [ClipboardList, MessageCircle, CalendarCheck, CircleCheck]
-    : professionals
-      ? [FileText, ShieldCheck, UsersRound, MessageCircle]
-      : path === "/trust-and-safety"
-        ? [ShieldCheck, Info, FileText, Siren]
-        : [House, BriefcaseBusiness, WalletCards];
+    : path === "/trust-and-safety"
+      ? [ShieldCheck, Info, FileText, Siren]
+      : [House, BriefcaseBusiness, WalletCards];
   const action = (
-    <LinkButton
-      href={professionals ? "/app/register?role=pro" : "/app/projects/new"}
-    >
-      {professionals ? "Join as a professional" : "Start a project"}
-    </LinkButton>
+    <LinkButton href="/app/projects/new">Start a project</LinkButton>
   );
   return (
     <>
@@ -324,11 +299,9 @@ function InformationPage({ path }: { path: string }) {
           <p className="eyebrow">
             {steps
               ? "HOW IT WORKS"
-              : professionals
-                ? "FOR PROFESSIONALS"
-                : path === "/trust-and-safety"
-                  ? "TRUST & SAFETY"
-                  : "ABOUT APLIME"}
+              : path === "/trust-and-safety"
+                ? "TRUST & SAFETY"
+                : "ABOUT APLIME"}
           </p>
           <h1>{page.heading}</h1>
         </div>
@@ -356,11 +329,7 @@ function InformationPage({ path }: { path: string }) {
         })}
       </section>
       <section className="seo-callout">
-        <h2>
-          {professionals
-            ? "Ready to build your business profile?"
-            : "Ready to plan a home project?"}
-        </h2>
+        <h2>Ready to plan a home project?</h2>
         {action}
       </section>
     </>
@@ -522,7 +491,7 @@ const footerColumns: [string, string[][]][] = [
     "For Professionals",
     [
       ["/app/register?role=pro", "Join Aplime"],
-      ["/for-professionals", "Why Aplime"],
+      ["/for-professionals", "Membership Pricing"],
       ["/app/login", "Sign In"],
     ],
   ],
@@ -560,6 +529,7 @@ export function PublicPage({
   const servicesIndex = path === "/services";
   const legal = path === "/privacy" || path === "/terms";
   const home = path === "/";
+  const pricing = path === "/for-professionals";
   const notFound =
     !home && !category && !profile && !legal && !information && !servicesIndex;
   const current = home ? "/" : servicesIndex || category ? "/services" : path;
@@ -614,7 +584,7 @@ export function PublicPage({
         </div>
       </header>
       <main
-        className={home ? "public-main landing" : "public-main"}
+        className={home || pricing ? "public-main landing" : "public-main"}
         id="main-content"
       >
         {legal ? (
@@ -681,6 +651,8 @@ export function PublicPage({
           <FaqPage path={path} />
         ) : path === "/contact" ? (
           <ContactPage path={path} supportEmail={supportEmail} />
+        ) : pricing ? (
+          <ProfessionalsPage />
         ) : information ? (
           <InformationPage path={path} />
         ) : servicesIndex ? (

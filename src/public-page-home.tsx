@@ -469,8 +469,8 @@ export function HomePage() {
             <a className="landing-button" href="/app/register?role=pro">
               Join as a Professional <ArrowRight size={17} aria-hidden="true" />
             </a>
-            <a className="landing-link" href="/for-professionals">
-              Learn more
+            <a className="landing-link" href="/for-professionals#pricing">
+              See membership pricing
             </a>
           </div>
         </div>

@@ -418,10 +418,10 @@ export const informationalPages = {
     heading: "From a project idea to a confirmed finish.",
   },
   "/for-professionals": {
-    title: "Aplime for Home-Service Professionals",
+    title: "Aplime Membership Pricing for Home-Service Professionals",
     description:
-      "Build a reviewed business profile, receive relevant local opportunities, send written estimates, and manage customer communication with Aplime.",
-    heading: "A professional workspace built around clear expectations.",
+      "See Aplime membership pricing for home-service professionals: one membership billed monthly, every six months or annually, with no per-lead fees.",
+    heading: "Simple pricing for service professionals.",
   },
   "/trust-and-safety": {
     title: "Trust and Safety at Aplime",

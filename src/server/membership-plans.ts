@@ -1,7 +1,8 @@
 import type Stripe from "stripe";
-import type {
-  MembershipPlan,
-  MembershipPlanId,
+import {
+  membershipPeriods,
+  type MembershipPlan,
+  type MembershipPlanId,
 } from "../shared/subscription.js";
 import { env } from "./config.js";
 import { fail } from "./errors.js";
@@ -15,29 +16,15 @@ type PlanSpec = {
   months?: number;
 };
 export function membershipSpecs(): PlanSpec[] {
-  const specs: PlanSpec[] = [
-    {
-      id: "monthly",
-      label: "Monthly",
-      priceId: env.STRIPE_PRO_MONTHLY_PRICE_ID,
-      amount: 4000,
-      months: 1,
-    },
-    {
-      id: "six_month",
-      label: "Six months",
-      priceId: env.STRIPE_PRO_SIX_MONTH_PRICE_ID,
-      amount: 21000,
-      months: 6,
-    },
-    {
-      id: "yearly",
-      label: "Annual",
-      priceId: env.STRIPE_PRO_YEARLY_PRICE_ID,
-      amount: 36000,
-      months: 12,
-    },
-  ];
+  const priceIds = {
+    monthly: env.STRIPE_PRO_MONTHLY_PRICE_ID,
+    six_month: env.STRIPE_PRO_SIX_MONTH_PRICE_ID,
+    yearly: env.STRIPE_PRO_YEARLY_PRICE_ID,
+  };
+  const specs: PlanSpec[] = membershipPeriods.map((period) => ({
+    ...period,
+    priceId: priceIds[period.id],
+  }));
   if (specs.some((spec) => spec.priceId)) {
     if (
       specs.some((spec) => !spec.priceId) ||

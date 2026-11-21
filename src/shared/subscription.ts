@@ -17,3 +17,12 @@ export interface MembershipBilling {
   currentPlan: MembershipPlan | null;
   periodEnd: string | null;
 }
+
+// The three billing periods of the one professional membership. The server
+// refuses checkout unless the configured Stripe prices match these amounts,
+// and the public pricing page shows the same figures.
+export const membershipPeriods = [
+  { id: "monthly", label: "Monthly", amount: 4000, months: 1 },
+  { id: "six_month", label: "Six months", amount: 21000, months: 6 },
+  { id: "yearly", label: "Annual", amount: 36000, months: 12 },
+] as const;

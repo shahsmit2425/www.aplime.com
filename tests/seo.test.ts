@@ -6,6 +6,7 @@ import { renderPage } from "../src/entry-server.js";
 import { fallbackConfig } from "../src/shared/config.js";
 import { categories, type Profile } from "../src/shared/domain.js";
 import { informationalPages } from "../src/shared/seo-content.js";
+import { membershipPeriods } from "../src/shared/subscription.js";
 const production = {
   ...fallbackConfig,
   environment: "production" as const,
@@ -246,4 +247,19 @@ test("landing page starts a project by ZIP code without unverifiable marketing c
     renderPage("/services/plumbing", production).html,
     /href="\/services" aria-current="page"/,
   );
+});
+test("the professionals page shows the membership prices the server enforces", () => {
+  const page = renderPage("/for-professionals", production);
+  assert.equal(page.status, 200);
+  assert.match(page.head, /index,follow/);
+  for (const period of membershipPeriods) {
+    const perMonth = period.amount / period.months / 100;
+    assert.ok(Number.isInteger(perMonth), period.id);
+    assert.ok(page.html.includes("$" + perMonth + "</strong>"), period.id);
+    if (period.months > 1)
+      assert.ok(page.html.includes("$" + period.amount / 100), period.id);
+  }
+  assert.match(page.html, /Save 12\.5%/);
+  assert.match(page.html, /Save 25%/);
+  assert.doesNotMatch(page.html, /Starter|Growth plan|Always free/);
 });
