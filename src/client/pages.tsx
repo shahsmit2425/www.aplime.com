@@ -1,12 +1,10 @@
 import { ProjectDialog } from "./project-dialog.js";
-import { PushSettings } from "./push.js";
 import { ProjectContact } from "./project-contact.js";
 import { ReviewsPage, ProjectOutcome } from "./review-workflow.js";
 import { celebrate } from "./moments.js";
 import { T } from "../shared/language.js";
 import { ProjectIntake } from "./project-intake.js";
 import { EstimateForm } from "./estimate-form.js";
-import { emailCategories } from "../shared/email-alerts.js";
 import { quotePrice, quoteTiming } from "../shared/estimates.js";
 import { ProfessionalActions } from "./professional-actions.js";
 import { CallMeetings } from "./call-meetings.js";
@@ -28,7 +26,7 @@ import { BusinessNavigation } from "./business-navigation.js";
 import { AwardResponse } from "./award-response.js";
 import { ProjectControls, ProjectActivity } from "./project-controls.js";
 import { Preferences } from "./preferences.js";
-import { AccountData } from "./account-data.js";
+import { Settings } from "./settings.js";
 import { Availability } from "./availability.js";
 import { BusinessProfile } from "./business-profile.js";
 import { IdentityVerification } from "./identity-verification.js";
@@ -1173,110 +1171,6 @@ function Messages() {
 }
 function Business() {
   return <BusinessProfile />;
-}
-function Settings() {
-  const { data, run, busy } = useWorkspace();
-  return (
-    <>
-      <Head title={<T>{"Settings"}</T>}>
-        <T>{"Manage your account preferences."}</T>
-      </Head>
-      <PushSettings />
-      <Panel title="Account details">
-        <Form
-          busy={busy}
-          onSubmit={(f) =>
-            run(() =>
-              request(
-                "/account",
-                {
-                  name: f.get("name"),
-                  emailAlerts: f.get("emailAlerts") === "on",
-                  emailCategories: Object.fromEntries(
-                    Object.keys(emailCategories).map((key) => [
-                      key,
-                      f.get("email:" + key) === "on",
-                    ]),
-                  ),
-                },
-                "PUT",
-              ),
-            )
-          }
-        >
-          <Field label="Your name">
-            <input
-              name="name"
-              defaultValue={data.user.name}
-              maxLength={80}
-              required
-            />
-          </Field>
-          <Field label="Email">
-            <input value={data.user.email} disabled />
-          </Field>
-          <label className="checkbox">
-            <input
-              name="emailAlerts"
-              type="checkbox"
-              defaultChecked={data.user.settings.emailAlerts !== false}
-            />
-            <T>{"Enable optional email alerts"}</T>{" "}
-          </label>
-          {Object.entries(emailCategories).map(([key, label]) => (
-            <label className="checkbox" key={key}>
-              <input
-                type="checkbox"
-                name={"email:" + key}
-                defaultChecked={
-                  (
-                    data.user.settings.emailCategories as
-                      Record<string, boolean> | undefined
-                  )?.[key] !== false
-                }
-              />
-              {label}
-            </label>
-          ))}
-          <p>
-            <T>
-              {
-                "Essential security, billing, account restrictions and direct Aplime support messages may still be sent. In-app notifications stay available."
-              }
-            </T>{" "}
-          </p>
-          <button>
-            <T>{"Save preferences"}</T>
-          </button>
-        </Form>
-      </Panel>
-      <Panel title="Blocked conversations">
-        {data.blocked.length ? (
-          data.blocked.map((id) => (
-            <div className="payment-row" key={id}>
-              <span>
-                {data.profiles.find((p) => p.id === id)?.name ||
-                  "Project participant"}
-              </span>
-              <button
-                className="secondary"
-                onClick={() =>
-                  void run(() => request("/blocked/" + id, { blocked: false }))
-                }
-              >
-                <T>{"Unblock"}</T>{" "}
-              </button>
-            </div>
-          ))
-        ) : (
-          <p>
-            <T>{"No blocked conversations."}</T>
-          </p>
-        )}
-      </Panel>
-      <AccountData />
-    </>
-  );
 }
 function Support() {
   const { id } = useWorkspace();

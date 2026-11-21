@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Capacitor } from "@capacitor/core";
 import { request } from "./api.js";
 import {
   reauthenticate,
@@ -9,18 +10,29 @@ import {
 import { Field, Form, Panel } from "./ui.js";
 import { useWorkspace } from "./workspace.js";
 
-export function AccountData() {
-  const { run, busy, go } = useWorkspace();
-  const [confirming, setConfirming] = useState(false);
-  const password = usesPassword();
+// Sensitive actions need a sign-in from the last few minutes.
+async function confirm(f: FormData) {
+  await reauthenticate(String(f.get("password") || ""));
+}
+function ConfirmPassword() {
+  return usesPassword() ? (
+    <Field label="Confirm your password">
+      <input
+        name="password"
+        type="password"
+        autoComplete="current-password"
+        required
+      />
+    </Field>
+  ) : null;
+}
+
+export function PasswordForm() {
+  const { run, busy } = useWorkspace();
   const [passwordVersion, setPasswordVersion] = useState(0);
-  async function confirm(f: FormData) {
-    await reauthenticate(String(f.get("password") || ""));
-  }
   return (
-    <Panel title="Account security">
-      <h3>Update password</h3>
-      {password ? (
+    <Panel title="Password">
+      {usesPassword() ? (
         <Form
           key={passwordVersion}
           busy={busy}
@@ -71,7 +83,18 @@ export function AccountData() {
           You sign in with Google. Manage your password in your Google account.
         </p>
       )}
-      <h3>Sign out all devices</h3>
+    </Panel>
+  );
+}
+
+export function Sessions() {
+  const { run, busy, go } = useWorkspace();
+  return (
+    <Panel title="Sign out all devices">
+      <p>
+        Signs your account out everywhere, including this device. Use this if
+        you lost a device or think someone else has access.
+      </p>
       <Form
         busy={busy}
         onSubmit={(f) =>
@@ -86,19 +109,58 @@ export function AccountData() {
           )
         }
       >
-        {password && (
-          <Field label="Confirm your password">
-            <input
-              name="password"
-              type="password"
-              autoComplete="current-password"
-              required
-            />
-          </Field>
-        )}
+        <ConfirmPassword />
         <button className="secondary">Sign out all devices</button>
       </Form>
-      <h3>Delete account</h3>
+    </Panel>
+  );
+}
+
+export function DataExport() {
+  const { run, busy } = useWorkspace();
+  // Saving a file from the native apps has not been built.
+  if (Capacitor.isNativePlatform()) return null;
+  return (
+    <Panel title="Download your data">
+      <p>
+        Download a copy of the personal data Aplime holds for your account as a
+        JSON file. Messages are limited to those you sent, and payment card
+        details are held by Stripe and are not included.
+      </p>
+      <Form
+        busy={busy}
+        onSubmit={(f) =>
+          run(async () => {
+            await confirm(f);
+            const data = await request("/account/export");
+            const url = URL.createObjectURL(
+              new Blob([JSON.stringify(data, null, 2)], {
+                type: "application/json",
+              }),
+            );
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = "aplime-account-data.json";
+            document.body.append(link);
+            link.click();
+            link.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 10000);
+          }, "Your data download has started.")
+        }
+      >
+        <ConfirmPassword />
+        <button className="secondary">Download my data</button>
+      </Form>
+    </Panel>
+  );
+}
+
+export function AccountClosure() {
+  const { run, busy, go } = useWorkspace();
+  const [confirming, setConfirming] = useState(false);
+  return (
+    <section className="panel settings-danger">
+      <h2>Delete account</h2>
       <p>
         Deleting removes your sign-in, profile, photos, saved items and
         notifications and cannot be undone. Open projects you created are
@@ -128,16 +190,7 @@ export function AccountData() {
           <Field label="Type DELETE to confirm">
             <input name="confirm" autoComplete="off" required />
           </Field>
-          {password && (
-            <Field label="Confirm your password">
-              <input
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-              />
-            </Field>
-          )}
+          <ConfirmPassword />
           <button className="danger">Permanently delete my account</button>{" "}
           <button
             type="button"
@@ -152,6 +205,6 @@ export function AccountData() {
           Delete my account…
         </button>
       )}
-    </Panel>
+    </section>
   );
 }
