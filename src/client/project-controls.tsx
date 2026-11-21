@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import {
   allowedTransition,
+  closedProject,
   type Project,
   type ProjectAction,
 } from "../shared/domain.js";
@@ -263,20 +264,22 @@ export function ProjectControls({
           </div>
         )}
         <div className="actions">
-          {onEdit && p.customerId === data.user.id && (
-            <button
-              className="secondary"
-              disabled={busy}
-              onClick={onEdit}
-              title="Edit details"
-              aria-label="Edit details"
-            >
-              <Pencil size={17} />{" "}
-              <span className={iconOnly ? "sr-only" : undefined}>
-                <T>{"Edit details"}</T>
-              </span>
-            </button>
-          )}
+          {onEdit &&
+            p.customerId === data.user.id &&
+            !closedProject(p.status) && (
+              <button
+                className="secondary"
+                disabled={busy}
+                onClick={onEdit}
+                title="Edit details"
+                aria-label="Edit details"
+              >
+                <Pencil size={17} />{" "}
+                <span className={iconOnly ? "sr-only" : undefined}>
+                  <T>{"Edit details"}</T>
+                </span>
+              </button>
+            )}
           {(Object.keys(icons) as (keyof typeof icons)[])
             .filter(
               (type) =>

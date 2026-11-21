@@ -156,7 +156,13 @@ export function BusinessDisplay({
               ))}
             </div>
           </section>
-          {!preview && <BusinessReviews key={profile.id} proId={profile.id} />}
+          {!preview && (
+            <BusinessReviews
+              key={profile.id}
+              proId={profile.id}
+              business={profile.business}
+            />
+          )}
           {profile.details &&
             businessFieldGroups
               .filter(

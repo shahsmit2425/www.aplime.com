@@ -1,8 +1,8 @@
 import { ProjectDialog } from "./project-dialog.js";
-import { ReviewPhotoEditor } from "./review-photos.js";
 import { PushSettings } from "./push.js";
 import { ProjectContact } from "./project-contact.js";
-import { RatingPicker, ReviewCard } from "./reviews.js";
+import { ReviewsPage, ProjectOutcome } from "./review-workflow.js";
+import { celebrate } from "./moments.js";
 import { T } from "../shared/language.js";
 import { ProjectIntake } from "./project-intake.js";
 import { EstimateForm } from "./estimate-form.js";
@@ -50,7 +50,7 @@ import {
   Search,
   Upload,
 } from "lucide-react";
-import { money, type Project } from "../shared/domain.js";
+import { closedProject, money, type Project } from "../shared/domain.js";
 import {
   questionLabel,
   type ServiceCategory,
@@ -114,7 +114,7 @@ function PageContent() {
     case "subscription":
       return <Subscription />;
     case "reviews":
-      return <Reviews />;
+      return <ReviewsPage />;
     case "availability":
       return <Preferences />;
     case "verification":
@@ -408,8 +408,16 @@ function Projects() {
       onPublished={async (projectId) => {
         await run(
           async () => {},
-          "Project published. Review your matching professionals below.",
-          () => go("project", projectId),
+          "",
+          () => {
+            go("project", projectId);
+            celebrate({
+              key: "published:" + projectId,
+              kind: "published",
+              title: "Your project is live!",
+              body: "Review your matching professionals below.",
+            });
+          },
         );
       }}
     />
@@ -442,6 +450,7 @@ function ProjectDetail() {
   const DetailsContainer = customer ? "details" : "div";
   const quotes = data.quotes.filter((q) => q.projectId === p.id);
   const open = ["requested", "quoted"].includes(p.status);
+  const closed = closedProject(p.status);
   const ownProfile = data.profiles.find((x) => x.id === data.user.id);
   const canQuote =
     !!ownProfile &&
@@ -493,7 +502,7 @@ function ProjectDetail() {
             hideActivity
             iconOnly
             project={p}
-            onEdit={() => setEditing(true)}
+            onEdit={closed ? undefined : () => setEditing(true)}
             extraActions={
               <ProjectActionBar
                 compact
@@ -513,6 +522,7 @@ function ProjectDetail() {
         </div>
       )}
 
+      <ProjectOutcome project={p} />
       {!customer && <ProjectContact key={p.id} projectId={p.id} />}
       {data.marketplacePreview &&
         data.user.role === "pro" &&
@@ -602,7 +612,7 @@ function ProjectDetail() {
           </Form>
         </ProjectDialog>
       )}
-      {editing && customer && (
+      {editing && customer && !closed && (
         <ProjectDialog
           title="Edit project details"
           busy={busy}
@@ -757,7 +767,12 @@ function ProjectDetail() {
               {customer ? (
                 <>
                   <CustomerProjectDetails project={p} />
-                  <ProjectContact key={p.id} projectId={p.id} readOnly />
+                  <ProjectContact
+                    key={p.id}
+                    projectId={p.id}
+                    readOnly
+                    canStop={closed}
+                  />
                 </>
               ) : (
                 <>
@@ -1158,140 +1173,6 @@ function Messages() {
         <T>{"Messages"}</T>
       </h1>
       <MessagesInbox />
-    </>
-  );
-}
-function Reviews() {
-  const { data, run, busy } = useWorkspace();
-  const [photosBusy, setPhotosBusy] = useState(false);
-  const ready = data.projects.filter(
-    (p) =>
-      p.status === "completed" &&
-      data.user.id === p.customerId &&
-      !data.reviews.some((x) => x.projectId === p.id),
-  );
-  return (
-    <>
-      <Head title={<T>{"Reviews"}</T>}>
-        Thoughtful feedback helps the community make better choices.
-      </Head>
-      <p className="review-trust-note">
-        <T>
-          Only customers with a completed Aplime project can leave a review.
-          Aplime doesn’t verify payment or the quality of the work.
-        </T>
-      </p>
-      {data.user.role === "customer" && (
-        <p className="muted">
-          <T>
-            One review per completed project. You can review the same
-            professional again after a different project is completed.
-          </T>
-        </p>
-      )}
-      {ready.map((p) => (
-        <Panel title={"Review " + p.title} key={p.id}>
-          <Form
-            busy={busy || photosBusy}
-            onSubmit={(f) =>
-              run(
-                () =>
-                  request("/projects/" + p.id + "/review", {
-                    rating: Number(f.get("rating")),
-                    body: f.get("body"),
-                  }),
-                "Review published.",
-              )
-            }
-          >
-            <RatingPicker />
-            <Field label="How did it go?">
-              <textarea name="body" maxLength={2000} rows={5} required />
-              <small>
-                <T>
-                  Describe the work, communication and results. Keep addresses,
-                  phone numbers and other private information out of your
-                  review.
-                </T>
-              </small>
-            </Field>
-            <ReviewPhotoEditor
-              projectId={p.id}
-              editable
-              onBusy={setPhotosBusy}
-            />
-            <p className="review-submit-notice">
-              Check your rating, message and photos before submitting. You can
-              submit once per project. Your review and photos cannot be edited
-              or added to afterward.
-            </p>
-            <button>
-              <T>{"Submit review"}</T>
-            </button>
-          </Form>
-        </Panel>
-      ))}
-      <Panel
-        title={
-          data.user.role === "customer"
-            ? "Your submitted reviews"
-            : "Customer reviews"
-        }
-      >
-        {data.reviews.length ? (
-          data.reviews.map((r) => (
-            <article className="review" key={r.id}>
-              <ReviewCard
-                review={{
-                  ...r,
-                  completedProject: data.projects.some(
-                    (p) =>
-                      p.id === r.projectId &&
-                      p.status === "completed" &&
-                      p.proId === r.proId,
-                  ),
-                }}
-                context={data.projects.find((p) => p.id === r.projectId)?.title}
-              />
-              <ReviewPhotoEditor projectId={r.projectId} />
-              {data.user.role === "customer" && (
-                <p className="muted">
-                  Submitted - Your rating, message and photos are final.
-                </p>
-              )}
-              {!r.reply && r.proId === data.user.id && (
-                <Form
-                  busy={busy}
-                  onSubmit={(f) =>
-                    run(
-                      () =>
-                        request("/reviews/" + r.id + "/reply", {
-                          reply: f.get("reply"),
-                        }),
-                      "Reply published.",
-                    )
-                  }
-                >
-                  <p className="review-submit-notice">
-                    You can post one public reply. Once submitted, it cannot be
-                    edited.
-                  </p>
-                  <Field label="Your reply">
-                    <textarea name="reply" maxLength={1500} required />
-                  </Field>
-                  <button>
-                    <T>{"Submit reply"}</T>
-                  </button>
-                </Form>
-              )}
-            </article>
-          ))
-        ) : (
-          <Empty title="No reviews yet.">
-            <T>{"Reviews are available after completed projects."}</T>{" "}
-          </Empty>
-        )}
-      </Panel>
     </>
   );
 }

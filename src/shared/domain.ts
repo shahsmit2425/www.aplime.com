@@ -65,6 +65,9 @@ export const statuses = [
   "disputed",
 ] as const;
 export type Status = (typeof statuses)[number];
+// A finished or cancelled project is a record: its details can no longer be edited.
+export const closedProject = (status: Status) =>
+  status === "completed" || status === "cancelled";
 export type Project = {
   version?: number;
   archived?: boolean;
@@ -102,6 +105,8 @@ export type Project = {
   proposedBy?: string | null;
   customerName?: string;
   proName?: string;
+  town?: string;
+  region?: string;
 };
 export type Quote = {
   revision: number;
@@ -144,6 +149,8 @@ export type Review = {
   body: string;
   reply: string | null;
   createdAt: string;
+  reviewerName?: string | null;
+  repliedAt?: string | null;
 };
 export type Ticket = {
   id: string;

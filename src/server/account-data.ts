@@ -281,6 +281,10 @@ export async function deleteAccountData(userId: string) {
       [userId],
     );
     await c.query(
+      "UPDATE reviews r SET reviewer_name=NULL FROM projects p WHERE r.project_id=p.id AND p.customer_id=$1",
+      [userId],
+    );
+    await c.query(
       "DELETE FROM project_contacts c USING projects p WHERE c.project_id=p.id AND p.customer_id=$1",
       [userId],
     );

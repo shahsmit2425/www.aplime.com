@@ -194,6 +194,12 @@ await db.exec(
     "utf8",
   ),
 );
+await db.exec(
+  await readFile(
+    "src/server/db/migrations/033_review_presentation.sql",
+    "utf8",
+  ),
+);
 
 test.after(async () => {
   await db.close();
@@ -4033,7 +4039,21 @@ test("account export is scoped to the owner and deletion anonymises while protec
     null,
   );
   await query("UPDATE projects SET status='completed' WHERE id=$1", [active]);
+  await query(
+    "INSERT INTO reviews(id,project_id,pro_id,rating,body,reviewer_name) VALUES($1,$2,$3,5,'Signed before deletion','Real N.')",
+    [randomUUID(), active, pro],
+  );
   await deleteAccountData(owner);
+  assert.deepEqual(
+    (
+      await query(
+        "SELECT body,reviewer_name FROM reviews WHERE project_id=$1",
+        [active],
+      )
+    ).rows,
+    [{ body: "Signed before deletion", reviewer_name: null }],
+    "the review stays public but loses the deleted customer's name",
+  );
 
   const user = (await query("SELECT * FROM users WHERE id=$1", [owner]))
     .rows[0];
@@ -4780,17 +4800,30 @@ test("customers can review two completed projects with the same pro but cannot r
   const handler = route!.route!.stack[0].handle as any;
   const first = await lifecycleProject("completed");
   const second = await lifecycleProject("completed");
-  const submit = (id: string) =>
+  const submit = (id: string, showName?: boolean) =>
     handler(
       {
         params: { id },
         account: customer,
-        body: { rating: 5, body: "Good work" },
+        body: {
+          rating: 5,
+          body: "Good work",
+          ...(showName === undefined ? {} : { showName }),
+        },
       },
       { json() {} },
     );
-  await submit(first);
+  await submit(first, true);
   await submit(second);
+  const signature = async (id: string) =>
+    (await query("SELECT reviewer_name FROM reviews WHERE project_id=$1", [id]))
+      .rows[0].reviewer_name;
+  assert.equal(
+    await signature(first),
+    "Test C.",
+    "the published name comes from the account, shortened",
+  );
+  assert.equal(await signature(second), null, "unsigned unless chosen");
   await assert.rejects(() => submit(first), /already reviewed this project/);
   assert.equal(
     (

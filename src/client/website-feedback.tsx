@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { MessageSquare, X } from "lucide-react";
 import { feedbackPage } from "../shared/feedback.js";
 import { fallbackConfig } from "../shared/config.js";
+import { MomentArt } from "./moments.js";
 
 export default function WebsiteFeedback() {
   const [open, setOpen] = useState(false);
@@ -61,7 +62,8 @@ export default function WebsiteFeedback() {
           </button>
         </div>
         {sent ? (
-          <div role="status">
+          <div role="status" className="feedback-thanks">
+            <MomentArt kind="thanks" size={34} />
             <p>Thank you! Your feedback has been sent to the Aplime team.</p>
             <button type="button" onClick={close}>
               Done

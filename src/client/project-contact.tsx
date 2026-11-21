@@ -11,9 +11,12 @@ type Contact = {
 export function ProjectContact({
   projectId,
   readOnly = false,
+  canStop = false,
 }: {
   projectId: string;
   readOnly?: boolean;
+  // A closed project has no edit form, so consent is withdrawn from here.
+  canStop?: boolean;
 }) {
   const [contact, setContact] = useState<Contact | null>(null);
   const [busy, setBusy] = useState(false);
@@ -91,6 +94,19 @@ export function ProjectContact({
             {contact.consentAt
               ? "Agreed — matching professionals may call or text about this project."
               : "Not agreed — your number is private. Professionals can message you in Aplime."}
+            {canStop && contact.consentAt && (
+              <>
+                {" "}
+                <button
+                  type="button"
+                  className="text-button"
+                  disabled={busy}
+                  onClick={() => void changeSharing(false)}
+                >
+                  Stop sharing my number
+                </button>
+              </>
+            )}
           </p>
         ) : (
           <div>

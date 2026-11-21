@@ -60,13 +60,18 @@ export function SavePro({
   label?: boolean;
 }) {
   const { data, run, busy } = useWorkspace();
+  const [justSaved, setJustSaved] = useState(false);
   if (data.user.role !== "customer") return null;
   const saved = data.saved.includes(proId);
   const name = saved ? "Unsave professional" : "Save professional";
   return (
     <button
       type="button"
-      className={"favorite-button " + (label ? "secondary" : "icon-button")}
+      className={
+        "favorite-button " +
+        (label ? "secondary" : "icon-button") +
+        (justSaved && saved ? " just-saved" : "")
+      }
       aria-label={name}
       aria-pressed={saved}
       disabled={busy}
@@ -74,6 +79,7 @@ export function SavePro({
         void run(
           () => request("/saved/" + proId, { saved: !saved }),
           saved ? "Removed from your saved pros." : "Professional saved.",
+          () => setJustSaved(!saved),
         )
       }
     >
@@ -138,7 +144,6 @@ export function ProjectActionBar({
   const pro = data.user.role === "pro";
   const open = ["requested", "quoted"].includes(p.status);
   const live = ["booked", "in_progress", "paused"].includes(p.status);
-  const reviewed = data.reviews.some((r) => r.projectId === p.id);
   const buttons: React.ReactNode[] = [];
   const add = (key: string, node: React.ReactNode) => {
     if (
@@ -271,15 +276,7 @@ export function ProjectActionBar({
         <MapPin size={17} /> Directions
       </button>,
     );
-  if (customer && p.status === "completed" && p.proId) {
-    add(
-      "review",
-      <button onClick={() => go("reviews")}>
-        <Star size={17} /> {reviewed ? "View my reviews" : "Leave a review"}
-      </button>,
-    );
-    add("save", <SavePro proId={p.proId} label />);
-  } else if (customer && live && p.proId)
+  if (customer && p.proId && (live || p.status === "completed"))
     add("save", <SavePro proId={p.proId} label />);
   if (!buttons.length) return null;
   return (

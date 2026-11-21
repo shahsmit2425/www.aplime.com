@@ -6,6 +6,8 @@ import { hasIntakeResume } from "./project-intake-state.js";
 import { NotificationDropdown } from "./notification-dropdown.js";
 import { MeetingProvider } from "./meeting-state.js";
 import { watchNotifications } from "./live-notifications.js";
+import { Moments, celebrate } from "./moments.js";
+import { workspaceMoments } from "./moment-events.js";
 import type { Notice } from "../shared/domain.js";
 import {
   createContext,
@@ -276,6 +278,9 @@ export default function Workspace() {
   const lastLoadAt = useRef(0);
   const pendingLoad = useRef(0);
   const [liveNotice, setLiveNotice] = useState<Notice | null>(null);
+  // The last loaded workspace, and the load whose changes were celebrated.
+  const snapshot = useRef<Data | null>(null);
+  const celebrated = useRef<Data | null>(null);
   const knownNotices = useRef<{ user: string; ids: Set<string> }>({
     user: "",
     ids: new Set(),
@@ -291,7 +296,8 @@ export default function Workspace() {
       const fresh = data.notices.find(
         (n) => !n.read && !previous.ids.has(n.id),
       );
-      if (fresh) setLiveNotice(fresh);
+      // A moment already announces this update; the bell keeps the notice.
+      if (fresh && celebrated.current !== data) setLiveNotice(fresh);
     }
     knownNotices.current = {
       user: data.user.id,
@@ -382,6 +388,14 @@ export default function Workspace() {
         return;
       if (result.user.role === "admin")
         throw new Error("Use the separate administrator application.");
+      const moments = snapshot.current
+        ? workspaceMoments(snapshot.current, result)
+        : [];
+      snapshot.current = result;
+      if (moments.length) {
+        celebrated.current = result;
+        moments.forEach(celebrate);
+      }
       setData(result);
       setNeedsAccount(false);
       const current = readRoute().page;
@@ -423,6 +437,7 @@ export default function Workspace() {
       unsub = onAuthStateChanged(auth(), (u) => {
         setLoading(true);
         setFirebaseUser(u);
+        snapshot.current = null;
         setData(null);
         setNeedsAccount(false);
         if (u && u.emailVerified)
@@ -548,11 +563,13 @@ export default function Workspace() {
     setBusy(true);
     setError("");
     setNotice("");
+    const before = celebrated.current;
     try {
       await fn();
       if (auth().currentUser?.emailVerified) await load();
       after?.();
-      if (message) setNotice(message);
+      // A moment replaces the plain confirmation for the same change.
+      if (message && celebrated.current === before) setNotice(message);
     } catch (e) {
       setError(authErrorMessage(e));
       if (e instanceof ApiError && e.status === 409)
@@ -774,8 +791,19 @@ export default function Workspace() {
                         name: f.get("name"),
                         role: f.get("role"),
                       }),
-                    "Account created.",
-                    () => rememberSignupRole(null),
+                    "",
+                    () => {
+                      rememberSignupRole(null);
+                      celebrate({
+                        key: "welcome",
+                        kind: "welcome",
+                        title: "Welcome to Aplime!",
+                        body:
+                          f.get("role") === "pro"
+                            ? "Your account is ready. Set up your business profile next."
+                            : "Your account is ready. Post a project whenever you like.",
+                      });
+                    },
                   )
                 }
               >
@@ -1212,6 +1240,7 @@ export default function Workspace() {
               id="workspace-content"
               data-page={route.page}
             >
+              <Moments onAction={go} />
               {liveNotice && (
                 <aside className="live-notice" role="status" aria-live="polite">
                   <Bell size={20} />

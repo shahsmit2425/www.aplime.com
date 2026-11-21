@@ -1,6 +1,5 @@
 import { T } from "./shared/language.js";
 import { serviceSlug } from "./shared/service-questionnaires.js";
-import { ArrowUpRight } from "lucide-react";
 import {
   Menu,
   MessageCircle,
@@ -9,9 +8,8 @@ import {
   ClipboardList,
   UsersRound,
   CalendarCheck,
-  Camera,
-  Video,
-  Check,
+  Headset,
+  MapPin,
   BriefcaseBusiness,
   CircleCheck,
   House,
@@ -22,6 +20,7 @@ import {
 import { BusinessDisplay } from "./client/business-display.js";
 import { categories, type Profile } from "./shared/domain.js";
 import { Brand, LinkButton, ServiceIcon } from "./client/ui.js";
+import { HomePage } from "./public-page-home.js";
 import {
   generalFaqs,
   informationalPages,
@@ -502,6 +501,49 @@ function NotFoundPage() {
   );
 }
 
+const siteLinks = [
+  ["/", "Home"],
+  ["/services", "Explore Services"],
+  ["/how-it-works", "How It Works"],
+  ["/for-professionals", "For Professionals"],
+];
+
+const footerColumns: [string, string[][]][] = [
+  [
+    "For Homeowners",
+    [
+      ["/app/projects/new", "Post a Project"],
+      ["/services", "Explore Services"],
+      ["/how-it-works", "How It Works"],
+      ["/faq", "FAQ"],
+    ],
+  ],
+  [
+    "For Professionals",
+    [
+      ["/app/register?role=pro", "Join Aplime"],
+      ["/for-professionals", "Why Aplime"],
+      ["/app/login", "Sign In"],
+    ],
+  ],
+  [
+    "Company",
+    [
+      ["/about", "About"],
+      ["/contact", "Contact"],
+      ["/trust-and-safety", "Trust & Safety"],
+      ["/app/help", "Get Help"],
+    ],
+  ],
+  [
+    "Legal",
+    [
+      ["/privacy", "Privacy"],
+      ["/terms", "Service Information"],
+    ],
+  ],
+];
+
 export function PublicPage({
   path,
   profile,
@@ -517,58 +559,64 @@ export function PublicPage({
     informationalPages[path as keyof typeof informationalPages];
   const servicesIndex = path === "/services";
   const legal = path === "/privacy" || path === "/terms";
+  const home = path === "/";
   const notFound =
-    path !== "/" &&
-    !category &&
-    !profile &&
-    !legal &&
-    !information &&
-    !servicesIndex;
+    !home && !category && !profile && !legal && !information && !servicesIndex;
+  const current = home ? "/" : servicesIndex || category ? "/services" : path;
   return (
     <>
       <a className="skip-link" href="#main-content">
         <T>{"Skip to content"}</T>{" "}
       </a>
-      <header className="public-header">
+      <header className="site-header">
         <Brand />
-        <nav aria-label="Main navigation">
-          <a href="/#services">
-            <T>{"Explore services"}</T>
-          </a>
-          <a href="/how-it-works">
-            <T>{"How it works"}</T>
-          </a>
-          <a href="/for-professionals">
-            <T>{"For professionals"}</T>
-          </a>
-          <a className="button" href="/app/login">
-            <T>{"Sign in"}</T>{" "}
-          </a>
+        <nav className="site-nav" aria-label="Main navigation">
+          {siteLinks.map(([href, label]) => (
+            <a
+              href={href}
+              key={href}
+              aria-current={current === href ? "page" : undefined}
+            >
+              {label}
+            </a>
+          ))}
         </nav>
-        <details className="public-mobile-nav">
-          <summary aria-label="Open navigation">
-            <Menu />
-          </summary>
-          <div>
-            <a href="/services">
-              <T>{"Explore services"}</T>
-            </a>
-            <a href="/how-it-works">
-              <T>{"How it works"}</T>
-            </a>
-            <a href="/for-professionals">
-              <T>{"For professionals"}</T>
-            </a>
-            <a href="/trust-and-safety">
-              <T>{"Trust & safety"}</T>
-            </a>
-            <a href="/app/projects/new">
-              <T>{"Start a project"}</T>
-            </a>
-          </div>
-        </details>
+        <div className="site-actions">
+          <a className="site-support" href="/contact">
+            <Headset size={17} aria-hidden="true" />
+            Support
+          </a>
+          <a className="site-sign-in" href="/app/login">
+            Sign In
+          </a>
+          <a className="site-start" href="/app/projects/new">
+            Get Started
+          </a>
+          <details className="site-menu">
+            <summary aria-label="Open navigation">
+              <Menu />
+            </summary>
+            <div>
+              {siteLinks.map(([href, label]) => (
+                <a
+                  href={href}
+                  key={href}
+                  aria-current={current === href ? "page" : undefined}
+                >
+                  {label}
+                </a>
+              ))}
+              <a href="/trust-and-safety">Trust & Safety</a>
+              <a href="/contact">Support</a>
+              <a href="/app/login">Sign In</a>
+            </div>
+          </details>
+        </div>
       </header>
-      <main className="public-main" id="main-content">
+      <main
+        className={home ? "public-main landing" : "public-main"}
+        id="main-content"
+      >
         {legal ? (
           <article className="panel">
             <p className="eyebrow">APLIME</p>
@@ -640,323 +688,33 @@ export function PublicPage({
         ) : category ? (
           <ServicePage category={category} />
         ) : (
-          <>
-            <section className="hero hero-with-photo">
-              <div>
-                <p className="eyebrow">
-                  <T>{"FREE ESTIMATES. LOCAL PROFESSIONALS."}</T>
-                </p>
-                <h1>
-                  <T>{"Plan your next home project with"}</T>{" "}
-                  <em>
-                    <T>{"trusted local pros."}</T>
-                  </em>
-                </h1>
-                <p className="lede">
-                  <T>
-                    {
-                      "Find the right professional, compare clear estimates, and keep every conversation in one place."
-                    }
-                  </T>{" "}
-                </p>
-                <form
-                  className="hero-project-start"
-                  action="/app/projects/new"
-                  method="get"
-                >
-                  <label htmlFor="hero-project-zip">
-                    <T>{"Where is your project?"}</T>{" "}
-                  </label>
-                  <div>
-                    <input
-                      id="hero-project-zip"
-                      name="zip"
-                      inputMode="numeric"
-                      autoComplete="postal-code"
-                      pattern="[0-9]{5}"
-                      maxLength={5}
-                      required
-                      placeholder="ZIP code"
-                    />
-                    <button type="submit">
-                      <T>{"Find my pros"}</T> <ArrowUpRight size={18} />
-                    </button>
-                  </div>
-                  <small>
-                    <T>{"Serving New Jersey"}</T>
-                  </small>
-                </form>
-              </div>
-              <figure className="estimate-hero-photo">
-                <img
-                  src="/free-estimate-consultation.webp"
-                  alt="Illustrative scene of a homeowner discussing a project estimate with a home-service professional"
-                  width="1200"
-                  height="800"
-                  decoding="async"
-                  fetchPriority="high"
-                />
-                <figcaption>
-                  <strong>Start with a free estimate.</strong>
-                </figcaption>
-              </figure>
-            </section>
-            <section className="home-benefits" aria-label="Why Aplime">
-              <div>
-                <MessageCircle />
-                <span>
-                  <strong>Direct conversations</strong>
-                  <small>Talk with local pros, not a call center.</small>
-                </span>
-              </div>
-              <div>
-                <FileText />
-                <span>
-                  <strong>Clear estimates</strong>
-                  <small>Compare written options with confidence.</small>
-                </span>
-              </div>
-              <div>
-                <ShieldCheck />
-                <span>
-                  <strong>Verified identities</strong>
-                  <small>Identity checks and admin-reviewed profiles.</small>
-                </span>
-              </div>
-            </section>
-            <section id="services">
-              <div className="section-heading">
-                <p className="eyebrow">
-                  <T>{"SERVICES FOR YOUR HOME"}</T>
-                </p>
-                <h2>
-                  <T>{"Find the right pro for your home project."}</T>
-                </h2>
-              </div>
-              <div className="home-service-grid">
-                {categories.map((c) => (
-                  <a
-                    href={"/app/projects/new?category=" + encodeURIComponent(c)}
-                    className="home-service-tile"
-                    key={c}
-                  >
-                    <img
-                      className="home-service-photo"
-                      src={"/services/" + serviceSlug(c) + ".webp"}
-                      alt=""
-                      width="600"
-                      height="400"
-                      loading="lazy"
-                      decoding="async"
-                    />
-                    <span className="home-service-label">
-                      <ServiceIcon service={c} size={22} />
-                      <T>{c === "HVAC" ? "Heating & cooling" : c}</T>
-                    </span>
-                  </a>
-                ))}
-              </div>
-              <a className="service-guide-link" href="/services">
-                <T>{"Explore service guides"}</T> <ArrowUpRight size={17} />
-              </a>
-            </section>
-            <section className="how">
-              <div>
-                <p className="eyebrow">
-                  <T>{"FROM IDEA TO DONE"}</T>
-                </p>
-                <h2>
-                  <T>{"A simple way to complete your home project."}</T>
-                </h2>
-              </div>
-              {[
-                "Tell us what you need",
-                "Choose the right professional",
-                "Keep the details together",
-              ].map((s, i) => (
-                <article key={s}>
-                  <div className="home-step-symbol">
-                    <span>0{i + 1}</span>
-                    {i === 0 ? (
-                      <ClipboardList />
-                    ) : i === 1 ? (
-                      <UsersRound />
-                    ) : (
-                      <CalendarCheck />
-                    )}
-                  </div>
-                  <h3>
-                    <T>{s}</T>
-                  </h3>
-                  <p>
-                    {
-                      [
-                        "Describe your project and the location where you need help.",
-                        "Review profiles and written estimates before making a choice.",
-                        "Use project messages, calls, scheduling, and status updates.",
-                      ][i]
-                    }
-                  </p>
-                </article>
-              ))}
-            </section>
-            <section
-              className="home-estimate-guide"
-              aria-labelledby="estimate-guide-title"
-            >
-              <div className="home-guide-intro">
-                <p className="eyebrow">A BETTER START TO YOUR PROJECT</p>
-                <h2 id="estimate-guide-title">
-                  Know what you’re comparing before you choose.
-                </h2>
-                <p>
-                  Aplime keeps your request, written estimates, and
-                  conversations together.
-                </p>
-                <a href="/services">
-                  Explore the service guides <ArrowUpRight size={18} />
-                </a>
-              </div>
-              <div className="home-guide-cards">
-                <article>
-                  <Camera />
-                  <h3>Show the job</h3>
-                  <p>
-                    Add clear photos, approximate measurements, and your
-                    preferred timing.
-                  </p>
-                </article>
-                <article>
-                  <Video />
-                  <h3>Talk through the details</h3>
-                  <p>
-                    Message professionals or schedule a call. Some jobs need an
-                    on-site visit before a final price.
-                  </p>
-                </article>
-                <article>
-                  <FileText />
-                  <h3>Compare the full scope</h3>
-                  <p>
-                    Check labor, materials, exclusions, timing, and cleanup—not
-                    just the total.
-                  </p>
-                </article>
-              </div>
-            </section>
-            <section
-              className="home-confidence"
-              aria-labelledby="home-confidence-title"
-            >
-              <div>
-                <p className="eyebrow">
-                  LOCAL CONNECTIONS. CLEAR EXPECTATIONS.
-                </p>
-                <h2 id="home-confidence-title">
-                  Built for New Jersey homeowners.
-                </h2>
-                <p>Professional availability varies by service and location.</p>
-              </div>
-              <ul>
-                <li>
-                  <Check />
-                  <span>
-                    <strong>You choose your professional</strong>Review profiles
-                    and written estimates before deciding who to hire.
-                  </span>
-                </li>
-                <li>
-                  <ShieldCheck />
-                  <span>
-                    <strong>Understand the verification</strong>Identity checks
-                    and profile review do not verify licensing or insurance. Ask
-                    the professional for relevant credentials.
-                  </span>
-                </li>
-                <li>
-                  <MessageCircle />
-                  <span>
-                    <strong>Agree on the details directly</strong>Confirm the
-                    scope and payment terms with your professional. Aplime does
-                    not process payments for the work.
-                  </span>
-                </li>
-              </ul>
-            </section>
-            <section
-              className="home-questions"
-              aria-labelledby="home-questions-title"
-            >
-              <div>
-                <p className="eyebrow">BEFORE YOU GET STARTED</p>
-                <h2 id="home-questions-title">A few helpful answers.</h2>
-                <a href="/faq">
-                  Read all FAQs <ArrowUpRight size={17} />
-                </a>
-              </div>
-              <div>
-                {[
-                  [
-                    "Is it free to request estimates?",
-                    "Yes. Customers can post a project and request estimates for free. Professionals set their own charges for the work; ask about any diagnostic or on-site assessment fees before agreeing to a visit.",
-                  ],
-                  [
-                    "Can I get an estimate without an in-person visit?",
-                    "Photos, messages, and scheduled calls can help a professional understand the project. Whether they can give a reliable estimate remotely depends on the work. Some projects require an inspection before a final price.",
-                  ],
-                  [
-                    "Am I committed to hiring someone when I post?",
-                    "No. Posting lets you explain your project and discuss it with professionals. You decide whether to proceed after reviewing the available estimates and details.",
-                  ],
-                  [
-                    "What should I include in my project request?",
-                    "Start with your ZIP code, the service you need, and a clear description. Photos, measurements, preferred timing, and details about materials or access help professionals understand the scope.",
-                  ],
-                ].map(([question, answer]) => (
-                  <details key={question}>
-                    <summary>{question}</summary>
-                    <p>{answer}</p>
-                  </details>
-                ))}
-              </div>
-            </section>
-            <section className="home-final-cta">
-              <h2>Ready to take the next step?</h2>
-              <a className="button" href="/app/projects/new">
-                Start a free request <ArrowUpRight size={18} />
-              </a>
-            </section>
-          </>
+          <HomePage />
         )}
       </main>
-      <footer className="public-footer">
-        <Brand />
-        <p>
-          <T>{"Built around your home."}</T>
-        </p>
-        <nav>
-          <a href="/privacy">
-            <T>{"Privacy"}</T>
-          </a>
-          <a href="/terms">
-            <T>{"Service information"}</T>
-          </a>
-          <a href="/trust-and-safety">
-            <T>{"Trust & safety"}</T>
-          </a>
-          <a href="/about">
-            <T>{"About"}</T>
-          </a>
-          <a href="/faq">
-            <T>{"FAQ"}</T>
-          </a>
-          <a href="/contact">
-            <T>{"Contact"}</T>
-          </a>
-          <a href="/app/help">
-            <T>{"Get help"}</T>
-          </a>
-        </nav>
+      <footer className="site-footer">
+        <div className="site-footer-columns">
+          <div className="site-footer-brand">
+            <Brand />
+            <p>Your local marketplace for home services.</p>
+          </div>
+          {footerColumns.map(([heading, links]) => (
+            <nav aria-label={heading} key={heading}>
+              <h2>{heading}</h2>
+              {links.map(([href, label]) => (
+                <a href={href} key={href}>
+                  {label}
+                </a>
+              ))}
+            </nav>
+          ))}
+        </div>
+        <div className="site-footer-legal">
+          <p>© {new Date().getFullYear()} Aplime. All rights reserved.</p>
+          <p>
+            <MapPin size={15} aria-hidden="true" />
+            New Jersey, USA
+          </p>
+        </div>
       </footer>
     </>
   );

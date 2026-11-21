@@ -4,7 +4,11 @@ import { reviewImages } from "./review-images.js";
 import { pushRouter } from "./push.js";
 import { projectContacts } from "./project-contacts.js";
 import { contactInput } from "../shared/project-contact.js";
-import { reviewInput } from "../shared/reviews.js";
+import {
+  reviewInput,
+  reviewSorts,
+  reviewerDisplayName,
+} from "../shared/reviews.js";
 import { publicReviews, submitReviewReply } from "./reviews.js";
 import { guardCreation } from "./abuse-limits.js";
 import { publicIntake } from "./public-intake.js";
@@ -139,9 +143,12 @@ api.get("/professionals/:id/reviews", async (q, r) => {
     .max(10000)
     .default(0)
     .parse(q.query.offset);
+  const sort = z.enum(reviewSorts).default("newest").parse(q.query.sort);
   if (!(await cachedPublicProfiles(id)).length)
     fail(404, "Business profile not available.");
-  r.set("Cache-Control", "no-store").json(await publicReviews(id, offset));
+  r.set("Cache-Control", "no-store").json(
+    await publicReviews(id, offset, sort),
+  );
 });
 api.get("/professionals/:id", async (q, r) => {
   const value = await cachedPublicProfiles(String(q.params.id));
@@ -747,8 +754,15 @@ api.post("/projects/:id/review", async (req, res) => {
       );
     await assertIndependentParties(c, p.customerId, p.proId!);
     await c.query(
-      "INSERT INTO reviews(id,project_id,pro_id,rating,body) VALUES($1,$2,$3,$4,$5)",
-      [randomUUID(), p.id, p.proId, data.rating, data.body],
+      "INSERT INTO reviews(id,project_id,pro_id,rating,body,reviewer_name) VALUES($1,$2,$3,$4,$5,$6)",
+      [
+        randomUUID(),
+        p.id,
+        p.proId,
+        data.rating,
+        data.body,
+        data.showName ? reviewerDisplayName(q.account.name) : null,
+      ],
     );
     await notify(
       c,

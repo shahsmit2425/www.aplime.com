@@ -5,7 +5,7 @@ import { quotePrice, quoteTiming } from "../shared/estimates.js";
 import { ProfessionalCard } from "./marketplace-cards.js";
 import { ProfessionalActions } from "./professional-actions.js";
 import { CalendarDays, Users } from "lucide-react";
-import { type Project, type Quote } from "../shared/domain.js";
+import { closedProject, type Project, type Quote } from "../shared/domain.js";
 import { useWorkspace } from "./workspace.js";
 import { Badge } from "./ui.js";
 import { SavePro } from "./project-actions.js";
@@ -62,8 +62,9 @@ export function ProjectProfessionals({
       <div id="project-professionals" className="pro-grid">
         {!ids.length && (
           <p>
-            No matching professionals yet. New matches and estimates will appear
-            here.
+            {closedProject(p.status)
+              ? "No professionals were involved in this project."
+              : "No matching professionals yet. New matches and estimates will appear here."}
           </p>
         )}
         {ordered.map((proId) => {

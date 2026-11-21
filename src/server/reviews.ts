@@ -2,11 +2,18 @@ import type { PoolClient } from "pg";
 import { fail } from "./errors.js";
 import { reviewPhotos } from "./review-images.js";
 import { pool } from "./db/index.js";
-import type { ReviewPage } from "../shared/reviews.js";
+import type { ReviewPage, ReviewSort } from "../shared/reviews.js";
+const order: Record<ReviewSort, string> = {
+  newest: "r.created_at DESC,r.id DESC",
+  highest: "r.rating DESC,r.created_at DESC,r.id DESC",
+  lowest: "r.rating ASC,r.created_at DESC,r.id DESC",
+};
 // Explicit public projection: never return customer IDs, addresses or project titles.
+// A name and town appear only on reviews whose customer chose to publish them.
 export async function publicReviews(
   proId: string,
   offset: number,
+  sort: ReviewSort = "newest",
 ): Promise<ReviewPage> {
   const summary = (
     await pool.query(
@@ -17,9 +24,11 @@ export async function publicReviews(
   ).rows[0];
   const rows = (
     await pool.query(
-      `SELECT r.project_id,r.id,r.rating,r.body,r.reply,r.created_at AS "createdAt",p.category,
- (p.status='completed' AND p.pro_id=r.pro_id AND p.customer_id<>r.pro_id) AS "completedProject"
- FROM reviews r JOIN projects p ON p.id=r.project_id WHERE r.pro_id=$1 ORDER BY r.created_at DESC,r.id DESC LIMIT 10 OFFSET $2`,
+      `SELECT r.project_id,r.id,r.rating,r.body,r.reply,r.replied_at AS "repliedAt",r.created_at AS "createdAt",p.category,
+ (p.status='completed' AND p.pro_id=r.pro_id AND p.customer_id<>r.pro_id) AS "completedProject",
+ r.reviewer_name AS reviewer,
+ CASE WHEN r.reviewer_name IS NOT NULL AND p.town<>'' THEN concat_ws(', ',p.town,nullif(p.region,'')) END AS town
+ FROM reviews r JOIN projects p ON p.id=r.project_id WHERE r.pro_id=$1 ORDER BY ${order[sort]} LIMIT 10 OFFSET $2`,
       [proId, offset],
     )
   ).rows;
@@ -52,7 +61,7 @@ export async function submitReviewReply(
   reply: string,
 ) {
   const result = await c.query(
-    "UPDATE reviews SET reply=$3 WHERE id=$1 AND pro_id=$2 AND reply IS NULL RETURNING project_id",
+    "UPDATE reviews SET reply=$3,replied_at=now() WHERE id=$1 AND pro_id=$2 AND reply IS NULL RETURNING project_id",
     [id, proId, reply],
   );
   if (!result.rows[0])

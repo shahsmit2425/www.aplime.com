@@ -225,3 +225,25 @@ test("homepage uses twelve compact icon links that preselect intake categories",
   assert.ok(!page.html.includes('class="service-number"'));
   assert.equal(new Set(categories.map(serviceSlug)).size, categories.length);
 });
+
+test("landing page starts a project by ZIP code without unverifiable marketing claims", () => {
+  const page = renderPage("/", production);
+  assert.match(
+    page.html,
+    /<form class="landing-zip" action="\/app\/projects\/new" method="get"/,
+  );
+  assert.match(page.html, /<input id="hero-project-zip"[^>]* name="zip"/);
+  assert.match(page.html, /href="\/" aria-current="page"/);
+  for (const claim of [
+    /\d\.\d\s*\/\s*5/,
+    /\$\d+\s*\/\s*month/i,
+    /App Store/,
+    /Google Play/,
+    /testimonial/i,
+  ])
+    assert.doesNotMatch(page.html, claim);
+  assert.match(
+    renderPage("/services/plumbing", production).html,
+    /href="\/services" aria-current="page"/,
+  );
+});
