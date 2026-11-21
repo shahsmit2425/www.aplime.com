@@ -6,7 +6,11 @@ import {
   CalendarDays,
   LockKeyhole,
   CircleAlert,
-  Check,
+  Search,
+  MessagesSquare,
+  HandCoins,
+  Layers,
+  CalendarX2,
 } from "lucide-react";
 import type {
   MembershipBilling,
@@ -22,26 +26,31 @@ import { MembershipSummary } from "./membership-summary.js";
 import { setupSteps } from "../shared/business-setup.js";
 
 const included = [
-  [
-    "A place in customer search",
-    "Your approved listing appears in search and project matches while your membership is active and your identity is verified.",
-  ],
-  [
-    "Respond to projects",
-    "Chat with customers and send estimates on projects that match your services and area.",
-  ],
-  [
-    "Paid directly for your work",
-    "Customers pay you directly for services. This subscription is your business’s payment to Aplime.",
-  ],
-  [
-    "One membership, any billing period",
-    "Every billing period includes the same professional membership.",
-  ],
-  [
-    "Cancel renewal when you need to",
-    "Cancel in Manage billing. Your membership continues through the billing period you have paid for.",
-  ],
+  {
+    Icon: Search,
+    title: "A place in customer search",
+    body: "Your approved listing appears in search and project matches while your membership is active and your identity is verified.",
+  },
+  {
+    Icon: MessagesSquare,
+    title: "Respond to projects",
+    body: "Chat with customers and send estimates on projects that match your services and area.",
+  },
+  {
+    Icon: HandCoins,
+    title: "Paid directly for your work",
+    body: "Customers pay you directly for services. This subscription is your business’s payment to Aplime.",
+  },
+  {
+    Icon: Layers,
+    title: "One membership, any billing period",
+    body: "Every billing period includes the same professional membership.",
+  },
+  {
+    Icon: CalendarX2,
+    title: "Cancel renewal when you need to",
+    body: "Cancel in Manage billing. Your membership continues through the billing period you have paid for.",
+  },
 ];
 const statusLabels: Record<string, string> = {
   active: "Active",
@@ -161,7 +170,53 @@ export function Subscription() {
         checking={checking}
         busy={busy}
         onRefresh={() => setRefreshVersion((value) => value + 1)}
-      />
+      >
+        {billing?.currentPlan && (
+          <div className="membership-plan">
+            <div>
+              <p className="eyebrow">CURRENT PLAN</p>
+              <h3>{billing.currentPlan.label}</h3>
+              <p className="membership-plan-price">
+                <strong>{money(billing.currentPlan.amount)}</strong> every{" "}
+                {billingPeriod(billing.currentPlan.months)}
+              </p>
+            </div>
+            <span
+              className="membership-plan-status"
+              data-tone={
+                active && !billing.cancelAtPeriodEnd ? "good" : "attention"
+              }
+            >
+              {active && billing.cancelAtPeriodEnd
+                ? "Ending"
+                : statusLabels[billing.status] || "Needs review"}
+            </span>
+            <ul>
+              {periodEnd && (
+                <li>
+                  <CalendarDays size={16} aria-hidden="true" />
+                  <span>{periodEnd}.</span>
+                </li>
+              )}
+              {billing.currentPlan.months > 1 && (
+                <li>
+                  <CreditCard size={16} aria-hidden="true" />
+                  <span>
+                    {money(
+                      billing.currentPlan.amount / billing.currentPlan.months,
+                    )}
+                    /month equivalent, charged upfront.
+                  </span>
+                </li>
+              )}
+              <li>
+                <LockKeyhole size={16} aria-hidden="true" />
+                <span>Payment details and invoices are kept with Stripe.</span>
+              </li>
+            </ul>
+          </div>
+        )}
+      </MembershipSummary>
       <div className="membership-layout">
         <div>
           <Panel
@@ -177,59 +232,16 @@ export function Subscription() {
                 {billing.pricingProblem}
               </p>
             )}
-            {billing?.currentPlan ? (
-              <div className="membership-plan">
-                <div>
-                  <p className="eyebrow">CURRENT PLAN</p>
-                  <h3>{billing.currentPlan.label}</h3>
-                  <p className="membership-plan-price">
-                    <strong>{money(billing.currentPlan.amount)}</strong> every{" "}
-                    {billingPeriod(billing.currentPlan.months)}
-                  </p>
-                </div>
-                <span
-                  className="membership-plan-status"
-                  data-tone={
-                    active && !billing.cancelAtPeriodEnd ? "good" : "attention"
-                  }
-                >
-                  {active && billing.cancelAtPeriodEnd
-                    ? "Ending"
-                    : statusLabels[billing.status] || "Needs review"}
-                </span>
-                <ul>
-                  {periodEnd && (
-                    <li>
-                      <CalendarDays size={16} aria-hidden="true" />
-                      <span>{periodEnd}.</span>
-                    </li>
-                  )}
-                  {billing.currentPlan.months > 1 && (
-                    <li>
-                      <CreditCard size={16} aria-hidden="true" />
-                      <span>
-                        {money(
-                          billing.currentPlan.amount /
-                            billing.currentPlan.months,
-                        )}
-                        /month equivalent, charged upfront.
-                      </span>
-                    </li>
-                  )}
-                  <li>
-                    <LockKeyhole size={16} aria-hidden="true" />
-                    <span>
-                      Payment details and invoices are kept with Stripe.
-                    </span>
-                  </li>
-                </ul>
-              </div>
-            ) : (
-              periodEnd && (
-                <p>
-                  <CalendarDays size={16} aria-hidden="true" /> {periodEnd}.
-                </p>
-              )
+            {!billing?.currentPlan && periodEnd && (
+              <p>
+                <CalendarDays size={16} aria-hidden="true" /> {periodEnd}.
+              </p>
+            )}
+            {billing?.canManage && (
+              <p>
+                View invoices, update your payment method or cancel renewal in
+                Stripe’s billing portal.
+              </p>
             )}
             {billing?.cancelAtPeriodEnd && (
               <p>
@@ -341,9 +353,9 @@ export function Subscription() {
           </Panel>
           <Panel title="What your membership includes">
             <ul className="membership-included">
-              {included.map(([title, body]) => (
+              {included.map(({ Icon, title, body }) => (
                 <li key={title}>
-                  <Check size={18} aria-hidden="true" />
+                  <Icon size={20} aria-hidden="true" />
                   <span>
                     <strong>{title}</strong>
                     <p>{body}</p>

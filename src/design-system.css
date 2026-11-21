@@ -1011,12 +1011,6 @@ summary:focus-visible {
   font-size: var(--text-body);
   line-height: 1.7;
 }
-.membership-summary {
-  background: var(--brand-soft);
-  border-color: var(--line);
-  border-radius: 18px;
-  padding: 24px;
-}
 .membership-card {
   background: #fff;
   border-color: #d6e2e5;

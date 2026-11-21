@@ -2534,44 +2534,6 @@ blockquote {
   min-width: 0;
 }
 
-.membership-summary {
-  display: flex;
-  align-items: flex-start;
-  flex-wrap: wrap;
-  gap: 22px;
-  border: 1px solid var(--line);
-  background: var(--canvas);
-  border-radius: 20px;
-  padding: 28px;
-  margin-bottom: 24px;
-}
-.membership-summary > div:nth-child(2) {
-  flex: 1 1 250px;
-}
-.membership-summary h2 {
-  margin: 8px 0 12px;
-  font-size: clamp(1.35rem, 2.5vw, 1.9rem);
-  letter-spacing: -0.035em;
-  line-height: 1.25;
-}
-.membership-summary p {
-  margin: 0;
-  color: var(--muted);
-}
-.membership-summary.attention {
-  background: #fff7e9;
-  border-color: #e5d2a5;
-}
-.membership-summary-icon {
-  display: grid;
-  place-items: center;
-  width: 60px;
-  height: 60px;
-  color: var(--blue);
-  background: #fff;
-  border-radius: 16px;
-  flex-shrink: 0;
-}
 .membership-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 290px;
@@ -2638,18 +2600,8 @@ blockquote {
   }
 }
 @media (max-width: 600px) {
-  .membership-summary,
   .membership-guide {
     padding: 20px;
-  }
-  .membership-summary {
-    gap: 16px;
-  }
-  .membership-summary > div:nth-child(2) {
-    flex-basis: calc(100% - 80px);
-  }
-  .membership-summary > button {
-    width: 100%;
   }
 }
 .membership-selector legend {
