@@ -9,6 +9,8 @@ import { Empty, Head, Panel, Field, Form } from "./ui.js";
 import { BusinessMedia } from "./business-media.js";
 import { BusinessDisplay } from "./business-display.js";
 import { PortfolioPublication } from "./portfolio-publication.js";
+import { ListingStatus } from "./listing-status.js";
+import { BusinessOverview } from "./business-overview.js";
 
 export function BusinessProfile() {
   const { data, run, busy, go, id } = useWorkspace();
@@ -36,22 +38,20 @@ export function BusinessProfile() {
       >
         Show customers what makes your business a great fit.
       </Head>
-      {p?.suspended && (
-        <p className="business-tip">
-          Your listing is suspended. Contact support before accepting new
-          requests.
-        </p>
-      )}
-      {p?.reviewNote && (
-        <p className="business-tip">
-          <strong>Profile review note:</strong> {p.reviewNote}
-        </p>
+      {p && (
+        <ListingStatus
+          profile={p}
+          onReview={tab === "setup" ? undefined : () => go("profile", "setup")}
+        />
       )}
       {!p && (
         <p className="business-tip">
           First save your basic details. Then add your logo, advertising image,
           and schedule.
         </p>
+      )}
+      {p && tab !== "setup" && tab !== "preview" && (
+        <BusinessOverview profile={p} />
       )}
       {tab !== "setup" && (
         <nav
@@ -107,8 +107,9 @@ export function BusinessProfile() {
             <p>
               Aplime reviews your saved business details after identity
               verification. Once you are approved, your listing stays live while
-              later edits are re-checked. New or previously declined listings
-              stay in draft until you resubmit them.
+              later edits are re-checked. If you edit while a review is in
+              progress, the latest version is the one reviewed. Phone, email and
+              website updates go live right away.
             </p>
             <button
               disabled={
@@ -267,7 +268,7 @@ export function BusinessProfile() {
             <div className="business-save">
               <p>
                 Manage your images and portfolio above. Work hours are in
-                Schedule & preferences.
+                Services & hours.
               </p>
               <button>{busy ? "Saving…" : "Save business details"}</button>
             </div>

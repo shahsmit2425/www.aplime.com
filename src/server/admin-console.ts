@@ -366,17 +366,22 @@ adminConsole.get("/users/:id", async (req, res) => {
   const profileRow = (await pool.query(profileSelect + " WHERE p.id=$1", [id]))
     .rows[0];
   let profile: Profile | null = null;
+  // The version customers currently see, when edits are waiting behind it.
+  let published: Record<string, unknown> | null = null;
   if (profileRow) {
-    profile = camel<Profile>(profileRow);
-    profile.images = (await Promise.all(
-      (profileRow.images || []).map(
-        async (i: { id: string; slot: string; key: string }) => ({
+    const signed = (images: { id: string; slot: string; key: string }[] = []) =>
+      Promise.all(
+        images.map(async (i) => ({
           id: i.id,
           slot: i.slot,
           url: await imageUrl(i.key).catch(() => ""),
-        }),
-      ),
-    )) as Profile["images"];
+        })),
+      );
+    const { published_profile: snapshot, ...row } = profileRow;
+    profile = camel<Profile>(row);
+    profile.images = (await signed(profileRow.images)) as Profile["images"];
+    if (snapshot)
+      published = { ...snapshot, images: await signed(snapshot.images) };
   }
   const membership =
     (
@@ -411,6 +416,7 @@ adminConsole.get("/users/:id", async (req, res) => {
   res.json({
     user,
     profile,
+    published,
     membership,
     metrics: camel(metrics),
     projects,

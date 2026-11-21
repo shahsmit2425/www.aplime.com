@@ -6,6 +6,7 @@ import {
   CalendarDays,
   LockKeyhole,
   CircleAlert,
+  Check,
 } from "lucide-react";
 import type {
   MembershipBilling,
@@ -18,6 +19,40 @@ import { Empty, Head, Panel } from "./ui.js";
 import { MembershipCards, billingPeriod } from "./membership-cards.js";
 import { checkoutReturnNotice } from "../shared/membership-flow.js";
 import { MembershipSummary } from "./membership-summary.js";
+import { setupSteps } from "../shared/business-setup.js";
+
+const included = [
+  [
+    "A place in customer search",
+    "Your approved listing appears in search and project matches while your membership is active and your identity is verified.",
+  ],
+  [
+    "Respond to projects",
+    "Chat with customers and send estimates on projects that match your services and area.",
+  ],
+  [
+    "Paid directly for your work",
+    "Customers pay you directly for services. This subscription is your business’s payment to Aplime.",
+  ],
+  [
+    "One membership, any billing period",
+    "Every billing period includes the same professional membership.",
+  ],
+  [
+    "Cancel renewal when you need to",
+    "Cancel in Manage billing. Your membership continues through the billing period you have paid for.",
+  ],
+];
+const statusLabels: Record<string, string> = {
+  active: "Active",
+  trialing: "Trial",
+  past_due: "Past due",
+  unpaid: "Unpaid",
+  incomplete: "Payment incomplete",
+  paused: "Paused",
+  canceled: "Ended",
+  incomplete_expired: "Ended",
+};
 
 export function Subscription() {
   const { data, busy, run, go } = useWorkspace();
@@ -95,6 +130,19 @@ export function Subscription() {
   const choosingPlan =
     !!billing &&
     ["none", "canceled", "incomplete_expired"].includes(billing.status);
+  const nextStep = setupSteps(profile, active).find((step) => !step.complete);
+  const periodEnd = billing?.periodEnd && (
+    <>
+      {billing.cancelAtPeriodEnd
+        ? "Membership ends"
+        : active
+          ? "Current billing period ends"
+          : "Last billing period ended"}{" "}
+      {new Date(billing.periodEnd).toLocaleDateString(undefined, {
+        dateStyle: "long",
+      })}
+    </>
+  );
   return (
     <>
       <Head title="Your Aplime business subscription">
@@ -129,26 +177,59 @@ export function Subscription() {
                 {billing.pricingProblem}
               </p>
             )}
-            {billing?.currentPlan && (
-              <p className="membership-current-plan">
-                <strong>{billing.currentPlan.label}</strong> ·{" "}
-                {money(billing.currentPlan.amount)} every{" "}
-                {billingPeriod(billing.currentPlan.months)}
-              </p>
-            )}
-            {billing?.periodEnd && (
-              <p>
-                <CalendarDays size={16} aria-hidden="true" />{" "}
-                {billing.cancelAtPeriodEnd
-                  ? "Membership ends"
-                  : ["active", "trialing"].includes(billing.status)
-                    ? "Current billing period ends"
-                    : "Last billing period ended"}{" "}
-                {new Date(billing.periodEnd).toLocaleDateString(undefined, {
-                  dateStyle: "long",
-                })}
-                .
-              </p>
+            {billing?.currentPlan ? (
+              <div className="membership-plan">
+                <div>
+                  <p className="eyebrow">CURRENT PLAN</p>
+                  <h3>{billing.currentPlan.label}</h3>
+                  <p className="membership-plan-price">
+                    <strong>{money(billing.currentPlan.amount)}</strong> every{" "}
+                    {billingPeriod(billing.currentPlan.months)}
+                  </p>
+                </div>
+                <span
+                  className="membership-plan-status"
+                  data-tone={
+                    active && !billing.cancelAtPeriodEnd ? "good" : "attention"
+                  }
+                >
+                  {active && billing.cancelAtPeriodEnd
+                    ? "Ending"
+                    : statusLabels[billing.status] || "Needs review"}
+                </span>
+                <ul>
+                  {periodEnd && (
+                    <li>
+                      <CalendarDays size={16} aria-hidden="true" />
+                      <span>{periodEnd}.</span>
+                    </li>
+                  )}
+                  {billing.currentPlan.months > 1 && (
+                    <li>
+                      <CreditCard size={16} aria-hidden="true" />
+                      <span>
+                        {money(
+                          billing.currentPlan.amount /
+                            billing.currentPlan.months,
+                        )}
+                        /month equivalent, charged upfront.
+                      </span>
+                    </li>
+                  )}
+                  <li>
+                    <LockKeyhole size={16} aria-hidden="true" />
+                    <span>
+                      Payment details and invoices are kept with Stripe.
+                    </span>
+                  </li>
+                </ul>
+              </div>
+            ) : (
+              periodEnd && (
+                <p>
+                  <CalendarDays size={16} aria-hidden="true" /> {periodEnd}.
+                </p>
+              )
             )}
             {billing?.cancelAtPeriodEnd && (
               <p>
@@ -248,15 +329,28 @@ export function Subscription() {
                   <CreditCard size={16} /> Manage billing and cancellation
                 </button>
               )}
-              {active && (
+              {active && nextStep && (
                 <button
                   className="secondary"
-                  onClick={() => go("profile", "setup")}
+                  onClick={() => go(nextStep.page, nextStep.id)}
                 >
                   Continue business setup <ArrowRight size={16} />
                 </button>
               )}
             </div>
+          </Panel>
+          <Panel title="What your membership includes">
+            <ul className="membership-included">
+              {included.map(([title, body]) => (
+                <li key={title}>
+                  <Check size={18} aria-hidden="true" />
+                  <span>
+                    <strong>{title}</strong>
+                    <p>{body}</p>
+                  </span>
+                </li>
+              ))}
+            </ul>
           </Panel>
         </div>
         <aside className="membership-guide">

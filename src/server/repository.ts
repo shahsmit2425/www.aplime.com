@@ -14,7 +14,7 @@ import { pool, camel } from "./db/index.js";
 import type pg from "pg";
 import type { User, Workspace, Profile, Project } from "../shared/domain.js";
 import { fail } from "./errors.js";
-export const profileSelect = `SELECT p.id,p.published_profile,u.name,p.business,p.details,p.category,p.bio,p.zip,p.rate,p.available,p.availability,p.verified,p.suspended,p.listed,p.connect_ready,p.service_radius_miles,p.address,p.place_id,p.service_categories,p.weekly_hours,p.time_zone,p.review_status,p.review_note,p.submitted_at,p.reviewed_at,
+export const profileSelect = `SELECT p.id,p.published_profile,u.name,p.business,p.details,p.category,p.bio,p.zip,p.rate,p.available,p.availability,p.verified,p.suspended,p.listed,p.connect_ready,p.service_radius_miles,p.address,p.place_id,p.service_categories,p.weekly_hours,p.time_zone,p.review_status,p.review_note,p.suspension_note,p.submitted_at,p.reviewed_at,
  COALESCE((SELECT json_agg(json_build_object('id',i.id,'slot',i.slot,'key',i.object_key) ORDER BY i.slot) FROM business_images i WHERE i.profile_id=p.id AND i.status='ready'),'[]'::json) AS images,
  COALESCE((SELECT avg(r.rating)::float FROM reviews r WHERE r.pro_id=p.id),0) AS rating,
  (SELECT count(*)::int FROM reviews r WHERE r.pro_id=p.id) AS review_count FROM profiles p JOIN users u ON u.id=p.id`;
@@ -64,6 +64,7 @@ async function mappedProfile(
   }
   if (profile.id !== ownerId && !administrator) {
     delete profile.reviewNote;
+    delete profile.suspensionNote;
     delete profile.submittedAt;
     delete profile.reviewedAt;
     delete profile.connectReady;
@@ -146,6 +147,7 @@ export async function workspace(user: User): Promise<Workspace> {
     }),
   );
   const discoveryRequirements: string[] = [];
+  let membershipActive: boolean | undefined;
   if (user.role === "pro") {
     const own = profiles.find((p) => p.id === user.id);
     if (!own) discoveryRequirements.push("Create your business profile.");
@@ -167,14 +169,13 @@ export async function workspace(user: User): Promise<Workspace> {
           "Turn on availability in your business profile.",
         );
     }
-    if (
-      !(
-        await pool.query(
-          "SELECT 1 FROM professional_subscriptions WHERE user_id=$1 AND status IN ('active','trialing')",
-          [user.id],
-        )
-      ).rowCount
-    )
+    membershipActive = !!(
+      await pool.query(
+        "SELECT 1 FROM professional_subscriptions WHERE user_id=$1 AND status IN ('active','trialing')",
+        [user.id],
+      )
+    ).rowCount;
+    if (!membershipActive)
       discoveryRequirements.push("Activate your professional subscription.");
   }
   const leads =
@@ -254,6 +255,7 @@ export async function workspace(user: User): Promise<Workspace> {
     discoveryMode: preview ? "open" : env.MARKETPLACE_DISCOVERY_MODE,
     marketplacePreview: preview,
     discoveryRequirements,
+    membershipActive,
     profiles,
     projects,
     leads,

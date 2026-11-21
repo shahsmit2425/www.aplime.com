@@ -11,7 +11,11 @@ import {
   businessImageSlots,
   matchesImageSignature,
 } from "../shared/business-images.js";
-import { preservePublication, publishedImage } from "./business-publication.js";
+import {
+  preservePublication,
+  publishedImage,
+  requeueReview,
+} from "./business-publication.js";
 import { sanitizeImage } from "./image-processing.js";
 import {
   imageUrl,
@@ -22,20 +26,13 @@ import {
 } from "./integrations/storage.js";
 import { notifyAdministrators } from "./repository.js";
 import type pg from "pg";
-// A listed business keeps its public listing while photo changes are
-// re-reviewed; unlisted ones return to draft and resubmit manually.
 async function resetReview(c: pg.PoolClient, profileId: string) {
-  const reviewed = (
-    await c.query(
-      "UPDATE profiles SET review_status=CASE WHEN listed THEN 'pending' ELSE 'draft' END,review_note=NULL,submitted_at=CASE WHEN listed THEN now() ELSE NULL END,reviewed_at=NULL,reviewed_by=NULL WHERE id=$1 RETURNING listed,business",
-      [profileId],
-    )
-  ).rows[0];
-  if (reviewed?.listed)
+  const business = await requeueReview(c, profileId);
+  if (business)
     await notifyAdministrators(
       c,
       "Listed business photos updated",
-      reviewed.business +
+      business +
         " changed photos on its live listing. Review the updates in the administrator console.",
     );
 }

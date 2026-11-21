@@ -688,6 +688,27 @@ small {
   font-size: var(--text-small);
   margin-top: 10px;
 }
+.admin-change-photos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 14px;
+}
+.admin-change-photos figure {
+  margin: 0;
+}
+.admin-change-photos img {
+  display: block;
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+  border: 1px solid #eef3ff;
+  border-radius: 8px;
+}
+.admin-change-photos figcaption {
+  color: #455477;
+  font-size: var(--text-small);
+  margin-top: 6px;
+}
 .admin-prose {
   white-space: pre-wrap;
   overflow-wrap: anywhere;

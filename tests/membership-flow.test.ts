@@ -6,7 +6,8 @@ import {
   checkoutReturnNotice,
   membershipStatus,
 } from "../src/shared/membership-flow.js";
-import { ProfessionalSetup } from "../src/client/professional-setup.js";
+import { setupSteps } from "../src/shared/business-setup.js";
+import type { Profile } from "../src/shared/domain.js";
 import { MembershipSummary } from "../src/client/membership-summary.js";
 
 test("checkout return never claims activation before webhook-backed membership is active", () => {
@@ -61,39 +62,41 @@ test("membership problems direct existing subscribers to billing rather than a s
   );
 });
 
-test("professional setup gives accessible links without inventing completed steps", () => {
-  const html = renderToStaticMarkup(
-    createElement(ProfessionalSetup, {
-      current: "verification",
-      go() {},
-    }),
+test("business setup never invents completed steps and finishes only when the listing is live", () => {
+  const complete = (profile?: Partial<Profile>, membership = false) =>
+    setupSteps(profile as Profile | undefined, membership).map(
+      (step) => step.complete,
+    );
+  assert.deepEqual(
+    setupSteps(undefined, false).map((step) => step.label),
+    [
+      "Business profile",
+      "Identity verification",
+      "Membership",
+      "Marketplace review",
+    ],
   );
-  assert.match(html, /aria-label="Professional account setup"/);
-  assert.match(html, /aria-current="step"/);
-  for (const label of [
-    "Business profile",
-    "Verify identity",
-    "Membership",
-    "Marketplace review",
-  ])
-    assert.ok(html.includes(label));
-  assert.ok(!html.includes("setup-link complete"));
-  assert.ok(!html.includes("Identity confirmed"));
-  assert.ok(!html.includes("Membership active"));
-  const verified = renderToStaticMarkup(
-    createElement(ProfessionalSetup, {
-      current: "subscription",
-      identityVerified: true,
-      membershipActive: true,
-      go() {},
-    }),
-  );
-  assert.ok(verified.includes("Identity confirmed"));
-  assert.ok(verified.includes("Membership active"));
-  assert.ok(
-    !verified.includes("Listing approved"),
+  assert.deepEqual(complete(), [false, false, false, false]);
+  assert.deepEqual(
+    complete({ verified: true, reviewStatus: "pending" }, true),
+    [true, true, true, false],
     "membership never implies marketplace approval",
   );
+  assert.deepEqual(
+    complete({ verified: true, reviewStatus: "approved", listed: true }, true),
+    [true, true, true, true],
+  );
+  assert.deepEqual(
+    complete({ verified: true, reviewStatus: "pending", listed: true }, false),
+    [true, true, false, true],
+    "a lapsed membership reopens setup while re-reviewed edits keep the listing",
+  );
+  const suspended = setupSteps(
+    { verified: true, listed: true, suspended: true } as Profile,
+    true,
+  )[3]!;
+  assert.equal(suspended.complete, false);
+  assert.equal(suspended.detail, "Contact support");
 });
 
 test("membership summary distinguishes loading, confirmed cancellation and billing problems", () => {

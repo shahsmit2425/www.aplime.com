@@ -206,6 +206,9 @@ await db.exec(
     "utf8",
   ),
 );
+await db.exec(
+  await readFile("src/server/db/migrations/035_suspension_note.sql", "utf8"),
+);
 
 test.after(async () => {
   await db.close();
@@ -4311,6 +4314,92 @@ test("approved business publication remains unchanged while its profile is edite
     (await workspace(customer)).profiles.find((p) => p.id === id)?.business,
     "Pending name",
   );
+});
+
+test("profile edits requeue live and in-review listings, publish contact details and guard stale decisions", async () => {
+  const { preservePublication, requeueReview, publishContact, decideReview } =
+    await import("../src/server/business-publication.js");
+  const c = { query } as never;
+  const id = "requeue-" + randomUUID();
+  const state = async () =>
+    (
+      await query(
+        "SELECT review_status,review_note,listed,submitted_at,published_profile FROM profiles WHERE id=$1",
+        [id],
+      )
+    ).rows[0];
+  await query(
+    "INSERT INTO users(id,email,name,role) VALUES($1,$2,'Requeue owner','pro')",
+    [id, id + "@example.invalid"],
+  );
+  await query(
+    `INSERT INTO profiles(id,business,category,bio,zip,rate,verified,review_status,review_note,details) VALUES($1,'First name','Cleaning','Description','08859',50,true,'changes_requested','Add a clearer description.','{"phone":"5550100000","email":"old@example.invalid","website":"","city":"Parlin"}')`,
+    [id],
+  );
+  // An unlisted profile keeps its status and the reviewer's note until resubmitted.
+  assert.equal(await requeueReview(c, id), null);
+  assert.equal((await state()).review_status, "changes_requested");
+  assert.equal((await state()).review_note, "Add a clearer description.");
+  // Editing during the first review keeps it in the queue with a new timestamp.
+  await query(
+    "UPDATE profiles SET review_status='pending',submitted_at=now()-interval '1 hour' WHERE id=$1",
+    [id],
+  );
+  const opened = (await state()).submitted_at.toISOString();
+  assert.equal(await requeueReview(c, id), null);
+  assert.equal((await state()).review_status, "pending");
+  assert.notEqual((await state()).submitted_at.toISOString(), opened);
+  // A decision on the version read before that edit is refused.
+  await assert.rejects(
+    decideReview(
+      c,
+      id,
+      { status: "approved", note: "", submittedAt: opened },
+      customer.id,
+    ),
+    /changed after you opened it/,
+  );
+  assert.equal((await state()).listed, false);
+  await decideReview(
+    c,
+    id,
+    {
+      status: "approved",
+      note: "",
+      submittedAt: (await state()).submitted_at.toISOString(),
+    },
+    customer.id,
+  );
+  assert.equal((await state()).review_status, "approved");
+  assert.equal((await state()).listed, true);
+  await assert.rejects(
+    decideReview(
+      c,
+      id,
+      { status: "approved", note: "", submittedAt: opened },
+      customer.id,
+    ),
+    /not awaiting review/,
+  );
+  // A live listing's edit is announced once and its approved version is kept.
+  await preservePublication(c, id);
+  await query(
+    `UPDATE profiles SET business='Second name',details='{"phone":"5550199999","email":"new@example.invalid","city":"Sayreville"}' WHERE id=$1`,
+    [id],
+  );
+  await publishContact(c, id);
+  assert.equal(await requeueReview(c, id), "Second name");
+  assert.equal(await requeueReview(c, id), null);
+  const live = await state();
+  assert.equal(live.review_status, "pending");
+  assert.equal(live.listed, true);
+  assert.equal(live.published_profile.business, "First name");
+  // Contact details went live immediately; reviewed details did not.
+  assert.deepEqual(live.published_profile.details, {
+    phone: "5550199999",
+    email: "new@example.invalid",
+    city: "Parlin",
+  });
 });
 
 test("blocked estimates cannot authorize photos and customers cannot double-book site visits", async () => {

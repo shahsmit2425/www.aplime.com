@@ -19,7 +19,7 @@
 5. An administrator approves it, requests specific changes, or rejects it. Every decision is audited and sent to the professional as an in-app and email notification.
 6. A listing appears in public search only while it is approved, identity verified, available, not suspended, and backed by an active or trialing Aplime subscription.
 
-Saving business details after approval returns the listing to draft. The professional must submit the updated information again. This prevents unreviewed content from replacing an approved listing.
+Saving reviewed business content after approval keeps the approved listing live and sends the edits back to review automatically; see “Business profile review” below. Unreviewed content never replaces an approved listing, except the public phone, email and website.
 
 ## Customer project
 
@@ -138,3 +138,19 @@ At the end, guests sign in/register as a customer, complete existing email verif
 After publication the customer opens the project detail and its real category/area/eligibility matches, including existing responses/estimates. The recommendation section does not broaden to every profile when preview discovery mode is open. No-match results explain that the project is saved. Existing staged outreach and professional preference checks remain unchanged. Publishing never books a professional or starts a call.
 
 Public `/api/intake/locations/*` endpoints expose ZIP validation and bounded address suggestions/details only. They return no API key, private project, user, or professional record. IP-based local throttling applies; the existing configured Upstash rate limiter adds a shared limit across instances. ZIP results use the existing Redis cache. Existing GOOGLE_MAPS_SERVER_KEY needs Geocoding and Places API (New); no new environment variable, migration or service is introduced by intake. Deploy API before the web/mobile client.
+
+## Business profile review — November 21, 2026
+
+Status: a business profile is draft, pending, changes requested, approved or rejected, and separately listed and/or suspended. Every business profile section shows the owner a status strip with the state, the reviewer's or suspension note and the next step: Draft · not submitted, In review, Changes requested, Not approved, Approved, Live · changes in review, Live · changes requested, Listing suspended.
+
+Edits: reviewed content is the business name, main service, description, rate, base address, business details other than contact, and photos. When it changes, a live listing or one already awaiting its first review is (re)submitted with a new submission time; the approved version stays public for a live listing. A draft, changes-requested or rejected profile that is not live keeps its status and the reviewer's note until its owner resubmits. Administrators are notified once when a live listing first gains pending edits, not on every further save. Phone, email and website are not reviewed: saving them updates the public listing immediately, including the approved version shown while other edits wait. Schedule, availability and service radius never affect review.
+
+Decisions: the administrator console shows, for a listing with an approved version, a table of each reviewed field that differs (approved beside proposed) and the photos added and removed. A decision carries the submission time the administrator was looking at; the server refuses it if the profile was edited since, so nothing is approved unseen. Request changes keeps a live listing's approved version public; reject removes the listing (the button reads “Reject and unlist” for a live listing). An approved profile cannot be resubmitted unchanged.
+
+Suspension: suspending requires a reason of at least 10 characters. It is stored in `profiles.suspension_note` (migration `035_suspension_note.sql`), sent to the owner in the notification, shown on their status strip, visible to administrators and never to customers; restoring clears it.
+
+## Professional business pages — November 21, 2026
+
+The professional top navigation is Dashboard, Schedule, Messages, My business and Subscription. Business pages share four section tabs: Business profile, Services & hours, Reviews and Membership.
+
+Setup has four steps, in order: business profile, identity verification, membership, marketplace review. The checklist is shown above the tabs until all four are complete — a saved profile, verified identity, an active or trialing subscription, and an approved or listed profile that is not suspended — and reappears if one lapses. Once complete, the business profile overview links to Identity, Membership, Marketplace review and Availability with their current status. The checklist and tiles only present status; eligibility is still decided on the server.

@@ -131,7 +131,6 @@ const navigation = {
     ["messages", "Messages"],
     ["profile", "My business"],
     ["subscription", "Subscription"],
-    ["reviews", "Reviews"],
   ],
   admin: [],
 };
@@ -1027,6 +1026,7 @@ export default function Workspace() {
           [
             "verification",
             "availability",
+            "reviews",
             "onboarding",
             "payments",
             "earnings",

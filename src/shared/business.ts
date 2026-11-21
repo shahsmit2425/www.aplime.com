@@ -66,6 +66,9 @@ export const businessDetailsSchema = z
   })
   .strict();
 export type BusinessDetails = z.infer<typeof businessDetailsSchema>;
+// Contact fields publish as soon as they are saved; every other listing
+// detail waits for marketplace review.
+export const liveContactKeys = ["phone", "email", "website"];
 
 export const businessFieldGroups = [
   {

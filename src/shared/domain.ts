@@ -50,6 +50,7 @@ export type Profile = {
   reviewStatus:
     "draft" | "pending" | "changes_requested" | "approved" | "rejected";
   reviewNote?: string | null;
+  suspensionNote?: string | null;
   submittedAt?: string | null;
   reviewedAt?: string | null;
   details?: BusinessDetails;
@@ -188,6 +189,8 @@ export type Workspace = {
   discoveryMode?: "open" | "matched";
   marketplacePreview?: boolean;
   discoveryRequirements?: string[];
+  // Professionals only: whether their Aplime subscription is active or trialing.
+  membershipActive?: boolean;
   user: User;
   profiles: Profile[];
   projects: Project[];

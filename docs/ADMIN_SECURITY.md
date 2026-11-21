@@ -27,7 +27,7 @@ Detailed admin responses and support responses are `no-store`. A denied admin re
 
 Call invitations are recorded only from this release, after Daily creates a room. They do not establish that a call connected or finished. Daily room links/tokens, call recordings, duration, page views, keystrokes and device tracking are not stored or exposed. Older activity cannot be reconstructed when it was never collected.
 
-Professionals now use **My business** for Profile & images, Identity verification, Membership, Marketplace review and Schedule & preferences. Existing routes and Stripe return URLs remain valid; menu changes do not change eligibility or approval rules.
+Professionals now use **My business** for Business profile, Services & hours, Reviews and Membership; Identity verification and Marketplace review are reached from the setup checklist or the business profile overview. Existing routes and Stripe return URLs remain valid; menu changes do not change eligibility or approval rules.
 
 ## Guided first-administrator setup (development)
 

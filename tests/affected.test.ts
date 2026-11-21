@@ -99,6 +99,7 @@ test("marketplace design styles deploy only the web and shared mobile clients", 
       "src/landing.css",
       "src/reviews.css",
       "src/moments.css",
+      "src/business-account.css",
       "src/client/marketplace-cards.tsx",
     ]),
     {

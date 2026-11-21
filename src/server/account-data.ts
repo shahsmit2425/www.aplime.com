@@ -299,7 +299,7 @@ export async function deleteAccountData(userId: string) {
       userId,
     ]);
     await c.query(
-      "UPDATE profiles SET published_profile=NULL,business='Deleted business',bio='',zip='',address='',place_id='',town='',region='',details='{}',latitude=NULL,longitude=NULL,listed=false,available=false,verified=false,review_status='draft',review_note=NULL,submitted_at=NULL,reviewed_at=NULL,reviewed_by=NULL,service_categories='[]',weekly_hours='{}',availability='[]' WHERE id=$1",
+      "UPDATE profiles SET published_profile=NULL,business='Deleted business',bio='',zip='',address='',place_id='',town='',region='',details='{}',latitude=NULL,longitude=NULL,listed=false,available=false,verified=false,review_status='draft',review_note=NULL,suspension_note=NULL,submitted_at=NULL,reviewed_at=NULL,reviewed_by=NULL,service_categories='[]',weekly_hours='{}',availability='[]' WHERE id=$1",
       [userId],
     );
     await c.query(

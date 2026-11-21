@@ -77,3 +77,40 @@ test("business profiles validate contact data and reject client supplied verific
     false,
   );
 });
+
+test("administrators see exactly what differs from the approved listing", async () => {
+  const { listingChanges } = await import("../src/shared/admin.js");
+  const image = (id: string) => ({ id, slot: "work-1", url: "" });
+  const changes = listingChanges(
+    {
+      business: "Approved name",
+      category: "Cleaning",
+      bio: "Same description",
+      zip: "08859",
+      rate: 50,
+      details: { city: "Parlin", phone: "5550100000" },
+      images: [image("kept"), image("removed")],
+    } as never,
+    {
+      business: "New name",
+      category: "Cleaning",
+      bio: "Same description",
+      zip: "08859",
+      rate: 50,
+      details: { city: "Sayreville", phone: "5550100000" },
+      images: [image("kept"), image("added")],
+    } as never,
+  );
+  assert.deepEqual(changes.fields, [
+    { label: "Business name", before: "Approved name", after: "New name" },
+    { label: "Business city", before: "Parlin", after: "Sayreville" },
+  ]);
+  assert.deepEqual(
+    changes.addedImages.map((i) => i.id),
+    ["added"],
+  );
+  assert.deepEqual(
+    changes.removedImages.map((i) => i.id),
+    ["removed"],
+  );
+});

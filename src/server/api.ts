@@ -16,8 +16,10 @@ import { projectDrafts } from "./project-drafts.js";
 import { realtimeTicket } from "./realtime.js";
 import { cachedValue, redis } from "./redis.js";
 import {
+  decideReview,
   preservePublication,
-  releasePublication,
+  publishContact,
+  requeueReview,
 } from "./business-publication.js";
 import { callMeetings } from "./call-meetings.js";
 import {
@@ -31,6 +33,7 @@ import { adminConsole } from "./admin-console.js";
 import { supportRouter } from "./support.js";
 import { preferencesSchema } from "../shared/preferences.js";
 import { hasBusinessBranding } from "../shared/business-images.js";
+import { liveContactKeys } from "../shared/business.js";
 import {
   recordProjectActivity,
   readProjectActivity,
@@ -431,8 +434,16 @@ api.put("/profile", async (req, res) => {
       ])
     ).rows[0];
     await preservePublication(c, q.account.id);
-    // Customer-facing listing content needs review; availability, schedule
-    // and service-radius changes are operational and never unlist a business.
+    // Customer-facing listing content needs review; availability, schedule,
+    // service radius and contact details never send a business back to review.
+    const reviewed = (details?: Record<string, unknown> | null) =>
+      canonical(
+        Object.fromEntries(
+          Object.entries(details ?? {}).filter(
+            ([key]) => !liveContactKeys.includes(key),
+          ),
+        ),
+      );
     const material =
       !existing ||
       existing.business !== p.business ||
@@ -440,7 +451,7 @@ api.put("/profile", async (req, res) => {
       existing.bio !== p.bio ||
       Number(existing.rate) !== p.rate ||
       existing.place_id !== location.placeId ||
-      canonical(existing.details) !== canonical(p.details);
+      reviewed(existing.details) !== reviewed(p.details);
     await c.query(
       "INSERT INTO profiles(id,business,category,bio,zip,rate,available,availability,details,service_radius_miles,latitude,longitude,address,place_id,service_categories) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,jsonb_build_array($3::text)) ON CONFLICT(id) DO UPDATE SET business=$2,category=$3,bio=$4,zip=$5,rate=$6,available=$7,availability=$8,details=$9,service_radius_miles=$10,latitude=$11,longitude=$12,address=$13,place_id=$14",
       [
@@ -460,26 +471,15 @@ api.put("/profile", async (req, res) => {
         location.placeId,
       ],
     );
-    if (material) {
-      // A listed business stays visible while its edits are re-reviewed;
-      // unlisted ones return to draft and resubmit manually.
-      const relist =
-        !!existing &&
-        (existing.listed || existing.review_status === "approved");
-      await c.query(
-        relist
-          ? "UPDATE profiles SET review_status='pending',review_note=NULL,submitted_at=now(),reviewed_at=NULL,reviewed_by=NULL WHERE id=$1"
-          : "UPDATE profiles SET review_status='draft',review_note=NULL,submitted_at=NULL,reviewed_at=NULL,reviewed_by=NULL WHERE id=$1",
-        [q.account.id],
+    await publishContact(c, q.account.id);
+    const business = material && (await requeueReview(c, q.account.id));
+    if (business)
+      await notifyAdministrators(
+        c,
+        "Listed business profile updated",
+        business +
+          " changed its live listing. Review the updates in the administrator console.",
       );
-      if (relist)
-        await notifyAdministrators(
-          c,
-          "Listed business profile updated",
-          p.business +
-            " changed its live listing. Review the updates in the administrator console.",
-        );
-    }
   });
   res.json({ ok: true });
 });
@@ -499,6 +499,8 @@ api.post("/profile/submit-review", async (req, res) => {
       fail(409, "Add your business logo and advertising image before review.");
     if (profile.review_status === "pending")
       fail(409, "Your business profile is already under review.");
+    if (profile.review_status === "approved")
+      fail(409, "Your business profile is already approved.");
     await c.query(
       "UPDATE profiles SET review_status='pending',review_note=NULL,submitted_at=now() WHERE id=$1",
       [q.account.id],
@@ -1030,16 +1032,21 @@ api.use("/admin", adminConsole);
 api.use("/admin/support", supportRouter(true));
 api.post("/admin/profiles/:id", async (req, res) => {
   const q = req as AuthRequest;
-  const { suspended } = z
-    .object({ suspended: z.boolean() })
+  const { suspended, note } = z
+    .object({
+      suspended: z.boolean(),
+      note: z.string().trim().max(2000).default(""),
+    })
     .strict()
     .parse(q.body);
+  if (suspended && note.length < 10)
+    fail(400, "Explain why this business is being suspended.");
   await transaction(async (c) => {
     if (
       !(
         await c.query(
-          "UPDATE profiles SET suspended=$2 WHERE id=$1 RETURNING id",
-          [q.params.id, suspended],
+          "UPDATE profiles SET suspended=$2,suspension_note=CASE WHEN $2 THEN $3 END WHERE id=$1 RETURNING id",
+          [q.params.id, suspended, note],
         )
       ).rowCount
     )
@@ -1054,7 +1061,7 @@ api.post("/admin/profiles/:id", async (req, res) => {
       c,
       String(q.params.id),
       suspended ? "Business profile suspended" : "Business profile restored",
-      "Open your business profile or contact support for help.",
+      suspended ? note : "Your business profile has marketplace access again.",
       { page: "profile" },
     );
   });
@@ -1066,24 +1073,14 @@ api.post("/admin/profiles/:id/review", async (req, res) => {
     .object({
       status: z.enum(["approved", "changes_requested", "rejected"]),
       note: z.string().trim().max(2000),
+      submittedAt: z.string().datetime(),
     })
     .strict()
     .parse(q.body);
   if (decision.status !== "approved" && decision.note.length < 10)
     fail(400, "Explain what the professional needs to change.");
   await transaction(async (c) => {
-    await c.query("SELECT id FROM profiles WHERE id=$1 FOR UPDATE", [
-      q.params.id,
-    ]);
-    if (decision.status !== "changes_requested")
-      await releasePublication(c, String(q.params.id));
-    const profile = (
-      await c.query(
-        "UPDATE profiles SET review_status=$2,listed=($2='approved' OR ($2='changes_requested' AND published_profile IS NOT NULL)),review_note=NULLIF($3,''),reviewed_at=now(),reviewed_by=$4 WHERE id=$1 AND review_status='pending' RETURNING business",
-        [q.params.id, decision.status, decision.note, q.account.id],
-      )
-    ).rows[0];
-    if (!profile) fail(409, "This profile is not awaiting review.");
+    await decideReview(c, String(q.params.id), decision, q.account.id);
     await audit(
       c,
       q.account.id,

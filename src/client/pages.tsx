@@ -78,6 +78,7 @@ export function Pages() {
           "payments",
           "earnings",
           "availability",
+          "reviews",
         ].includes(page) && <BusinessNavigation />}
       <PageContent />
     </>

@@ -1954,54 +1954,7 @@ blockquote {
   white-space: nowrap;
   text-align: right;
 }
-.preference-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 10px;
-}
-.preference-grid > label {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 14px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  color: var(--ink);
-}
-.preference-grid input,
-.weekly-hours input[type="checkbox"] {
-  width: auto;
-}
-.preference-location {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: var(--muted);
-  line-height: 1.6;
-}
-.weekly-hours {
-  display: grid;
-  gap: 10px;
-  margin: 15px 0 24px;
-}
-.weekly-hours-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 15px;
-  align-items: center;
-  background: var(--canvas);
-  padding: 12px;
-  border-radius: 10px;
-}
-.weekly-hours-row > label:first-child {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.weekly-hours-row label {
-  display: grid;
-  gap: 5px;
-}
+
 .published-hours {
   margin: 20px 0;
   padding: 16px;
@@ -2031,16 +1984,6 @@ blockquote {
 }
 .availability-list dd {
   margin: 0;
-}
-@media (max-width: 600px) {
-  .weekly-hours-row {
-    grid-template-columns: 70px 1fr 1fr;
-    gap: 8px;
-  }
-  .weekly-hours-row input[type="time"] {
-    min-width: 0;
-    padding: 8px 3px;
-  }
 }
 
 .project-state-note {
@@ -2590,70 +2533,7 @@ blockquote {
   margin: 24px 0;
   min-width: 0;
 }
-.professional-setup {
-  margin: 0 0 26px;
-}
-.professional-setup ol {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-.setup-link {
-  display: flex;
-  width: 100%;
-  height: 100%;
-  text-align: left;
-  justify-content: flex-start;
-  gap: 12px;
-  padding: 16px;
-  color: var(--ink);
-  background: #fff;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-}
-.setup-link.current {
-  border-color: var(--blue);
-  box-shadow: inset 0 0 0 1px var(--blue);
-  background: var(--canvas);
-}
-.setup-link-icon {
-  display: grid;
-  place-items: center;
-  flex: 0 0 36px;
-  height: 36px;
-  background: var(--canvas);
-  border-radius: 10px;
-}
-.setup-link.complete .setup-link-icon {
-  background: var(--brand-soft);
-  color: var(--blue);
-}
-.setup-link > span:nth-child(2) {
-  display: grid;
-  gap: 5px;
-  min-width: 0;
-}
-.setup-link small {
-  color: var(--muted);
-  font-size: var(--text-caption);
-  letter-spacing: 0.08em;
-}
-.setup-link strong {
-  font-size: var(--text-body);
-}
-.setup-link > span > span {
-  font-weight: 400;
-  font-size: var(--text-small);
-  color: var(--muted);
-}
-.setup-link-arrow {
-  display: none;
-  flex-shrink: 0;
-  margin-left: auto;
-}
+
 .membership-summary {
   display: flex;
   align-items: flex-start;
@@ -2707,10 +2587,7 @@ blockquote {
 .membership-layout .membership-card {
   padding: 18px;
 }
-.membership-current-plan {
-  font-size: 1.15rem;
-  color: var(--ink);
-}
+
 .membership-guide {
   padding: 26px;
   border: 1px solid var(--line);
@@ -2759,21 +2636,8 @@ blockquote {
   .membership-layout {
     grid-template-columns: 1fr;
   }
-  .professional-setup ol {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 }
 @media (max-width: 600px) {
-  .professional-setup ol {
-    grid-template-columns: 1fr;
-    gap: 8px;
-  }
-  .setup-link {
-    padding: 12px 16px;
-  }
-  .setup-link-arrow {
-    display: block;
-  }
   .membership-summary,
   .membership-guide {
     padding: 20px;
@@ -2859,61 +2723,6 @@ blockquote {
 @media (max-width: 1000px) {
   .membership-grid {
     grid-template-columns: 1fr;
-  }
-}
-/* One destination for professional account management and direct support. */
-.business-account-navigation {
-  padding: 24px;
-  background: #fff;
-  border: 1px solid var(--brand-soft);
-  border-radius: 16px;
-  margin-bottom: 26px;
-}
-.business-account-navigation h2 {
-  margin: 8px 0;
-  font-size: 23px;
-  letter-spacing: -0.5px;
-  color: var(--ink);
-}
-.business-account-navigation p {
-  color: var(--muted);
-  margin: 6px 0 18px;
-  font-size: var(--text-body);
-}
-.business-account-navigation .eyebrow {
-  color: var(--blue);
-  font-size: var(--text-caption);
-  font-weight: 750;
-  letter-spacing: 0.12em;
-  margin: 0;
-}
-.business-account-navigation nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 9px;
-}
-.business-account-navigation button {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: var(--canvas);
-  border: 1px solid var(--brand-soft);
-  color: var(--ink);
-  padding: 11px 14px;
-  font-size: var(--text-small);
-}
-.business-account-navigation button[aria-current] {
-  background: var(--blue);
-  color: #fff;
-  border-color: var(--blue);
-}
-@media (max-width: 600px) {
-  .business-account-navigation {
-    padding: 18px;
-  }
-  .business-account-navigation button {
-    font-size: var(--text-small);
-    padding: 10px;
   }
 }
 

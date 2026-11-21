@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { EmailAlerts } from "./email-alerts.js";
+import { ListingChanges } from "./listing-changes.js";
 import {
   LayoutDashboard,
   Users,
@@ -811,6 +812,7 @@ function UserDetail({
     revision,
   );
   const [note, setNote] = useState(""),
+    [reason, setReason] = useState(""),
     [tab, setTab] = useState(initialTab);
   useEffect(() => {
     if (
@@ -831,6 +833,7 @@ function UserDetail({
       await request("/profiles/" + encodeURIComponent(id) + "/review", {
         status,
         note,
+        submittedAt: v?.profile?.submittedAt,
       });
       go("professionals");
     });
@@ -983,8 +986,20 @@ function UserDetail({
                       submittedAt: v.profile.submittedAt,
                       reviewedAt: v.profile.reviewedAt,
                       reviewNote: v.profile.reviewNote,
+                      ...(v.profile.suspended && {
+                        suspensionReason: v.profile.suspensionNote,
+                      }),
                     }}
                   />
+                  {v.published && (
+                    <>
+                      <h3>Changes since the approved listing</h3>
+                      <ListingChanges
+                        published={v.published}
+                        profile={v.profile}
+                      />
+                    </>
+                  )}
                   {v.profile.listed && v.profile.reviewStatus === "pending" && (
                     <p className="admin-banner">
                       This previously approved listing remains live while its
@@ -1006,7 +1021,12 @@ function UserDetail({
                         {[
                           ["approved", "Approve listing"],
                           ["changes_requested", "Request changes"],
-                          ["rejected", "Reject listing"],
+                          [
+                            "rejected",
+                            v.profile!.listed
+                              ? "Reject and unlist"
+                              : "Reject listing",
+                          ],
                         ].map(([status, label]) => (
                           <button
                             disabled={
@@ -1022,13 +1042,28 @@ function UserDetail({
                       </div>
                     </>
                   )}
+                  {!v.profile.suspended && (
+                    <label>
+                      Suspension reason
+                      <textarea
+                        value={reason}
+                        onChange={(e) => setReason(e.target.value)}
+                        maxLength={2000}
+                        placeholder="Shown to the professional (at least 10 characters)."
+                      />
+                    </label>
+                  )}
                   <button
                     className="admin-danger"
-                    disabled={busy}
+                    disabled={
+                      busy ||
+                      (!v.profile.suspended && reason.trim().length < 10)
+                    }
                     onClick={() =>
                       void run(async () => {
                         await request("/profiles/" + encodeURIComponent(id), {
                           suspended: !v.profile!.suspended,
+                          note: v.profile!.suspended ? "" : reason,
                         });
                         go("professionals");
                       })
