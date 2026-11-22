@@ -30,9 +30,8 @@ export function IntakeAccountNotice({ onSignOut }: { onSignOut: () => void }) {
         Use a customer account to post your project
       </h2>
       <p id="intake-account-description">
-        You signed in with a professional account. Your unfinished project is
-        still saved in this browser tab, including your answers and selected
-        photos.
+        You signed in with a professional account. Your project is still saved
+        in this browser tab.
       </p>
       <p>
         Sign out, then sign in or create a customer account to review and

@@ -155,11 +155,6 @@ export function ProjectPhotos({
             {editing ? "Project photos" : "3. Add photos"}{" "}
             <small>(optional)</small>
           </h3>
-          <p>
-            {editing
-              ? "View, replace, remove or add photos. Changes apply when you save."
-              : "Preview, replace or remove photos before publishing."}
-          </p>
         </div>
         <strong aria-live="polite">
           {count} / {MAX_PROJECT_IMAGES}
@@ -197,7 +192,7 @@ export function ProjectPhotos({
       </div>
       <p className="project-photo-publish-note">
         {editing
-          ? "Your existing photos stay unchanged until Save changes succeeds."
+          ? "Photo changes apply when you save."
           : "Photos upload when you publish your project."}
       </p>
       {error && (

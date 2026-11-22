@@ -46,8 +46,7 @@ export function BusinessProfile() {
       )}
       {!p && (
         <p className="business-tip">
-          First save your basic details. Then add your logo, advertising image,
-          and schedule.
+          Save your basic details first, then add your images and schedule.
         </p>
       )}
       {p && tab !== "setup" && tab !== "preview" && (
@@ -100,16 +99,13 @@ export function BusinessProfile() {
               p?.images?.map((image) => image.slot) || [],
             ) && (
               <p className="business-tip">
-                Add your logo and advertising image in the images tab before
-                submitting for review.
+                Add your logo and advertising image before submitting for
+                review.
               </p>
             )}
             <p>
-              Aplime reviews your saved business details after identity
-              verification. Once you are approved, your listing stays live while
-              later edits are re-checked. If you edit while a review is in
-              progress, the latest version is the one reviewed. Phone, email and
-              website updates go live right away.
+              Aplime reviews your saved details after identity verification.
+              Phone, email and website updates go live right away.
             </p>
             <button
               disabled={
@@ -266,10 +262,7 @@ export function BusinessProfile() {
               />
             </Field>
             <div className="business-save">
-              <p>
-                Manage your images and portfolio above. Work hours are in
-                Services & hours.
-              </p>
+              <p>Work hours are in Services & hours.</p>
               <button>{busy ? "Saving…" : "Save business details"}</button>
             </div>
           </Form>

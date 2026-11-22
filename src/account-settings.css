@@ -110,6 +110,39 @@
   font-weight: 700;
   white-space: nowrap;
 }
+.settings-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 16px;
+}
+.settings-facts {
+  display: grid;
+  grid-template-columns: 1fr;
+  margin: 4px 0 20px;
+  border-top: 1px solid var(--line);
+}
+.settings-facts > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.settings-facts dt {
+  color: var(--muted);
+}
+.settings-facts dd {
+  margin: 0;
+  font-weight: 600;
+}
+.settings-notes {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 16px;
+  padding-left: 20px;
+  color: var(--muted);
+  font-size: var(--text-small);
+}
 .settings-hint,
 .settings-empty {
   color: var(--muted);
@@ -212,6 +245,9 @@
   .settings-nav > p,
   .settings-nav ul:last-child {
     display: none;
+  }
+  .settings-pair {
+    grid-template-columns: minmax(0, 1fr);
   }
   .settings-identity {
     flex-wrap: wrap;

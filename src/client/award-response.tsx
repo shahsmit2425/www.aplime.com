@@ -28,9 +28,7 @@ export function AwardResponse({
         <p>
           You selected {proName || "a professional"}
           {amount ? " at " + money(amount) : ""}. Work cannot start until they
-          confirm. Your other estimates stay on hold meanwhile. We send a
-          reminder after 24 hours; you can withdraw your selection at any time
-          before confirmation.
+          confirm; your other estimates stay on hold.
         </p>
         <button
           disabled={busy}
@@ -51,8 +49,6 @@ export function AwardResponse({
     <Panel title="You were selected for this job">
       <p>
         The customer chose your estimate{amount ? " of " + money(amount) : ""}.
-        Confirm that you can take the job, or decline so they can choose someone
-        else.
       </p>
       {declining ? (
         <>

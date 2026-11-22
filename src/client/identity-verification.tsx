@@ -53,7 +53,7 @@ export function IdentityVerification() {
         setCheckError(
           error instanceof ApiError
             ? error.message
-            : "We could not check verification right now. Refresh the status or contact support if this continues.",
+            : "We could not check verification. Refresh the status or contact support.",
         );
     } finally {
       pending.current = false;
@@ -137,7 +137,7 @@ export function IdentityVerification() {
         }
         go("verification", "return");
         setFeedback(
-          "Your verification session has finished. We’re checking its status; approval appears after Stripe confirms the result.",
+          "Verification finished. Approval appears after Stripe confirms the result.",
         );
         await refresh();
       } catch (e) {
@@ -185,19 +185,19 @@ export function IdentityVerification() {
           </h2>
           <p>
             {confirmed
-              ? "Stripe has confirmed the account holder’s identity. You can continue your business profile review and membership setup."
+              ? "Stripe has confirmed the account holder’s identity."
               : processing
                 ? verification?.awaitingConfirmation
-                  ? "Stripe has finished the check. We’re waiting for its secure confirmation before updating your profile."
-                  : "Your documents are being reviewed. You can leave this page; we’ll notify you when the result arrives."
+                  ? "Stripe has finished the check. We’re waiting for its confirmation."
+                  : "You can leave this page; we’ll notify you when the result arrives."
                 : status === "canceled"
-                  ? "The previous verification was canceled. Start a new secure session when you’re ready."
-                  : "Have your government-issued ID ready. Stripe will guide you through a document photo and a matching selfie."}
+                  ? "Start a new secure session when you’re ready."
+                  : "Have your government-issued ID ready for a document photo and a matching selfie."}
           </p>
           {id === "return" && !confirmed && (
             <p className="business-tip">
-              Welcome back. Returning from Stripe does not confirm approval.
-              Your current result is shown here.
+              Returning from Stripe does not confirm approval. Your current
+              result is shown here.
             </p>
           )}
           {verification?.message && !confirmed && (
@@ -294,7 +294,7 @@ export function IdentityVerification() {
               <strong>A valid photo ID</strong>
               <p>
                 Use an unexpired passport, driver’s license or another document
-                accepted in the Stripe flow.
+                Stripe accepts.
               </p>
             </span>
           </div>
@@ -302,10 +302,7 @@ export function IdentityVerification() {
             <Camera size={24} />
             <span>
               <strong>A clear photo and selfie</strong>
-              <p>
-                Use good lighting. Keep the full document visible and make sure
-                your camera is available.
-              </p>
+              <p>Use good lighting and keep the full document visible.</p>
             </span>
           </div>
           <div>
@@ -313,14 +310,14 @@ export function IdentityVerification() {
             <span>
               <strong>Handled securely by Stripe</strong>
               <p>
-                Your ID and selfie go directly to Stripe. Aplime does not store
-                them in business image storage.
+                Your ID and selfie go directly to Stripe, not into Aplime’s
+                business image storage.
               </p>
             </span>
           </div>
           <p className="identity-scope">
             This checks the account holder’s identity. Business review,
-            licenses, insurance and your Aplime subscription are separate.
+            licenses, insurance and membership are separate.
           </p>
           <div className="identity-help-links">
             <a

@@ -120,10 +120,7 @@ export default function WebsiteFeedback() {
               }
             }}
           >
-            <p>
-              No account needed. Tell us what works well or what we can improve.
-              For help with a project, use Support.
-            </p>
+            <p>No account needed. For help with a project, use Support.</p>
             <fieldset disabled={busy}>
               <label>
                 Feedback type
@@ -145,8 +142,8 @@ export default function WebsiteFeedback() {
                 />
               </label>
               <small id="feedback-help">
-                10–2,000 characters. Please don’t include passwords, payment
-                details or private project information.
+                10–2,000 characters. Don’t include passwords, payment details or
+                private project information.
               </small>
               <label>
                 Email (optional)
@@ -158,8 +155,8 @@ export default function WebsiteFeedback() {
                 />
               </label>
               <small>
-                Leave an email if you’d like us to be able to follow up. We also
-                record the general page category.
+                Only if you’d like a follow-up. We also record the general page
+                category.
               </small>
               <label className="feedback-bot-trap" aria-hidden="true">
                 Website

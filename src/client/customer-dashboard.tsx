@@ -55,7 +55,7 @@ export function CustomerDashboard() {
                 ? draft.payload.category + " · "
                 : ""}
               Saved {new Date(draft.updatedAt).toLocaleString()}. Only you can
-              see this draft.
+              see it.
             </p>
           </div>
           <div className="actions">

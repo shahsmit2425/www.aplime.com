@@ -217,14 +217,13 @@ function ReviewComposer({
                     </span>
                   </label>
                   <p className="muted">
-                    Your full name, address and contact details are never shown
-                    with a review.
+                    Your full name, address and contact details are never shown.
                   </p>
                 </fieldset>
               ) : (
                 <p className="muted">
-                  Your review will be signed “Aplime customer”. Your name,
-                  address and contact details are never shown.
+                  Signed “Aplime customer”. Your name, address and contact
+                  details are never shown.
                 </p>
               )}
               <div className="actions">
@@ -258,8 +257,8 @@ function ReviewComposer({
               <ReviewPhotoEditor projectId={p.id} />
             </ReviewCard>
             <p className="review-submit-notice">
-              <Lock size={16} /> Reviews are final. After publishing, your
-              rating, text, photos and
+              <Lock size={16} /> Reviews are final. Your rating, text, photos
+              and
               {signature ? ` signature (${signature})` : " signature"} can’t be
               edited or removed.
             </p>
@@ -312,10 +311,7 @@ function CustomerReviews() {
   const writing = ready.find((p) => p.id === id);
   return (
     <>
-      <Head title="Reviews">
-        Share how your completed projects went. Honest reviews help other
-        customers choose with confidence.
-      </Head>
+      <Head title="Reviews">Share how your completed projects went.</Head>
       {!!ready.length && (
         <section className="review-section" aria-labelledby="review-ready">
           <h2 id="review-ready">
@@ -379,7 +375,7 @@ function CustomerReviews() {
           <Empty title="No reviews yet.">
             {ready.length
               ? "Your published reviews will appear here."
-              : "You can review a professional here after your project with them is completed."}
+              : "You can review a professional once your project is completed."}
           </Empty>
         )}
       </section>
@@ -448,8 +444,8 @@ function ResponseComposer({ review }: { review: Review }) {
           <span>{text.length}/1500</span>
         </div>
         <p className="review-submit-notice">
-          <Lock size={16} /> You can post one response per review. It appears
-          publicly under the review and can’t be edited or removed afterwards.
+          <Lock size={16} /> One response per review. It’s public and can’t be
+          edited or removed.
         </p>
         <div className="actions">
           <button disabled={!text.trim()}>Publish response</button>
@@ -535,8 +531,7 @@ function ProfessionalReviews() {
         </>
       ) : (
         <Empty title="No reviews yet.">
-          Customers can review you after a project with you is completed on
-          Aplime. Reviews then appear here and on your public profile.
+          Customers can review you once a project is completed on Aplime.
         </Empty>
       )}
       <ReviewRules />
@@ -573,8 +568,8 @@ export function ProjectOutcome({ project: p }: { project: Project }) {
         <div>
           <h2>Project cancelled</h2>
           <p>
-            This project is closed and its details can no longer be edited. Your
-            messages and records stay available.
+            Details can no longer be edited. Your messages and records stay
+            available.
           </p>
         </div>
       </section>
@@ -590,12 +585,12 @@ export function ProjectOutcome({ project: p }: { project: Project }) {
             ? review
               ? `Thank you for reviewing ${details.business(p)}.`
               : p.proId
-                ? `How did it go with ${details.business(p)}? Your review helps other customers choose.`
+                ? `How did it go with ${details.business(p)}?`
                 : ""
             : review
               ? "The customer reviewed this project."
-              : "The customer can now leave a review. You’ll be notified when they do."}{" "}
-          The project details are final and can no longer be edited.
+              : "The customer can now leave a review."}{" "}
+          Project details can no longer be edited.
         </p>
       </div>
       {review ? (

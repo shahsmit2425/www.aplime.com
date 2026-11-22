@@ -608,7 +608,7 @@ export default function Workspace() {
           <p>
             <T>
               {sessionDelayed
-                ? "Check your internet connection and try again. Your saved account and projects will not be removed."
+                ? "Check your connection and try again."
                 : "Checking your secure session."}
             </T>
           </p>
@@ -661,7 +661,7 @@ export default function Workspace() {
     const [title, lead] = needsAccount
       ? ["One last step", "Confirm your name and how you’ll use Aplime."]
       : unverified
-        ? ["Check your inbox", ""]
+        ? ["Verify your email to sign in", ""]
         : firebaseUser
           ? ["We couldn’t load your account", ""]
           : mode === "register"
@@ -683,11 +683,7 @@ export default function Workspace() {
                   <T>{"Your project is ready."}</T>
                 </strong>
                 <p>
-                  <T>
-                    {
-                      "Sign in to review and publish it. Your answers and photos are saved in this tab."
-                    }
-                  </T>{" "}
+                  <T>{"Sign in to review and publish it."}</T>{" "}
                 </p>
                 <button
                   className="text-button"
@@ -704,7 +700,7 @@ export default function Workspace() {
             )}
             <h1>{title}</h1>
             {lead && <p className="auth-lead">{lead}</p>}
-            {(mode === "register" || unverified || needsAccount) && (
+            {(mode === "register" || needsAccount) && (
               <ol className="auth-steps" aria-label="Registration progress">
                 <li
                   className={
@@ -741,8 +737,7 @@ export default function Workspace() {
               <div className="auth-actions">
                 <p>
                   <T>{"We sent a verification link to"}</T>{" "}
-                  <strong>{firebaseUser.email}</strong>. Open it and we’ll
-                  continue automatically, or confirm below.
+                  <strong>{firebaseUser.email}</strong>. Open it to continue.
                 </p>
                 <button
                   disabled={busy}
@@ -751,7 +746,7 @@ export default function Workspace() {
                       const verified = await checkVerification();
                       if (!verified)
                         setNotice(
-                          "Not verified yet. Open the latest email link, then try again. Check your spam folder too.",
+                          "Not verified yet. Open the latest email link or check spam.",
                         );
                     }, "")
                   }
@@ -833,7 +828,7 @@ export default function Workspace() {
                 </fieldset>
                 <p className="auth-note">
                   {signupRole === "pro" &&
-                    "Professionals complete a business profile and identity verification before their listing appears. "}
+                    "Listings need a business profile and identity verification. "}
                   <T>{"The account type can’t be changed later."}</T>
                 </p>
                 <button>

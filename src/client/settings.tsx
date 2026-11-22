@@ -5,7 +5,6 @@ import {
   BriefcaseBusiness,
   CalendarClock,
   CreditCard,
-  Database,
   LifeBuoy,
   LockKeyhole,
   ShieldCheck,
@@ -18,19 +17,13 @@ import { usesPassword } from "./auth.js";
 import { PushSettings } from "./push.js";
 import { Field, Form, Head, Panel } from "./ui.js";
 import { useWorkspace } from "./workspace.js";
-import {
-  AccountClosure,
-  DataExport,
-  PasswordForm,
-  Sessions,
-} from "./account-data.js";
+import { AccountClosure, PasswordForm, Sessions } from "./account-data.js";
 
 const sections = [
   { id: "account", label: "Account", Icon: UserRound },
   { id: "notifications", label: "Notifications", Icon: Bell },
   { id: "privacy", label: "Privacy", Icon: ShieldCheck },
   { id: "security", label: "Sign-in & security", Icon: LockKeyhole },
-  { id: "data", label: "Data & account", Icon: Database },
 ] as const;
 type Section = (typeof sections)[number]["id"];
 type Categories = Record<keyof typeof emailCategories, boolean>;
@@ -106,9 +99,7 @@ export function Settings() {
   ];
   return (
     <>
-      <Head title={<T>{"Settings"}</T>}>
-        Manage your account, notifications, privacy and security.
-      </Head>
+      <Head title={<T>{"Settings"}</T>} />
       <div className="settings">
         <nav className="settings-nav" aria-label="Settings sections">
           <ul>
@@ -140,61 +131,63 @@ export function Settings() {
         </nav>
         <div className="settings-body">
           {section === "account" && (
-            <Panel title="Account">
-              <div className="settings-identity">
-                <span aria-hidden="true">
-                  {data.user.name.trim().charAt(0).toUpperCase() || "?"}
-                </span>
-                <div>
-                  <strong>{data.user.name}</strong>
-                  <small>{data.user.email}</small>
+            <>
+              <Panel title="Account">
+                <div className="settings-identity">
+                  <span aria-hidden="true">
+                    {data.user.name.trim().charAt(0).toUpperCase() || "?"}
+                  </span>
+                  <div>
+                    <strong>{data.user.name}</strong>
+                    <small>{data.user.email}</small>
+                  </div>
+                  <em>{pro ? "Professional account" : "Customer account"}</em>
                 </div>
-                <em>{pro ? "Professional account" : "Customer account"}</em>
-              </div>
-              <Form
-                busy={busy}
-                onSubmit={(f) =>
-                  save(String(f.get("name") || ""), "Account details saved.")
-                }
-              >
-                <Field label="Your name">
-                  <input
-                    name="name"
-                    defaultValue={data.user.name}
-                    maxLength={80}
-                    autoComplete="name"
-                    required
-                  />
-                </Field>
-                <Field label="Email">
-                  <input value={data.user.email} disabled />
-                </Field>
-                <p className="settings-hint">
-                  You sign in with{" "}
-                  {usesPassword() ? "this email and a password" : "Google"}.
-                  Your email address cannot be changed here.
-                  {pro &&
-                    " The name customers see for your business is set in Business profile."}
-                </p>
-                <button>Save account details</button>
-              </Form>
-            </Panel>
+                <Form
+                  busy={busy}
+                  onSubmit={(f) =>
+                    save(String(f.get("name") || ""), "Account details saved.")
+                  }
+                >
+                  <div className="settings-pair">
+                    <Field label="Your name">
+                      <input
+                        name="name"
+                        defaultValue={data.user.name}
+                        maxLength={80}
+                        autoComplete="name"
+                        required
+                      />
+                    </Field>
+                    <Field label="Email">
+                      <input value={data.user.email} disabled />
+                    </Field>
+                  </div>
+                  <dl className="settings-facts">
+                    <div>
+                      <dt>Sign-in method</dt>
+                      <dd>
+                        {usesPassword() ? "Email and password" : "Google"}
+                      </dd>
+                    </div>
+                  </dl>
+                  <button>Save changes</button>
+                </Form>
+              </Panel>
+              <AccountClosure />
+            </>
           )}
           {section === "notifications" && (
             <>
               <PushSettings />
               <Panel title="Email notifications">
-                <p>
-                  Choose which updates Aplime also sends to {data.user.email}.
-                  In-app notifications stay available either way.
-                </p>
                 <Toggle
                   title="Email alerts"
                   checked={alerts}
                   onChange={setAlerts}
                   disabled={busy}
                 >
-                  Turn off to stop every optional email below.
+                  Sent to {data.user.email}
                 </Toggle>
                 <div className="settings-toggles">
                   {categoryKeys
@@ -214,7 +207,7 @@ export function Settings() {
                 <p className="settings-hint">
                   <T>
                     {
-                      "Essential security, billing, account restrictions and direct Aplime support messages may still be sent. In-app notifications stay available."
+                      "Essential account, security, billing and support emails are still sent."
                     }
                   </T>
                 </p>
@@ -231,10 +224,6 @@ export function Settings() {
           )}
           {section === "privacy" && (
             <Panel title="Blocked conversations">
-              <p>
-                You and someone you have blocked cannot message each other.
-                Unblock them to allow messages again.
-              </p>
               {data.blocked.length ? (
                 data.blocked.map((id) => (
                   <div className="payment-row" key={id}>
@@ -266,12 +255,6 @@ export function Settings() {
             <>
               <PasswordForm />
               <Sessions />
-            </>
-          )}
-          {section === "data" && (
-            <>
-              <DataExport />
-              <AccountClosure />
             </>
           )}
         </div>

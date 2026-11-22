@@ -190,14 +190,14 @@ export function ReviewRules() {
       <ul>
         <li>
           <T>
-            Only customers with a completed Aplime project can leave a review —
-            one review per project.
+            Only customers with a completed Aplime project can review — once per
+            project.
           </T>
         </li>
         <li>
           <T>
-            Reviews are final once published. A business can’t edit or remove a
-            review; it can post one public response.
+            Published reviews are final. A business can’t edit or remove one,
+            but can post one public response.
           </T>
         </li>
         <li>
@@ -306,10 +306,7 @@ export function BusinessReviews({
       )}
       {page?.total === 0 && (
         <p className="review-none">
-          <T>
-            No customer reviews yet. Reviews appear here after a customer
-            completes a project with this business on Aplime.
-          </T>
+          <T>No customer reviews yet.</T>
         </p>
       )}
       {loading && !page && (

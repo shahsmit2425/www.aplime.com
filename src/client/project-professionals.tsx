@@ -43,11 +43,11 @@ function EstimateSheet({
   const note = expired
     ? `This estimate has expired. Ask ${business} for an updated one.`
     : pending && !open
-      ? "On hold. Estimates can only be accepted while the project is still collecting them."
+      ? "On hold. This project is not collecting estimates now."
       : acceptable
-        ? `Accepting asks ${business} to confirm the job. Your other estimates stay on hold until they do.`
+        ? `Accepting asks ${business} to confirm the job. Other estimates stay on hold meanwhile.`
         : pending
-          ? `${business} needs to assess the job before giving a price, so there is nothing to accept yet. They can send a priced estimate afterwards.`
+          ? `${business} needs to assess the job before giving a price. Nothing to accept yet.`
           : q.status === "accepted"
             ? "You selected this estimate."
             : q.status === "declined"
@@ -121,7 +121,7 @@ function EstimateSheet({
                       quoteId: q.id,
                       revision: q.revision,
                     }),
-                  "Estimate selected. The professional must confirm the job before work starts.",
+                  "Estimate selected. The professional must confirm before work starts.",
                   onDone,
                 )
               }
@@ -243,7 +243,7 @@ export function ProjectProfessionals({
               : !pro.canContact
                 ? "Not accepting new requests yet."
                 : open
-                  ? `${pro.business} has not sent an estimate yet. Chat to discuss this request.`
+                  ? `${pro.business} has not sent an estimate yet.`
                   : "No estimate was sent for this project."}
           </p>
           {pro.canContact && (
@@ -273,7 +273,7 @@ export function ProjectProfessionals({
           <p>
             {closedProject(p.status)
               ? "No professionals were involved in this project."
-              : "No matching professionals yet. New matches and estimates will appear here."}
+              : "No matching professionals yet."}
           </p>
         )}
         {pros.map((pro) => {
@@ -328,10 +328,7 @@ export function ProjectProfessionals({
             >
               <div className="professional-card-body">
                 <h2>{pro.business}</h2>
-                <p>
-                  This business profile is no longer available. Its estimates
-                  are retained below.
-                </p>
+                <p>This business profile is no longer available.</p>
                 {estimatesContent(pro)}
               </div>
             </article>

@@ -93,7 +93,7 @@ export function ProjectContact({
             <strong>Phone sharing: </strong>
             {contact.consentAt
               ? "Agreed — matching professionals may call or text about this project."
-              : "Not agreed — your number is private. Professionals can message you in Aplime."}
+              : "Not agreed — your number is private."}
             {canStop && contact.consentAt && (
               <>
                 {" "}
@@ -115,10 +115,7 @@ export function ProjectContact({
               onChange={changeSharing}
               disabled={busy}
             />
-            <small role="status">
-              Sharing preferences save immediately, independently of other
-              project changes.
-            </small>
+            <small role="status">Sharing changes save immediately.</small>
           </div>
         )
       ) : (

@@ -23,17 +23,14 @@ import { useWorkspace } from "./workspace.js";
 import { Panel, Form, Field } from "./ui.js";
 
 const descriptions = {
-  start: [
-    "Start work",
-    "Confirm that work has started. Both participants will receive an update.",
-  ],
+  start: ["Start work", "Both participants will receive an update."],
   complete: [
     "Request completion",
-    "Confirm you believe the work is finished. The other participant must confirm before the project is completed.",
+    "The other participant must confirm before the project is completed.",
   ],
   confirm_completion: [
     "Confirm completion",
-    "Confirm that the agreed work is finished. The customer can then leave a review.",
+    "The customer can then leave a review.",
   ],
   reject_completion: [
     "Request more work",
@@ -41,23 +38,23 @@ const descriptions = {
   ],
   pause: [
     "Pause project",
-    "Explain why you need to pause. New estimates and work actions stop. Existing conversations remain open, and confirmed appointment times stay reserved. Only you can resume this pause.",
+    "New estimates and work actions stop. Chats and confirmed appointments stay. Only you can resume.",
   ],
   resume: [
     "Resume project",
-    "Return to the previous project stage and notify the other participant. Check your appointment time before work resumes.",
+    "The other participant is notified. Check your appointment time before work resumes.",
   ],
   cancel: [
     "Cancel project",
-    "Before work starts, cancellation takes effect immediately. After work starts, the other participant must agree. Existing records are retained.",
+    "Immediate before work starts. After work starts, the other participant must agree.",
   ],
   delete: [
     "Remove project",
-    "Cancel this unassigned request and archive it from your list. Professionals involved in the project will be notified; conversation and support history remain available.",
+    "Cancels and archives this request. Professionals involved are notified; history is kept.",
   ],
   archive: [
     "Archive project",
-    "Mark this project as archived. It remains accessible from your dashboard; the other participant's records are unaffected.",
+    "It stays accessible from your dashboard. The other participant's records are unaffected.",
   ],
   restore: [
     "Restore to my list",
@@ -109,17 +106,16 @@ export function ProjectControls({
     (p.status === "paused" && p.pausedFrom === "in_progress");
   const outcomes: Partial<Record<ProjectAction["type"], string>> = {
     start: "Work started.",
-    complete:
-      "Completion requested. The other participant will be asked to confirm.",
+    complete: "Completion requested. Waiting for the other participant.",
     confirm_completion: "Project completed.",
     reject_completion: "Sent back for more work.",
     pause: "Project paused.",
     resume: "Project resumed.",
     cancel: underway
-      ? "Cancellation requested. The other participant must agree before the project closes."
+      ? "Cancellation requested. The other participant must agree."
       : "Project cancelled.",
     delete: underway
-      ? "Cancellation requested. The other participant must agree before the project closes."
+      ? "Cancellation requested. The other participant must agree."
       : "Project removed.",
     respond_cancellation: "Your response was sent.",
     withdraw_cancellation: "Cancellation request withdrawn.",
@@ -159,10 +155,7 @@ export function ProjectControls({
     <>
       <Panel title="Manage this project">
         {p.archived && (
-          <p className="project-state-note">
-            Archived for you. The other participant retains their project
-            record.
-          </p>
+          <p className="project-state-note">Archived for you only.</p>
         )}
         {p.status === "paused" && (
           <div className="project-state-note">
@@ -171,7 +164,7 @@ export function ProjectControls({
             <p>
               {p.pausedBy === data.user.id
                 ? "You can resume this project when ready."
-                : "The participant who paused this project must resume it. Use chat to agree on the next step, or contact support."}
+                : "Only the participant who paused it can resume. Use chat or contact support."}
             </p>
           </div>
         )}
@@ -181,7 +174,7 @@ export function ProjectControls({
             <p>
               {p.completionRequestedBy === data.user.id
                 ? "You requested completion. Waiting for the other participant."
-                : "Review the work, then confirm completion or explain what still needs attention."}
+                : "Review the work, then confirm or request more work."}
             </p>
             {allowed("confirm_completion") && (
               <div className="actions">
@@ -208,7 +201,6 @@ export function ProjectControls({
             <p>{p.cancellationReason}</p>
             <p>
               Other project actions are on hold while you agree on cancellation.
-              Chat and support remain available.
             </p>
             <div className="actions">
               {allowed("respond_cancellation") && (
@@ -316,10 +308,7 @@ export function ProjectControls({
             busy={busy}
             onClose={() => setCancellationAction(null)}
           >
-            <p>
-              Confirm your response to this cancellation request. The other
-              participant will be notified.
-            </p>
+            <p>The other participant will be notified.</p>
             <button
               disabled={busy}
               onClick={() => void submit(cancellationAction.body)}

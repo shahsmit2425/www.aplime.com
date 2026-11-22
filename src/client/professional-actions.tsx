@@ -169,8 +169,8 @@ function SavedProfessionalActions({ proId }: { proId: string }) {
           ) : (
             <>
               <p>
-                No available projects for this professional. View their profile
-                or post a project to get started.
+                No available projects for this professional. Post a project to
+                get started.
               </p>
               <button
                 onClick={() => {

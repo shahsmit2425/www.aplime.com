@@ -22,8 +22,8 @@ export function PortfolioPublication({
         {pending && (
           <p>
             {profile.reviewStatus === "pending"
-              ? "Your photo changes are awaiting review. Customers see your last approved portfolio until the changes are approved."
-              : "Your saved portfolio has unpublished changes. Complete marketplace review to show these changes to customers."}
+              ? "Customers see your last approved portfolio until your photo changes are approved."
+              : "Complete marketplace review to show your photo changes to customers."}
           </p>
         )}
       </div>

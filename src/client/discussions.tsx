@@ -254,7 +254,7 @@ export function Discussions({
                         if (
                           !blocked &&
                           !window.confirm(
-                            "Block this conversation? You can unblock it from this header. Your message history will remain available.",
+                            "Block this conversation? You can unblock it later. Your message history stays available.",
                           )
                         )
                           return;
@@ -506,10 +506,7 @@ function SuggestTimeDialog({
         <T>{"Suggest a time"}</T>
       </h2>
       {projectTitle && <p className="chat-schedule-project">{projectTitle}</p>}
-      <p>
-        Send a time to discuss a visit. Your appointment is confirmed separately
-        in the project.
-      </p>
+      <p>Your appointment is confirmed separately in the project.</p>
       <form
         onSubmit={(e) => {
           e.preventDefault();

@@ -179,8 +179,8 @@ export function BusinessDisplay({
                   <h2>{group.title}</h2>
                   {group.title.startsWith("Credentials") && (
                     <p className="muted">
-                      These details are reported by the business. Identity
-                      verification does not verify licensing or insurance.
+                      Reported by the business. Identity verification does not
+                      verify licensing or insurance.
                     </p>
                   )}
                   <dl className="business-detail-list">

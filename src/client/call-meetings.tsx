@@ -240,16 +240,14 @@ export function CallScheduler({
       )}
       {instant && (
         <p className="meeting-proposal">
-          Ask this professional to call now. They must accept first, and may be
-          unavailable. The 10-minute call starts when accepted. You can cancel
-          or choose a later time. For immediate danger, contact emergency
-          services.
+          The professional must accept first and may be unavailable. For
+          immediate danger, contact emergency services.
         </p>
       )}
       <p>
         A {CALL_MINUTES}-minute call. The other person confirms your request.{" "}
         {meeting?.status === "confirmed" &&
-          "Your current confirmed time stays reserved until a new time is accepted."}
+          "Your confirmed time stays reserved until a new one is accepted."}
       </p>
       {error && (
         <p role="alert" className="alert error">
@@ -286,8 +284,8 @@ export function CallScheduler({
       ) : !days.length && !instant ? (
         <div className="meeting-no-slots">
           <p>
-            No open call times in the next 21 days. Ask the professional to
-            update their work schedule or discuss another time in Messages.
+            No open call times in the next 21 days. Ask the professional about
+            another time in Messages.
           </p>
           <button
             type="button"
@@ -341,7 +339,7 @@ export function CallScheduler({
                 ) {
                   setStale(true);
                   setError(
-                    "This meeting changed. Close this window and review the latest meeting before proposing another time.",
+                    "This meeting changed. Review the latest meeting before proposing another time.",
                   );
                   changed();
                 } else {
@@ -592,8 +590,7 @@ export function CallMeetings({
               )}
               {active && proposalExpired && (
                 <p className="meeting-proposal">
-                  This proposed time has passed. The request stays open. Choose
-                  a new time or decline the proposal.
+                  This proposed time has passed. Choose a new time or decline.
                 </p>
               )}
               {m.note && <p>{m.note}</p>}

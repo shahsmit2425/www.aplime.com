@@ -1,5 +1,9 @@
 import { inProjectGroup } from "./project-hub.js";
-import { statuses, type Project } from "../shared/domain.js";
+import {
+  projectSorts,
+  sortProjects,
+  type ProjectSort,
+} from "../shared/project-sort.js";
 import { T } from "../shared/language.js";
 import { useState } from "react";
 import { quotePrice, quoteTiming } from "../shared/estimates.js";
@@ -18,33 +22,36 @@ import { SetupNotice } from "./setup-notice.js";
 
 export function ProDashboard() {
   const { data, go } = useWorkspace();
-  const [status, setStatus] = useState("");
-  const archived = status === "archived";
-  const matchesStatus = (p: Project) =>
-    archived ? !!p.archived : !p.archived && (!status || p.status === status);
+  const [sort, setSort] = useState<ProjectSort>("recent");
+  const estimates = data.quotes.filter((q) => q.proId === data.user.id);
   const assigned = [...new Map(data.projects.map((p) => [p.id, p])).values()];
   const projectIds = new Set(assigned.map((p) => p.id));
   const availableMatches = [
     ...new Map(data.leads.map((p) => [p.id, p])).values(),
   ].filter((p) => !projectIds.has(p.id));
-  const projects = assigned.filter(matchesStatus);
-  const active = projects
-    .filter((p) => inProjectGroup(p, "active"))
-    .sort(
-      (a, b) =>
-        Number(b.status === "booked" && b.awardAccepted === false) -
-        Number(a.status === "booked" && a.awardAccepted === false),
-    );
-  const groups = archived
-    ? [{ title: "Archived projects", projects }]
-    : [
-        { title: "Active projects", projects: active },
+  const byDate = sort === "recent" || sort === "oldest";
+  const ordered = (list: typeof assigned) =>
+    sortProjects(list, sort, estimates);
+  const projects = ordered(assigned.filter((p) => !p.archived));
+  // Date sorts keep the sections; a scenario sort is one list led by it.
+  const groups = byDate
+    ? [
+        {
+          title: "Active projects",
+          projects: projects
+            .filter((p) => inProjectGroup(p, "active"))
+            .sort(
+              (a, b) =>
+                Number(b.status === "booked" && b.awardAccepted === false) -
+                Number(a.status === "booked" && a.awardAccepted === false),
+            ),
+        },
         {
           title:
             data.discoveryMode === "open"
               ? "Available projects"
               : "Matched projects",
-          projects: availableMatches.filter(matchesStatus),
+          projects: ordered(availableMatches.filter((p) => !p.archived)),
         },
         {
           title: "Paused projects",
@@ -56,10 +63,20 @@ export function ProDashboard() {
             (p) => p.status === "completed" || p.status === "cancelled",
           ),
         },
+      ]
+    : [
+        {
+          title: "Projects",
+          // Archived projects only join the list when they lead it.
+          projects: ordered(
+            [...assigned, ...availableMatches].filter(
+              (p) => sort === "archived" || !p.archived,
+            ),
+          ),
+        },
       ];
   const total = groups.reduce((n, group) => n + group.projects.length, 0);
   const allProjects = [...data.projects, ...availableMatches];
-  const estimates = data.quotes.filter((q) => q.proId === data.user.id);
   return (
     <section className="pro-dashboard" aria-label="Professional dashboard">
       <Head
@@ -69,9 +86,7 @@ export function ProDashboard() {
             <SlidersHorizontal size={18} /> <T>{"Project preferences"}</T>{" "}
           </button>
         }
-      >
-        Your matches, jobs, and estimates in one place.
-      </Head>
+      />
       {!!data.discoveryRequirements?.length && (
         <SetupNotice
           requirements={data.discoveryRequirements}
@@ -116,23 +131,18 @@ export function ProDashboard() {
           </div>
         ))}
       </div>
-      <div className="pro-dashboard-filters" aria-label="Project filters">
+      <div className="pro-dashboard-filters" aria-label="Project sorting">
         <label>
-          Status
-          <select value={status} onChange={(e) => setStatus(e.target.value)}>
-            <option value="">All statuses</option>
-            {statuses.map((value) => (
+          Sort
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as ProjectSort)}
+          >
+            {projectSorts.map(([value, label]) => (
               <option key={value} value={value}>
-                {(
-                  {
-                    requested: "Open request",
-                    quoted: "Reviewing estimates",
-                    in_progress: "In progress",
-                  } as Record<string, string>
-                )[value] || value.charAt(0).toUpperCase() + value.slice(1)}
+                {label}
               </option>
             ))}
-            <option value="archived">Archived</option>
           </select>
         </label>
       </div>
@@ -172,15 +182,7 @@ export function ProDashboard() {
             </div>
           </section>
         ))}
-      {!total && (
-        <Empty
-          title={
-            status
-              ? "No projects with this status."
-              : "No current projects yet."
-          }
-        />
-      )}
+      {!total && <Empty title="No current projects yet." />}
       {estimates.length > 0 && (
         <details className="pro-estimate-history">
           <summary>
@@ -212,10 +214,7 @@ export function ProDashboard() {
                       Manage in project <ArrowUpRight size={16} />
                     </button>
                   ) : (
-                    <small>
-                      This project is no longer available. Your estimate is kept
-                      for your records.
-                    </small>
+                    <small>This project is no longer available.</small>
                   )}
                 </article>
               );

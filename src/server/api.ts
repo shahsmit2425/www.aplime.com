@@ -76,6 +76,7 @@ import {
   verifyToken,
   deleteFirebaseUser,
   revokeUserSessions,
+  requireEmailVerification,
 } from "./integrations/firebase.js";
 import { clearTokenCache } from "./token-cache.js";
 import {
@@ -390,6 +391,28 @@ api.post("/account/revoke-sessions", async (req, res) => {
       req.account.id,
       "All devices signed out",
       "You signed out of all devices. Sign in again to continue. If you did not request this, reset your password.",
+      { page: "settings" },
+    ),
+  );
+  res.json({ ok: true });
+});
+// After a password change every device is signed out, and the new password
+// only signs in once the emailed verification link has been opened.
+api.post("/account/password-changed", async (req, res) => {
+  assertRecentSignIn(req.identity.authTime);
+  await requireEmailVerification(req.account.id);
+  await revokeUserSessions(req.account.id);
+  await pool.query(
+    "UPDATE users SET sessions_revoked_at=to_timestamp($2) WHERE id=$1",
+    [req.account.id, Math.floor(Date.now() / 1000)],
+  );
+  clearTokenCache();
+  await transaction((c) =>
+    notify(
+      c,
+      req.account.id,
+      "Password changed",
+      "Your password was changed and all devices were signed out. Verify your email, then sign in with the new password. If this was not you, reset your password.",
       { page: "settings" },
     ),
   );

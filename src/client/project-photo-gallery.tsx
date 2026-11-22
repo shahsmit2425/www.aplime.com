@@ -1,6 +1,6 @@
 import { T } from "../shared/language.js";
 import { useEffect, useState, type ReactNode } from "react";
-import { Eye, ImageOff, RefreshCw } from "lucide-react";
+import { Eye, ImageOff, Maximize2, RefreshCw } from "lucide-react";
 import type { Upload } from "../shared/domain.js";
 import { request } from "./api.js";
 import { ImagePreview } from "./image-preview.js";
@@ -8,10 +8,13 @@ export function SavedPhoto({
   file,
   onView,
   tools,
+  compact,
 }: {
   file: Upload;
   onView: (image: { url: string; name: string }) => void;
   tools?: ReactNode;
+  // Image-only tile: no file name, size or separate view button.
+  compact?: boolean;
 }) {
   const [url, setUrl] = useState(""),
     [error, setError] = useState(""),
@@ -44,7 +47,7 @@ export function SavedPhoto({
     }
   };
   return (
-    <figure className="project-saved-photo">
+    <figure className={"project-saved-photo" + (compact ? " compact" : "")}>
       <button
         type="button"
         className="project-photo-thumbnail"
@@ -58,20 +61,29 @@ export function SavedPhoto({
             Photo unavailable
           </span>
         ) : url ? (
-          <img
-            src={url}
-            alt={file.name}
-            loading="lazy"
-            onError={() => setError("This photo could not be loaded.")}
-          />
+          <>
+            <img
+              src={url}
+              alt={file.name}
+              loading="lazy"
+              onError={() => setError("This photo could not be loaded.")}
+            />
+            {compact && (
+              <i aria-hidden="true">
+                <Maximize2 size={16} />
+              </i>
+            )}
+          </>
         ) : (
           <span role="status">Loading photo…</span>
         )}
       </button>
-      <figcaption>
-        <strong title={file.name}>{file.name}</strong>
-        <small>{(file.size / 1024 / 1024).toFixed(2)} MB</small>
-      </figcaption>
+      {!compact && (
+        <figcaption>
+          <strong title={file.name}>{file.name}</strong>
+          <small>{(file.size / 1024 / 1024).toFixed(2)} MB</small>
+        </figcaption>
+      )}
       {error ? (
         <>
           <p role="status">{error}</p>
@@ -85,23 +97,38 @@ export function SavedPhoto({
           </button>
         </>
       ) : (
-        <button
-          type="button"
-          className="secondary"
-          disabled={!url || opening}
-          onClick={() => void view()}
-        >
-          <Eye size={14} />
-          {opening ? "Opening…" : "View photo"}
-        </button>
+        !compact && (
+          <button
+            type="button"
+            className="secondary"
+            disabled={!url || opening}
+            onClick={() => void view()}
+          >
+            <Eye size={14} />
+            {opening ? "Opening…" : "View photo"}
+          </button>
+        )
       )}
       {tools}
     </figure>
   );
 }
 export function ProjectPhotoGallery({ files }: { files: Upload[] }) {
-  const [view, setView] = useState<{ url: string; name: string } | null>(null);
+  const [view, setView] = useState<{
+    url: string;
+    name: string;
+    index: number;
+  } | null>(null);
   if (!files.length) return null;
+  const move = (step: number) => {
+    if (!view) return;
+    const index = (view.index + step + files.length) % files.length;
+    const file = files[index];
+    // Each photo needs its own short-lived link.
+    void request<{ url: string }>("/uploads/" + file.id)
+      .then((r) => setView({ url: r.url, name: file.name, index }))
+      .catch(() => {});
+  };
   return (
     <section className="panel project-photo-panel" aria-label="Project photos">
       <div className="project-section-heading">
@@ -113,11 +140,23 @@ export function ProjectPhotoGallery({ files }: { files: Upload[] }) {
         </span>
       </div>
       <div className="project-photo-gallery">
-        {files.map((file) => (
-          <SavedPhoto key={file.id} file={file} onView={setView} />
+        {files.map((file, index) => (
+          <SavedPhoto
+            key={file.id}
+            file={file}
+            compact
+            onView={(image) => setView({ ...image, index })}
+          />
         ))}
       </div>
-      {view && <ImagePreview image={view} onClose={() => setView(null)} />}
+      {view && (
+        <ImagePreview
+          image={view}
+          position={{ index: view.index, total: files.length }}
+          onMove={move}
+          onClose={() => setView(null)}
+        />
+      )}
     </section>
   );
 }

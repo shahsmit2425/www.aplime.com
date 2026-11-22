@@ -49,8 +49,7 @@ export function EstimateForm({
       </label>
       {assessment ? (
         <p className="project-state-note">
-          Discuss the job by chat or schedule a call first. Return here to add
-          your price and estimated days when ready.
+          Discuss the job by chat or call first, then add your price here.
         </p>
       ) : (
         <div className="form-grid">

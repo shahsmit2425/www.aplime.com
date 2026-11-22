@@ -155,7 +155,7 @@ export default function CallRoom({
       instance.on("camera-error", () => {
         if (alive.current)
           setError(
-            "Allow microphone and camera access in your device settings. You can continue with audio if your microphone is available.",
+            "Allow microphone and camera access in your device settings, or continue with audio if your microphone works.",
           );
       });
       await instance.join({

@@ -40,7 +40,7 @@ export function MembershipSummary({
         <h2>{presentation?.title || "Checking your membership…"}</h2>
         <p>
           {presentation?.description ||
-            "Please wait while we load your account and available billing periods."}
+            "Loading your account and billing periods…"}
         </p>
         <button
           className="secondary"

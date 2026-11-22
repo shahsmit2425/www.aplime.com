@@ -45,6 +45,10 @@ export async function verifyToken(token: string): Promise<DecodedIdToken> {
   }
 }
 
+// The next sign-in must confirm the email address again.
+export async function requireEmailVerification(uid: string) {
+  await getAuth(firebaseApp()).updateUser(uid, { emailVerified: false });
+}
 export async function revokeUserSessions(uid: string) {
   await getAuth(firebaseApp()).revokeRefreshTokens(uid);
 }

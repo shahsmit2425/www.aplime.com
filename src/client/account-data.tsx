@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Capacitor } from "@capacitor/core";
 import { request } from "./api.js";
 import {
   reauthenticate,
@@ -28,7 +27,7 @@ function ConfirmPassword() {
 }
 
 export function PasswordForm() {
-  const { run, busy } = useWorkspace();
+  const { run, busy, go } = useWorkspace();
   const [passwordVersion, setPasswordVersion] = useState(0);
   return (
     <Panel title="Password">
@@ -37,14 +36,26 @@ export function PasswordForm() {
           key={passwordVersion}
           busy={busy}
           onSubmit={(f) =>
-            run(async () => {
-              await changePassword(
-                String(f.get("currentPassword") || ""),
-                String(f.get("newPassword") || ""),
-                String(f.get("confirmPassword") || ""),
-              );
-              setPasswordVersion((value) => value + 1);
-            }, "Your password has been updated.")
+            run(
+              async () => {
+                await changePassword(
+                  String(f.get("currentPassword") || ""),
+                  String(f.get("newPassword") || ""),
+                  String(f.get("confirmPassword") || ""),
+                );
+                setPasswordVersion((value) => value + 1);
+                try {
+                  await request("/account/password-changed", {});
+                } catch {
+                  throw new Error(
+                    "Your password was updated, but we could not sign you out. Use “Sign out all devices” below.",
+                  );
+                }
+                await logout().catch(() => {});
+              },
+              "Password updated. Open the verification link we emailed you, then sign in with your new password.",
+              () => go("login"),
+            )
           }
         >
           <Field label="Current password">
@@ -55,33 +66,35 @@ export function PasswordForm() {
               required
             />
           </Field>
-          <Field label="New password">
-            <input
-              name="newPassword"
-              type="password"
-              autoComplete="new-password"
-              minLength={12}
-              required
-            />
-          </Field>
-          <Field label="Confirm new password">
-            <input
-              name="confirmPassword"
-              type="password"
-              autoComplete="new-password"
-              minLength={12}
-              required
-            />
-          </Field>
-          <p>
-            Use at least 12 characters and a password you do not use elsewhere.
-          </p>
+          <div className="settings-pair">
+            <Field label="New password">
+              <input
+                name="newPassword"
+                type="password"
+                autoComplete="new-password"
+                minLength={12}
+                required
+              />
+            </Field>
+            <Field label="Confirm new password">
+              <input
+                name="confirmPassword"
+                type="password"
+                autoComplete="new-password"
+                minLength={12}
+                required
+              />
+            </Field>
+          </div>
+          <ul className="settings-notes">
+            <li>At least 12 characters.</li>
+            <li>You will be signed out on every device.</li>
+            <li>Verify your email from the link we send to sign in again.</li>
+          </ul>
           <button>Update password</button>
         </Form>
       ) : (
-        <p>
-          You sign in with Google. Manage your password in your Google account.
-        </p>
+        <p>You sign in with Google.</p>
       )}
     </Panel>
   );
@@ -91,10 +104,6 @@ export function Sessions() {
   const { run, busy, go } = useWorkspace();
   return (
     <Panel title="Sign out all devices">
-      <p>
-        Signs your account out everywhere, including this device. Use this if
-        you lost a device or think someone else has access.
-      </p>
       <Form
         busy={busy}
         onSubmit={(f) =>
@@ -116,60 +125,23 @@ export function Sessions() {
   );
 }
 
-export function DataExport() {
-  const { run, busy } = useWorkspace();
-  // Saving a file from the native apps has not been built.
-  if (Capacitor.isNativePlatform()) return null;
-  return (
-    <Panel title="Download your data">
-      <p>
-        Download a copy of the personal data Aplime holds for your account as a
-        JSON file. Messages are limited to those you sent, and payment card
-        details are held by Stripe and are not included.
-      </p>
-      <Form
-        busy={busy}
-        onSubmit={(f) =>
-          run(async () => {
-            await confirm(f);
-            const data = await request("/account/export");
-            const url = URL.createObjectURL(
-              new Blob([JSON.stringify(data, null, 2)], {
-                type: "application/json",
-              }),
-            );
-            const link = document.createElement("a");
-            link.href = url;
-            link.download = "aplime-account-data.json";
-            document.body.append(link);
-            link.click();
-            link.remove();
-            setTimeout(() => URL.revokeObjectURL(url), 10000);
-          }, "Your data download has started.")
-        }
-      >
-        <ConfirmPassword />
-        <button className="secondary">Download my data</button>
-      </Form>
-    </Panel>
-  );
-}
-
 export function AccountClosure() {
   const { run, busy, go } = useWorkspace();
   const [confirming, setConfirming] = useState(false);
   return (
     <section className="panel settings-danger">
       <h2>Delete account</h2>
-      <p>
-        Deleting removes your sign-in, profile, photos, saved items and
-        notifications and cannot be undone. Open projects you created are
-        cancelled. Projects you share with another person, payment and support
-        records, and messages you sent in conversations are kept for the other
-        participant and for legal and dispute purposes, shown under the name
-        “Deleted user”. You must first finish, cancel or resolve active projects{" "}
-        and cancel any paid membership.
-      </p>
+      <ul className="settings-notes">
+        <li>
+          Permanently removes your sign-in, profile, photos and saved items, and
+          cancels your open projects.
+        </li>
+        <li>
+          Shared projects, payment and support records, and messages you sent
+          stay under “Deleted user”.
+        </li>
+        <li>Finish or cancel active projects and any paid membership first.</li>
+      </ul>
       {confirming ? (
         <Form
           busy={busy}

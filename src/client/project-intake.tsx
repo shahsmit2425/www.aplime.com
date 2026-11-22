@@ -216,7 +216,7 @@ export function ProjectIntake(props: Props) {
         setPhotos(rows);
         if (rows.length !== session.photoCount)
           setNotice(
-            "Some photos could not be restored. You can add them again before publishing.",
+            "Some photos could not be restored. Add them again before publishing.",
           );
       })
       .catch(() => {
@@ -261,7 +261,7 @@ export function ProjectIntake(props: Props) {
       if (finished.current) return;
       void persistPhotoSnapshot().catch(() =>
         setNotice(
-          "Photos could not be saved in this browser. Keep this page open and retry before signing in.",
+          "Photos could not be saved. Keep this page open and retry before signing in.",
         ),
       );
     }, 300);
@@ -286,7 +286,7 @@ export function ProjectIntake(props: Props) {
     if (session.savedProjectId) return;
     if (
       !window.confirm(
-        "Start over? This clears your answers, selected photos, and saved draft. Published projects are not affected.",
+        "Start over? This clears your answers, photos and saved draft.",
       )
     )
       return;
@@ -449,11 +449,11 @@ export function ProjectIntake(props: Props) {
       );
       setSession((s) => ({ ...s, draftUpdatedAt: saved.updatedAt }));
       setNotice(
-        "Draft details saved to your dashboard. Photos remain in this browser until you publish.",
+        "Draft saved to your dashboard. Photos stay in this browser until you publish.",
       );
     } else
       setNotice(
-        "Saved in this browser tab for 24 hours. Nothing has been published or sent to professionals.",
+        "Saved in this browser tab for 24 hours. Nothing has been published.",
       );
   }
   const t = useT();
@@ -535,16 +535,13 @@ export function ProjectIntake(props: Props) {
         <p>
           <T>
             {
-              "Only the professional you select sees your exact address. Other matching pros see your ZIP."
+              "Only the professional you select sees your exact address. Others see your ZIP."
             }
           </T>{" "}
         </p>
       )}
       {step === "review" && !props.data && (
-        <p>
-          Sign in or create a customer account to publish. Your answers and
-          photos come with you.
-        </p>
+        <p>Sign in or create a customer account to publish.</p>
       )}
       <form
         onSubmit={(event) => {
@@ -596,9 +593,8 @@ export function ProjectIntake(props: Props) {
           )}
           {draft.emergency && step === "zip" && (
             <p className="intake-urgent-notice">
-              Need immediate help for a fire, gas leak, or danger to someone?
-              Call 911 or your utility. Aplime connects you with professionals;
-              availability and response times are not guaranteed.
+              For a fire, gas leak or danger to someone, call 911 or your
+              utility. Availability and response times are not guaranteed.
             </p>
           )}
           {step === "category" && (
@@ -806,7 +802,7 @@ export function ProjectIntake(props: Props) {
                 <p className="intake-field-hint">
                   {props.data?.user.name
                     ? `Contact name: ${props.data.user.name}`
-                    : "Your contact name comes from the customer account you sign in with at the final step."}
+                    : "Your contact name comes from your customer account."}
                 </p>
               )}
               <Field label="Phone number">
@@ -926,7 +922,7 @@ export function ProjectIntake(props: Props) {
                 <p>
                   <T>
                     {
-                      "We alert up to five matching professionals first. You choose who to contact and hire; publishing does not book a service."
+                      "We alert up to five matching professionals first. Publishing does not book a service."
                     }
                   </T>{" "}
                 </p>

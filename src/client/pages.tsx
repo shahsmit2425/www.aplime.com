@@ -208,13 +208,7 @@ function Directory() {
               "Your project matches"
             )
           }
-        >
-          {page === "saved"
-            ? "Keep trusted professionals close."
-            : openDiscovery
-              ? "Find a business for your next home project."
-              : "Professionals matched to your project and location."}
-        </Head>
+        />
       </div>
       {page !== "saved" && openProjects.length > 0 && (
         <div className="directory-project-context">
@@ -292,8 +286,8 @@ function Directory() {
             : openDiscovery
               ? "Check back soon as more professionals join."
               : openProjects.length
-                ? "We'll show professionals here as matches become available."
-                : "Tell us what you need and where. We'll help you find a pro."}
+                ? "New matches will appear here."
+                : null}
           <button onClick={() => go("projects", "new")}>
             <Plus size={17} />
             <T>{"Start a project"}</T>{" "}
@@ -313,8 +307,7 @@ function ProProfile() {
       <>
         <Head title={<T>{"Professional profile"}</T>} />
         <Empty title="This professional is not available.">
-          The profile may have been removed or is not visible to your account
-          right now.
+          The profile may have been removed or is not visible to you.
           <button onClick={() => go("discover")}>
             <Search size={17} />
             Browse professionals
@@ -375,8 +368,8 @@ function ProProfile() {
                 <ChatWithPro projectId={match} proId={p.id} secondary={false} />
               ) : p.canRespond === false ? (
                 <p className="business-tip">
-                  This business is completing its setup. Messaging will be
-                  available when it is ready.
+                  This business is completing its setup. Messaging is not
+                  available yet.
                 </p>
               ) : (
                 <>
@@ -627,10 +620,8 @@ function ProjectDetail() {
       {customer && p.proId && open && (
         <Panel title="Waiting on your chosen professional">
           <p>
-            This request was sent to {p.proName || "one professional"} only. If
-            they are slow to answer or you want to compare options, open it to
-            every matching professional. Estimates already received stay
-            available.
+            This request was sent to {p.proName || "one professional"} only.
+            Open it to all matching professionals to compare options.
           </p>
           <button
             disabled={busy}
@@ -686,7 +677,7 @@ function ProjectDetail() {
               {date(p.proposedAt)} —{" "}
               {p.proposedBy === data.user.id
                 ? "Waiting for the other participant to confirm."
-                : "Please confirm this time or decline to discuss another."}
+                : "Confirm this time or decline it."}
             </p>
             <p>
               Your confirmed appointment changes only when the proposal is
@@ -973,7 +964,7 @@ function ProjectDetail() {
                                     ?.business || "this professional";
                                 if (
                                   !window.confirm(
-                                    `Accept ${quotePrice(q)} from ${business}? This professional must confirm the job. Your other estimates stay on hold until they do.`,
+                                    `Accept ${quotePrice(q)} from ${business}? They must confirm the job; other estimates stay on hold until they do.`,
                                   )
                                 )
                                   return;
@@ -984,7 +975,7 @@ function ProjectDetail() {
                                       quoteId: q.id,
                                       revision: q.revision,
                                     }),
-                                  "Estimate selected. The professional must confirm the job before work starts.",
+                                  "Estimate selected. The professional must confirm before work starts.",
                                 );
                               }}
                             >
@@ -1025,9 +1016,8 @@ function ProjectDetail() {
                             }
                           >
                             <p>
-                              The customer will be notified and cannot accept
-                              this estimate. You can submit a new version while
-                              the request remains open.
+                              The customer will be notified and can no longer
+                              accept this estimate.
                             </p>
                             <Field label="Reason for withdrawing">
                               <textarea
@@ -1053,8 +1043,8 @@ function ProjectDetail() {
                 (!p.proId || pro) &&
                 !canQuote && (
                   <p className="project-state-note" role="note">
-                    Your business profile must be approved, verified and set to
-                    available before you can send estimates.{" "}
+                    To send estimates, your profile must be approved, verified
+                    and set to available.{" "}
                     <button
                       className="text-button"
                       onClick={() => go("profile")}
@@ -1097,9 +1087,7 @@ function Quotes() {
   const { data, go } = useWorkspace();
   return (
     <>
-      <Head title={<T>{"Estimates"}</T>}>
-        Review scope and price before booking.
-      </Head>
+      <Head title={<T>{"Estimates"}</T>} />
       <Panel>
         {data.quotes.length ? (
           data.quotes.map((q) => (
@@ -1141,7 +1129,7 @@ function Schedule() {
   return (
     <>
       <Head title={<T>{"Schedule"}</T>}>
-        Appointment times are shown in your current device timezone.
+        Times are shown in your device time zone.
       </Head>
       <CallMeetings />
       <Panel title="Upcoming site visits">
@@ -1177,8 +1165,7 @@ function Support() {
   return (
     <>
       <Head title={<T>{"Help & safety"}</T>}>
-        Contact Aplime about your account or a project. For emergencies, contact
-        local emergency services.
+        For emergencies, contact local emergency services.
       </Head>
       <MessagesInbox legacySupportId={id} />
     </>

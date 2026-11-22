@@ -112,8 +112,8 @@ export function ReviewPhotoEditor({
         <>
           <p>
             <T>
-              Optional: show the completed work. These photos become public with
-              your review. Avoid people, addresses and private information.
+              Photos become public with your review. Avoid people, addresses and
+              private information.
             </T>
           </p>
           <div className="review-photo-actions">

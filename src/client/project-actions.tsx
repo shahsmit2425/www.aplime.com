@@ -407,8 +407,8 @@ export function EditDetails({
     return (
       <Panel title="Project privacy">
         <p>
-          Project fields and photos are locked at this stage. You can still
-          change whether professionals may contact you by phone.
+          Project details and photos are locked at this stage. You can still
+          change phone sharing.
         </p>
         <ProjectContact projectId={p.id} />
         <button type="button" className="secondary" onClick={onDone}>
@@ -419,8 +419,8 @@ export function EditDetails({
   return (
     <Panel title="Edit project details">
       <p>
-        Professionals who sent estimates or messages will be told you changed
-        the request.
+        Professionals who sent estimates or messages will be notified of
+        changes.
       </p>
       <ProjectContact projectId={p.id} />
       <Form

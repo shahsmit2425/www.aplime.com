@@ -83,8 +83,8 @@ export function SupportChat({
         >
           <h3>How can we help?</h3>
           <p>
-            Ask about your account, your business or a project. Replies appear
-            in Messages. Never send passwords or identity documents.
+            Replies appear in Messages. Never send passwords or identity
+            documents.
           </p>
           <label>
             Subject

@@ -124,7 +124,7 @@ export function BusinessMedia({
         status(
           item.slot,
           item.uploaded
-            ? "The file uploaded, but saving could not be confirmed. Retry to check and finish saving."
+            ? "The file uploaded, but saving was not confirmed. Retry to finish saving."
             : (error as Error).message +
                 " Your saved image has not been replaced.",
           true,
@@ -147,9 +147,8 @@ export function BusinessMedia({
     >
       <p>
         {portfolio
-          ? `Show customers your past work. Add up to ${MAX_BUSINESS_PORTFOLIO_IMAGES} photos; customers see them after your profile updates are approved.`
-          : "Choose an image, check the preview, then save it."}{" "}
-        Your current image stays in place until its replacement is saved.
+          ? "Customers see new photos after your profile updates are approved."
+          : "Your current image stays in place until its replacement is saved."}
       </p>
       {!profile && (
         <p className="business-tip">
@@ -157,8 +156,8 @@ export function BusinessMedia({
         </p>
       )}
       <p className="muted">
-        JPG, PNG or WebP · maximum 10 MB per image. Use images you have
-        permission to publish.
+        JPG, PNG or WebP, up to 10 MB. Use images you have permission to
+        publish.
       </p>
       {portfolio && profile && (
         <PortfolioPublication
@@ -299,8 +298,8 @@ export function BusinessMedia({
                 <div className="business-image-save">
                   <p>
                     {image
-                      ? "This preview will replace the saved image only after you save."
-                      : "This image is only a preview until you save."}
+                      ? "Replaces the saved image only after you save."
+                      : "Only a preview until you save."}
                   </p>
                   <div className="actions">
                     <button

@@ -19,7 +19,7 @@ const audiences = {
       [
         ShieldCheck,
         "Identity-verified professionals",
-        "Stripe Identity verifies the account holder, and Aplime reviews each business profile before it’s published.",
+        "Stripe Identity verifies account holders. Aplime reviews each profile before it’s published.",
       ],
       [
         FileText,

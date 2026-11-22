@@ -161,8 +161,8 @@ export function PushSettings() {
     <section className="panel">
       <h2>Push notifications</h2>
       <p>
-        Get alerts for messages, project updates and meetings when Aplime is
-        closed. Private details stay inside the app.
+        Alerts for messages, project updates and meetings. Private details stay
+        inside the app.
       </p>
       <button type="button" disabled={busy} onClick={() => void toggle()}>
         {busy

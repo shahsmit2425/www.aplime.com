@@ -30,9 +30,7 @@ export function Preferences() {
     );
   return (
     <>
-      <Head title={<T>{"Your services, area and availability."}</T>}>
-        Choose the work you want and publish the hours customers can request.
-      </Head>
+      <Head title={<T>{"Your services, area and availability."}</T>} />
       <PreferencesForm
         key={profile.id}
         profile={profile}
@@ -120,17 +118,14 @@ function PreferencesForm({
             />
             <span>
               <strong>Accepting new projects</strong>
-              <small>
-                Turn this off to stop appearing in search and matches for new
-                projects.
-              </small>
+              <small>Turn off to stop appearing in search and matches.</small>
             </span>
           </label>
         </Panel>
         <Panel title="Working hours">
           <p>
-            Publish real working hours. Customers can request a one-hour visit
-            inside these hours. Confirmed visits cannot overlap.
+            Customers can request a one-hour visit inside these hours. Confirmed
+            visits cannot overlap.
           </p>
           <Field label="Business time zone">
             <select

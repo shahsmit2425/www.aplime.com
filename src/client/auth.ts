@@ -164,6 +164,8 @@ export async function changePassword(
     if (!user) throw new Error("Please sign in again.");
     await updatePassword(user, next);
     await user.getIdToken(true);
+    // Best effort: the sign-in screen can resend the link.
+    await sendEmailVerification(user).catch(() => {});
   } catch (error) {
     throw new Error(authErrorMessage(error));
   }

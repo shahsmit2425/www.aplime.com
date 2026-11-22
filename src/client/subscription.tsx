@@ -30,27 +30,27 @@ const included = [
   {
     Icon: Search,
     title: "A place in customer search",
-    body: "Your approved listing appears in search and project matches while your membership is active and your identity is verified.",
+    body: "Your approved listing appears in search and project matches.",
   },
   {
     Icon: MessagesSquare,
     title: "Respond to projects",
-    body: "Chat with customers and send estimates on projects that match your services and area.",
+    body: "Chat with customers and send estimates.",
   },
   {
     Icon: HandCoins,
     title: "Paid directly for your work",
-    body: "Customers pay you directly for services. This subscription is your business’s payment to Aplime.",
+    body: "Customers pay you directly for services.",
   },
   {
     Icon: Layers,
     title: "One membership, any billing period",
-    body: "Every billing period includes the same professional membership.",
+    body: "Every billing period includes the same membership.",
   },
   {
     Icon: CalendarX2,
     title: "Cancel renewal when you need to",
-    body: "Cancel in Manage billing. Your membership continues through the billing period you have paid for.",
+    body: "Your membership runs through the period you paid for.",
   },
 ];
 const statusLabels: Record<string, string> = {
@@ -124,8 +124,7 @@ export function Subscription() {
   if (data.user.role !== "pro")
     return (
       <Empty title="No customer payments on Aplime">
-        Arrange service payment directly with your professional. Only businesses
-        pay Aplime for a subscription.
+        Pay your professional directly.
       </Empty>
     );
   const plan = billing?.plans.find((item) => item.id === selected);
@@ -166,10 +165,7 @@ export function Subscription() {
   );
   return (
     <>
-      <Head title="Your Aplime business subscription">
-        Choose your billing period for the same professional membership. Service
-        payments are arranged directly with customers.
-      </Head>
+      <Head title="Your Aplime business subscription" />
       {returnNotice && (
         <p className="membership-return" role="status">
           <CircleAlert size={20} aria-hidden="true" />
@@ -258,17 +254,8 @@ export function Subscription() {
                 <CalendarDays size={16} aria-hidden="true" /> {periodEnd}.
               </p>
             )}
-            {billing?.canManage && (
-              <p>
-                View invoices, update your payment method or cancel renewal in
-                Stripe’s billing portal.
-              </p>
-            )}
             {billing?.cancelAtPeriodEnd && (
-              <p>
-                Cancellation is scheduled for the end of the current billing
-                period. Your membership will not renew.
-              </p>
+              <p>Your membership will not renew.</p>
             )}
             {billing && !billing.canEnroll && (
               <div className="membership-prerequisite">
@@ -283,10 +270,10 @@ export function Subscription() {
                   </strong>
                   <p>
                     {profile?.suspended
-                      ? "Contact support about your account status. You can still manage existing billing below."
+                      ? "Contact support about your account status."
                       : !profile
-                        ? "Save your business details, then complete the secure ID check. You can review the plans now."
-                        : "Complete the account holder’s photo ID and selfie check before subscribing."}
+                        ? "Save your business details, then verify your identity."
+                        : "Complete the photo ID and selfie check before subscribing."}
                   </p>
                   <button
                     className="secondary"
@@ -322,11 +309,7 @@ export function Subscription() {
               />
             )}
             {choosingPlan && (
-              <p>
-                Stripe shows the final recurring charge before you confirm.
-                After checkout, activation may take a moment; this page updates
-                automatically.
-              </p>
+              <p>Stripe shows the final recurring charge before you confirm.</p>
             )}
             <div className="actions">
               {canStart && (
@@ -384,9 +367,7 @@ export function Subscription() {
                     </strong>
                     <p>
                       {money(pending.plan.amount)} will be charged that day,
-                      then every {billingPeriod(pending.plan.months)}. Your{" "}
-                      {current.label.toLowerCase()} billing stays as it is until
-                      then.
+                      then every {billingPeriod(pending.plan.months)}.
                     </p>
                     <button
                       className="secondary"
@@ -406,10 +387,8 @@ export function Subscription() {
                 </div>
               )}
               <p>
-                Every billing period includes the same membership. A change
-                starts when your current billing period ends on{" "}
-                {longDate(billing.periodEnd!)}. Nothing is charged or refunded
-                today, and you can cancel the change before that date.
+                Changes start on {longDate(billing.periodEnd!)}. Nothing is
+                charged or refunded today.
               </p>
               <MembershipCards
                 plans={billing.plans}
@@ -501,10 +480,7 @@ export function Subscription() {
             <LockKeyhole size={23} />
             <span>
               <strong>Secure checkout with Stripe</strong>
-              <p>
-                Review the recurring total and enter your payment details on
-                Stripe’s checkout page.
-              </p>
+              <p>Payment details are entered on Stripe.</p>
             </span>
           </div>
           <div>
@@ -512,8 +488,7 @@ export function Subscription() {
             <span>
               <strong>Your billing, your control</strong>
               <p>
-                Use Manage billing to view invoices, update your payment method,
-                and cancel renewal.
+                Invoices, payment method and cancellation are in Manage billing.
               </p>
             </span>
           </div>
@@ -521,15 +496,11 @@ export function Subscription() {
             <ShieldCheck size={23} />
             <span>
               <strong>A separate marketplace review</strong>
-              <p>
-                Identity verification and membership do not approve your
-                listing. Submit your completed business profile for review.
-              </p>
+              <p>Your listing also needs an approved business profile.</p>
             </span>
           </div>
           <p className="membership-guide-note">
-            Customers pay their professional directly for services. This
-            subscription is your business’s payment to Aplime.
+            This subscription is your business’s payment to Aplime.
           </p>
           <button className="text-button" onClick={() => go("help")}>
             Need help with billing? <ArrowRight size={16} />

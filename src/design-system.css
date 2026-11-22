@@ -2164,6 +2164,71 @@ button:hover:not(:disabled),
   line-height: 1.5;
   color: #8d4b40;
 }
+/* Read-only gallery: the picture is the whole tile. */
+.project-photo-gallery:has(.compact) {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 132px), 1fr));
+  gap: 10px;
+}
+.project-saved-photo.compact {
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+.project-saved-photo.compact .project-photo-thumbnail {
+  position: relative;
+  height: auto;
+  aspect-ratio: 4 / 3;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.project-saved-photo.compact .project-photo-thumbnail img {
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.2s;
+}
+.project-saved-photo.compact .project-photo-thumbnail i {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: rgb(10 20 60 / 0.6);
+  color: #fff;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.project-saved-photo.compact .project-photo-thumbnail:hover:not(:disabled),
+.project-saved-photo.compact .project-photo-thumbnail:focus-visible {
+  border-color: var(--blue);
+}
+.project-saved-photo.compact .project-photo-thumbnail:hover:not(:disabled) img {
+  transform: scale(1.04);
+}
+.project-saved-photo.compact .project-photo-thumbnail:hover i,
+.project-saved-photo.compact .project-photo-thumbnail:focus-visible i {
+  opacity: 1;
+}
+.project-saved-photo.compact > button.secondary {
+  margin-top: 6px;
+}
+.project-image-navigation {
+  margin-top: 14px;
+}
+@media (hover: none) {
+  .project-saved-photo.compact .project-photo-thumbnail i {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .project-saved-photo.compact .project-photo-thumbnail img,
+  .project-saved-photo.compact .project-photo-thumbnail i {
+    transition: none;
+  }
+}
 .project-photo-panel .project-section-heading {
   margin-bottom: 16px;
 }

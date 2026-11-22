@@ -11,7 +11,7 @@ function listingStatus(p: Profile) {
       Icon: CircleSlash,
       title: "Listing suspended",
       note: p.suspensionNote,
-      body: "Customers cannot find or contact your business. Contact support if you have questions.",
+      body: "Customers cannot find or contact your business. Contact support with questions.",
     };
   if (p.reviewStatus === "pending")
     return {
@@ -20,7 +20,7 @@ function listingStatus(p: Profile) {
       title: live ? "Live · changes in review" : "In review",
       body: live
         ? "Customers see your approved listing until your latest edits are reviewed."
-        : "We will notify you when a decision is available. If you edit your profile now, the latest version is the one reviewed.",
+        : "We will notify you of the decision. If you edit now, the latest version is reviewed.",
     };
   if (p.reviewStatus === "changes_requested")
     return {
@@ -29,7 +29,7 @@ function listingStatus(p: Profile) {
       title: live ? "Live · changes requested" : "Changes requested",
       note: p.reviewNote,
       body: live
-        ? "Customers still see your approved listing. Update your profile to send the changes back for review."
+        ? "Customers still see your approved listing. Update your profile to send it back for review."
         : "Update your profile, then resubmit it for review.",
       next: true,
     };
@@ -38,7 +38,7 @@ function listingStatus(p: Profile) {
       tone: "live",
       Icon: CircleCheck,
       title: "Approved",
-      body: "Your listing appears in search while your identity is verified and your membership is active. Phone, email and website updates go live right away; other edits are reviewed first.",
+      body: "Listed in search while your identity is verified and your membership is active.",
     };
   if (p.reviewStatus === "rejected")
     return {
@@ -46,14 +46,14 @@ function listingStatus(p: Profile) {
       Icon: CircleSlash,
       title: "Not approved",
       note: p.reviewNote,
-      body: "Customers cannot see your listing. You can update your profile and resubmit it for review.",
+      body: "Customers cannot see your listing. Update your profile and resubmit it for review.",
       next: true,
     };
   return {
     tone: "act",
     Icon: CircleAlert,
     title: "Draft · not submitted",
-    body: "Customers cannot see your listing yet. Submit it for review when your details and images are ready.",
+    body: "Customers cannot see your listing yet. Submit it for review when it is ready.",
     next: true,
   };
 }

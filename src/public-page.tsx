@@ -407,10 +407,7 @@ function ContactPage({
         ) : null}
         <article>
           <h2>Your data</h2>
-          <p>
-            Download a copy of your data or delete your account from Settings
-            after signing in.
-          </p>
+          <p>Delete your account from Settings after signing in.</p>
         </article>
         <article>
           <h2>Urgent problems at home</h2>

@@ -506,9 +506,9 @@ export const generalFaqs: {
           "Project conversations are between the accounts involved, and files are stored privately. Authorized Aplime administrators can review account details, projects, conversations, and uploaded files for support, marketplace operations, and safety, and that access is logged.",
       },
       {
-        question: "How do I download my data or delete my account?",
+        question: "How do I delete my account?",
         answer:
-          "Open Settings in your account to download a copy of your data or permanently delete the account. Deletion is not available while you have booked, in-progress, paused, or disputed work.",
+          "Open Settings in your account to permanently delete the account. Deletion is not available while you have booked, in-progress, paused, or disputed work.",
       },
     ],
   },
