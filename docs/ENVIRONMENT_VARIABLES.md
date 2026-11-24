@@ -54,6 +54,18 @@ If migrating from the previous single group: create/populate both new groups fir
 | RENDER            | Render automatically supplies                    | The private-host TLS policy requires `true`; do not set this locally to bypass checks                                                                         |
 | SUPPORT_EMAIL     | Required                                         | Your actual support mailbox                                                                                                                                   |
 
+### Shared mailboxes
+
+| Address                 | Purpose                                   | Where it is set                                              |
+| ----------------------- | ----------------------------------------- | ------------------------------------------------------------ |
+| support@aplime.com      | Customer and professional support         | `SUPPORT_EMAIL` (common group) and `EMAIL_REPLY_TO` (backend) |
+| billing@aplime.com      | Subscriptions, payments, refunds          | `src/shared/contacts.ts`; no variable                        |
+| security@aplime.com     | Security, privacy, abuse reports          | `src/shared/contacts.ts`; no variable                        |
+| info@aplime.com         | General inquiries, sales, partnerships    | `src/shared/contacts.ts`; no variable                        |
+| notification@aplime.com | Automated website/app emails (send only)  | `EMAIL_FROM` (backend)                                       |
+
+No new variables. billing@, security@ and info@ are the same in every environment and are shown on `/contact`, `/privacy`, the Subscription page and in Organization structured data, so the mailboxes must exist before a release that shows them reaches production.
+
 The Blueprint disables external database access. Internal TLS uses Render's documented self-signed-certificate behavior; the special mode is rejected outside Render or for an unrelated hostname. Do not set `NODE_TLS_REJECT_UNAUTHORIZED=0`.
 
 ## Firebase and Google authentication

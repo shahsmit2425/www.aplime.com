@@ -194,7 +194,12 @@ test("FAQ and contact pages are indexable, in the sitemap list, and expose truth
   assert.equal(contact.status, 200);
   assert.match(contact.head, /"@type":"ContactPage"/);
   assert.match(contact.html, /mailto:help@example.com/);
-  assert.doesNotMatch(renderPage("/contact", production).html, /mailto:/);
+  for (const address of ["billing", "security", "info"])
+    assert.match(contact.html, new RegExp(`mailto:${address}@aplime\\.com`));
+  // The support address appears only when it is configured.
+  const unconfigured = renderPage("/contact", production);
+  assert.doesNotMatch(unconfigured.html, /mailto:(help|support)@/);
+  assert.match(unconfigured.html, /mailto:billing@aplime\.com/);
 });
 test("titles do not repeat the brand and the organization logo is a raster image", () => {
   const about = renderPage("/about", production).head;

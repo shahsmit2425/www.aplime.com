@@ -1,3 +1,7 @@
+## 2026-11-24 — Shared mailbox addresses shown in the app
+
+Not committed. billing@, security@ and info@aplime.com are constants in `src/shared/contacts.ts` and appear on `/contact`, `/privacy` and `/terms` (security), the Subscription page (billing) and Organization structured data. support@ still comes from `SUPPORT_EMAIL`; notification@ is `EMAIL_FROM`. No new environment variables. `npm run typecheck`, `npm test` and `npm run build` pass. Not verified: that the mailboxes exist and receive mail, or the values currently set in Render.
+
 ## 2026-11-22 — Project photo gallery: image tiles and previous/next preview
 
 Not committed. The read-only “Project photos” panel now shows each photo as a cropped 4:3 tile that opens the preview; the file name, size and “View photo” button are gone from the tile (the photo editor keeps them). The preview gains Previous/Next, a position counter and left/right arrow keys. Each photo still requests its own signed link from `GET /api/uploads/:id`. No server change. `npm run typecheck`, `npm test` and `npm run build` pass. Rendered at 1366px and 390px with stubbed uploads and generated placeholder images; real R2 links and the native apps were not exercised.

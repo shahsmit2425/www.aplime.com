@@ -1,4 +1,5 @@
 import { serviceSlug } from "./shared/service-questionnaires.js";
+import { contactEmails } from "./shared/contacts.js";
 import { renderToString } from "react-dom/server";
 import { PublicPage } from "./public-page.js";
 import { categories, type Profile } from "./shared/domain.js";
@@ -100,15 +101,28 @@ export function renderPage(
     name: "Aplime",
     url: siteUrl + "/",
     logo: siteUrl + "/icon-512.png",
-    ...(config.supportEmail
-      ? {
-          contactPoint: {
-            "@type": "ContactPoint",
-            email: config.supportEmail,
-            contactType: "customer support",
-          },
-        }
-      : {}),
+    email: contactEmails.info,
+    contactPoint: [
+      ...(config.supportEmail
+        ? [
+            {
+              "@type": "ContactPoint",
+              email: config.supportEmail,
+              contactType: "customer support",
+            },
+          ]
+        : []),
+      {
+        "@type": "ContactPoint",
+        email: contactEmails.billing,
+        contactType: "billing support",
+      },
+      {
+        "@type": "ContactPoint",
+        email: contactEmails.security,
+        contactType: "security",
+      },
+    ],
   };
   const graph: Record<string, unknown>[] = [organization];
   if (profile) {

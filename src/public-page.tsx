@@ -1,4 +1,5 @@
 import { T } from "./shared/language.js";
+import { contactEmails } from "./shared/contacts.js";
 import { serviceSlug } from "./shared/service-questionnaires.js";
 import {
   Menu,
@@ -396,15 +397,25 @@ function ContactPage({
             <a href="/app/help">Open Help</a>
           </p>
         </article>
-        {supportEmail ? (
-          <article>
-            <h2>By email</h2>
-            <p>
-              Write to <a href={"mailto:" + supportEmail}>{supportEmail}</a> if
-              you cannot sign in or have a question before creating an account.
-            </p>
-          </article>
-        ) : null}
+        <article>
+          <h2>By email</h2>
+          <ul>
+            {(
+              [
+                ...(supportEmail
+                  ? [["Customer and professional support", supportEmail]]
+                  : []),
+                ["Subscriptions, payments and refunds", contactEmails.billing],
+                ["Security, privacy and abuse reports", contactEmails.security],
+                ["General inquiries and partnerships", contactEmails.info],
+              ] as [string, string][]
+            ).map(([label, email]) => (
+              <li key={email}>
+                {label}: <a href={"mailto:" + email}>{email}</a>
+              </li>
+            ))}
+          </ul>
+        </article>
         <article>
           <h2>Your data</h2>
           <p>Delete your account from Settings after signing in.</p>
@@ -625,7 +636,12 @@ export function PublicPage({
             )}
             <p>
               For questions about your information or a service experience,
-              contact Aplime through Messages in your account.
+              contact Aplime through Messages in your account. For privacy
+              requests or to report a security problem or abuse, write to{" "}
+              <a href={"mailto:" + contactEmails.security}>
+                {contactEmails.security}
+              </a>
+              .
             </p>
           </article>
         ) : notFound ? (

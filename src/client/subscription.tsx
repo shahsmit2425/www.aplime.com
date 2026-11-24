@@ -25,6 +25,7 @@ import { MembershipCards, billingPeriod } from "./membership-cards.js";
 import { checkoutReturnNotice } from "../shared/membership-flow.js";
 import { MembershipSummary } from "./membership-summary.js";
 import { setupSteps } from "../shared/business-setup.js";
+import { contactEmails } from "../shared/contacts.js";
 
 const included = [
   {
@@ -505,6 +506,9 @@ export function Subscription() {
           <button className="text-button" onClick={() => go("help")}>
             Need help with billing? <ArrowRight size={16} />
           </button>
+          <a href={"mailto:" + contactEmails.billing}>
+            {contactEmails.billing}
+          </a>
         </aside>
       </div>
     </>
