@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { EmailAlerts } from "./email-alerts.js";
 import { ListingChanges } from "./listing-changes.js";
 import {
@@ -20,9 +20,14 @@ import {
   CheckCircle2,
   Clock3,
   Network,
+  SlidersHorizontal,
+  HeartPulse,
 } from "lucide-react";
 import type {
+  AdminHealth,
   AdminOverview,
+  AdminPaymentDetail,
+  AdminPlatform,
   AdminSession,
   AdminUserDetail,
   RecordPage,
@@ -50,12 +55,15 @@ const items = [
   ["identity", "Identity", ShieldCheck],
   ["memberships", "Memberships", CreditCard],
   ["projects", "Projects", BriefcaseBusiness],
+  ["payments", "Payments", CreditCard],
   ["interactions", "Interactions", Network],
   ["support", "Support inbox", MessageCircle],
   ["feedback", "Website feedback", MessageCircle],
   ["audit", "Audit trail", Activity],
   ["updates", "Notifications", Bell],
   ["emails", "Email & alerts", Bell],
+  ["platform", "Platform controls", SlidersHorizontal],
+  ["health", "System health", HeartPulse],
 ] as const;
 const date = (s: unknown) =>
   s
@@ -142,7 +150,7 @@ function Status({ value }: { value: unknown }) {
   const label = String(value || "none");
   return (
     <span
-      className={`admin-status ${["approved", "verified", "active", "completed", "resolved", "trialing"].includes(label) ? "positive" : ["rejected", "suspended", "past_due", "disputed", "cancelled"].includes(label) ? "negative" : ""}`}
+      className={`admin-status ${["approved", "verified", "active", "completed", "resolved", "trialing", "ok"].includes(label) ? "positive" : ["rejected", "suspended", "past_due", "disputed", "cancelled", "paused", "unavailable"].includes(label) ? "negative" : ""}`}
     >
       {title(label)}
     </span>
@@ -704,6 +712,7 @@ const filterOptions: Record<string, string[]> = {
     "cancelled",
     "disputed",
   ],
+  payments: ["pending", "paid", "refunded"],
 };
 function Collection({
   page: kind,
@@ -806,22 +815,43 @@ function UserDetail({
   go: (p: string, id?: string) => void;
   initialTab?: string;
 }) {
+  const [tick, setTick] = useState(0);
+  const version = useMemo(() => ({}), [revision, tick]);
   const { value: v, ...state } = useRemote<AdminUserDetail>(
     "/users/" + encodeURIComponent(id),
     request,
-    revision,
+    version,
   );
   const [note, setNote] = useState(""),
     [reason, setReason] = useState(""),
+    [accountReason, setAccountReason] = useState(""),
+    [internalNote, setInternalNote] = useState(""),
+    [notice, setNotice] = useState(""),
     [tab, setTab] = useState(initialTab);
   useEffect(() => {
     if (
       v &&
       v.user.role !== "pro" &&
-      !["account", "projects", "interactions"].includes(tab)
+      !["account", "projects", "interactions", "timeline"].includes(tab)
     )
       setTab("account");
   }, [v?.user.role]);
+  const accountAction = (path: string, body: unknown, done: string) =>
+    run(async () => {
+      const result = await request<{ providerRevoked?: boolean }>(
+        `/users/${encodeURIComponent(id)}/${path}`,
+        body,
+      );
+      setAccountReason("");
+      setInternalNote("");
+      setNotice(
+        result.providerRevoked === false
+          ? done +
+              " Existing sign-ins are blocked, but the sign-in provider could not be reached to end refresh tokens."
+          : done,
+      );
+      setTick((t) => t + 1);
+    });
   const provider = useRemote<Record<string, unknown>>(
     `/users/${encodeURIComponent(id)}/${tab === "identity" ? "identity" : "billing"}`,
     request,
@@ -849,6 +879,7 @@ function UserDetail({
               <p>
                 {v.user.name} · {v.user.email}
               </p>
+              {v.user.suspendedAt && <Status value="suspended" />}
             </div>
             {v.user.role !== "admin" && (
               <button onClick={() => go("support", "new:" + id)}>
@@ -873,9 +904,10 @@ function UserDetail({
                   "review",
                   "projects",
                   "interactions",
+                  "timeline",
                   "account",
                 ]
-              : ["projects", "interactions", "account"]
+              : ["projects", "interactions", "timeline", "account"]
             ).map((t) => (
               <button
                 key={t}
@@ -1096,24 +1128,360 @@ function UserDetail({
               userId={id}
             />
           )}
-          {tab === "account" && (
-            <Card title="Account information">
-              <Facts
-                data={{
-                  id: v.user.id,
-                  name: v.user.name,
-                  email: v.user.email,
-                  role: v.user.role,
-                  createdAt: v.user.createdAt,
-                  settings: v.user.settings,
-                }}
-              />
-              <p className="admin-muted">
-                Passwords, authenticator secrets and private provider
-                credentials are never returned.
-              </p>
-            </Card>
+          {tab === "timeline" && (
+            <Timeline id={id} request={request} revision={version} go={go} />
           )}
+          {tab === "account" && (
+            <>
+              <Card title="Account information">
+                <Facts
+                  data={{
+                    id: v.user.id,
+                    name: v.user.name,
+                    email: v.user.email,
+                    role: v.user.role,
+                    createdAt: date(v.user.createdAt),
+                    suspended: !!v.user.suspendedAt,
+                    ...(v.user.suspendedAt && {
+                      suspendedAt: date(v.user.suspendedAt),
+                      suspensionReason: v.user.suspensionReason,
+                    }),
+                    lastSignedOutEverywhereAt: date(v.user.sessionsRevokedAt),
+                    ...(v.user.deletedAt && {
+                      deletedAt: date(v.user.deletedAt),
+                    }),
+                    settings: v.user.settings,
+                  }}
+                />
+                <p className="admin-muted">
+                  Passwords, authenticator secrets and private provider
+                  credentials are never returned.
+                </p>
+              </Card>
+              {v.user.role !== "admin" && !v.user.deletedAt && (
+                <Card title="Account controls">
+                  <p className="admin-muted">
+                    Suspension blocks this account from the website and apps and
+                    sends the reason to the account holder. A suspended business
+                    also leaves matching and the directory; restoring the
+                    account does not relist it, so restore marketplace access
+                    separately under Review.
+                  </p>
+                  <label>
+                    Reason
+                    <textarea
+                      value={accountReason}
+                      onChange={(e) => setAccountReason(e.target.value)}
+                      maxLength={2000}
+                      placeholder="Required, at least 10 characters. Recorded in the audit trail."
+                    />
+                  </label>
+                  <div className="admin-actions">
+                    <button
+                      className="admin-danger"
+                      disabled={busy || accountReason.trim().length < 10}
+                      onClick={() =>
+                        void accountAction(
+                          "suspension",
+                          {
+                            suspended: !v.user.suspendedAt,
+                            reason: accountReason,
+                          },
+                          v.user.suspendedAt
+                            ? "Account restored."
+                            : "Account suspended.",
+                        )
+                      }
+                    >
+                      {v.user.suspendedAt
+                        ? "Restore account"
+                        : "Suspend account"}
+                    </button>
+                    <button
+                      disabled={busy || accountReason.trim().length < 10}
+                      onClick={() =>
+                        void accountAction(
+                          "revoke-sessions",
+                          { reason: accountReason },
+                          "Signed out of all devices.",
+                        )
+                      }
+                    >
+                      Sign out of all devices
+                    </button>
+                  </div>
+                  {notice && <p className="admin-banner">{notice}</p>}
+                </Card>
+              )}
+              <Card title="Internal notes">
+                <p className="admin-muted">
+                  Visible to administrators only. Never shown to the account
+                  holder.
+                </p>
+                {!v.user.deletedAt && (
+                  <>
+                    <label>
+                      New note
+                      <textarea
+                        value={internalNote}
+                        onChange={(e) => setInternalNote(e.target.value)}
+                        maxLength={4000}
+                      />
+                    </label>
+                    <button
+                      disabled={busy || internalNote.trim().length < 3}
+                      onClick={() =>
+                        void accountAction(
+                          "notes",
+                          { body: internalNote },
+                          "Note added.",
+                        )
+                      }
+                    >
+                      Add note
+                    </button>
+                  </>
+                )}
+                {v.notes.map((n) => (
+                  <article className="admin-notice" key={n.id}>
+                    <p style={{ whiteSpace: "pre-wrap" }}>{n.body}</p>
+                    <small>
+                      {n.author} · {date(n.createdAt)}
+                    </small>
+                  </article>
+                ))}
+                {!v.notes.length && (
+                  <p className="admin-empty">No notes yet.</p>
+                )}
+              </Card>
+            </>
+          )}
+        </>
+      )}
+    </>
+  );
+}
+function Timeline({
+  id,
+  request,
+  revision,
+  go,
+}: {
+  id: string;
+  request: Requester;
+  revision: unknown;
+  go: (p: string, id?: string) => void;
+}) {
+  const [page, setPage] = useState(1);
+  const { value, ...state } = useRemote<RecordPage>(
+    `/users/${encodeURIComponent(id)}/timeline?page=${page}`,
+    request,
+    revision,
+  );
+  return (
+    <Card title="Activity timeline">
+      <p className="admin-muted">
+        Recorded account, project, estimate, call invitation, review, support
+        and administrator events, newest first. Individual messages and sign-ins
+        are not listed.
+      </p>
+      <Loading {...state} />
+      {value && (
+        <>
+          {value.rows.map((r, index) => (
+            <article className="admin-notice" key={index}>
+              <Status value={r.kind} />
+              <p>{text(r.summary)}</p>
+              <small>{date(r.at)}</small>
+              {r.projectId && (
+                <div>
+                  <button onClick={() => go("projects", String(r.projectId))}>
+                    Open project <ArrowRight size={14} />
+                  </button>
+                </div>
+              )}
+            </article>
+          ))}
+          {!value.rows.length && (
+            <p className="admin-empty">No recorded activity.</p>
+          )}
+          <Pager {...value} onChange={setPage} />
+        </>
+      )}
+    </Card>
+  );
+}
+function PlatformControls({
+  request,
+  run,
+  busy,
+}: {
+  request: Requester;
+  run: Runner;
+  busy: boolean;
+}) {
+  const [tick, setTick] = useState(0),
+    [reason, setReason] = useState(""),
+    [drafts, setDrafts] = useState<Record<string, string>>({});
+  const { value, ...state } = useRemote<AdminPlatform>(
+    "/platform",
+    request,
+    tick,
+  );
+  const ready = reason.trim().length >= 10;
+  const save = (key: string, next: boolean | number) =>
+    run(async () => {
+      await request("/platform", { key, value: next, reason });
+      setReason("");
+      setDrafts({});
+      setTick((t) => t + 1);
+    });
+  const changed = (s: {
+    updatedAt: string | null;
+    updatedBy: string | null;
+  }) =>
+    s.updatedAt
+      ? `Last changed ${date(s.updatedAt)} by ${s.updatedBy || "a former administrator"}`
+      : "Never changed";
+  return (
+    <>
+      <Loading {...state} />
+      {value && (
+        <>
+          <Card title="Reason for change">
+            <p className="admin-muted">
+              Every change needs a reason and is recorded in the audit trail
+              with the previous and new value. Changes apply without a
+              redeployment and reach every API server within about ten seconds.
+            </p>
+            <label>
+              Reason
+              <textarea
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                maxLength={2000}
+                placeholder="Required, at least 10 characters."
+              />
+            </label>
+          </Card>
+          <Card title="Emergency switches">
+            {value.settings.map(
+              (s) =>
+                s.kind === "switch" && (
+                  <article className="admin-notice" key={s.key}>
+                    <Status value={s.value ? "paused" : "active"} />
+                    <h3>{s.label}</h3>
+                    <p>{s.description}</p>
+                    <small>{changed(s)}</small>
+                    <div>
+                      <button
+                        className={s.value ? undefined : "admin-danger"}
+                        disabled={busy || !ready}
+                        onClick={() => void save(s.key, !s.value)}
+                      >
+                        {s.value ? "Resume" : "Pause now"}
+                      </button>
+                    </div>
+                  </article>
+                ),
+            )}
+          </Card>
+          <Card title="Business rules">
+            {value.settings.map((s) => {
+              if (s.kind !== "limit") return null;
+              const draft = drafts[s.key] ?? String(s.value),
+                next = Number(draft),
+                valid =
+                  /^\d+$/.test(draft) &&
+                  next >= s.min &&
+                  next <= s.max &&
+                  next !== s.value;
+              return (
+                <article className="admin-notice" key={s.key}>
+                  <label>
+                    {s.label}
+                    <input
+                      type="number"
+                      min={s.min}
+                      max={s.max}
+                      value={draft}
+                      onChange={(e) =>
+                        setDrafts({ ...drafts, [s.key]: e.target.value })
+                      }
+                    />
+                  </label>
+                  <p>{s.description}</p>
+                  <small>
+                    Allowed {s.min}–{s.max} · default {s.default} · {changed(s)}
+                  </small>
+                  <div>
+                    <button
+                      disabled={busy || !ready || !valid}
+                      onClick={() => void save(s.key, next)}
+                    >
+                      Save
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+          </Card>
+          <Card title="Recent setting changes">
+            <Table rows={value.history} />
+          </Card>
+        </>
+      )}
+    </>
+  );
+}
+function SystemHealth({ request }: { request: Requester }) {
+  const [tick, setTick] = useState(0);
+  const { value: v, ...state } = useRemote<AdminHealth>(
+    "/health",
+    request,
+    tick,
+  );
+  return (
+    <>
+      <button disabled={state.loading} onClick={() => setTick((t) => t + 1)}>
+        <RefreshCw size={16} /> Check again
+      </button>
+      <Loading {...state} />
+      {v && (
+        <>
+          <Card title="API service">
+            <Facts
+              data={{
+                environment: v.environment,
+                release: v.release,
+                runningForMinutes: Math.round(v.uptimeSeconds / 60),
+                database: `${v.database.status} · ${v.database.responseMs} ms`,
+                liveUpdates: title(v.liveUpdates.status),
+                checkedAt: date(v.checkedAt),
+              }}
+            />
+            <p className="admin-muted">
+              Measured on the API server that answered this request. The
+              website, worker and other API instances are not checked here.
+            </p>
+          </Card>
+          <Card title="Queues and deliveries">
+            <Facts
+              data={Object.fromEntries(
+                Object.entries(v.queues).map(([key, value]) => [
+                  key,
+                  key.endsWith("At") ? date(value) : value,
+                ]),
+              )}
+            />
+          </Card>
+          <Card title="Integrations configured">
+            <Facts data={v.configured} />
+            <p className="admin-muted">
+              Shows whether credentials are present on this API service. It does
+              not contact the provider or prove the integration works.
+            </p>
+          </Card>
         </>
       )}
     </>
@@ -1267,6 +1635,101 @@ function ProjectDetail({
                   <Pager {...records.value} onChange={setPage} />
                 </>
               )}
+            </Card>
+          )}
+        </>
+      )}
+    </>
+  );
+}
+function PaymentDetail({
+  id,
+  request,
+  revision,
+  run,
+  busy,
+  go,
+}: {
+  id: string;
+  request: Requester;
+  revision: unknown;
+  run: Runner;
+  busy: boolean;
+  go: (p: string, id?: string) => void;
+}) {
+  const { value: v, ...state } = useRemote<{ payment: AdminPaymentDetail }>(
+    "/payments/" + id,
+    request,
+    revision,
+  );
+  const [reason, setReason] = useState("");
+  return (
+    <>
+      <Loading {...state} />
+      {v && (
+        <>
+          <div className="admin-detail-heading">
+            <div>
+              <span className="admin-eyebrow">Payment {v.payment.id}</span>
+              <h2>{money(v.payment.amount)}</h2>
+              <Status value={v.payment.status} />
+            </div>
+            <div className="admin-actions">
+              <button onClick={() => go("projects", v.payment.projectId)}>
+                Project
+              </button>
+              <button onClick={() => go("users", v.payment.customerId)}>
+                Customer
+              </button>
+              {v.payment.proId && (
+                <button onClick={() => go("professionals", v.payment.proId!)}>
+                  Professional
+                </button>
+              )}
+            </div>
+          </div>
+          <Card title="Payment details">
+            <Facts
+              data={{
+                project: v.payment.projectTitle,
+                customer: v.payment.customerName,
+                professional: v.payment.proName,
+                amount: money(v.payment.amount),
+                status: v.payment.status,
+                createdAt: date(v.payment.createdAt),
+              }}
+            />
+            {v.payment.receiptUrl && (
+              <p>
+                <a href={v.payment.receiptUrl} target="_blank" rel="noreferrer">
+                  View receipt <ExternalLink size={14} />
+                </a>
+              </p>
+            )}
+          </Card>
+          {v.payment.status === "paid" && (
+            <Card title="Refund this payment">
+              <label>
+                Refund reason
+                <textarea
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  maxLength={2000}
+                  placeholder="Shown in the audit trail (at least 10 characters)."
+                />
+              </label>
+              <button
+                className="admin-danger"
+                disabled={busy || reason.trim().length < 10}
+                onClick={() =>
+                  void run(async () => {
+                    await request("/payments/" + id + "/refund", { reason });
+                    go("payments");
+                  })
+                }
+              >
+                Refund payment
+              </button>
             </Card>
           )}
         </>
@@ -1511,7 +1974,7 @@ function AdminSupportThread({
                     void run(async () => {
                       await request("/tickets/" + id, {
                         resolution: f.get("resolution"),
-                        refund: false,
+                        refund: f.get("refund") === "on",
                       });
                       setTick((t) => t + 1);
                     });
@@ -1525,6 +1988,10 @@ function AdminSupportThread({
                       maxLength={3000}
                       required
                     />
+                  </label>
+                  <label>
+                    <input type="checkbox" name="refund" /> Refund the related
+                    payment
                   </label>
                   <button disabled={busy}>Mark resolved</button>
                 </form>
@@ -1755,6 +2222,10 @@ export function AdminConsole({
             />
           ) : route.page === "interactions" ? (
             <Interactions request={request} revision={session} go={go} />
+          ) : route.page === "platform" ? (
+            <PlatformControls request={request} run={run} busy={busy} />
+          ) : route.page === "health" ? (
+            <SystemHealth request={request} />
           ) : route.page === "updates" ? (
             <Updates
               request={request}
@@ -1770,6 +2241,15 @@ export function AdminConsole({
                 id={route.id}
                 request={request}
                 revision={session}
+                go={go}
+              />
+            ) : route.page === "payments" ? (
+              <PaymentDetail
+                id={route.id}
+                request={request}
+                revision={session}
+                run={run}
+                busy={busy}
                 go={go}
               />
             ) : (

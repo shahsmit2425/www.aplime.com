@@ -3,6 +3,7 @@ import { pool, transaction } from "./db/index.js";
 import { stripe } from "./integrations/stripe.js";
 import { env } from "./config.js";
 import { fail, requireValue } from "./errors.js";
+import { assertNotPaused } from "./platform-settings.js";
 import { createHash } from "node:crypto";
 import type Stripe from "stripe";
 import {
@@ -87,6 +88,7 @@ subscriptions.get("/", async (req, res) => {
   } satisfies MembershipBilling);
 });
 subscriptions.post("/checkout", async (req, res) => {
+  await assertNotPaused("pauseNewSubscriptions");
   const specs = membershipSpecs();
   requireValue(specs.length, "Subscriptions are not configured yet.");
   // Old clients default to the first plan. Never accept a client-supplied amount or Price ID.

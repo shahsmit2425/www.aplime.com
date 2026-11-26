@@ -313,10 +313,19 @@ export async function audit(
   userId: string,
   action: string,
   entityId: string,
+  change?: { before?: unknown; after?: unknown; reason?: string },
 ) {
   await c.query(
-    "INSERT INTO audit_log(id,actor_id,action,entity_id) VALUES($1,$2,$3,$4)",
-    [randomUUID(), userId, action, entityId],
+    "INSERT INTO audit_log(id,actor_id,action,entity_id,before,after,reason) VALUES($1,$2,$3,$4,$5,$6,$7)",
+    [
+      randomUUID(),
+      userId,
+      action,
+      entityId,
+      change?.before != null ? JSON.stringify(change.before) : null,
+      change?.after != null ? JSON.stringify(change.after) : null,
+      change?.reason || null,
+    ],
   );
 }
 export async function getProject(c: pg.PoolClient, id: string) {

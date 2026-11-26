@@ -209,6 +209,12 @@ await db.exec(
 await db.exec(
   await readFile("src/server/db/migrations/035_suspension_note.sql", "utf8"),
 );
+await db.exec(
+  await readFile("src/server/db/migrations/036_audit_log_changes.sql", "utf8"),
+);
+await db.exec(
+  await readFile("src/server/db/migrations/037_admin_operations.sql", "utf8"),
+);
 
 test.after(async () => {
   await db.close();
@@ -5054,6 +5060,64 @@ test("customers can review two completed projects with the same pro but cannot r
     ).rows[0].count,
     2,
   );
+});
+
+test("admin payment refund calls Stripe, flips payment and project status, and audits the before/after", async () => {
+  const { api } = await import("../src/server/api.js");
+  const admin = {
+    id: "admin-" + randomUUID(),
+    name: "Admin",
+    email: "admin-refund@example.invalid",
+    role: "admin" as const,
+    settings: {},
+  };
+  await query(
+    "INSERT INTO users(id,name,email,role) VALUES($1,'Admin',$2,'admin')",
+    [admin.id, admin.email],
+  );
+  const projectId = await lifecycleProject("completed");
+  const paymentId = randomUUID();
+  await query(
+    "INSERT INTO payments(id,project_id,amount,status,intent_id) VALUES($1,$2,15000,'paid','pi_test_refund')",
+    [paymentId, projectId],
+  );
+  const route = api.stack.find(
+    (layer: any) => layer.route?.path === "/admin/payments/:id/refund",
+  );
+  const handle = route!.route!.stack[0].handle as any;
+  const originalRefundsCreate = stripe().refunds.create;
+  stripe().refunds.create = (async () => ({ status: "succeeded" })) as any;
+  try {
+    await handle(
+      {
+        params: { id: paymentId },
+        account: admin,
+        body: { reason: "Customer requested a refund" },
+      },
+      { json() {} },
+    );
+  } finally {
+    stripe().refunds.create = originalRefundsCreate;
+  }
+  assert.equal(
+    (await query("SELECT status FROM payments WHERE id=$1", [paymentId]))
+      .rows[0].status,
+    "refunded",
+  );
+  assert.equal(
+    (await query("SELECT status FROM projects WHERE id=$1", [projectId]))
+      .rows[0].status,
+    "cancelled",
+  );
+  const auditRow = (
+    await query(
+      "SELECT before,after,reason FROM audit_log WHERE entity_id=$1 ORDER BY created_at DESC LIMIT 1",
+      [paymentId],
+    )
+  ).rows[0];
+  assert.deepEqual(auditRow.before, { status: "paid" });
+  assert.deepEqual(auditRow.after, { status: "refunded" });
+  assert.equal(auditRow.reason, "Customer requested a refund");
 });
 
 test("clearing notifications empties the member's list and keeps the records", async () => {

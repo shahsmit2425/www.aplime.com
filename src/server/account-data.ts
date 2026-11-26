@@ -294,6 +294,7 @@ export async function deleteAccountData(userId: string) {
     await c.query("DELETE FROM project_archives WHERE user_id=$1", [userId]);
     await c.query("DELETE FROM notifications WHERE user_id=$1", [userId]);
     await c.query("DELETE FROM email_outbox WHERE user_id=$1", [userId]);
+    await c.query("DELETE FROM admin_notes WHERE user_id=$1", [userId]);
     await c.query("DELETE FROM saved WHERE user_id=$1 OR pro_id=$1", [userId]);
     await c.query("DELETE FROM blocked WHERE user_id=$1 OR other_id=$1", [
       userId,
@@ -303,7 +304,7 @@ export async function deleteAccountData(userId: string) {
       [userId],
     );
     await c.query(
-      "UPDATE users SET email='deleted-'||id||'@deleted.invalid',name='Deleted user',settings='{}',deleted_at=now() WHERE id=$1",
+      "UPDATE users SET email='deleted-'||id||'@deleted.invalid',name='Deleted user',settings='{}',suspension_reason=NULL,deleted_at=now() WHERE id=$1",
       [userId],
     );
     await c.query(

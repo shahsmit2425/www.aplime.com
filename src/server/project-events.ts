@@ -5,6 +5,7 @@ import { matchSql, rankSql } from "./matching.js";
 import { notifyMany } from "./repository.js";
 import { pool } from "./db/index.js";
 import { fail } from "./errors.js";
+import { platformSettings, settingDefaults } from "./platform-settings.js";
 
 export async function readProjectActivity(projectId: string, userId: string) {
   const p = (
@@ -37,13 +38,14 @@ export async function recordProjectActivity(
 }
 
 // The best-ranked eligible professionals are alerted (capped so one request cannot flood the outbox).
-export const ALERT_LIMIT = 5;
-const OUTREACH_LIMIT = 15;
+// Default batch size; administrators can change the live value.
+export const ALERT_LIMIT = settingDefaults.projectAlertLimit;
 export async function notifyMatchingProfessionals(
   c: pg.PoolClient,
   projectId: string,
   title = "New service opportunity",
 ) {
+  const { projectAlertLimit, projectOutreachLimit } = await platformSettings(c);
   // Serialize API and worker batches with the same project lock used by hiring.
   const project = await c.query(
     "SELECT id FROM projects WHERE id=$1 AND pro_id IS NULL AND status IN ('requested','quoted') FOR UPDATE",
@@ -75,7 +77,7 @@ export async function notifyMatchingProfessionals(
     );
   }
   if (
-    history.count >= OUTREACH_LIMIT ||
+    history.count >= projectOutreachLimit ||
     (history.latest &&
       Date.now() - new Date(history.latest).getTime() < 24 * 60 * 60 * 1000)
   )
@@ -91,7 +93,7 @@ export async function notifyMatchingProfessionals(
        AND NOT EXISTS (SELECT 1 FROM quotes q WHERE q.project_id=p.id AND q.pro_id=f.id)
        AND NOT EXISTS (SELECT 1 FROM project_outreach o WHERE o.project_id=p.id AND o.pro_id=f.id)
        AND NOT EXISTS (SELECT 1 FROM notifications n WHERE n.user_id=f.id AND n.target_page='project' AND n.target_id=p.id::text AND n.title=$2 AND n.created_at>now()-interval '12 hours')
-       ORDER BY ${rankSql()} LIMIT ${Math.min(ALERT_LIMIT, OUTREACH_LIMIT - history.count)}`,
+       ORDER BY ${rankSql()} LIMIT ${Math.min(projectAlertLimit, projectOutreachLimit - history.count)}`,
       [projectId, title],
     )
   ).rows;

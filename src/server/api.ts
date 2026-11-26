@@ -1,3 +1,5 @@
+import type pg from "pg";
+import { assertNotPaused } from "./platform-settings.js";
 import { publicFeedback } from "./feedback.js";
 import { checkAuthenticatedLimit } from "./abuse-limits.js";
 import { reviewImages } from "./review-images.js";
@@ -208,6 +210,12 @@ api.use(async (req, res, next) => {
     decoded.auth_time * 1000 <= new Date(record.sessions_revoked_at).getTime()
   )
     fail(401, "Your sessions were signed out. Please sign in again.");
+  if (record?.suspended_at && record.role !== "admin")
+    fail(
+      403,
+      "This account is suspended." +
+        (env.SUPPORT_EMAIL ? ` Contact ${env.SUPPORT_EMAIL} for help.` : ""),
+    );
   if (record) {
     q.account = camel<User>(record);
   }
@@ -232,6 +240,7 @@ api.post("/account", async (req, res) => {
   const q = req as AuthRequest;
   const data = signupSchema.parse(q.body);
   if (q.account) return res.json(q.account);
+  await assertNotPaused("pauseRegistrations");
   await guardCreation("signup", req);
   await transaction(async (c) => {
     const created = await c.query(
@@ -552,6 +561,7 @@ api.use(projectDrafts);
 api.post("/projects", async (req, res) => {
   const q = req as AuthRequest;
   if (q.account.role !== "customer") fail(403, "Customer account required.");
+  await assertNotPaused("pauseProjectSubmissions");
   const { clientKey, expectedZip, ...payload } = z
     .object({
       clientKey: z.string().uuid().optional(),
@@ -1065,20 +1075,26 @@ api.post("/admin/profiles/:id", async (req, res) => {
   if (suspended && note.length < 10)
     fail(400, "Explain why this business is being suspended.");
   await transaction(async (c) => {
-    if (
-      !(
-        await c.query(
-          "UPDATE profiles SET suspended=$2,suspension_note=CASE WHEN $2 THEN $3 END WHERE id=$1 RETURNING id",
-          [q.params.id, suspended, note],
-        )
-      ).rowCount
-    )
-      fail(404, "Professional not found.");
+    const prior = (
+      await c.query(
+        "SELECT suspended,suspension_note FROM profiles WHERE id=$1 FOR UPDATE",
+        [q.params.id],
+      )
+    ).rows[0];
+    if (!prior) fail(404, "Professional not found.");
+    await c.query(
+      "UPDATE profiles SET suspended=$2,suspension_note=CASE WHEN $2 THEN $3 END WHERE id=$1",
+      [q.params.id, suspended, note],
+    );
     await audit(
       c,
       q.account.id,
       suspended ? "suspend" : "restore",
       String(q.params.id),
+      {
+        before: { suspended: prior.suspended, note: prior.suspension_note },
+        after: { suspended, note: suspended ? note : null },
+      },
     );
     await notify(
       c,
@@ -1109,6 +1125,10 @@ api.post("/admin/profiles/:id/review", async (req, res) => {
       q.account.id,
       "profile_review_" + decision.status,
       String(q.params.id),
+      {
+        before: { reviewStatus: "pending" },
+        after: { reviewStatus: decision.status, note: decision.note || null },
+      },
     );
     await notify(
       c,
@@ -1124,6 +1144,34 @@ api.post("/admin/profiles/:id/review", async (req, res) => {
   });
   res.json({ ok: true });
 });
+async function refundPayment(c: pg.PoolClient, projectId: string) {
+  await getProject(c, projectId);
+  const pay = (
+    await c.query("SELECT * FROM payments WHERE project_id=$1 FOR UPDATE", [
+      projectId,
+    ])
+  ).rows[0];
+  if (!pay?.intent_id || pay.status !== "paid")
+    fail(409, "No refundable payment.");
+  const refundResult = await stripe().refunds.create(
+    {
+      payment_intent: pay.intent_id,
+      reverse_transfer: true,
+      refund_application_fee: true,
+    },
+    { idempotencyKey: "refund:" + pay.id },
+  );
+  if (refundResult.status !== "succeeded")
+    fail(
+      409,
+      "Refund submitted and processing. Wait for Stripe confirmation before trying again.",
+    );
+  await c.query("UPDATE payments SET status='refunded' WHERE id=$1", [pay.id]);
+  await c.query("UPDATE projects SET status='cancelled' WHERE id=$1", [
+    projectId,
+  ]);
+  return pay;
+}
 api.post("/admin/tickets/:id", async (req, res) => {
   const q = req as AuthRequest;
   const { resolution, refund } = z
@@ -1143,33 +1191,7 @@ api.post("/admin/tickets/:id", async (req, res) => {
       fail(409, "This case is already closed or unavailable.");
     if (refund) {
       if (!t.project_id) fail(400, "This case has no payment.");
-      await getProject(c, t.project_id);
-      const pay = (
-        await c.query("SELECT * FROM payments WHERE project_id=$1 FOR UPDATE", [
-          t.project_id,
-        ])
-      ).rows[0];
-      if (!pay?.intent_id || pay.status !== "paid")
-        fail(409, "No refundable payment.");
-      const refundResult = await stripe().refunds.create(
-        {
-          payment_intent: pay.intent_id,
-          reverse_transfer: true,
-          refund_application_fee: true,
-        },
-        { idempotencyKey: "refund:" + pay.id },
-      );
-      if (refundResult.status !== "succeeded")
-        fail(
-          409,
-          "Refund submitted and processing. Wait for Stripe confirmation before resolving this case.",
-        );
-      await c.query("UPDATE payments SET status='refunded' WHERE id=$1", [
-        pay.id,
-      ]);
-      await c.query("UPDATE projects SET status='cancelled' WHERE id=$1", [
-        t.project_id,
-      ]);
+      await refundPayment(c, t.project_id);
     } else if (t.project_id)
       await c.query(
         "UPDATE projects SET status=COALESCE(previous_status,'completed'),previous_status=NULL,version=version+1 WHERE id=$1 AND status='disputed'",
@@ -1179,7 +1201,10 @@ api.post("/admin/tickets/:id", async (req, res) => {
       "UPDATE tickets SET status='resolved',resolution=$2 WHERE id=$1",
       [t.id, resolution],
     );
-    await audit(c, q.account.id, refund ? "refund" : "resolve", t.id);
+    await audit(c, q.account.id, refund ? "refund" : "resolve", t.id, {
+      before: { status: t.status },
+      after: { status: "resolved", refund },
+    });
     await notify(c, t.user_id, "Support case resolved", resolution, {
       page: "messages",
       id: "support:" + t.id,
@@ -1202,6 +1227,28 @@ api.post("/admin/tickets/:id", async (req, res) => {
         { page: "project", id: p.id },
       );
     }
+  });
+  res.json({ ok: true });
+});
+api.post("/admin/payments/:id/refund", async (req, res) => {
+  const q = req as AuthRequest;
+  const { reason } = z
+    .object({ reason: z.string().trim().min(10).max(2000) })
+    .strict()
+    .parse(q.body);
+  await transaction(async (c) => {
+    const pay = (
+      await c.query("SELECT id,project_id,status FROM payments WHERE id=$1", [
+        z.string().uuid().parse(q.params.id),
+      ])
+    ).rows[0];
+    if (!pay) fail(404, "Payment not found.");
+    await refundPayment(c, pay.project_id);
+    await audit(c, q.account.id, "refund", pay.id, {
+      before: { status: pay.status },
+      after: { status: "refunded" },
+      reason,
+    });
   });
   res.json({ ok: true });
 });

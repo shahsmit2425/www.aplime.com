@@ -72,7 +72,8 @@ for (const a of Object.values(accounts))
 const project = randomUUID(),
   discussion = randomUUID(),
   image = randomUUID(),
-  file = randomUUID();
+  file = randomUUID(),
+  payment = randomUUID();
 await query(
   "INSERT INTO profiles(id,business,category,bio,zip,rate,verified,review_status,address,listed,weekly_hours) VALUES($1,'Careful business','Cleaning','Long business description','10001',50,true,'approved','Private business base',true,'{\"Mon\":{\"start\":\"08:00\",\"end\":\"17:00\"}}')",
   [accounts.pro.id],
@@ -84,6 +85,10 @@ await query(
 await query(
   "INSERT INTO projects(id,customer_id,pro_id,title,description,category,zip,status,address,intake) VALUES($1,$2,$3,'Detailed project','Sensitive project description','Cleaning','10001','completed','Private project address','{\"rooms\":\"3\"}')",
   [project, accounts.customer.id, accounts.pro.id],
+);
+await query(
+  "INSERT INTO payments(id,project_id,amount,status,intent_id) VALUES($1,$2,15000,'paid','pi_test_fixture')",
+  [payment, project],
 );
 await query(
   "INSERT INTO project_discussions(id,project_id,pro_id) VALUES($1,$2,$3)",
@@ -180,12 +185,17 @@ test("all collections support validated search, status and pagination", async ()
     "identity",
     "memberships",
     "projects",
+    "payments",
     "audit",
   ]) {
     const r = await call("/admin/" + path);
     assert.equal(r.status, 200, path);
     assert.equal((await r.json()).pageSize, 25);
   }
+  const payments = await (await call("/admin/payments?status=paid")).json();
+  assert.equal(payments.total, 1);
+  assert.equal(payments.rows[0].id, payment);
+  assert.equal(payments.rows[0].customerName, accounts.customer.name);
   const filtered = await (await call("/admin/users?q=First&status=pro")).json();
   assert.equal(filtered.total, 1);
   assert.equal(filtered.rows[0].id, accounts.pro.id);
@@ -210,6 +220,7 @@ test("private details, transcripts and file signatures require administrator pol
   for (const path of [
     "/admin/users/" + accounts.pro.id,
     "/admin/projects/" + project,
+    "/admin/payments/" + payment,
     "/admin/conversations/" + discussion,
     "/admin/files/" + file,
   ])
@@ -223,6 +234,12 @@ test("private details, transcripts and file signatures require administrator pol
   const p = await (await call("/admin/projects/" + project)).json();
   assert.equal(p.project.address, "Private project address");
   assert.equal(p.project.intake.rooms, "3");
+  const pay = await (await call("/admin/payments/" + payment)).json();
+  assert.equal(pay.payment.amount, 15000);
+  assert.equal(pay.payment.status, "paid");
+  assert.equal(pay.payment.projectId, project);
+  assert.equal(pay.payment.customerName, accounts.customer.name);
+  assert.equal((await call("/admin/payments/" + randomUUID())).status, 404);
   const transcript = await (
     await call("/admin/conversations/" + discussion)
   ).json();
@@ -672,4 +689,202 @@ test("administrator notification history is paginated and scoped to the signed-i
     await call("/admin/notifications?userId=customer-a")
   ).json();
   assert.equal(scoped.total, data.total);
+});
+test("platform settings are validated, audited with a reason and applied at runtime", async () => {
+  const { platformSettings, assertNotPaused } =
+    await import("../src/server/platform-settings.js");
+  const setting = (data: any, key: string) =>
+    data.settings.find((s: any) => s.key === key);
+  const reason = "Testing a runtime change";
+  assert.equal((await call("/admin/platform", "customer")).status, 403);
+  const initial = await (await call("/admin/platform")).json();
+  assert.equal(setting(initial, "projectsPerDay").value, 10);
+  assert.equal(setting(initial, "pauseProjectSubmissions").value, false);
+  assert.equal(setting(initial, "projectsPerDay").updatedAt, null);
+  for (const body of [
+    { key: "projectsPerDay", value: 3 },
+    { key: "projectsPerDay", value: 3, reason: "short" },
+    { key: "projectsPerDay", value: 0, reason },
+    { key: "projectsPerDay", value: 101, reason },
+    { key: "projectsPerDay", value: 2.5, reason },
+    { key: "projectsPerDay", value: true, reason },
+    { key: "pauseProjectSubmissions", value: 1, reason },
+    { key: "unknownSetting", value: 1, reason },
+  ])
+    assert.equal(
+      (await call("/admin/platform", "admin", body)).status,
+      400,
+      JSON.stringify(body),
+    );
+  const change = { key: "projectsPerDay", value: 3, reason };
+  assert.equal((await call("/admin/platform", "customer", change)).status, 403);
+  assert.equal((await platformSettings()).projectsPerDay, 10);
+  assert.equal((await call("/admin/platform", "admin", change)).status, 200);
+  assert.equal((await call("/admin/platform", "admin", change)).status, 409);
+  assert.equal((await platformSettings()).projectsPerDay, 3);
+  await assertNotPaused("pauseProjectSubmissions");
+  const pause = { key: "pauseProjectSubmissions", value: true, reason };
+  assert.equal((await call("/admin/platform", "admin", pause)).status, 200);
+  await assert.rejects(assertNotPaused("pauseProjectSubmissions"), {
+    status: 503,
+  });
+  const after = await (await call("/admin/platform")).json();
+  assert.equal(setting(after, "projectsPerDay").value, 3);
+  assert.equal(setting(after, "projectsPerDay").updatedBy, accounts.admin.name);
+  assert.equal(setting(after, "pauseProjectSubmissions").value, true);
+  assert.equal(after.history.length, 2);
+  assert.equal(after.history[0].reason, reason);
+  const logged = (
+    await query(
+      "SELECT before,after,reason FROM audit_log WHERE action='update_setting' AND entity_id='projectsPerDay'",
+    )
+  ).rows as any[];
+  assert.equal(logged.length, 1);
+  assert.deepEqual(logged[0].before, { value: 10 });
+  assert.deepEqual(logged[0].after, { value: 3 });
+  assert.equal(logged[0].reason, reason);
+  for (const restore of [
+    { ...pause, value: false },
+    { ...change, value: 10 },
+  ])
+    assert.equal((await call("/admin/platform", "admin", restore)).status, 200);
+  await assertNotPaused("pauseProjectSubmissions");
+  assert.equal((await platformSettings()).projectsPerDay, 10);
+});
+test("account suspension, forced sign-out, notes and timeline are administrator-only and audited", async () => {
+  const pro = "/admin/users/" + accounts.pro.id;
+  const reason = "Repeated policy violations";
+  for (const [path, body] of [
+    ["/suspension", { suspended: true, reason }],
+    ["/revoke-sessions", { reason }],
+    ["/notes", { body: "Internal note" }],
+    ["/timeline", undefined],
+  ] as const)
+    assert.equal((await call(pro + path, "customer", body)).status, 403, path);
+  assert.equal(
+    (await call(pro + "/suspension", "admin", { suspended: true })).status,
+    400,
+  );
+  assert.equal(
+    (
+      await call(`/admin/users/${accounts.admin.id}/suspension`, "admin", {
+        suspended: true,
+        reason,
+      })
+    ).status,
+    400,
+  );
+  assert.equal(
+    (
+      await call("/admin/users/missing/suspension", "admin", {
+        suspended: true,
+        reason,
+      })
+    ).status,
+    404,
+  );
+  const suspend = { suspended: true, reason };
+  assert.equal((await call(pro + "/suspension", "admin", suspend)).status, 200);
+  assert.equal((await call(pro + "/suspension", "admin", suspend)).status, 409);
+  const state = async () =>
+    (
+      await query(
+        "SELECT u.suspended_at,u.suspension_reason,u.sessions_revoked_at,p.suspended,p.suspension_note FROM users u JOIN profiles p ON p.id=u.id WHERE u.id=$1",
+        [accounts.pro.id],
+      )
+    ).rows[0] as any;
+  let row = await state();
+  assert.ok(row.suspended_at);
+  assert.equal(row.suspension_reason, reason);
+  assert.equal(row.suspended, true);
+  assert.equal(row.suspension_note, reason);
+  const detail = await (await call(pro)).json();
+  assert.ok(detail.user.suspendedAt);
+  assert.equal(detail.user.suspensionReason, reason);
+  const listed = await (await call("/admin/users?q=First&status=pro")).json();
+  assert.equal(listed.rows[0].suspended, true);
+  assert.equal(
+    (
+      await call(pro + "/suspension", "admin", {
+        suspended: false,
+        reason: "Appeal accepted after review",
+      })
+    ).status,
+    200,
+  );
+  row = await state();
+  assert.equal(row.suspended_at, null);
+  assert.equal(row.suspension_reason, null);
+  // Marketplace access stays suspended until an administrator restores it separately.
+  assert.equal(row.suspended, true);
+  const revoked = await call(pro + "/revoke-sessions", "admin", { reason });
+  assert.equal(revoked.status, 200);
+  // Firebase is not configured in tests, so only the stored revocation applies.
+  assert.deepEqual(await revoked.json(), { ok: true, providerRevoked: false });
+  assert.ok((await state()).sessions_revoked_at);
+  assert.equal(
+    (await call(pro + "/notes", "admin", { body: "  " })).status,
+    400,
+  );
+  assert.equal(
+    (await call(pro + "/notes", "admin", { body: "Called the owner today." }))
+      .status,
+    200,
+  );
+  const noted = await (await call(pro)).json();
+  assert.equal(noted.notes.length, 1);
+  assert.equal(noted.notes[0].body, "Called the owner today.");
+  assert.equal(noted.notes[0].author, accounts.admin.name);
+  const timeline = await (await call(pro + "/timeline")).json();
+  const summaries = timeline.rows.map((r: any) => r.summary);
+  assert.equal(timeline.pageSize, 25);
+  assert.ok(summaries.includes("Account created"));
+  assert.ok(summaries.includes("account_suspended: " + reason));
+  assert.ok(summaries.includes("account_sessions_revoked: " + reason));
+  assert.ok(!summaries.some((s: string) => s.startsWith("admin_")));
+  assert.ok(!JSON.stringify(timeline).includes("Called the owner today."));
+  const customerTimeline = await (
+    await call(`/admin/users/${accounts.customer.id}/timeline`)
+  ).json();
+  const posted = customerTimeline.rows.find(
+    (r: any) => r.summary === "Posted project: Detailed project",
+  );
+  assert.equal(posted.projectId, project);
+  assert.equal((await call("/admin/users/missing/timeline")).status, 404);
+  const actions = (
+    await query(
+      "SELECT action,reason FROM audit_log WHERE entity_id=$1 AND actor_id=$2",
+      [accounts.pro.id, accounts.admin.id],
+    )
+  ).rows as { action: string; reason: string | null }[];
+  for (const action of [
+    "account_suspended",
+    "account_restored",
+    "account_sessions_revoked",
+    "admin_note_added",
+    "admin_user_timeline_read",
+  ])
+    assert.ok(
+      actions.some((a) => a.action === action),
+      action,
+    );
+  assert.equal(
+    actions.find((a) => a.action === "account_suspended")!.reason,
+    reason,
+  );
+});
+test("system health reports queue depths and configuration presence without secret values", async () => {
+  assert.equal((await call("/admin/health", "customer")).status, 403);
+  const r = await call("/admin/health");
+  assert.equal(r.status, 200);
+  const body = await r.text();
+  const data = JSON.parse(body);
+  assert.equal(data.database.status, "ok");
+  assert.equal(data.liveUpdates.status, "not_configured");
+  assert.equal(data.queues.emailFailed, 0);
+  assert.equal(typeof data.queues.emailPending, "number");
+  assert.equal(data.configured.payments, true);
+  assert.equal(data.configured.fileStorage, true);
+  assert.ok(!body.includes("sk_test_fixture"));
+  assert.ok(!body.includes("fixture-secret"));
 });

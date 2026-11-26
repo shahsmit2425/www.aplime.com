@@ -8,6 +8,7 @@ import { assertMatch, assertIndependentParties } from "./matching.js";
 import { ensurePairConversation } from "./discussions.js";
 import { recordProjectActivity } from "./project-events.js";
 import { fail } from "./errors.js";
+import { assertNotPaused } from "./platform-settings.js";
 import { meeting } from "./integrations/daily.js";
 import { closeDueMeetings } from "./meeting-lifecycle.js";
 import { withinWeeklyHours } from "../shared/preferences.js";
@@ -209,6 +210,7 @@ callMeetings.get(
 );
 callMeetings.post("/call-meetings", async (req, res) => {
   const b = callRequestSchema.parse(req.body);
+  await assertNotPaused("pauseVideoBookings");
   await closeDueMeetings(req.account.id);
   const result = await transaction(async (c) => {
     const p = await getProject(c, b.projectId);

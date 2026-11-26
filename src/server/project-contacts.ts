@@ -3,8 +3,8 @@ import { z } from "zod";
 import { pool, transaction } from "./db/index.js";
 import { fail } from "./errors.js";
 import { matchSql, unblockedSql } from "./matching.js";
+import { platformSettings } from "./platform-settings.js";
 
-const dailyDistinctCustomerLimit = 10;
 const eligibleContact = `FROM project_contacts c JOIN projects p ON p.id=c.project_id
  WHERE p.id=$1 AND (p.customer_id=$2 OR c.consent_at IS NOT NULL AND EXISTS(SELECT 1 FROM profiles f WHERE f.id=$2 AND NOT f.suspended AND ${unblockedSql()} AND (p.pro_id=f.id OR (p.pro_id IS NULL AND p.status IN ('requested','quoted') AND ${matchSql()}))))`;
 
@@ -69,7 +69,10 @@ projectContacts.post("/projects/:id/contact/reveal", async (req, res) => {
        FROM project_contact_reveals WHERE pro_id=$1 AND revealed_at >= now() - interval '24 hours'`,
       [pro, row.customer_id],
     );
-    if (!usage.seen && usage.total >= dailyDistinctCustomerLimit)
+    if (
+      !usage.seen &&
+      usage.total >= (await platformSettings(client)).dailyContactRevealLimit
+    )
       fail(
         429,
         "You have reached the limit for new customer contacts. Try again later.",

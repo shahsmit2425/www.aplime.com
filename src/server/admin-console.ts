@@ -2,7 +2,21 @@ import { clientIp, proxyTrustSetting } from "./client-ip.js";
 import { Router } from "express";
 import { z } from "zod";
 import { pool, camel, transaction } from "./db/index.js";
-import { audit, profileSelect } from "./repository.js";
+import { audit, notify, profileSelect } from "./repository.js";
+import { randomUUID } from "node:crypto";
+import { env } from "./config.js";
+import { redis } from "./redis.js";
+import { clearTokenCache } from "./token-cache.js";
+import { revokeUserSessions } from "./integrations/firebase.js";
+import {
+  clearSettingsCache,
+  platformSettings,
+  settingDefaults,
+  settingDefinitions,
+  settingKeys,
+  validSetting,
+  type SettingKey,
+} from "./platform-settings.js";
 import {
   downloadUrl,
   imageUrl,
@@ -30,6 +44,18 @@ const pageSchema = z
   .strict();
 const rows = async (sql: string, params: unknown[] = []) =>
   (await pool.query(sql, params)).rows.map((r) => camel(r));
+function summarizeChange(before: unknown, after: unknown): string | null {
+  if (!before && !after) return null;
+  const b = (before ?? {}) as Record<string, unknown>;
+  const a = (after ?? {}) as Record<string, unknown>;
+  const keys = [...new Set([...Object.keys(b), ...Object.keys(a)])];
+  return keys.map((k) => `${k}: ${b[k]} → ${a[k]}`).join(", ") || null;
+}
+const withChange = <T extends { before?: unknown; after?: unknown }>({
+  before,
+  after,
+  ...rest
+}: T) => ({ ...rest, change: summarizeChange(before, after) });
 async function logRead(actor: string, action: string, entity: string) {
   await transaction((c) => audit(c, actor, action, entity));
 }
@@ -127,6 +153,10 @@ adminConsole.post("/email-alerts/settings", async (req, res) => {
       req.account.id,
       input.enabled ? "enable_email_category" : "disable_email_category",
       input.category,
+      {
+        before: { enabled: !input.enabled },
+        after: { enabled: input.enabled },
+      },
     );
   });
   res.json({ ok: true });
@@ -183,9 +213,11 @@ adminConsole.get("/overview", async (_req, res) => {
    (SELECT count(*)::int FROM quotes q WHERE q.pro_id=u.id) AS estimates,
    (SELECT count(*)::int FROM projects p WHERE (p.customer_id=u.id OR p.pro_id=u.id) AND p.status='completed') AS completed
    FROM users u WHERE role<>'admin' ORDER BY messages DESC,projects DESC,u.id LIMIT 10`);
-  const recent = await rows(
-    "SELECT a.id,a.action,a.entity_id,a.created_at,u.name AS actor FROM audit_log a LEFT JOIN users u ON u.id=a.actor_id ORDER BY a.created_at DESC,a.id DESC LIMIT 15",
-  );
+  const recent = (
+    await rows(
+      "SELECT a.id,a.action,a.entity_id,a.created_at,a.before,a.after,a.reason,u.name AS actor FROM audit_log a LEFT JOIN users u ON u.id=a.actor_id ORDER BY a.created_at DESC,a.id DESC LIMIT 15",
+    )
+  ).map(withChange);
   res.json({
     totals: camel(totals),
     trend,
@@ -214,7 +246,7 @@ const collections = {
   users: {
     from: "users u",
     select:
-      "u.id,u.name,u.email,u.role,u.created_at,(SELECT count(*)::int FROM projects p WHERE p.customer_id=u.id OR p.pro_id=u.id) AS projects",
+      "u.id,u.name,u.email,u.role,u.created_at,u.suspended_at IS NOT NULL AS suspended,(SELECT count(*)::int FROM projects p WHERE p.customer_id=u.id OR p.pro_id=u.id) AS projects",
     search: "u.name||' '||u.email||' '||u.id",
     status: "u.role",
     order: "u.created_at DESC,u.id",
@@ -234,6 +266,14 @@ const collections = {
     search: "p.title||' '||u.name||' '||COALESCE(pro.name,'')||' '||p.id::text",
     status: "p.status",
     order: "p.created_at DESC,p.id",
+  },
+  payments: {
+    from: "payments pay JOIN projects p ON p.id=pay.project_id JOIN users c ON c.id=p.customer_id LEFT JOIN users pro ON pro.id=p.pro_id",
+    select:
+      "pay.id,pay.amount,pay.status,pay.created_at,p.title AS project_title,c.name AS customer_name,pro.name AS pro_name",
+    search: "p.title||' '||c.name||' '||COALESCE(pro.name,'')",
+    status: "pay.status",
+    order: "pay.created_at DESC,pay.id",
   },
   memberships: {
     from: "users u LEFT JOIN professional_subscriptions s ON s.user_id=u.id LEFT JOIN profiles p ON p.id=u.id",
@@ -255,7 +295,8 @@ const collections = {
   },
   audit: {
     from: "audit_log a LEFT JOIN users u ON u.id=a.actor_id",
-    select: "a.id,u.name AS actor,a.action,a.entity_id,a.created_at",
+    select:
+      "a.id,u.name AS actor,a.action,a.entity_id,a.created_at,a.before,a.after,a.reason",
     search: "a.action||' '||a.entity_id||' '||COALESCE(u.name,'')",
     status: "a.action",
     order: "a.created_at DESC,a.id",
@@ -352,13 +393,35 @@ for (const [key, definition] of Object.entries(collections))
       `SELECT ${definition.select} FROM ${definition.from}${where} ORDER BY ${definition.order} LIMIT 25 OFFSET $${params.length + 1}`,
       [...params, (page - 1) * 25],
     );
-    res.json({ rows: result, total, page, pageSize: 25 });
+    res.json({
+      rows: key === "audit" ? result.map(withChange) : result,
+      total,
+      page,
+      pageSize: 25,
+    });
   });
+adminConsole.get("/payments/:id", async (req, res) => {
+  const id = z.string().uuid().parse(req.params.id);
+  const payment = (
+    await rows(
+      `SELECT pay.id,pay.amount,pay.status,pay.created_at,pay.receipt_url,
+        p.id AS project_id,p.title AS project_title,
+        c.id AS customer_id,c.name AS customer_name,
+        pro.id AS pro_id,pro.name AS pro_name
+       FROM payments pay JOIN projects p ON p.id=pay.project_id
+       JOIN users c ON c.id=p.customer_id LEFT JOIN users pro ON pro.id=p.pro_id
+       WHERE pay.id=$1`,
+      [id],
+    )
+  )[0];
+  if (!payment) fail(404, "Payment not found.");
+  res.json({ payment });
+});
 adminConsole.get("/users/:id", async (req, res) => {
   const id = z.string().min(1).max(128).parse(req.params.id);
   const user = (
     await rows(
-      "SELECT id,name,email,role,settings,created_at FROM users WHERE id=$1",
+      "SELECT id,name,email,role,settings,created_at,suspended_at,suspension_reason,sessions_revoked_at,deleted_at FROM users WHERE id=$1",
       [id],
     )
   )[0];
@@ -400,6 +463,9 @@ adminConsole.get("/users/:id", async (req, res) => {
     (SELECT count(*)::int FROM call_events WHERE actor_id=$1) AS call_invitations,
     (SELECT count(*)::int FROM tickets WHERE user_id=$1) AS support_cases,
     (SELECT count(*)::int FROM saved WHERE pro_id=$1) AS saved_by_customers,
+    (SELECT count(*)::int FROM saved WHERE user_id=$1) AS saved_professionals,
+    (SELECT count(*)::int FROM blocked WHERE user_id=$1) AS blocked_accounts,
+    (SELECT count(*)::int FROM push_devices WHERE user_id=$1) AS mobile_devices,
     (SELECT count(*)::int FROM reviews WHERE pro_id=$1) AS reviews`,
       [id],
     )
@@ -412,6 +478,10 @@ adminConsole.get("/users/:id", async (req, res) => {
     "SELECT * FROM tickets WHERE user_id=$1 ORDER BY created_at DESC LIMIT 10",
     [id],
   );
+  const notes = await rows(
+    "SELECT n.id,n.body,n.created_at,u.name AS author FROM admin_notes n JOIN users u ON u.id=n.author_id WHERE n.user_id=$1 ORDER BY n.created_at DESC,n.id LIMIT 50",
+    [id],
+  );
   await logRead(req.account.id, "admin_user_read", id);
   res.json({
     user,
@@ -421,6 +491,252 @@ adminConsole.get("/users/:id", async (req, res) => {
     metrics: camel(metrics),
     projects,
     tickets,
+    notes,
+  });
+});
+const userId = z.string().min(1).max(128);
+const reasonInput = z.string().trim().min(10).max(2000);
+adminConsole.post("/users/:id/suspension", async (req, res) => {
+  const id = userId.parse(req.params.id);
+  const { suspended, reason } = z
+    .object({ suspended: z.boolean(), reason: reasonInput })
+    .strict()
+    .parse(req.body);
+  await transaction(async (c) => {
+    const user = (
+      await c.query(
+        "SELECT role,suspended_at,deleted_at FROM users WHERE id=$1 FOR UPDATE",
+        [id],
+      )
+    ).rows[0];
+    if (!user || user.deleted_at) fail(404, "User not found.");
+    if (user.role === "admin")
+      fail(400, "Administrator access is revoked with the operator tool.");
+    if (!!user.suspended_at === suspended)
+      fail(
+        409,
+        suspended
+          ? "This account is already suspended."
+          : "This account is not suspended.",
+      );
+    await c.query(
+      "UPDATE users SET suspended_at=CASE WHEN $2 THEN now() END,suspension_reason=CASE WHEN $2 THEN $3 END WHERE id=$1",
+      [id, suspended, reason],
+    );
+    // A suspended professional must also leave matching and the directory.
+    if (suspended)
+      await c.query(
+        "UPDATE profiles SET suspended=true,suspension_note=$2 WHERE id=$1 AND NOT suspended",
+        [id, reason],
+      );
+    await audit(
+      c,
+      req.account.id,
+      suspended ? "account_suspended" : "account_restored",
+      id,
+      { before: { suspended: !suspended }, after: { suspended }, reason },
+    );
+    await notify(
+      c,
+      id,
+      suspended ? "Account suspended" : "Account restored",
+      suspended ? reason : "You can sign in and use your account again.",
+      { page: "settings" },
+    );
+  });
+  res.json({ ok: true });
+});
+adminConsole.post("/users/:id/revoke-sessions", async (req, res) => {
+  const id = userId.parse(req.params.id);
+  const { reason } = z.object({ reason: reasonInput }).strict().parse(req.body);
+  await transaction(async (c) => {
+    const updated = await c.query(
+      "UPDATE users SET sessions_revoked_at=to_timestamp($2) WHERE id=$1 AND deleted_at IS NULL RETURNING id",
+      [id, Math.floor(Date.now() / 1000)],
+    );
+    if (!updated.rowCount) fail(404, "User not found.");
+    await audit(c, req.account.id, "account_sessions_revoked", id, { reason });
+    await notify(
+      c,
+      id,
+      "All devices signed out",
+      "An administrator signed your account out of all devices. Sign in again to continue.",
+      { page: "settings" },
+    );
+  });
+  clearTokenCache();
+  // The stored revocation time already blocks existing tokens; this also ends refresh tokens.
+  const providerRevoked = await revokeUserSessions(id).then(
+    () => true,
+    () => false,
+  );
+  res.json({ ok: true, providerRevoked });
+});
+adminConsole.post("/users/:id/notes", async (req, res) => {
+  const id = userId.parse(req.params.id);
+  const { body } = z
+    .object({ body: z.string().trim().min(3).max(4000) })
+    .strict()
+    .parse(req.body);
+  await transaction(async (c) => {
+    if (
+      !(
+        await c.query(
+          "SELECT 1 FROM users WHERE id=$1 AND deleted_at IS NULL",
+          [id],
+        )
+      ).rowCount
+    )
+      fail(404, "User not found.");
+    await c.query(
+      "INSERT INTO admin_notes(id,user_id,author_id,body) VALUES($1,$2,$3,$4)",
+      [randomUUID(), id, req.account.id, body],
+    );
+    await audit(c, req.account.id, "admin_note_added", id);
+  });
+  res.json({ ok: true });
+});
+// One chronological view of what an account did and what was done to it.
+// Message bodies are left out; counts are on the account summary.
+const timelineEvents = `WITH events AS (
+ SELECT created_at AS at,'account' AS kind,'Account created' AS summary,NULL::uuid AS project_id FROM users WHERE id=$1
+ UNION ALL SELECT created_at,'project','Posted project: '||title,id FROM projects WHERE customer_id=$1
+ UNION ALL SELECT q.created_at,'estimate','Sent an estimate for: '||p.title,p.id FROM quotes q JOIN projects p ON p.id=q.project_id WHERE q.pro_id=$1
+ UNION ALL SELECT a.created_at,'project_activity',a.summary,a.project_id FROM project_activity a WHERE a.actor_id=$1
+ UNION ALL SELECT e.created_at,'call','Sent a '||e.mode||' call invitation',e.project_id FROM call_events e WHERE e.actor_id=$1
+ UNION ALL SELECT t.created_at,'support','Support case: '||t.subject,t.project_id FROM tickets t WHERE t.user_id=$1
+ UNION ALL SELECT r.created_at,'review','Left a '||r.rating||'-star review',r.project_id FROM reviews r JOIN projects p ON p.id=r.project_id WHERE p.customer_id=$1
+ UNION ALL SELECT a.created_at,'admin_action',a.action||COALESCE(': '||a.reason,''),NULL FROM audit_log a WHERE a.entity_id=$1 AND a.action NOT LIKE 'admin\\_%'
+)`;
+adminConsole.get("/users/:id/timeline", async (req, res) => {
+  const id = userId.parse(req.params.id),
+    { page } = pageSchema.parse(req.query);
+  if (!(await pool.query("SELECT 1 FROM users WHERE id=$1", [id])).rowCount)
+    fail(404, "User not found.");
+  const total = (
+    await pool.query(
+      timelineEvents + " SELECT count(*)::int AS n FROM events",
+      [id],
+    )
+  ).rows[0].n;
+  const result = await rows(
+    timelineEvents +
+      " SELECT at,kind,summary,project_id FROM events ORDER BY at DESC,kind LIMIT 25 OFFSET $2",
+    [id, (page - 1) * 25],
+  );
+  await logRead(req.account.id, "admin_user_timeline_read", id);
+  res.json({ rows: result, total, page, pageSize: 25 });
+});
+adminConsole.get("/platform", async (_req, res) => {
+  clearSettingsCache();
+  const values = await platformSettings();
+  const stored = new Map(
+    (
+      await pool.query(
+        "SELECT s.key,s.updated_at,u.name FROM platform_settings s LEFT JOIN users u ON u.id=s.updated_by",
+      )
+    ).rows.map((r) => [r.key as string, r]),
+  );
+  const history = (
+    await rows(
+      "SELECT a.id,u.name AS actor,a.entity_id AS setting,a.before,a.after,a.reason,a.created_at FROM audit_log a LEFT JOIN users u ON u.id=a.actor_id WHERE a.action='update_setting' ORDER BY a.created_at DESC,a.id DESC LIMIT 25",
+    )
+  ).map(withChange);
+  res.json({
+    settings: settingKeys.map((key) => {
+      const { kind, label, description, ...rest } = settingDefinitions[key];
+      return {
+        key,
+        kind,
+        label,
+        description,
+        default: rest.default,
+        ...("min" in rest ? { min: rest.min, max: rest.max } : {}),
+        value: values[key],
+        updatedAt: stored.get(key)?.updated_at ?? null,
+        updatedBy: stored.get(key)?.name ?? null,
+      };
+    }),
+    history,
+  });
+});
+adminConsole.post("/platform", async (req, res) => {
+  const { key, value, reason } = z
+    .object({
+      key: z.enum(settingKeys as [SettingKey, ...SettingKey[]]),
+      value: z.union([z.boolean(), z.number()]),
+      reason: reasonInput,
+    })
+    .strict()
+    .parse(req.body);
+  if (!validSetting(key, value))
+    fail(400, "This value is outside the allowed range for the setting.");
+  await transaction(async (c) => {
+    await c.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
+      "platform_setting:" + key,
+    ]);
+    const prior = (
+      await c.query("SELECT value FROM platform_settings WHERE key=$1", [key])
+    ).rows[0];
+    const before =
+      prior && validSetting(key, prior.value)
+        ? prior.value
+        : settingDefaults[key];
+    if (before === value) fail(409, "This setting already has that value.");
+    await c.query(
+      "INSERT INTO platform_settings(key,value,updated_by) VALUES($1,$2,$3) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_by=EXCLUDED.updated_by,updated_at=now()",
+      [key, JSON.stringify(value), req.account.id],
+    );
+    await audit(c, req.account.id, "update_setting", key, {
+      before: { value: before },
+      after: { value },
+      reason,
+    });
+  });
+  clearSettingsCache();
+  res.json({ ok: true });
+});
+// Queue depths and configuration presence only; no secret values are returned.
+adminConsole.get("/health", async (_req, res) => {
+  const started = Date.now();
+  const queues = (
+    await pool.query(`SELECT
+    (SELECT count(*)::int FROM email_outbox WHERE sent_at IS NULL AND cancelled_at IS NULL AND attempts<8) AS email_pending,
+    (SELECT count(*)::int FROM email_outbox WHERE sent_at IS NULL AND cancelled_at IS NULL AND attempts>=8) AS email_failed,
+    (SELECT min(created_at) FROM email_outbox WHERE sent_at IS NULL AND cancelled_at IS NULL AND attempts<8) AS oldest_pending_email_at,
+    (SELECT count(*)::int FROM push_deliveries WHERE status='pending') AS push_pending,
+    (SELECT count(*)::int FROM push_deliveries WHERE status='failed') AS push_failed,
+    (SELECT count(*)::int FROM storage_cleanup_jobs) AS storage_cleanup_pending,
+    (SELECT count(*)::int FROM account_cleanup_jobs WHERE completed_at IS NULL) AS account_cleanup_pending,
+    (SELECT count(*)::int FROM webhook_events WHERE created_at>now()-interval '24 hours') AS stripe_webhooks_last_24_hours,
+    (SELECT max(created_at) FROM webhook_events) AS last_stripe_webhook_at`)
+  ).rows[0];
+  const databaseMs = Date.now() - started;
+  const live = !redis
+    ? "not_configured"
+    : await redis.ping().then(
+        () => "ok",
+        () => "unavailable",
+      );
+  res.json({
+    environment: env.APP_ENV,
+    release: env.RENDER_GIT_COMMIT,
+    uptimeSeconds: Math.round(process.uptime()),
+    checkedAt: new Date().toISOString(),
+    database: { status: "ok", responseMs: databaseMs },
+    liveUpdates: { status: live },
+    queues: camel(queues),
+    configured: {
+      authentication: !!env.FIREBASE_PROJECT_ID,
+      payments: !!env.STRIPE_SECRET_KEY,
+      paymentWebhooks: !!env.STRIPE_WEBHOOK_SECRET,
+      email: !!env.RESEND_API_KEY && !!env.EMAIL_FROM,
+      fileStorage: !!env.R2_BUCKET,
+      videoCalls: !!env.DAILY_API_KEY,
+      maps: !!env.GOOGLE_MAPS_SERVER_KEY,
+      errorMonitoring: !!env.SENTRY_DSN,
+      rateLimiting: !!env.UPSTASH_REDIS_REST_URL,
+    },
   });
 });
 adminConsole.get("/projects/:id", async (req, res) => {

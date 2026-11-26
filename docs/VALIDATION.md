@@ -1,3 +1,9 @@
+## 2026-11-26 — Admin operations: platform controls, account controls, payments, health
+
+Not committed. Adds migrations `036_audit_log_changes.sql` (audit before/after) and `037_admin_operations.sql` (audit reason, `platform_settings`, account suspension columns, `admin_notes`). New admin pages: Payments, Platform controls and System health; People gains a Timeline tab plus suspend/restore, sign out of all devices and internal notes. Limits previously hardcoded (alert batch 5, outreach 15, phone reveals 10, project/message/support quotas) now read `platform_settings` with the same values as defaults. No new environment variables. `npm run typecheck`, `npm test` and `npm run build` pass; the admin API paths are covered in `tests/admin-console.test.ts` against PGlite.
+
+Not verified: the suspended-account refusal in the API sign-in middleware (`src/server/api.ts`) and the four pause checks on their real routes have no automated test, only the shared `assertNotPaused` helper does; the migrations have not been applied to a real PostgreSQL database; the new admin screens were built but not opened in a browser; Firebase refresh-token revocation from the forced sign-out was not exercised (Firebase is unconfigured in tests); how the customer website and mobile apps present the suspended (403) and paused (503) messages was not checked. No deployment performed.
+
 ## 2026-11-24 — Shared mailbox addresses shown in the app
 
 Not committed. billing@, security@ and info@aplime.com are constants in `src/shared/contacts.ts` and appear on `/contact`, `/privacy` and `/terms` (security), the Subscription page (billing) and Organization structured data. support@ still comes from `SUPPORT_EMAIL`; notification@ is `EMAIL_FROM`. No new environment variables. `npm run typecheck`, `npm test` and `npm run build` pass. Not verified: that the mailboxes exist and receive mail, or the values currently set in Render.

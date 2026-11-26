@@ -22,13 +22,57 @@ export type AdminOverview = {
   generatedAt: string;
 };
 export type AdminUserDetail = {
-  user: User & { createdAt: string };
+  user: User & {
+    createdAt: string;
+    suspendedAt: string | null;
+    suspensionReason: string | null;
+    sessionsRevokedAt: string | null;
+    deletedAt: string | null;
+  };
   metrics: Record<string, number>;
   profile: Profile | null;
   published: PublishedListing | null;
   membership: RecordRow | null;
   projects: RecordRow[];
   tickets: Ticket[];
+  notes: { id: string; body: string; author: string; createdAt: string }[];
+};
+export type PlatformSetting = {
+  key: string;
+  label: string;
+  description: string;
+  updatedAt: string | null;
+  updatedBy: string | null;
+} & (
+  | { kind: "switch"; value: boolean; default: boolean }
+  | { kind: "limit"; value: number; default: number; min: number; max: number }
+);
+export type AdminPlatform = {
+  settings: PlatformSetting[];
+  history: RecordRow[];
+};
+export type AdminHealth = {
+  environment: string;
+  release: string;
+  uptimeSeconds: number;
+  checkedAt: string;
+  database: { status: string; responseMs: number };
+  liveUpdates: { status: string };
+  queues: Record<string, number | string | null>;
+  configured: Record<string, boolean>;
+};
+export type AdminPaymentDetail = {
+  id: string;
+  amount: number;
+  status: "pending" | "paid" | "refunded";
+  createdAt: string;
+  receiptUrl: string | null;
+  projectId: string;
+  projectTitle: string;
+  customerId: string;
+  customerName: string;
+  proId: string | null;
+  proName: string | null;
 };
 // The approved version of a listing that customers see while edits wait.
 export type PublishedListing = Pick<
